@@ -9,6 +9,10 @@ import type { EmailTemplate } from "../../emailtemplates/api/emailTemplatesApi";
 import { SaveAsTemplateDialog } from "../../emailtemplates/components/SaveAsTemplateDialog";
 import { TemplatePicker } from "../../emailtemplates/components/TemplatePicker";
 import { templateVocabulary } from "../../emailtemplates/lib/templateVariables";
+import type { RecentApproach } from "../../candidates/api/types";
+import { RecentApproachConfirm } from "../../candidates/components/RecentApproachConfirm";
+import { RecentApproachNote } from "../../candidates/components/RecentApproachNote";
+import { approachKeyOf, isCaution } from "../../candidates/lib/recentApproach";
 import { NoteEditor, type NoteEditorHandle } from "../../notes/components/NoteEditor";
 import { parseNoteMarkdown, plainNoteDoc, serializeNoteDoc } from "../../notes/lib/noteMarkdown";
 import { PrivacyFooterNote } from "./PrivacyFooterPreview";
@@ -77,6 +81,7 @@ export function ReplyComposer({
     <OpenComposer
       projectId={projectId}
       candidateId={executive.candidateId}
+      fullName={executive.fullName}
       firstName={firstName}
       fromAddress={"connection" in mailbox ? mailbox.connection.address : null}
       timeZone={"connection" in mailbox ? mailbox.connection.timeZone : getDateTimePreferences().timeZone}
@@ -91,6 +96,7 @@ export function ReplyComposer({
       attachmentLimits={composer.attachmentLimits}
       tokens={composer.tokens}
       addsPrivacyFooter={composer.privacyFooter != null}
+      recentApproach={composer.recentApproach}
       autoFocus={autoFocus}
       onSent={onSent}
       onDraftChange={onDraftChange}
@@ -102,6 +108,7 @@ export function ReplyComposer({
 function OpenComposer({
   projectId,
   candidateId,
+  fullName,
   firstName,
   fromAddress,
   timeZone,
@@ -116,6 +123,7 @@ function OpenComposer({
   attachmentLimits,
   tokens,
   addsPrivacyFooter,
+  recentApproach,
   autoFocus,
   onSent,
   onDraftChange,
@@ -123,6 +131,7 @@ function OpenComposer({
 }: {
   projectId: string;
   candidateId: string;
+  fullName: string;
   firstName: string;
   fromAddress: string | null;
   timeZone: string;
@@ -137,6 +146,7 @@ function OpenComposer({
   attachmentLimits: AttachmentLimits;
   tokens: RecipientTokens | null;
   addsPrivacyFooter: boolean;
+  recentApproach: RecentApproach | null;
   autoFocus: boolean;
   onSent?: () => void;
   onDraftChange?: (hasDraft: boolean) => void;
@@ -148,6 +158,13 @@ function OpenComposer({
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
   const [chosenAddress, setChosenAddress] = useState(emails[0]);
+  const [understoodApproach, setUnderstoodApproach] = useState<string | null>(null);
+  const [heldSend, setHeldSend] = useState<{ at: Date | null } | null>(null);
+  const isApproaching = isCaution(recentApproach);
+  const approachKey = approachKeyOf(recentApproach);
+  useEffect(() => {
+    if (!isApproaching) setHeldSend(null);
+  }, [isApproaching]);
   const [attachments, setAttachments] = useState<ComposerAttachment[]>([]);
   const [appliedTemplateId, setAppliedTemplateId] = useState<string | null>(null);
   const [isSavingTemplate, setIsSavingTemplate] = useState(false);
@@ -269,6 +286,13 @@ function OpenComposer({
     unsendable.length === 0 &&
     !send.isPending &&
     !signature.isPending;
+  const requestSend = (at: Date | null) => {
+    if (isApproaching && understoodApproach !== approachKey) {
+      setHeldSend({ at });
+      return;
+    }
+    send.mutate(at);
+  };
   const footnote = composerFootnoteOf({
     isReply,
     resolvesReplyTask,
@@ -371,6 +395,24 @@ function OpenComposer({
                 Too long to send. Shorten it to {BODY_MAX_LENGTH.toLocaleString("en-GB")} characters.
               </p>
             )}
+            <RecentApproachNote approach={recentApproach} className="mt-1.5" />
+            {isApproaching && (
+              <RecentApproachConfirm
+                open={heldSend !== null}
+                fullName={fullName}
+                approach={recentApproach}
+                confirmLabel={heldSend?.at ? "Schedule anyway" : "Send anyway"}
+                canConfirm={canSend}
+                onClose={() => setHeldSend(null)}
+                onConfirm={() => {
+                  if (!heldSend || !canSend) return;
+                  const at = heldSend.at;
+                  setUnderstoodApproach(approachKey);
+                  setHeldSend(null);
+                  send.mutate(at);
+                }}
+              />
+            )}
             <div className="mt-1 flex flex-wrap items-center gap-2">
               <AttachButton
                 projectId={projectId}
@@ -398,13 +440,13 @@ function OpenComposer({
                   timeZone={timeZone}
                   disabled={!canSend}
                   pending={send.isPending && send.variables !== null}
-                  onSchedule={(at) => send.mutate(at)}
+                  onSchedule={(at) => requestSend(at)}
                 />
                 <Button
                   size="xs"
                   disabled={!canSend}
                   loading={send.isPending && send.variables === null}
-                  onClick={() => send.mutate(null)}
+                  onClick={() => requestSend(null)}
                 >
                   Send now
                 </Button>

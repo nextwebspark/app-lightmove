@@ -1,4 +1,5 @@
 import { request } from "../../../lib/apiClient";
+import type { RecentApproach } from "../../candidates/api/types";
 import type { TriageCompanyStatus } from "../../triage/api/types";
 
 /**
@@ -105,6 +106,8 @@ export interface EnrollmentCandidate {
   tokens: RecipientTokens;
   /** The sentence the privacy footer added at send opens with for them; null when data protection is off. */
   privacyFooter: string | null;
+  /** Who on the team already reached them: an amber note, unticked to begin with, never a skip. */
+  recentApproach: RecentApproach | null;
 }
 
 /** Who the dialog was opened on: one executive from the drawer, or the companies ticked on a stage. */

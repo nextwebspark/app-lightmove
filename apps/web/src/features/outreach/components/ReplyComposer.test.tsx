@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../../../components/ui";
 import { typeInto } from "../../../test/noteEditor";
 import * as documentsApi from "../../candidates/api/documentsApi";
+import type { ApproachTouch } from "../../candidates/api/types";
 import * as emailTemplatesApi from "../../emailtemplates/api/emailTemplatesApi";
 import type { EmailTemplate } from "../../emailtemplates/api/emailTemplatesApi";
 import * as signaturesApi from "../../signatures/api/signaturesApi";
@@ -88,7 +89,7 @@ function conversation(overrides: Partial<Conversation> = {}): Conversation {
       locationCountry: null,
       doNotContact: false,
     },
-    composer: { replySubject: null, replyStopsRun: false, emailSentMovesTo: null, attachmentLimits: { maxFiles: 5, maxFileBytes: 3_000_000, maxTotalBytes: 10_485_760 }, tokens: null, privacyFooter: null },
+    composer: { replySubject: null, replyStopsRun: false, emailSentMovesTo: null, attachmentLimits: { maxFiles: 5, maxFileBytes: 3_000_000, maxTotalBytes: 10_485_760 }, tokens: null, privacyFooter: null, recentApproach: null },
     events: [],
     truncated: false,
     ...overrides,
@@ -153,7 +154,7 @@ function aTemplate(overrides: Partial<EmailTemplate>): EmailTemplate {
   };
 }
 
-const WITH_TOKENS = { replySubject: null, replyStopsRun: false, emailSentMovesTo: null, attachmentLimits: { maxFiles: 5, maxFileBytes: 3_000_000, maxTotalBytes: 10_485_760 }, tokens: TOKENS, privacyFooter: null };
+const WITH_TOKENS = { replySubject: null, replyStopsRun: false, emailSentMovesTo: null, attachmentLimits: { maxFiles: 5, maxFileBytes: 3_000_000, maxTotalBytes: 10_485_760 }, tokens: TOKENS, privacyFooter: null, recentApproach: null };
 
 function wrapper({ children }: { children: ReactNode }) {
   return (
@@ -367,7 +368,7 @@ describe("ReplyComposer", () => {
     const { rerender } = render(composerFor(conversation()), { wrapper });
     await writeFirstEmail();
 
-    const withThread = conversation({ composer: { replySubject: "Re: Hello", replyStopsRun: false, emailSentMovesTo: null, attachmentLimits: { maxFiles: 5, maxFileBytes: 3_000_000, maxTotalBytes: 10_485_760 }, tokens: null, privacyFooter: null } });
+    const withThread = conversation({ composer: { replySubject: "Re: Hello", replyStopsRun: false, emailSentMovesTo: null, attachmentLimits: { maxFiles: 5, maxFileBytes: 3_000_000, maxTotalBytes: 10_485_760 }, tokens: null, privacyFooter: null, recentApproach: null } });
     rerender(composerFor(withThread));
     expect(screen.getByText("First email to Fatima")).toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: "Subject" })).toHaveValue("A conversation");
@@ -377,7 +378,7 @@ describe("ReplyComposer", () => {
     const { rerender } = render(composerFor(conversation()), { wrapper });
     expect(screen.getByText("First email to Fatima")).toBeInTheDocument();
 
-    rerender(composerFor(conversation({ composer: { replySubject: "Re: Hello", replyStopsRun: false, emailSentMovesTo: null, attachmentLimits: { maxFiles: 5, maxFileBytes: 3_000_000, maxTotalBytes: 10_485_760 }, tokens: null, privacyFooter: null } })));
+    rerender(composerFor(conversation({ composer: { replySubject: "Re: Hello", replyStopsRun: false, emailSentMovesTo: null, attachmentLimits: { maxFiles: 5, maxFileBytes: 3_000_000, maxTotalBytes: 10_485_760 }, tokens: null, privacyFooter: null, recentApproach: null } })));
     const composer = screen.getByRole("region", { name: "Reply" });
     expect(within(composer).getByText("Reply to Fatima")).toBeInTheDocument();
 
@@ -387,17 +388,17 @@ describe("ReplyComposer", () => {
 
   it("says a reply stops the running sequence only where the server says it would", async () => {
     const { rerender } = render(
-      composerFor(conversation({ composer: { replySubject: "Re: Hello", replyStopsRun: false, emailSentMovesTo: null, attachmentLimits: { maxFiles: 5, maxFileBytes: 3_000_000, maxTotalBytes: 10_485_760 }, tokens: null, privacyFooter: null } })),
+      composerFor(conversation({ composer: { replySubject: "Re: Hello", replyStopsRun: false, emailSentMovesTo: null, attachmentLimits: { maxFiles: 5, maxFileBytes: 3_000_000, maxTotalBytes: 10_485_760 }, tokens: null, privacyFooter: null, recentApproach: null } })),
       { wrapper },
     );
     expect(screen.queryByText(/Sending stops the running sequence/)).not.toBeInTheDocument();
 
-    rerender(composerFor(conversation({ composer: { replySubject: "Re: Hello", replyStopsRun: true, emailSentMovesTo: null, attachmentLimits: { maxFiles: 5, maxFileBytes: 3_000_000, maxTotalBytes: 10_485_760 }, tokens: null, privacyFooter: null } })));
+    rerender(composerFor(conversation({ composer: { replySubject: "Re: Hello", replyStopsRun: true, emailSentMovesTo: null, attachmentLimits: { maxFiles: 5, maxFileBytes: 3_000_000, maxTotalBytes: 10_485_760 }, tokens: null, privacyFooter: null, recentApproach: null } })));
     expect(screen.getByText(/Sending stops the running sequence/)).toBeInTheDocument();
   });
 
   it("refuses a body past the server's limit before anything is sent", async () => {
-    render(composerFor(conversation({ composer: { replySubject: "Re: Hello", replyStopsRun: false, emailSentMovesTo: null, attachmentLimits: { maxFiles: 5, maxFileBytes: 3_000_000, maxTotalBytes: 10_485_760 }, tokens: null, privacyFooter: null } })), {
+    render(composerFor(conversation({ composer: { replySubject: "Re: Hello", replyStopsRun: false, emailSentMovesTo: null, attachmentLimits: { maxFiles: 5, maxFileBytes: 3_000_000, maxTotalBytes: 10_485_760 }, tokens: null, privacyFooter: null, recentApproach: null } })), {
       wrapper,
     });
     const box = await screen.findByRole("textbox", { name: "Message" });
@@ -583,5 +584,73 @@ describe("ReplyComposer", () => {
       await userEvent.click(screen.getByRole("button", { name: "Send now" }));
       expect(await screen.findByText(/Some variables have nothing to fill them/)).toBeInTheDocument();
     });
+  });
+
+  it("asks before an email goes to someone a teammate recently approached, then sends once the box is ticked", async () => {
+    const twelveDaysAgo = new Date(Date.now() - 12 * 86_400_000).toISOString();
+    const withApproach = conversation({
+      composer: {
+        ...conversation().composer,
+        recentApproach: {
+          tier: "CAUTION",
+          windowDays: 90,
+          touches: [
+            { kind: "EMAILED", byUserId: "u2", byName: "Sara Al-Mansour", at: twelveDaysAgo, projectId: null,
+              positionTitle: null, samePosition: false, byYou: false, positionHidden: true },
+          ],
+          elsewhere: [
+            { projectId: null, positionTitle: null, statusLabel: null, statusColour: null, stageLabel: "Approach",
+              inProcess: true, placed: false, addedByName: null, statusChangedAt: null, visible: false },
+          ],
+          lastApproach: null,
+        },
+      },
+    });
+    render(composerFor(withApproach), { wrapper });
+    expect(screen.getByRole("note", { name: "Recently approached" })).toHaveTextContent(
+      "Sara Al-Mansour emailed · 12 days ago · another position · +1 more",
+    );
+    await writeFirstEmail();
+    await userEvent.click(screen.getByRole("button", { name: "Send now" }));
+
+    const dialog = await screen.findByRole("dialog");
+    expect(dialog).toHaveTextContent("In process on another position · Approach");
+    expect(conversationApi.sendMessage).not.toHaveBeenCalled();
+    const sendAnyway = within(dialog).getByRole("button", { name: "Send anyway" });
+    expect(sendAnyway).toBeDisabled();
+    await userEvent.click(within(dialog).getByRole("checkbox"));
+    await userEvent.click(sendAnyway);
+    await waitFor(() => expect(conversationApi.sendMessage).toHaveBeenCalledTimes(1));
+  });
+
+  it("asks once for what it showed, even as a scheduled email goes out, and again for a new approach", async () => {
+    vi.mocked(conversationApi.sendMessage).mockRejectedValue(new Error("offline"));
+    const sarasEmail: ApproachTouch = { kind: "EMAILED", byUserId: "u2", byName: "Sara Al-Mansour",
+      at: new Date(Date.now() - 12 * 86_400_000).toISOString(), projectId: "p2", positionTitle: "Head of Credit Risk",
+      samePosition: false, byYou: false, positionHidden: false };
+    const approached = (touches: ApproachTouch[]) =>
+      conversation({
+        composer: {
+          ...conversation().composer,
+          recentApproach: { tier: "CAUTION", windowDays: 90, touches, elsewhere: [], lastApproach: null },
+        },
+      });
+    const { rerender } = render(composerFor(approached([sarasEmail])), { wrapper });
+    await writeFirstEmail();
+    await userEvent.click(screen.getByRole("button", { name: "Send now" }));
+    const dialog = await screen.findByRole("dialog");
+    await userEvent.click(within(dialog).getByRole("checkbox"));
+    await userEvent.click(within(dialog).getByRole("button", { name: "Send anyway" }));
+    await waitFor(() => expect(conversationApi.sendMessage).toHaveBeenCalledTimes(1));
+
+    rerender(composerFor(approached([{ ...sarasEmail, at: new Date().toISOString() }])));
+    await userEvent.click(await screen.findByRole("button", { name: "Send now" }));
+    await waitFor(() => expect(conversationApi.sendMessage).toHaveBeenCalledTimes(2));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+
+    rerender(composerFor(approached([{ ...sarasEmail, kind: "REPLIED", at: new Date().toISOString() }, sarasEmail])));
+    await userEvent.click(await screen.findByRole("button", { name: "Send now" }));
+    expect(await screen.findByRole("dialog")).toHaveTextContent("Replied to Sara Al-Mansour");
+    expect(conversationApi.sendMessage).toHaveBeenCalledTimes(2);
   });
 });

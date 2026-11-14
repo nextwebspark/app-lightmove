@@ -25,5 +25,7 @@ public record WorkspaceResponse(
         WorkspaceCompanyResponse company,
         WorkspaceDateTimeResponse dateTime,
         /** How long a deleted workspace is kept before everything goes, for the Delete workspace copy. */
-        long deletionGraceDays
+        long deletionGraceDays,
+        /** How many days back a teammate's approach warns before outreach; 0 is off. */
+        int recentlyApproachedDays
 ) {}
