@@ -31,7 +31,8 @@ import { useProfileSections, type ProfileSection } from "../../lib/useProfileSec
 import { scrollToFold } from "../../lib/profileFolds";
 import { AddToPositionDialog } from "./AddToPositionDialog";
 import { focusNoteComposer } from "../../../notes/lib/focusNoteComposer";
-import { formatInstantDateTime } from "../../../../lib/datetime";
+import { formatInstantDate, formatInstantDateTime } from "../../../../lib/datetime";
+import { firstNameOf } from "../../../tasks/lib/team";
 import { ActionMenu, MenuItem, MenuSeparator } from "../../../../components/ui/ActionMenu";
 import { useIsWorkspaceAdmin } from "../../../auth/useIsWorkspaceAdmin";
 import { ErasePersonDialog } from "./ErasePersonDialog";
@@ -167,6 +168,7 @@ function PersonDrawerBody({
   });
 
   const doNotContact = person.doNotContact;
+  const optedOutAt = doNotContact ? person.privacy?.optedOutAt : null;
   const restriction = person.processingRestriction;
   const offersRestriction = dataProtection && (!restriction || restriction.mayLift);
   const offersErasure = dataProtection && isAdmin;
@@ -310,7 +312,14 @@ function PersonDrawerBody({
             )}
           </div>
           <PersonTagsSection person={person} className="mt-2.5" />
-          {doNotContact && (
+          {optedOutAt && (
+            <div role="note" className="mt-3 rounded-u-card border border-u-offlimits/30 bg-u-offlimits-tint px-3 py-2 text-note text-u-text2">
+              <b className="font-semibold text-u-offlimits">Opted out by email.</b> {firstNameOf(person.fullName)} used
+              the link to stop emails on {formatInstantDate(optedOutAt)}. Every sequence stopped, do not contact is set,
+              and they&apos;re on the suppression list.
+            </div>
+          )}
+          {doNotContact && !optedOutAt && (
             <div role="note" className="mt-3 rounded-u-card border border-u-offlimits/30 bg-u-offlimits-tint px-3 py-2 text-[12.5px] text-u-text2">
               <b className="font-semibold text-u-offlimits">Do not contact.</b>
               {doNotContact.reason && ` ${doNotContact.reason}`}

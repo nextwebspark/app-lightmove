@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Button, FormError, Skeleton } from "../../../components/ui";
 import { formatInstantDate } from "../../../lib/datetime";
@@ -25,7 +25,8 @@ type Stage = { step: "notice" } | { step: "confirm"; choice: PrivacyChoice } | {
  * The page a privacy notice links to (`/privacy/:token`, `Privacy.dc.html`, #923). Public, since the person it was
  * sent to holds no session; the firm speaks as controller and Uncava appears only as the software. It lists the kinds
  * of data held and where they came from, never the values or the person's name, because a link can be forwarded.
- * Every choice is a request the firm acts on; nothing is deleted or sent from here.
+ * Every choice is a request the firm acts on; nothing is deleted or sent from here. An outreach email's stop link
+ * (`?action=opt-out`) opens on its confirmation, never on a send: mail scanners open links.
  */
 export default function PrivacyLinkPage() {
   const { token = "" } = useParams();
@@ -80,13 +81,22 @@ export default function PrivacyLinkPage() {
 
 function Notice({ token, page }: { token: string; page: PrivacyPage }) {
   const firm = page.controllerName ?? "We";
-  const [stage, setStage] = useState<Stage>({ step: "notice" });
+  const [searchParams] = useSearchParams();
+  const [stage, setStage] = useState<Stage>(() =>
+    searchParams.get("action") === "opt-out" ? { step: "confirm", choice: "optOut" } : { step: "notice" },
+  );
   const [error, setError] = useState<string | null>(null);
   const sending = useMutation({
-    mutationFn: (choice: PrivacyChoice) =>
-      choice === "object"
-        ? privacyPageApi.objectFromPrivacyPage(token)
-        : privacyPageApi.requestFromPrivacyPage(token, choice),
+    mutationFn: (choice: PrivacyChoice) => {
+      switch (choice) {
+        case "object":
+          return privacyPageApi.objectFromPrivacyPage(token);
+        case "optOut":
+          return privacyPageApi.optOutFromPrivacyPage(token);
+        default:
+          return privacyPageApi.requestFromPrivacyPage(token, choice);
+      }
+    },
     onSuccess: (_, choice) => setStage({ step: "done", choice }),
     onError: (failure) =>
       setError(
@@ -97,7 +107,7 @@ function Notice({ token, page }: { token: string; page: PrivacyPage }) {
   });
 
   if (stage.step === "confirm") {
-    const confirmation = confirmationOf(stage.choice, firm);
+    const confirmation = confirmationOf(stage.choice, page.controllerName);
     return (
       <>
         <h1 className="m-0 text-title font-semibold">{confirmation.title}</h1>
@@ -105,7 +115,7 @@ function Notice({ token, page }: { token: string; page: PrivacyPage }) {
         <FormError message={error} />
         <div className="mt-5 flex flex-wrap justify-end gap-2">
           <Button variant="secondary" size="md" disabled={sending.isPending} onClick={() => setStage({ step: "notice" })}>
-            Back
+            {confirmation.back}
           </Button>
           <Button size="md" loading={sending.isPending} onClick={() => sending.mutate(stage.choice)}>
             {confirmation.cta}
@@ -116,7 +126,7 @@ function Notice({ token, page }: { token: string; page: PrivacyPage }) {
   }
 
   if (stage.step === "done") {
-    const done = doneOf(stage.choice, firm);
+    const done = doneOf(stage.choice, page.controllerName);
     return (
       <div role="status">
         <span className="grid size-10 place-items-center rounded-full bg-u-direct-tint text-u-direct">

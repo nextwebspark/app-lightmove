@@ -1,6 +1,7 @@
 package app.lightmove.api.candidate.service;
 
 import app.lightmove.api.candidate.constant.ContactKind;
+import app.lightmove.api.candidate.constant.DoNotContactReasons;
 import app.lightmove.api.candidate.constant.PersonActivityKind;
 import app.lightmove.api.candidate.constant.PrivacyRequestKind;
 import app.lightmove.api.candidate.constant.SuppressionReason;
@@ -9,6 +10,7 @@ import app.lightmove.api.candidate.model.CandidateCompensation;
 import app.lightmove.api.candidate.model.CandidateContact;
 import app.lightmove.api.candidate.model.CandidatePrivacySettings;
 import app.lightmove.api.candidate.model.Person;
+import app.lightmove.api.candidate.model.PersonOptedOut;
 import app.lightmove.api.candidate.model.PersonPrivacyRequested;
 import app.lightmove.api.candidate.repository.PersonRepository;
 import app.lightmove.api.common.constant.ApiValueEnum;
@@ -46,7 +48,10 @@ import org.springframework.transaction.support.TransactionTemplate;
 public class PrivacyPageService {
 
     private static final String PERSON_TARGET = "person";
-    private static final String OBJECTION_REASON = "Objected through their privacy page";
+    private static final ContactStop OBJECTION = new ContactStop(DoNotContactReasons.OBJECTED_THROUGH_PRIVACY_PAGE,
+            PersonActivityKind.PRIVACY_OBJECTED, ProjectEventType.PERSON_OBJECTED);
+    private static final ContactStop OPT_OUT = new ContactStop(DoNotContactReasons.OPTED_OUT_BY_EMAIL,
+            PersonActivityKind.PRIVACY_OPTED_OUT, ProjectEventType.PERSON_OPTED_OUT);
 
     /** A second click on the same request within a day tells nobody again. */
     private static final Duration REPEAT_WINDOW = Duration.ofDays(1);
@@ -105,17 +110,28 @@ public class PrivacyPageService {
         rateLimit.checkPrivacyPageRequest(tokenHash, request);
         inLinksWorkspace(tokenHash, link -> {
             Person person = liveLinksPerson(link);
-            boolean marked = person.markDoNotContact(OBJECTION_REASON, null);
-            int suppressed = suppression.suppressPerson(person, null, SuppressionReason.OBJECTED);
-            if (marked || suppressed > 0) {
-                activity.record(person, null, null, PersonActivityKind.PRIVACY_OBJECTED, PersonActivityDetails.none());
-                audit.event(ProjectEventType.PERSON_OBJECTED)
-                        .workspace(link.workspaceId()).target(PERSON_TARGET, person.getId()).from(request)
-                        .detail("suppressionEntries", suppressed)
-                        .record();
-                events.publishEvent(new PersonPrivacyRequested(link.workspaceId(), person.getId(),
-                        PrivacyRequestKind.OBJECTION));
-            }
+            stopContact(link, person, false, OBJECTION, request,
+                    new PersonPrivacyRequested(link.workspaceId(), person.getId(), PrivacyRequestKind.OBJECTION));
+            return null;
+        });
+    }
+
+    /**
+     * The footer's link and a mail app's one-click Unsubscribe (RFC 8058) both land here; outreach stops the person's
+     * runs in this transaction ({@link PersonOptedOut}). Only the first use of a link is recorded, so a mail app
+     * posting twice tells nobody twice.
+     */
+    public void optOut(String token, HttpServletRequest request) {
+        String tokenHash = Tokens.hash(token);
+        rateLimit.checkPrivacyOptOut(tokenHash, request);
+        inLinksWorkspace(tokenHash, link -> {
+            Person person = liveLinksPerson(link);
+            boolean linkFirstUsed = jdbc.update("""
+                    UPDATE app_lm_person_privacy_link SET used_at = :usedAt WHERE id = :id AND used_at IS NULL
+                    """, new MapSqlParameterSource("id", link.id())
+                    .addValue("usedAt", Timestamp.from(clock.instant()))) > 0;
+            stopContact(link, person, linkFirstUsed, OPT_OUT, request, new PersonOptedOut(link.workspaceId(),
+                    person.getId(), person.getOwnerUserId() != null ? person.getOwnerUserId() : link.sentBy()));
             return null;
         });
     }
@@ -144,15 +160,36 @@ public class PrivacyPageService {
         });
     }
 
+    /**
+     * Do not contact and the suppression list as an objection, so no door files them again. Recorded and announced
+     * only when something changed.
+     */
+    private void stopContact(PrivacyLink link, Person person, boolean linkFirstUsed, ContactStop stop,
+                             HttpServletRequest request, Object announcement) {
+        boolean marked = person.markDoNotContact(stop.doNotContactReason(), null);
+        int suppressed = suppression.suppressPerson(person, null, SuppressionReason.OBJECTED);
+        if (!linkFirstUsed && !marked && suppressed == 0) {
+            return;
+        }
+        activity.record(person, null, null, stop.activityKind(), PersonActivityDetails.none());
+        audit.event(stop.auditType())
+                .workspace(link.workspaceId()).target(PERSON_TARGET, person.getId()).from(request)
+                .detail("suppressionEntries", suppressed)
+                .record();
+        events.publishEvent(announcement);
+    }
+
     private <T> T inLinksWorkspace(String tokenHash, Function<PrivacyLink, T> work) {
         ResolvedRow resolved = resolvers.personPrivacyLink(tokenHash)
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
         return WorkspaceScope.call(resolved.workspaceId(), () -> transactions.execute(status -> {
             PrivacyLink link = jdbc.query("""
-                    SELECT id, workspace_id, person_id, expires_at FROM app_lm_person_privacy_link WHERE id = :id
+                    SELECT id, workspace_id, person_id, sent_by, expires_at FROM app_lm_person_privacy_link
+                    WHERE id = :id
                     """, new MapSqlParameterSource("id", resolved.id()), (row, index) -> new PrivacyLink(
                     row.getObject("id", UUID.class), row.getObject("workspace_id", UUID.class),
-                    row.getObject("person_id", UUID.class), row.getTimestamp("expires_at").toInstant()))
+                    row.getObject("person_id", UUID.class), row.getObject("sent_by", UUID.class),
+                    row.getTimestamp("expires_at").toInstant()))
                     .stream().findFirst().orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
             return work.apply(link);
         }));
@@ -226,7 +263,11 @@ public class PrivacyPageService {
         return Boolean.TRUE.equals(jdbc.queryForObject("SELECT EXISTS (" + query + ")", parameters, Boolean.class));
     }
 
-    private record PrivacyLink(UUID id, UUID workspaceId, UUID personId, Instant expiresAt) {
+    private record ContactStop(String doNotContactReason, PersonActivityKind activityKind,
+                               ProjectEventType auditType) {
+    }
+
+    private record PrivacyLink(UUID id, UUID workspaceId, UUID personId, UUID sentBy, Instant expiresAt) {
 
         boolean isExpired(Instant now) {
             return !now.isBefore(expiresAt);

@@ -3,6 +3,7 @@ package app.lightmove.api.outreach.service;
 import app.lightmove.api.candidate.model.OutreachRecipient;
 import app.lightmove.api.candidate.model.RecipientEmail;
 import app.lightmove.api.candidate.service.CandidateOutreachService;
+import app.lightmove.api.candidate.service.OutreachPrivacyService;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.error.constant.ErrorCode;
@@ -74,6 +75,7 @@ public class OutreachEnrollmentService {
     private final AuditService audit;
     private final Clock clock;
     private final EmailSignatureService signatures;
+    private final OutreachPrivacyService privacy;
 
     @Transactional(readOnly = true)
     public EnrollmentCandidatesResponse candidates(UUID userId, UUID workspaceId, UUID projectId,
@@ -87,6 +89,8 @@ public class OutreachEnrollmentService {
                         .map(OutreachEnrollment::getSequenceId).distinct().toList()).stream()
                 .collect(Collectors.toMap(OutreachSequence::getId, OutreachSequence::getName));
         SenderContext sender = personalisation.senderContextOf(userId, workspaceId, projectId);
+        Map<UUID, String> footers = privacy.footerStatementsOf(workspaceId,
+                recipients.stream().map(OutreachRecipient::personId).toList());
         return new EnrollmentCandidatesResponse(recipients.stream()
                 .map(recipient -> {
                     OutreachSkipReason skip = eligible.skipReasonOf(recipient);
@@ -96,7 +100,8 @@ public class OutreachEnrollmentService {
                             recipient.companyName(),
                             recipient.emails().stream().map(RecipientEmailResponse::of).toList(), skip,
                             held == null ? null : sequenceNames.get(held.getSequenceId()),
-                            SequenceTokensResponse.of(OutreachPersonalisation.tokensOf(recipient, sender, null)));
+                            SequenceTokensResponse.of(OutreachPersonalisation.tokensOf(recipient, sender, null)),
+                            footers.get(recipient.personId()));
                 })
                 .toList());
     }

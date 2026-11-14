@@ -382,7 +382,8 @@ export type PersonActivityKind =
   | "PRIVACY_NOTICE_MARKED"
   | "PRIVACY_NOTICE_FAILED"
   | "PRIVACY_OBJECTED"
-  | "PRIVACY_REQUEST_RECEIVED";
+  | "PRIVACY_REQUEST_RECEIVED"
+  | "PRIVACY_OPTED_OUT";
 
 /** The timeline's filter chips, as the server's `TimelineGroup` tokens. */
 export type TimelineGroup = "positions" | "notes" | "contacts" | "profile" | "tags" | "documents";
@@ -532,6 +533,8 @@ export interface PersonPrivacy {
   basisSetAt: string | null;
   notifiedAt: string | null;
   noticeChannel: PrivacyNoticeChannel | null;
+  /** When their own stop link set the do not contact that stands now; null otherwise. */
+  optedOutAt: string | null;
 }
 
 /** A workspace person as the Candidates drawer reads them. Staff-only. */

@@ -152,6 +152,41 @@ try {
   });
   await stranger.close();
 
+  console.log("\n\x1b[1;36m== PN5  Stop emails (#924): the footer's link and a mail app's one-click\x1b[0m");
+  const OMAR = `omar-${STAMP}@example.com`;
+  const omar = (await api(`/projects/${position}/candidates`, {
+    method: "POST", token,
+    body: { fullName: "Omar Saleh", title: "Treasurer", linkedinUrl: `https://www.linkedin.com/in/omar-${STAMP}/`, emails: [{ value: OMAR }] },
+  })).body.personId;
+  await api(`/candidates/${omar}/privacy-notice`, { method: "POST", token });
+  await new Promise((resolve) => setTimeout(resolve, 1000));
+  const omarLink = linkFor(OMAR, /http:\/\/localhost:5173\/privacy\/[A-Za-z0-9_-]+/);
+  const optOut = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
+  const optOutPage = await optOut.newPage();
+  await step("PN5.1", "?action=opt-out asks first, and Stop emails sets do not contact and tells the sender", async () => {
+    await optOutPage.goto(`${omarLink.replace("http://localhost:5173", WEB)}?action=opt-out`);
+    await optOutPage.getByText("Stop emails from Meridian Search Partners FZ-LLC?").first().waitFor({ timeout: 15000 });
+    const before = await api(`/candidates/${omar}`, { token });
+    check("PN5.1", "opening the link alone opts nobody out", false, !!before.body.doNotContact);
+    await shot(optOutPage, "public-opt-out");
+    await optOutPage.getByRole("button", { name: "Stop emails", exact: true }).click();
+    await optOutPage.getByText(/won.t receive more emails from us/i).first().waitFor({ timeout: 10000 });
+    await shot(optOutPage, "public-opted-out");
+    const record = await api(`/candidates/${omar}`, { token });
+    check("PN5.2", "do not contact is set", true, !!record.body.doNotContact);
+    check("PN5.3", "the drawer's record says when they opted out", true, !!record.body.privacy?.optedOutAt);
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    const bell = await api("/me/notifications?filter=unread", { token });
+    check("PN5.4", "the sender's bell says they opted out", true, JSON.stringify(bell.body).includes("candidate_opted_out"));
+  });
+  await step("PN5.5", "a mail app's one-click post (RFC 8058) answers 200 again and changes nothing", async () => {
+    const response = await fetch(`${API}/privacy/links/${omarLink.split("/privacy/")[1]}/opt-out`, {
+      method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: "List-Unsubscribe=One-Click",
+    });
+    check("PN5.5", "the one-click post answers 200", 200, response.status);
+  });
+  await optOut.close();
+
   console.log("\n\x1b[1;36m== PN4  The Not notified quick view\x1b[0m");
   await step("PN4.1", "the chip is on the Candidates page", async () => {
     await page.goto(`${WEB}/candidates`);

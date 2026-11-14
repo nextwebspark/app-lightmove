@@ -77,7 +77,7 @@ class PersonSubjectAccessRecords implements SubjectAccessContributor {
                 SELECT * FROM app_lm_person_activity WHERE workspace_id = :workspaceId AND person_id = :personId
                 ORDER BY occurred_at, id""", parameters, Set.of("workspace_id"));
         sections.add(new SubjectAccessSection("timeline", "Timeline", timeline));
-        sections.add(new SubjectAccessSection("privacyNotices", "Privacy notices sent to you", rows.rowsOf("""
+        sections.add(new SubjectAccessSection("privacyNotices", "Privacy notices and stop-email links sent to you", rows.rowsOf("""
                 SELECT * FROM app_lm_person_privacy_link WHERE workspace_id = :workspaceId AND person_id = :personId
                 ORDER BY created_at, id""", parameters, Set.of("workspace_id", "token_hash"))));
         List<Map<String, Object>> positions = rows.rowsOf("""

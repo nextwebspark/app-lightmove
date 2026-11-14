@@ -11,7 +11,8 @@ import lombok.experimental.Accessors;
 @RequiredArgsConstructor
 public enum PrivacyLinkPurpose implements ApiValueEnum {
 
-    NOTICE("notice");
+    NOTICE("notice"),
+    OPT_OUT("opt_out");
 
     private final String value;
 }

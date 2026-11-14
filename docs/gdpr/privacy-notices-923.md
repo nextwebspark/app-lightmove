@@ -2,7 +2,8 @@
 
 Step 6 of epic #917. Every person a workspace holds was sourced, never asked, so the firm (the controller) owes them
 an Art. 14 notice within a month, or at the first contact, and a recorded lawful basis. This piece lets a firm record
-both and send the notice through Uncava in its own name. #924 (the outreach footer and opt-out) builds on it.
+both and send the notice through Uncava in its own name. #924 adds the footer every outreach email ends with, its
+link to stop emails and the one-click `List-Unsubscribe` header (below, "Outreach footer and opt-out").
 
 Everything here sits behind `DATA_PROTECTION_ENABLED` (`lightmove.data-protection.enabled`) like the other people
 controls, and is staff-only: it never reaches `CandidateResponse`, the talent map, the report, the public API or MCP.
@@ -15,6 +16,7 @@ controls, and is staff-only: it never reaches `CandidateResponse`, the talent ma
 | Mark as notified | the drawer's ⋯ and Privacy block | V218 |
 | The public page a notice links to | `/privacy/:token` | V218 |
 | Not notified quick view | Candidates | V218 |
+| The outreach footer, its stop link and one-click unsubscribe (#924) | every sequence step and consultant's own email | V220 |
 
 ## The firm's details
 
@@ -88,6 +90,43 @@ admin picks `CONSENT` or `CONTRACT`).
 The admins' notifications share one Settings → Notifications switch (`privacy_request`), offered to admins alone, and
 are emailed on their own rather than waiting for the digest: each has a month's deadline.
 
+## Outreach footer and opt-out (#924)
+
+Every outreach email — a sequence's first email, each follow-up, and a consultant's own email — ends with a fixed
+block, after the signature: "{firm} holds your professional details, which came from {first door}. Our privacy notice ·
+Stop emails from us". With the firm's details not yet set it reads "We hold …". Nobody can edit it out.
+
+- **Added as the email leaves, never stored.** `OutreachSendService.prepare` and `OutreachMessageSendService.prepare`
+  ask `OutreachPrivacyService.footerFor`, which mints the email's own `OPT_OUT` link (a row in
+  `app_lm_person_privacy_link`, valid 12 months, `sent_by` the sender) in the prepare transaction. `PreparedSend` /
+  `PreparedOwnSend.outgoing()` append it and the headers just before the gateway; the ledger keeps the body alone, so
+  the conversation and a reply's quote never show it. The mailbox's test email gets none.
+- **"Our privacy notice"** opens the firm's notice link, else the person's privacy page. **"Stop emails from us"**
+  opens `/privacy/{token}?action=opt-out`, which asks once ("Stop emails from {firm}?"): a link a mail scanner fetches
+  never opts anyone out.
+- **One-click unsubscribe (RFC 8058).** `List-Unsubscribe: <{base}/api/v1/privacy/links/{token}/opt-out>` and
+  `List-Unsubscribe-Post: List-Unsubscribe=One-Click`, so Gmail and others show their own Unsubscribe. Written by
+  Gmail's raw message (`RawEmail`) and by Nylas's `custom_headers`. **Not by Microsoft:** Graph's
+  `internetMessageHeaders` takes only `x-` names, and Nylas documents that it cannot add `List-Unsubscribe` for a
+  Microsoft account either, so a Microsoft mailbox's emails carry the footer's link alone. A MIME-built draft might
+  carry it, but Graph does not document that non-`x-` headers survive the send; not attempted.
+- **`POST /api/v1/privacy/links/{token}/opt-out`** (public, no body, answers 200): do not contact ("Opted out by
+  email"), the suppression list as `OBJECTED`, a `PRIVACY_OPTED_OUT` line, a `PERSON_OPTED_OUT` audit event with no
+  actor, and `used_at` on the link. In the same transaction outreach's `OutreachOptOutStop` stops every live run on the
+  person as `OPTED_OUT` and fails every email still waiting to go (one already taken by the dispatcher meets do not
+  contact at its send-time check). An objection from the privacy page does the same. Only a link's first use is
+  recorded, so a mail app posting twice tells nobody twice. Rate-limited per link (10 an hour) and per IP (1,000 an
+  hour: a provider posts for many people from one address).
+- **Who hears of it:** the person's owner, else whoever sent the email, by a `CANDIDATE_OPTED_OUT` bell under the
+  bounced switch. The drawer reads `privacy.optedOutAt` while do not contact stands.
+- **The first email tells them.** A send whose footer carried the firm's details (name, contact and notice link all
+  set) records a person never told before as notified by `OUTREACH_EMAIL`, with a `PRIVACY_NOTICE_SENT` line and audit
+  event. Someone already told keeps their telling. *Known gap:* the last-resort path that records a delivered email
+  when its own record failed (`claims.recordDelivered`) skips this, so such a person stays Not notified.
+- **Previews.** Add to sequence and the composer read the footer's sentence (`privacyFooter` on
+  `EnrollmentCandidateResponse` and `ConversationComposerResponse`) and draw it read-only under the email.
+- Off with `DATA_PROTECTION_ENABLED`: no footer, no headers, no link minted.
+
 ## Not notified
 
 The Candidates quick view `not_notified`: held more than 30 days and never told. It is a list to act on, not a rule:
@@ -98,7 +137,7 @@ nothing sends a notice on its own.
 | Table | Retention | Subject access export |
 |---|---|---|
 | `app_lm_workspace_candidate_privacy` | while the workspace exists | not a person's |
-| `app_lm_person_privacy_link` | with the person (cascade on erasure) | `privacyNotices`, without the token hash |
+| `app_lm_person_privacy_link` (notices and opt-out links) | with the person (cascade on erasure) | `privacyNotices`, without the token hash |
 
 The person's new columns are exported with the rest of their record.
 
@@ -118,3 +157,6 @@ The person's new columns are exported with the rest of their record.
 3. File someone with an email on a position, open them under Candidates → Contact → Privacy, and Send privacy notice.
 4. Copy the `/privacy/…` link from the console's email and open it in a private window: object, or ask for a copy.
 5. The admin's bell shows the request; the person is marked do not contact after an objection.
+6. For #924: start a sequence on someone, let the dispatcher send step 1 (the console shows the email with its footer
+   and the `List-Unsubscribe` line), then `curl -X POST -d List-Unsubscribe=One-Click {that URL}`: the run reads
+   Stopped · Opted out, and the owner's bell says so.

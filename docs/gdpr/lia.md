@@ -62,8 +62,10 @@ conversation).
 - This is direct marketing in the Art. 21(2) sense only arguably ⚖️; either way the objection must stop it at once.
 - *Safeguards:* do not contact and a processing restriction stop a send (`RecipientEligibility`,
   `OutreachMessageSendService`); suppression stops a person being filed again.
-- *Gap.* There is no opt-out link, `List-Unsubscribe` header or notice footer yet (#924, step 6 of #917). Until then an
-  objection arrives as a reply and a consultant acts on it.
+- *Opt-out (#924):* every outreach email ends with a footer naming the firm and where the details came from, and a
+  link to stop emails; Gmail and Nylas-sent Google mail also carry one-click `List-Unsubscribe`. Taking it sets do not
+  contact, suppresses the person and stops every run at once. A Microsoft mailbox's email carries the link alone, and
+  an objection written as a reply is still a consultant's to act on.
 
 ## 4. Uncava's vendor cache (Uncava as controller)
 

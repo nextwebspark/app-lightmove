@@ -13,7 +13,8 @@ export type NotificationKind =
   | "tasks_moved"
   | "copy_requested"
   | "deletion_requested"
-  | "person_objected";
+  | "person_objected"
+  | "candidate_opted_out";
 
 export interface NotificationResponse {
   id: string;

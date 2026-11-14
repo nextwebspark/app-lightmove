@@ -16,7 +16,7 @@ const EVENTS: readonly { kind: NotificationPreferenceKind; label: string }[] = [
   { kind: "task_due", label: "A task of mine is due soon or overdue" },
   { kind: "mentioned", label: "Someone @mentions me" },
   { kind: "outreach_replied", label: "An executive replies to my sequence" },
-  { kind: "outreach_bounced", label: "An email of mine bounces" },
+  { kind: "outreach_bounced", label: "An email of mine bounces, or someone stops my emails" },
   { kind: "call_booked", label: "A call is booked through my link" },
   { kind: "added_to_team", label: "I'm added to a position's team" },
   { kind: "tasks_moved", label: "Tasks are moved to me" },

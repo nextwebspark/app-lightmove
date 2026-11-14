@@ -88,7 +88,7 @@ function conversation(overrides: Partial<Conversation> = {}): Conversation {
       locationCountry: null,
       doNotContact: false,
     },
-    composer: { replySubject: null, replyStopsRun: false, emailSentMovesTo: null, attachmentLimits: { maxFiles: 5, maxFileBytes: 3_000_000, maxTotalBytes: 10_485_760 }, tokens: null },
+    composer: { replySubject: null, replyStopsRun: false, emailSentMovesTo: null, attachmentLimits: { maxFiles: 5, maxFileBytes: 3_000_000, maxTotalBytes: 10_485_760 }, tokens: null, privacyFooter: null },
     events: [],
     truncated: false,
     ...overrides,
@@ -153,7 +153,7 @@ function aTemplate(overrides: Partial<EmailTemplate>): EmailTemplate {
   };
 }
 
-const WITH_TOKENS = { replySubject: null, replyStopsRun: false, emailSentMovesTo: null, attachmentLimits: { maxFiles: 5, maxFileBytes: 3_000_000, maxTotalBytes: 10_485_760 }, tokens: TOKENS };
+const WITH_TOKENS = { replySubject: null, replyStopsRun: false, emailSentMovesTo: null, attachmentLimits: { maxFiles: 5, maxFileBytes: 3_000_000, maxTotalBytes: 10_485_760 }, tokens: TOKENS, privacyFooter: null };
 
 function wrapper({ children }: { children: ReactNode }) {
   return (
@@ -267,6 +267,25 @@ describe("ReplyComposer", () => {
     );
   });
 
+  it("says the privacy footer is added at send only where the workspace adds one", async () => {
+    const { unmount } = render(composerFor(conversation()), { wrapper });
+    expect(await screen.findByRole("region", { name: "Reply" })).toBeInTheDocument();
+    expect(screen.queryByText(/privacy footer and a link to stop emails/)).not.toBeInTheDocument();
+    unmount();
+
+    const withFooter = conversation();
+    render(
+      composerFor({
+        ...withFooter,
+        composer: { ...withFooter.composer, privacyFooter: "Meridian holds your professional details." },
+      }),
+      { wrapper },
+    );
+    expect(
+      await screen.findByText("Your firm's privacy footer and a link to stop emails are added when it's sent."),
+    ).toBeInTheDocument();
+  });
+
   it("sends none, and points to Settings, for a sender who keeps no signature", async () => {
     render(composerFor(conversation()), { wrapper });
     await writeFirstEmail();
@@ -348,7 +367,7 @@ describe("ReplyComposer", () => {
     const { rerender } = render(composerFor(conversation()), { wrapper });
     await writeFirstEmail();
 
-    const withThread = conversation({ composer: { replySubject: "Re: Hello", replyStopsRun: false, emailSentMovesTo: null, attachmentLimits: { maxFiles: 5, maxFileBytes: 3_000_000, maxTotalBytes: 10_485_760 }, tokens: null } });
+    const withThread = conversation({ composer: { replySubject: "Re: Hello", replyStopsRun: false, emailSentMovesTo: null, attachmentLimits: { maxFiles: 5, maxFileBytes: 3_000_000, maxTotalBytes: 10_485_760 }, tokens: null, privacyFooter: null } });
     rerender(composerFor(withThread));
     expect(screen.getByText("First email to Fatima")).toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: "Subject" })).toHaveValue("A conversation");
@@ -358,7 +377,7 @@ describe("ReplyComposer", () => {
     const { rerender } = render(composerFor(conversation()), { wrapper });
     expect(screen.getByText("First email to Fatima")).toBeInTheDocument();
 
-    rerender(composerFor(conversation({ composer: { replySubject: "Re: Hello", replyStopsRun: false, emailSentMovesTo: null, attachmentLimits: { maxFiles: 5, maxFileBytes: 3_000_000, maxTotalBytes: 10_485_760 }, tokens: null } })));
+    rerender(composerFor(conversation({ composer: { replySubject: "Re: Hello", replyStopsRun: false, emailSentMovesTo: null, attachmentLimits: { maxFiles: 5, maxFileBytes: 3_000_000, maxTotalBytes: 10_485_760 }, tokens: null, privacyFooter: null } })));
     const composer = screen.getByRole("region", { name: "Reply" });
     expect(within(composer).getByText("Reply to Fatima")).toBeInTheDocument();
 
@@ -368,17 +387,17 @@ describe("ReplyComposer", () => {
 
   it("says a reply stops the running sequence only where the server says it would", async () => {
     const { rerender } = render(
-      composerFor(conversation({ composer: { replySubject: "Re: Hello", replyStopsRun: false, emailSentMovesTo: null, attachmentLimits: { maxFiles: 5, maxFileBytes: 3_000_000, maxTotalBytes: 10_485_760 }, tokens: null } })),
+      composerFor(conversation({ composer: { replySubject: "Re: Hello", replyStopsRun: false, emailSentMovesTo: null, attachmentLimits: { maxFiles: 5, maxFileBytes: 3_000_000, maxTotalBytes: 10_485_760 }, tokens: null, privacyFooter: null } })),
       { wrapper },
     );
     expect(screen.queryByText(/Sending stops the running sequence/)).not.toBeInTheDocument();
 
-    rerender(composerFor(conversation({ composer: { replySubject: "Re: Hello", replyStopsRun: true, emailSentMovesTo: null, attachmentLimits: { maxFiles: 5, maxFileBytes: 3_000_000, maxTotalBytes: 10_485_760 }, tokens: null } })));
+    rerender(composerFor(conversation({ composer: { replySubject: "Re: Hello", replyStopsRun: true, emailSentMovesTo: null, attachmentLimits: { maxFiles: 5, maxFileBytes: 3_000_000, maxTotalBytes: 10_485_760 }, tokens: null, privacyFooter: null } })));
     expect(screen.getByText(/Sending stops the running sequence/)).toBeInTheDocument();
   });
 
   it("refuses a body past the server's limit before anything is sent", async () => {
-    render(composerFor(conversation({ composer: { replySubject: "Re: Hello", replyStopsRun: false, emailSentMovesTo: null, attachmentLimits: { maxFiles: 5, maxFileBytes: 3_000_000, maxTotalBytes: 10_485_760 }, tokens: null } })), {
+    render(composerFor(conversation({ composer: { replySubject: "Re: Hello", replyStopsRun: false, emailSentMovesTo: null, attachmentLimits: { maxFiles: 5, maxFileBytes: 3_000_000, maxTotalBytes: 10_485_760 }, tokens: null, privacyFooter: null } })), {
       wrapper,
     });
     const box = await screen.findByRole("textbox", { name: "Message" });

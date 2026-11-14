@@ -308,6 +308,8 @@ lightmove:
       avatar-reads-per-minute: ${AUTH_AVATAR_READS_PER_MINUTE:1200}
       privacy-page-opens-per-minute: ${AUTH_PRIVACY_PAGE_OPENS_PER_MINUTE:30}
       privacy-page-requests-per-hour: ${AUTH_PRIVACY_PAGE_REQUESTS_PER_HOUR:10}
+      privacy-opt-outs-per-hour: ${AUTH_PRIVACY_OPT_OUTS_PER_HOUR:10}
+      privacy-opt-outs-per-hour-per-ip: ${AUTH_PRIVACY_OPT_OUTS_PER_HOUR_PER_IP:1000}
 
   # The demo LLM endpoints (/api/v1/llm/*) call billed Vertex AI usage with only authentication as
   # a gate, so each is additionally capped per user. Same in-memory-per-instance caveat as the auth

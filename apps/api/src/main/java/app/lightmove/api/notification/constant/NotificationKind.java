@@ -26,7 +26,9 @@ public enum NotificationKind implements ApiValueEnum {
     /** From a person's privacy page (#923), to every admin: each has a month's deadline, so each is emailed. */
     COPY_REQUESTED("copy_requested", NotificationPreferenceKind.PRIVACY_REQUEST, true),
     DELETION_REQUESTED("deletion_requested", NotificationPreferenceKind.PRIVACY_REQUEST, true),
-    PERSON_OBJECTED("person_objected", NotificationPreferenceKind.PRIVACY_REQUEST, true);
+    PERSON_OBJECTED("person_objected", NotificationPreferenceKind.PRIVACY_REQUEST, true),
+    /** To the person's owner, else whoever sent the email they opted out of; their runs have already stopped. */
+    CANDIDATE_OPTED_OUT("candidate_opted_out", NotificationPreferenceKind.OUTREACH_BOUNCED, false);
 
     private final String value;
     private final NotificationPreferenceKind preference;

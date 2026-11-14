@@ -2,6 +2,7 @@ package app.lightmove.api.outreach.service;
 
 import app.lightmove.api.candidate.model.OutreachRecipient;
 import app.lightmove.api.candidate.service.CandidateOutreachService;
+import app.lightmove.api.candidate.service.OutreachPrivacyService;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.config.LightMoveProperties;
@@ -71,6 +72,7 @@ public class OutreachSendService {
     private final AuditService audit;
     private final LightMoveProperties properties;
     private final AvailabilityService availability;
+    private final OutreachPrivacyService privacy;
 
     public List<UUID> claimDue(Instant now) {
         return claims.claimDue(now, settings().dispatchBatch());
@@ -106,7 +108,7 @@ public class OutreachSendService {
 
         SentEmail sent;
         try {
-            sent = gateway.send(prepared.grantId(), prepared.email());
+            sent = gateway.send(prepared.grantId(), prepared.outgoing());
         } catch (RuntimeException failed) {
             transactions.executeWithoutResult(status -> recordFailure(prepared, failed, now));
             return;
@@ -189,7 +191,8 @@ public class OutreachSendService {
         }
         RenderedEmail rendered = emailOf(enrollment, sequence, recipient.orElseThrow(), mailbox);
         return new PreparedSend(enrollment.getId(), mailbox.getGrantId(), mailbox.getAddress(), rendered.email(),
-                rendered.text(), enrollment.getNextStep());
+                rendered.text(), enrollment.getNextStep(), privacy.footerFor(enrollment.getWorkspaceId(),
+                        enrollment.getPersonId(), enrollment.getSenderUserId(), now));
     }
 
     /** Everything Add to sequence refused at Start, asked again: any of it may have changed since. */
@@ -254,6 +257,10 @@ public class OutreachSendService {
         if (enrollment.getCandidateId() != null) {
             people.recordEmailSent(enrollment.getSenderUserId(), enrollment.getProjectId(), enrollment.getCandidateId(),
                     sequence.getId(), sequence.getName(), prepared.step() + 1, message.getId());
+        }
+        if (prepared.footer() != null && prepared.footer().givesNotice()) {
+            privacy.recordToldByOutreach(enrollment.getWorkspaceId(), enrollment.getPersonId(),
+                    enrollment.getSenderUserId(), now);
         }
         audit.projectEvent(ProjectEventType.OUTREACH_EMAIL_SENT, enrollment.getSenderUserId(),
                         enrollment.getWorkspaceId(), enrollment.getProjectId(), null)

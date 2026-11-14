@@ -99,6 +99,7 @@ public enum ProjectEventType implements AuditEventType {
     /** From the person's own privacy page, with no signed-in actor: an objection, or a copy or deletion asked for. */
     PERSON_OBJECTED,
     PERSON_PRIVACY_REQUESTED,
+    PERSON_OPTED_OUT,
 
     /** The Pipeline page's three working facts: the team's manual order, the next action, client visibility. */
     CANDIDATE_PIPELINE_REORDERED,

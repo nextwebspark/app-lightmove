@@ -423,7 +423,11 @@ lawful basis per person (null follows the workspace's default), Mark as notified
 drawer or the selection bar (`PersonPrivacyService`), sent by Uncava in the firm's name with its reply-to. The notice
 links to the public `/privacy/:token` page (`PrivacyPageService`, resolved through V218's resolver), where the person
 objects (do not contact plus suppression) or asks the admins for a copy or a deletion; a Not notified quick view lists
-anyone held over a month and never told. See `docs/gdpr/privacy-notices-923.md`.
+anyone held over a month and never told. **Every outreach email** (#924, V220) ends with a privacy footer naming the
+firm, where the details came from and a link to stop emails, minted per email and also its one-click
+`List-Unsubscribe` target (Gmail, Nylas; not Microsoft Graph); taking it sets do not contact, suppresses, and stops
+every live run (`OutreachOptOutStop`), and the first such email marks a person never told as notified. See
+`docs/gdpr/privacy-notices-923.md`.
 `CandidateAiEnrichWorker` runs the background alone, unprompted and audited like a press, once a capture's research
 lands or Find executives files someone — asking nothing when nothing is missing, and nothing at all while the
 workspace's AI-enrich on capture is off (`CANDIDATE_AI_ENRICH_ON_CAPTURE` stays the platform's kill-switch above it)

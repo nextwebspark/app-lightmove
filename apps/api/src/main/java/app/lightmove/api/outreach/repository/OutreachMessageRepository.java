@@ -73,6 +73,8 @@ public interface OutreachMessageRepository extends JpaRepository<OutreachMessage
 
     List<OutreachMessage> findByWorkspaceIdAndStatus(UUID workspaceId, MessageStatus status);
 
+    List<OutreachMessage> findByWorkspaceIdAndPersonIdAndStatus(UUID workspaceId, UUID personId, MessageStatus status);
+
     Optional<OutreachMessage> findByIdAndWorkspaceIdAndProjectId(UUID id, UUID workspaceId, UUID projectId);
 
     /** A line of {@code kind} in the thread no read has completed yet, oldest first. */

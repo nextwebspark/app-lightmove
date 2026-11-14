@@ -1,6 +1,7 @@
 package app.lightmove.api.outreach.service;
 
 import app.lightmove.api.outreach.model.EmailAttachment;
+import app.lightmove.api.outreach.model.MailHeader;
 import app.lightmove.api.outreach.model.OutgoingEmail;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -50,6 +51,9 @@ final class RawEmail {
         if (inReplyTo != null) {
             header(raw, "In-Reply-To", inReplyTo);
             header(raw, "References", references == null ? inReplyTo : references + " " + inReplyTo);
+        }
+        for (MailHeader extra : email.headers()) {
+            header(raw, extra.name(), extra.value());
         }
         header(raw, "MIME-Version", "1.0");
         if (!email.hasAttachments()) {

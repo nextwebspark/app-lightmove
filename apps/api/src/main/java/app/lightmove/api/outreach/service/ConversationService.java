@@ -7,6 +7,7 @@ import app.lightmove.api.candidate.model.NoteViewpoint;
 import app.lightmove.api.candidate.dto.CandidateContactsDto;
 import app.lightmove.api.candidate.model.OutreachRecipient;
 import app.lightmove.api.candidate.service.CandidateOutreachService;
+import app.lightmove.api.candidate.service.OutreachPrivacyService;
 import app.lightmove.api.candidate.service.NextActionLookup;
 import app.lightmove.api.candidate.service.PersonNoteService;
 import app.lightmove.api.candidate.service.PersonTimelineService;
@@ -132,6 +133,7 @@ public class ConversationService {
     private final PersonMeetingRepository personMeetings;
     private final UserRepository users;
     private final Clock clock;
+    private final OutreachPrivacyService privacy;
 
     @Transactional(readOnly = true)
     public ConversationListResponse list(UUID userId, UUID workspaceId, UUID projectId, ConversationView view,
@@ -222,7 +224,7 @@ public class ConversationService {
                 people.emailSentMoveOf(workspaceId, projectId, candidateId).orElse(null),
                 new AttachmentLimitsResponse(attachments.limits().maxFiles(), attachments.limits().maxFileBytes(),
                         attachments.limits().maxTotalBytes()),
-                tokens);
+                tokens, privacy.footerStatementsOf(workspaceId, List.of(personId)).get(personId));
     }
 
     private ConversationContactResponse contactOf(UUID workspaceId, UUID projectId, UUID candidateId) {

@@ -46,5 +46,8 @@ public enum OutreachStopReason {
     WORKSPACE_DELETED,
 
     /** A consultant's own email waited past their access to the position: a seat or a membership that went. */
-    SENDER_WITHOUT_ACCESS
+    SENDER_WITHOUT_ACCESS,
+
+    /** The person stopped emails from an email's footer, their mail app's Unsubscribe, or their privacy page. */
+    OPTED_OUT
 }

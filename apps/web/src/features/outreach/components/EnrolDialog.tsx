@@ -43,6 +43,7 @@ import { TokenGapChip, TokenGapLine } from "./TokenGapNotes";
 import { useMailbox } from "../lib/useMailbox";
 import { formatClock, getDateTimePreferences } from "../../../lib/datetime";
 import { SignatureChooser, SignatureUnderEmail } from "../../signatures/components/SignatureChooser";
+import { PrivacyFooterPreview } from "./PrivacyFooterPreview";
 import * as signaturesApi from "../../signatures/api/signaturesApi";
 import { useSignatureChoice, type SignatureChoice } from "../../signatures/lib/useSignatureChoice";
 
@@ -701,6 +702,7 @@ function ReviewStep({
           </div>
           <SignatureUnderEmail choice={signature} />
         </div>
+        {reviewing.privacyFooter && <PrivacyFooterPreview statement={reviewing.privacyFooter} />}
         <TokenGapLine gaps={gapsById.get(reviewing.candidateId) ?? NO_GAPS} firstName={firstName} />
         {sequence.steps.length > 1 && (
           <p className="mt-3 border-t border-u-border pt-2.5 font-mono text-[11.5px] text-u-text3">

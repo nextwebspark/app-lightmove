@@ -159,6 +159,13 @@ public class NylasMailboxGateway implements MailboxGateway {
         if (email.replyToMessageId() != null) {
             message.put("reply_to_message_id", email.replyToMessageId());
         }
+        // Nylas passes these on for a Google grant; for a Microsoft one it says Graph cannot carry List-Unsubscribe,
+        // so there the footer's link is the only way to stop emails.
+        if (!email.headers().isEmpty()) {
+            message.put("custom_headers", email.headers().stream()
+                    .map(header -> Map.of("name", header.name(), "value", header.value()))
+                    .toList());
+        }
         SendAnswer sent = guard.call(VendorCall.of(VENDOR, "send"), () -> (email.hasAttachments()
                         ? client.post()
                                 .uri("/v3/grants/{grantId}/messages/send", grantId)

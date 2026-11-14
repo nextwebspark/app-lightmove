@@ -150,9 +150,11 @@ public class MicrosoftMailboxGateway extends OAuthDirectMailboxGateway {
     }
 
     /**
-     * A draft, then its send. A follow-up is a reply drafted on the last message, which keeps the conversation; that
-     * message is our own, so the reply would go back to the consultant — its recipients are set to the executive
-     * alone before it is sent, whatever Graph drafted.
+     * A draft, then its send. {@link OutgoingEmail#headers()} are not written: Graph's {@code internetMessageHeaders}
+     * takes only {@code x-} names, so {@code List-Unsubscribe} cannot ride a draft and the footer's link is how a
+     * person stops emails from a Microsoft mailbox. A follow-up is a reply drafted on the last message, which keeps
+     * the conversation; that message is our own, so the reply would go back to the consultant — its recipients are set
+     * to the executive alone before it is sent, whatever Graph drafted.
      */
     @Override
     public SentEmail send(String grantId, OutgoingEmail email) {

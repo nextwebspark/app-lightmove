@@ -120,7 +120,9 @@ public enum PersonActivityKind {
     PRIVACY_OBJECTED,
 
     /** The person asked for a copy of their data, or for its deletion, from the public privacy page. */
-    PRIVACY_REQUEST_RECEIVED;
+    PRIVACY_REQUEST_RECEIVED,
+
+    PRIVACY_OPTED_OUT;
 
     /** Kinds still on old rows that no read shows. */
     public static final Set<PersonActivityKind> RETIRED = Set.of(NOTE_EDITED);

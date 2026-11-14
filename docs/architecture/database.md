@@ -483,6 +483,10 @@ notification kinds join their CHECKs (`docs/gdpr/privacy-notices-923.md`).
 V219 adds `failed_at` to `app_lm_person_privacy_link` and `PRIVACY_NOTICE_FAILED` to the activity CHECK: a notice the
 mail provider refused is marked on its row (which still counts against the daily cap) and the person goes back to how
 they were last told (`PrivacyNoticeMailer`).
+V220 adds #924's outreach opt-out: `app_lm_person_privacy_link.purpose` gains `OPT_OUT` (one link per outreach email,
+valid a year) and `used_at`; `OPTED_OUT` joins the enrollment stop-reason and message fail-reason CHECKs,
+`PRIVACY_OPTED_OUT` the activity CHECK and `CANDIDATE_OPTED_OUT` the notification CHECK
+(`docs/gdpr/privacy-notices-923.md`).
 V195 adds `app_lm_workspace_suppression` (`kind` `PROFILE_SLUG | EMAIL`, a keyed `value_hash` unique per workspace and
 kind, the `key_id` it was taken under, `reason` `ERASED | OBJECTED | MANUAL`, an admin's `note`), forced row-level security
 in the same migration.

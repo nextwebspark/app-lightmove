@@ -272,7 +272,14 @@ never a manual task — `completed_by = sender`, `TASK_COMPLETED` line, audit. D
 
 **Cancel** `DELETE …/outreach/messages/{id}`: only `SCHEDULED` with `sending_since IS NULL`
 (`MESSAGE_ALREADY_SENDING`) → `CANCELLED` (row kept, hidden from reads). `PositionArchiveOutreach` also cancels
-the position's scheduled messages; the Disconnect confirm counts them.
+the position's scheduled messages; the Disconnect confirm counts them. `OutreachOptOutStop` (#924) fails a person's
+waiting messages and stops their live runs when they stop emails (`OPTED_OUT`) or object from their privacy page
+(`DO_NOT_CONTACT`, what the send-time re-check would write: an objection is not an email opt-out).
+
+**The privacy footer (#924)**, behind `DATA_PROTECTION_ENABLED`: both send paths mint a stop link in `prepare` and hand
+the gateway `prepared.outgoing()` — the stored body plus the footer, and `List-Unsubscribe` headers where the provider
+takes them (Gmail, Nylas; not Microsoft Graph). The ledger's `body` never holds the footer. Detail in
+`docs/gdpr/privacy-notices-923.md` ("Outreach footer and opt-out").
 
 **Reply task key** (Phase 2): `OutreachReplied` carries `messageId` and a nullable `enrollmentId`;
 `TaskRuleService` keys `"reply:" + messageId` and skips when an open REPLY task already exists for the person on the
@@ -638,6 +645,10 @@ person merge is built, message and attachment rows move with the enrollments.
     FAIL at send.
 12. `copyGuard` / glossary: no "Nylas", "triage", "this deployment"; the old "never keeps what they wrote" sentence
     becomes false; `errorCodes.coverage.test.ts` needs every new code.
+13. The gateway gets `prepared.outgoing()`, never `prepared.email()`: the latter is the ledger's copy, without the
+    privacy footer and its unsubscribe headers (#924). A test asserting an exact sent body meets the footer after it.
+14. Microsoft Graph's `internetMessageHeaders` takes only names starting `x-`, so `MicrosoftMailboxGateway` never
+    writes `List-Unsubscribe`; a Microsoft mailbox's email offers the footer's link alone.
 13. `NoteViewpoint`: never read notes by person alone from this page.
 14. Archived position: scheduled messages cancelled; Send/Schedule disabled under the banner.
 15. Send now is pinned but the cap still holds it; the dispatcher runs every minute, so "within a minute".

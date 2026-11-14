@@ -27,7 +27,8 @@ export type StopReason =
   | "SEND_UNCERTAIN"
   | "POSITION_ARCHIVED"
   /** A consultant's own email only: it waited past its sender's access to the position. */
-  | "SENDER_WITHOUT_ACCESS";
+  | "SENDER_WITHOUT_ACCESS"
+  | "OPTED_OUT";
 
 export interface OutreachRun {
   id: string;

@@ -30,6 +30,7 @@ const KIND_BADGES: Record<NotificationKind, { label: string; glyph: string; clas
   copy_requested: { label: "Privacy request", glyph: ICONS.lock, className: "bg-u-signal" },
   deletion_requested: { label: "Privacy request", glyph: ICONS.lock, className: "bg-u-offlimits" },
   person_objected: { label: "Objection", glyph: ICONS.ban, className: "bg-u-offlimits" },
+  candidate_opted_out: { label: "Opted out", glyph: ICONS.ban, className: "bg-u-offlimits" },
 };
 
 /** One bell row: who, the sentence, where and when; on hover or focus, read, snooze and archive. */

@@ -109,6 +109,12 @@ public class RateLimitGuard {
                 Duration.ofHours(1));
     }
 
+    /** Stop emails from an outreach email's link: a mail provider posts for many people from one IP (RFC 8058). */
+    public void checkPrivacyOptOut(String tokenHash, HttpServletRequest request) {
+        checkRateLimit("privacy-opt-out", tokenHash, request, config.privacyOptOutsPerHour(),
+                config.privacyOptOutsPerHourPerIp(), Duration.ofHours(1));
+    }
+
     /** Keyed on the person, as an email keys the others: the request is signed in and carries none. */
     public void checkDeviceTimeZoneReport(UUID userId, HttpServletRequest request) {
         checkRateLimit("device-time-zone", userId.toString(), request, config.deviceTimeZoneReportsPerHour(),

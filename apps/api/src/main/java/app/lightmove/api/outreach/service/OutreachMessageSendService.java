@@ -2,6 +2,7 @@ package app.lightmove.api.outreach.service;
 
 import app.lightmove.api.candidate.model.OutreachRecipient;
 import app.lightmove.api.candidate.service.CandidateOutreachService;
+import app.lightmove.api.candidate.service.OutreachPrivacyService;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.config.LightMoveProperties;
@@ -70,6 +71,7 @@ public class OutreachMessageSendService {
     private final ApplicationEventPublisher events;
     private final LightMoveProperties properties;
     private final AvailabilityService availability;
+    private final OutreachPrivacyService privacy;
 
     public List<UUID> claimDue(Instant now) {
         return claims.claimDue(now, settings().dispatchBatch());
@@ -112,7 +114,7 @@ public class OutreachMessageSendService {
 
         SentEmail sent;
         try {
-            sent = gateway.send(prepared.grantId(), prepared.email());
+            sent = gateway.send(prepared.grantId(), prepared.outgoing());
         } catch (RuntimeException failed) {
             transactions.executeWithoutResult(status -> recordFailure(prepared, failed, now));
             return;
@@ -187,7 +189,8 @@ public class OutreachMessageSendService {
         }
         message.sendFrom(mailbox.getAddress());
         return new PreparedOwnSend(message.getId(), mailbox.getGrantId(), new OutgoingEmail(message.getToAddress(),
-                message.getSubject(), message.getBody(), message.getInReplyTo()));
+                message.getSubject(), message.getBody(), message.getInReplyTo()),
+                privacy.footerFor(message.getWorkspaceId(), message.getPersonId(), message.getSenderUserId(), now));
     }
 
     /** What the composer refused, asked again: any of it may have changed while the email waited. */
@@ -214,6 +217,10 @@ public class OutreachMessageSendService {
         if (message.getCandidateId() != null) {
             people.recordOwnEmailSent(message.getSenderUserId(), message.getProjectId(), message.getCandidateId(),
                     message.getId());
+        }
+        if (prepared.footer() != null && prepared.footer().givesNotice()) {
+            privacy.recordToldByOutreach(message.getWorkspaceId(), message.getPersonId(), message.getSenderUserId(),
+                    now);
         }
         enrollments.findByWorkspaceIdAndSenderUserIdAndThreadId(message.getWorkspaceId(), message.getSenderUserId(),
                         message.getThreadId()).stream()

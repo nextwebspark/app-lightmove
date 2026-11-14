@@ -17,6 +17,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import org.springframework.stereotype.Component;
+import org.springframework.web.util.HtmlUtils;
 
 /**
  * What each transactional email says; how it looks is {@link EmailRenderer}'s. User-typed values travel
@@ -393,6 +394,14 @@ public class EmailTemplates {
                         plain(noticeUrl), plain(replyTo))), firm, replyTo);
     }
 
+    /** The privacy footer an outreach email ends with; added at send, so a consultant's body never holds it. */
+    public String buildOutreachPrivacyFooterHtml(String statement, String noticeUrl, String stopEmailsUrl) {
+        return "<p style=\"margin:16px 0 0;padding-top:10px;border-top:1px solid #e5e7eb;font-size:12px;"
+                + "line-height:1.55;color:#6b7280\">" + escaped(statement)
+                + " <a href=\"" + escaped(noticeUrl) + "\" style=\"color:#2563eb\">Our privacy notice</a> &middot; "
+                + "<a href=\"" + escaped(stopEmailsUrl) + "\" style=\"color:#2563eb\">Stop emails from us</a></p>";
+    }
+
     /** To each admin, when a person asks from their privacy page; the request itself is answered by a person. */
     public EmailMessage buildPrivacyRequestEmail(String recipient, String recipientName, String executiveName,
                                                  PrivacyRequestEmailKind kind, String link) {
@@ -435,6 +444,10 @@ public class EmailTemplates {
                 + "Settings → Notifications."));
         return renderer.render(recipient, "Your Uncava day — %s".formatted(date),
                 new EmailContent("Your day in Uncava", blocks));
+    }
+
+    private static String escaped(String text) {
+        return HtmlUtils.htmlEscape(text, "UTF-8");
     }
 
     private static String countOf(int count, String noun) {

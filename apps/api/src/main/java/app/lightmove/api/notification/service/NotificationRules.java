@@ -1,6 +1,7 @@
 package app.lightmove.api.notification.service;
 
 import app.lightmove.api.candidate.model.PersonNoteMentioned;
+import app.lightmove.api.candidate.model.PersonOptedOut;
 import app.lightmove.api.candidate.model.PersonPrivacyRequested;
 import app.lightmove.api.candidate.service.CandidateTaskService;
 import app.lightmove.api.core.security.rbac.ProjectAccess;
@@ -131,6 +132,22 @@ public class NotificationRules {
                         requested.personId(), null, null, null,
                         kind.value() + ":" + requested.personId(), name, null, 1, null));
             }
+        });
+    }
+
+    /** To the person's owner, else whoever sent the email they used: the runs have already stopped. */
+    @Async
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void onOptedOut(PersonOptedOut optedOut) {
+        if (optedOut.recipientUserId() == null) {
+            return;
+        }
+        inItsWorkspace(optedOut.workspaceId(), () -> {
+            String name = people.personNamesOf(optedOut.workspaceId(), List.of(optedOut.personId()))
+                    .get(optedOut.personId());
+            deliver(new NotificationDraft(optedOut.workspaceId(), optedOut.recipientUserId(),
+                    NotificationKind.CANDIDATE_OPTED_OUT, null, null, optedOut.personId(), null, null, null,
+                    NotificationKind.CANDIDATE_OPTED_OUT.value() + ":" + optedOut.personId(), name, null, 1, null));
         });
     }
 

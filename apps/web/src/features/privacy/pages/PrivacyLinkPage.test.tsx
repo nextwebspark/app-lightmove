@@ -16,6 +16,7 @@ vi.mock("../api/privacyPageApi", async (importOriginal) => ({
   ...(await importOriginal<typeof privacyPageApi>()),
   getPrivacyPage: vi.fn(),
   objectFromPrivacyPage: vi.fn(),
+  optOutFromPrivacyPage: vi.fn(),
   requestFromPrivacyPage: vi.fn(),
 }));
 
@@ -31,9 +32,9 @@ const PAGE: PrivacyPage = {
   expiresAt: "2026-10-22T10:00:00Z",
 };
 
-function renderPage() {
+function renderPage(path = "/privacy/the-token") {
   return render(
-    <MemoryRouter initialEntries={["/privacy/the-token"]}>
+    <MemoryRouter initialEntries={[path]}>
       <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
         <Routes>
           <Route path="/privacy/:token" element={<PrivacyLinkPage />} />
@@ -66,6 +67,33 @@ describe("PrivacyLinkPage", () => {
 
     expect(await screen.findByRole("heading", { name: "You won't hear from us again" })).toBeInTheDocument();
     expect(privacyPageApi.objectFromPrivacyPage).toHaveBeenCalledWith("the-token");
+  });
+
+  it("opens an email's stop link on its confirmation, and stops emails only once confirmed", async () => {
+    vi.mocked(privacyPageApi.getPrivacyPage).mockResolvedValue(PAGE);
+    vi.mocked(privacyPageApi.optOutFromPrivacyPage).mockResolvedValue(undefined);
+    const user = userEvent.setup();
+    renderPage("/privacy/the-token?action=opt-out");
+
+    expect(
+      await screen.findByRole("heading", { name: "Stop emails from Meridian Search Partners FZ-LLC?" }),
+    ).toBeInTheDocument();
+    expect(privacyPageApi.optOutFromPrivacyPage).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "Stop emails" }));
+
+    expect(await screen.findByRole("heading", { name: "You won't receive more emails from us" })).toBeInTheDocument();
+    expect(privacyPageApi.optOutFromPrivacyPage).toHaveBeenCalledWith("the-token");
+    expect(privacyPageApi.objectFromPrivacyPage).not.toHaveBeenCalled();
+  });
+
+  it("goes from an email's stop link to every choice", async () => {
+    vi.mocked(privacyPageApi.getPrivacyPage).mockResolvedValue(PAGE);
+    const user = userEvent.setup();
+    renderPage("/privacy/the-token?action=opt-out");
+
+    await user.click(await screen.findByRole("button", { name: "See all your choices" }));
+    expect(screen.getByRole("heading", { name: "What we hold about you, and your choices" })).toBeInTheDocument();
+    expect(privacyPageApi.optOutFromPrivacyPage).not.toHaveBeenCalled();
   });
 
   it("asks for a deletion as a request the firm answers", async () => {

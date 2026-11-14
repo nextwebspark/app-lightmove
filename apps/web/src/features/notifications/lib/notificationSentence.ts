@@ -126,6 +126,12 @@ export function sentenceOf(notification: NotificationResponse, now: Date = new D
         where: null,
         sub: { text: "Do not contact set and added to the suppression list", tone: "muted" },
       };
+    case "candidate_opted_out":
+      return {
+        parts: [strong(person), plain(" opted out of emails")],
+        where: null,
+        sub: { text: "Every sequence stopped and do not contact set", tone: "muted" },
+      };
   }
 }
 

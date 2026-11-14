@@ -174,7 +174,8 @@ public class PersonRecordService {
         return new PersonPrivacyResponse(PersonPrivacyService.basisOf(person, firm).value(),
                 person.getLawfulBasis() == null, setter == null ? null : setter.getFullName(),
                 person.getLawfulBasisSetAt(), person.getPrivacyNotifiedAt(),
-                person.getPrivacyNoticeChannel() == null ? null : person.getPrivacyNoticeChannel().value());
+                person.getPrivacyNoticeChannel() == null ? null : person.getPrivacyNoticeChannel().value(),
+                person.optedOutByEmailAt());
     }
 
     private Map<UUID, User> usersOf(Collection<UUID> ids) {

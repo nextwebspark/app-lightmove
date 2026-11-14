@@ -103,6 +103,8 @@ export interface EnrollmentCandidate {
   skipReason: OutreachSkipReason | null;
   inSequence: string | null;
   tokens: RecipientTokens;
+  /** The sentence the privacy footer added at send opens with for them; null when data protection is off. */
+  privacyFooter: string | null;
 }
 
 /** Who the dialog was opened on: one executive from the drawer, or the companies ticked on a stage. */
