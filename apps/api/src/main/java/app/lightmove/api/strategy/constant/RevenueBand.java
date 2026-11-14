@@ -7,14 +7,15 @@ import lombok.experimental.Accessors;
 
 /**
  * Revenue bands in USD. {@code R_UNKNOWN} is added to the wireframe's ten because only about one row in
- * ten carries a figure; it has no bounds, so check {@link #isUnknown()} before reading them.
+ * ten carries a figure; it has no bounds, so check {@link #isUnknown()} before reading them. A revenue of
+ * 0 is Apollo's "unknown" too, so the lowest band starts at 1 and Unknown takes both 0 and no figure.
  */
 @Getter
 @Accessors(fluent = true)
 @RequiredArgsConstructor
 public enum RevenueBand implements CompanySizeBand {
 
-    R_UNDER_1M("under-1m", "< $1M", 0L, 999_999L),
+    R_UNDER_1M("under-1m", "< $1M", 1L, 999_999L),
     R_1M_10M("1m-10m", "$1M - $10M", 1_000_000L, 9_999_999L),
     R_10M_50M("10m-50m", "$10M - $50M", 10_000_000L, 49_999_999L),
     R_50M_100M("50m-100m", "$50M - $100M", 50_000_000L, 99_999_999L),

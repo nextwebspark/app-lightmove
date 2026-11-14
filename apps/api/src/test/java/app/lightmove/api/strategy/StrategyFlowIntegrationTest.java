@@ -237,6 +237,29 @@ class StrategyFlowIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("a revenue of 0 is Unknown, never under $1M, and no Custom Range reaches it")
+    void zeroRevenueIsUnknown() throws Exception {
+        String admin = adminOf("Strategy Zero Revenue Firm");
+        String projectId = project(admin);
+        universe.company("a1", "Small").industry("retail").employees(50).revenue(500_000L).insert();
+        universe.company("a2", "Zero").industry("retail").employees(50).revenue(0L).insert();
+        universe.company("a3", "Unpublished").industry("retail").employees(50).revenue(null).insert();
+
+        assertCount(admin, projectId, """
+                {"industries":[],"keywords":[],"marketSegments":[],"countries":[],"employeeBands":[],
+                 "revenueBands":["under-1m"]}""", 1);
+        assertCount(admin, projectId, """
+                {"industries":[],"keywords":[],"marketSegments":[],"countries":[],"employeeBands":[],
+                 "revenueBands":["unknown"]}""", 2);
+        assertCount(admin, projectId, """
+                {"industries":[],"keywords":[],"marketSegments":[],"countries":[],"employeeBands":[],
+                 "revenueBands":[],"revenueRange":{"min":0,"max":1000000}}""", 1);
+        assertCount(admin, projectId, """
+                {"industries":[],"keywords":[],"marketSegments":[],"countries":[],"employeeBands":[],
+                 "revenueBands":[],"revenueRange":{"min":null,"max":1000000}}""", 1);
+    }
+
+    @Test
     @DisplayName("the name query narrows the count as well as the page")
     void nameQueryNarrowsTheCount() throws Exception {
         String admin = adminOf("Strategy Query Firm");
