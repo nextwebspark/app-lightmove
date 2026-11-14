@@ -227,12 +227,12 @@ latest position recorded, filed into its universe as a plugin capture of someone
 them, sets an owner or exports them (audited, `dataexport`); an Activity feed; and a drawer keyed by
 person id. V98 gives the person the team's own facts — an **owner** (a colleague; it changes nobody's
 access), **do not contact** (warns on every position and refuses a contact lookup,
-`PERSON_DO_NOT_CONTACT`, before anything is spent; it never blocks a mapping; **Recently approached**, V222, warns
-before outreach that a teammate already reached the person on any position — `docs/recently-approached.md`) and **tags** from the
+`PERSON_DO_NOT_CONTACT`, before anything is spent; it never blocks a mapping) and **tags** from the
 workspace's catalog (any staff member adds one, an admin renames, recolours or retires it in Settings →
 Candidate tags under `WORKSPACE_MANAGE`; a person holds the tag's id, so a rename reaches everyone, and a
 retired one stays where it is but is never put on anyone again). Each is a timeline line and an audit
-event, and none rides `CandidateResponse`. **Phase 4b-1**: a hand-typed add of someone the workspace holds by name alone at that employer is
+event, and none rides `CandidateResponse`. **Recently approached** (V222) warns before outreach that someone on the team already
+reached the person on any position, or that they are in process elsewhere (`docs/recently-approached.md`). **Phase 4b-1**: a hand-typed add of someone the workspace holds by name alone at that employer is
 asked first (`409 CANDIDATE_POSSIBLE_DUPLICATE` with `personIds`; the drawer resends with
 `existingPersonId` or `addAsNewPerson`), never on the plugin, import or run doors. A position has **no
 Candidates page of its own**: In universe lists its executives, Outreach works them, and the workspace

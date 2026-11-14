@@ -42,11 +42,11 @@ export function RecentApproachConfirm({
       onClose={handleClose}
     >
       <ul className="flex flex-col gap-1 text-note">
-        {approachLines(approach).map((line) => (
-          <li key={line.text} className="flex items-start gap-2">
+        {approachLines(approach).map((line, index) => (
+          <li key={index} className="flex items-start gap-2">
             <span aria-hidden className="mt-1.5 size-1.5 flex-none rounded-full bg-u-signal" />
             {line.href ? (
-              <Link to={line.href} className="text-u-text hover:underline">
+              <Link to={line.href} target="_blank" rel="noreferrer" className="text-u-text hover:underline">
                 {line.text}
               </Link>
             ) : (

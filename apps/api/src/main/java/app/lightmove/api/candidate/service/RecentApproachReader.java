@@ -38,9 +38,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Recently approached: who on the team has reached these people, on any position, and where else they are mapped —
- * the warning before an email, a sequence or an add. The caller's own touches on the position they are working from
- * are already in their conversation and are left out. A position the caller cannot open is named only as another
- * position, with its stage. It warns and never refuses.
+ * the warning before an email, a sequence or an add. The caller's own touches on the position they are working from,
+ * or on none, are already in their conversation and are left out. A position the caller does not work on as staff is
+ * named only as another position, with its stage. It warns and never refuses.
  */
 @Service
 @RequiredArgsConstructor
@@ -53,8 +53,9 @@ public class RecentApproachReader {
     private static final Set<PersonNoteKind> LOGGED_CONTACT = EnumSet.of(PersonNoteKind.CALL, PersonNoteKind.MEETING,
             PersonNoteKind.EMAIL, PersonNoteKind.LINKEDIN, PersonNoteKind.WHATSAPP);
 
-    private static final Comparator<PersonTouch> REPLY_THEN_NEWEST = Comparator
+    private static final Comparator<PersonTouch> REPLY_THEN_ONGOING_THEN_NEWEST = Comparator
             .comparing((PersonTouch touch) -> touch.kind() != ApproachKind.REPLIED)
+            .thenComparing(touch -> !touch.kind().isOngoing())
             .thenComparing(PersonTouch::at, Comparator.reverseOrder());
 
     private final PersonApproachHistory history;
@@ -98,7 +99,7 @@ public class RecentApproachReader {
         Map<UUID, Project> mandates = projects.findAllById(projectIds).stream()
                 .collect(Collectors.toMap(Project::getId, Function.identity()));
         Set<UUID> viewable = projectAccess.projectsWithAction(callerId, workspaceId, List.copyOf(projectIds),
-                ProjectAction.WORK_VIEW);
+                ProjectAction.WORK_EXECUTE);
         Map<UUID, String> names = namesOf(Stream.concat(
                 touchesByPerson.values().stream().flatMap(List::stream).map(PersonTouch::byUserId),
                 mappedByPerson.values().stream().flatMap(List::stream).map(Candidate::getAddedBy)));
@@ -109,7 +110,7 @@ public class RecentApproachReader {
             List<PersonTouch> touches = touchesByPerson.getOrDefault(personId, List.of());
             List<PersonTouch> recent = touches.stream()
                     .filter(touch -> touch.kind().isOngoing() || !touch.at().isBefore(since))
-                    .sorted(REPLY_THEN_NEWEST).limit(MAX_TOUCHES).toList();
+                    .sorted(REPLY_THEN_ONGOING_THEN_NEWEST).limit(MAX_TOUCHES).toList();
             PersonTouch older = recent.isEmpty()
                     ? touches.stream().max(Comparator.comparing(PersonTouch::at)).orElse(null) : null;
             List<ApproachPositionResponse> elsewhere = elsewhereOf(
@@ -127,7 +128,8 @@ public class RecentApproachReader {
     }
 
     private static boolean isOwnHere(PersonTouch touch, UUID callerId, UUID currentProjectId) {
-        return Objects.equals(touch.byUserId(), callerId) && Objects.equals(touch.projectId(), currentProjectId);
+        return Objects.equals(touch.byUserId(), callerId)
+                && (touch.projectId() == null || Objects.equals(touch.projectId(), currentProjectId));
     }
 
     private static RecentApproachTier tierOf(List<PersonTouch> recent, PersonTouch older,
@@ -149,7 +151,7 @@ public class RecentApproachReader {
                 .sorted(Comparator.comparing(Candidate::getStatusChangedAt,
                         Comparator.nullsLast(Comparator.reverseOrder())))
                 .toList();
-        Stream<Candidate> inProcess = live.stream().filter(row -> row.getStatus().isInProcess());
+        Stream<Candidate> inProcess = live.stream().filter(row -> !row.getStatus().hasLeftTheRunning());
         Stream<Candidate> outOfProcess = live.stream().filter(row -> row.getStatus().hasLeftTheRunning())
                 .limit(MAX_OUT_OF_PROCESS);
         return Stream.concat(inProcess, outOfProcess)
@@ -160,14 +162,14 @@ public class RecentApproachReader {
 
     private static ApproachPositionResponse positionOf(Candidate row, Project mandate, boolean visible,
                                                        Map<UUID, String> names) {
-        boolean placed = PLACED_STATUS_KEY.equals(row.getStatus().getStatusKey());
+        boolean inProcess = !row.getStatus().hasLeftTheRunning();
         String stage = row.getStatus().getStage().getLabel();
         if (!visible) {
-            return new ApproachPositionResponse(null, null, null, null, stage, row.getStatus().isInProcess(), placed,
-                    null, null, false);
+            return new ApproachPositionResponse(null, null, null, null, stage, inProcess, false, null, null, false);
         }
         return new ApproachPositionResponse(row.getProjectId(), mandate.getPositionTitle(), row.getStatus().getLabel(),
-                row.getStatus().getColour().value(), stage, row.getStatus().isInProcess(), placed,
+                row.getStatus().getColour().value(), stage, inProcess,
+                PLACED_STATUS_KEY.equals(row.getStatus().getStatusKey()),
                 names.get(row.getAddedBy()), row.getStatusChangedAt(), true);
     }
 

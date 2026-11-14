@@ -87,3 +87,13 @@ export function hasApproach(approach: RecentApproach | null | undefined): approa
 export function isCaution(approach: RecentApproach | null | undefined): approach is RecentApproach {
   return approach?.tier === "CAUTION";
 }
+
+/** What was confirmed: a new touch or position since asks again, a poll answering the same does not. */
+export function approachKeyOf(approach: RecentApproach | null | undefined): string | null {
+  if (!isCaution(approach)) return null;
+  const touches = approach.touches.map((touch) => `${touch.kind}:${touch.byUserId}:${touch.at}`);
+  const positions = approach.elsewhere
+    .filter((position) => position.inProcess)
+    .map((position) => `${position.projectId ?? position.stageLabel}:${position.placed}`);
+  return [...touches, ...positions].join("|");
+}

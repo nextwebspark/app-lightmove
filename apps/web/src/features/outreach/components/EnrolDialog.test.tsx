@@ -97,10 +97,10 @@ function person(candidateId: string, fullName: string, overrides: Partial<Enroll
   };
 }
 
-function renderDialog() {
+function renderDialog(client = new QueryClient({ defaultOptions: { queries: { retry: false } } })) {
   return render(
     <MemoryRouter>
-      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+      <QueryClientProvider client={client}>
         <ToastProvider>
           <EnrolDialog projectId="p1" scope={{ triageCompanyIds: ["c1"] }} source="From 1 company" onClose={() => {}} />
         </ToastProvider>
@@ -205,9 +205,48 @@ describe("EnrolDialog", () => {
     await userEvent.click(await screen.findByRole("button", { name: "Next" }));
     expect(
       await screen.findByText(
-        "1 left out: someone on your team approached this person recently. Tick them on Choose to include them",
+        "Rajesh Menon is left out: someone on your team approached them recently. Tick their row on Choose to include them",
       ),
     ).toBeInTheDocument();
+  });
+
+  it("keeps a choice when a refetch changes someone's tier, and never ticks a newly approached person unasked", async () => {
+    const emailedBySara = {
+      tier: "CAUTION" as const,
+      windowDays: 90,
+      touches: [
+        { kind: "EMAILED" as const, byUserId: "u2", byName: "Sara Al-Mansour", at: new Date(Date.now() - 86_400_000).toISOString(),
+          projectId: "p1", positionTitle: "Group CFO", samePosition: true, byYou: false, positionHidden: false },
+      ],
+      elsewhere: [],
+      lastApproach: null,
+    };
+    vi.mocked(sequenceApi.getEnrollmentCandidates).mockResolvedValue([
+      person("a", "Priya Raman"),
+      person("b", "Rajesh Menon"),
+      person("c", "Hana Aziz", { recentApproach: emailedBySara }),
+    ]);
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    renderDialog(client);
+
+    await userEvent.click(await screen.findByRole("checkbox", { name: "Rajesh Menon" }));
+    await userEvent.click(screen.getByRole("checkbox", { name: "Hana Aziz" }));
+    const dialog = await screen.findByRole("dialog", { name: "Hana Aziz was recently approached" });
+    await userEvent.click(within(dialog).getByRole("checkbox"));
+    await userEvent.click(within(dialog).getByRole("button", { name: "Include" }));
+    expect(screen.getByRole("checkbox", { name: "Hana Aziz" })).toBeChecked();
+
+    vi.mocked(sequenceApi.getEnrollmentCandidates).mockResolvedValue([
+      person("a", "Priya Raman", { recentApproach: emailedBySara }),
+      person("b", "Rajesh Menon", { recentApproach: emailedBySara }),
+      person("c", "Hana Aziz"),
+    ]);
+    await client.invalidateQueries();
+
+    await waitFor(() => expect(screen.getByRole("checkbox", { name: "Priya Raman" })).not.toBeChecked());
+    expect(screen.getByRole("checkbox", { name: "Rajesh Menon" })).not.toBeChecked();
+    expect(screen.getByRole("checkbox", { name: "Hana Aziz" })).toBeChecked();
+    expect(screen.getByRole("button", { name: "Review 1 email" })).toBeEnabled();
   });
 
   it("ticks the sender's default under the email, on every email of the run, and starts with it", async () => {

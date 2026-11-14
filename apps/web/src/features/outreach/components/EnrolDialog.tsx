@@ -125,8 +125,9 @@ export function EnrolDialog({
 
   const [step, setStep] = useState<EnrolStep>("choose");
   const [chosenSequenceId, setChosenSequenceId] = useState<string | null>(null);
-  // Ticks moved off each person's default: everyone addable starts ticked, someone recently approached unticked.
-  const [flipped, setFlipped] = useState<ReadonlySet<string>>(new Set());
+  // Choices, never flips of the live default: a refetch that turns someone recently approached keeps them out until
+  // their dialog is confirmed, and one confirmed or left out stays that way whatever the list says next.
+  const [ticks, setTicks] = useState<TickChoices>(NO_CHOICES);
   const [confirming, setConfirming] = useState<EnrollmentCandidate | null>(null);
   const [reviewed, setReviewed] = useState<Record<string, ReviewedEmail>>({});
   const [reviewingId, setReviewingId] = useState<string | null>(null);
@@ -146,22 +147,26 @@ export function EnrolDialog({
   const everyone = people.data ?? [];
   const addable = everyone.filter((person) => person.skipReason === null);
   const skipped = everyone.filter((person) => person.skipReason !== null);
-  const chosen = addable.filter((person) => isTicked(person, flipped));
+  const ticked = addable.filter((person) => isTicked(person, ticks));
+  // Past Choose, only the people reviewed there: someone a refetch ticks afterwards waits for the next Review.
+  const chosen = step === "choose" ? ticked : ticked.filter((person) => reviewed[person.candidateId]);
   const approached = addable.filter((person) => isCaution(person.recentApproach));
-  const flip = (candidateId: string) =>
-    setFlipped((current) => {
-      const next = new Set(current);
-      if (next.has(candidateId)) next.delete(candidateId);
-      else next.add(candidateId);
-      return next;
-    });
+  const include = (candidateId: string, isConfirmed: boolean) =>
+    setTicks((current) => ({
+      leftOut: without(current.leftOut, candidateId),
+      confirmed: isConfirmed ? new Set(current.confirmed).add(candidateId) : current.confirmed,
+    }));
+  const leaveOut = (candidateId: string) =>
+    setTicks((current) => ({
+      leftOut: new Set(current.leftOut).add(candidateId),
+      confirmed: without(current.confirmed, candidateId),
+    }));
   const handleToggle = (candidateId: string) => {
     const person = addable.find((candidate) => candidate.candidateId === candidateId);
-    if (person && isCaution(person.recentApproach) && !isTicked(person, flipped)) {
-      setConfirming(person);
-      return;
-    }
-    flip(candidateId);
+    if (!person) return;
+    if (isTicked(person, ticks)) leaveOut(candidateId);
+    else if (isCaution(person.recentApproach)) setConfirming(person);
+    else include(candidateId, false);
   };
   const isOverTheCap = chosen.length > sequenceApi.MAX_PEOPLE_PER_START;
   const connection = mailbox.data?.connection ?? null;
@@ -378,7 +383,7 @@ export function EnrolDialog({
           isLoading={people.isPending}
           loadError={people.isError ? messageFor(people.error) : null}
           everyone={everyone}
-          flipped={flipped}
+          ticks={ticks}
           onToggle={handleToggle}
         />
       )}
@@ -390,7 +395,7 @@ export function EnrolDialog({
           confirmLabel="Include"
           onClose={() => setConfirming(null)}
           onConfirm={() => {
-            flip(confirming.candidateId);
+            include(confirming.candidateId, true);
             setConfirming(null);
           }}
         />
@@ -476,7 +481,7 @@ function ChooseStep({
   isLoading,
   loadError,
   everyone,
-  flipped,
+  ticks,
   onToggle,
 }: {
   projectId: string;
@@ -488,7 +493,7 @@ function ChooseStep({
   isLoading: boolean;
   loadError: string | null;
   everyone: EnrollmentCandidate[];
-  flipped: ReadonlySet<string>;
+  ticks: TickChoices;
   onToggle: (candidateId: string) => void;
 }) {
   const byCompany = useMemo(() => {
@@ -576,7 +581,7 @@ function ChooseStep({
                   <input
                     type="checkbox"
                     disabled={isSkipped}
-                    checked={isTicked(person, flipped)}
+                    checked={isTicked(person, ticks)}
                     onChange={() => onToggle(person.candidateId)}
                     aria-label={person.fullName}
                   />
@@ -586,7 +591,8 @@ function ChooseStep({
                   )}
                   <span
                     className={cn(
-                      "ms-auto shrink-0 font-mono text-[11.5px]",
+                      "ms-auto font-mono text-[11.5px]",
+                      approachNote ? "min-w-0 truncate" : "shrink-0",
                       person.skipReason === "DO_NOT_CONTACT"
                         ? "text-u-offlimits"
                         : approachNote
@@ -954,19 +960,42 @@ function openerPlaceholderOf(email: ReviewedEmail): string | undefined {
   return undefined;
 }
 
-function isTicked(person: EnrollmentCandidate, flipped: ReadonlySet<string>): boolean {
-  if (person.skipReason !== null) return false;
-  return isCaution(person.recentApproach) === flipped.has(person.candidateId);
+interface TickChoices {
+  /** Unticked by hand. */
+  leftOut: ReadonlySet<string>;
+  /** Ticked through the recently approached dialog. */
+  confirmed: ReadonlySet<string>;
 }
 
-/** "1 included, 2 left out": a teammate reached them first, so each one in is a choice someone made on Choose. */
+const NO_CHOICES: TickChoices = { leftOut: new Set(), confirmed: new Set() };
+
+function without(ids: ReadonlySet<string>, candidateId: string): ReadonlySet<string> {
+  if (!ids.has(candidateId)) return ids;
+  const next = new Set(ids);
+  next.delete(candidateId);
+  return next;
+}
+
+/** Everyone addable is ticked unless left out; someone recently approached only once their dialog was confirmed. */
+function isTicked(person: EnrollmentCandidate, ticks: TickChoices): boolean {
+  if (person.skipReason !== null || ticks.leftOut.has(person.candidateId)) return false;
+  return !isCaution(person.recentApproach) || ticks.confirmed.has(person.candidateId);
+}
+
+/** A teammate reached them first, so each one in is a choice someone made on Choose. */
 function approachedSummaryOf(approached: EnrollmentCandidate[], chosen: EnrollmentCandidate[]): string {
   const chosenIds = new Set(chosen.map((person) => person.candidateId));
   const included = approached.filter((person) => chosenIds.has(person.candidateId)).length;
   const leftOut = approached.length - included;
+  if (approached.length === 1) {
+    const [only] = approached;
+    return included === 1
+      ? `${only.fullName} is included: someone on your team approached them recently`
+      : `${only.fullName} is left out: someone on your team approached them recently. Tick their row on Choose to include them`;
+  }
   const parts = [included > 0 && `${included} included`, leftOut > 0 && `${leftOut} left out`].filter(Boolean);
-  const hint = leftOut > 0 ? ". Tick them on Choose to include them" : "";
-  return `${parts.join(", ")}: someone on your team approached ${approached.length === 1 ? "this person" : "them"} recently${hint}`;
+  const hint = leftOut > 0 ? ". Tick their rows on Choose to include them" : "";
+  return `${parts.join(", ")}: someone on your team approached them recently${hint}`;
 }
 
 function skipNoteOf(person: EnrollmentCandidate): string {

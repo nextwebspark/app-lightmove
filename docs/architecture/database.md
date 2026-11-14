@@ -491,9 +491,10 @@ V221 adds #928's terms and DPA records: `app_lm_pending_registration` (a first p
 are ticked — provider, subject, address, name, picture link, a token's SHA-256, ten minutes, single use; global, so
 outside row-level security) and `dpa_accepted_at`, `dpa_version`, `dpa_accepted_by` on `app_lm_workspace`, set together
 or not at all (`docs/gdpr/terms-acceptance-928.md`).
-V222 adds `app_lm_workspace.recently_approached_days` (default 90, 0 to 365, 0 off) and
-`app_lm_outreach_message_person_idx` on `(workspace_id, person_id, occurred_at)`, for Recently approached's read of
-every email to and from a person across positions (`docs/recently-approached.md`).
+V222 adds `app_lm_workspace.recently_approached_days` (default 90, 0 to 365, 0 off),
+`app_lm_outreach_message_person_idx` on `(workspace_id, person_id, occurred_at)` and
+`app_lm_outreach_enrollment_live_person_idx` on `(workspace_id, person_id)` for live runs, for Recently approached's
+read of every email to and from a person, and their sequences, across positions (`docs/recently-approached.md`).
 V195 adds `app_lm_workspace_suppression` (`kind` `PROFILE_SLUG | EMAIL`, a keyed `value_hash` unique per workspace and
 kind, the `key_id` it was taken under, `reason` `ERASED | OBJECTED | MANUAL`, an admin's `note`), forced row-level security
 in the same migration.

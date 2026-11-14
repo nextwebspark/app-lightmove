@@ -35,7 +35,7 @@ export function SettingsMeetingsPage() {
         <CardsSkeleton />
       ) : (
         <MeetingsForm
-          key={`${JSON.stringify(availability.data)}:${workspace.data.recentlyApproachedDays}`}
+          key={JSON.stringify(availability.data)}
           saved={availability.data}
           savedApproachDays={workspace.data.recentlyApproachedDays}
         />
@@ -68,18 +68,18 @@ function MeetingsForm({ saved, savedApproachDays }: { saved: WorkspaceAvailabili
       : null;
 
   const save = useMutation({
+    // The window first: it never remounts the form, so hours that then fail to save are still on screen to retry.
     mutationFn: async () => {
-      const next = await availabilityApi.putWorkspaceAvailability({
-        weeklyHours: workingDaysOf(week),
-        dailyEmailCap: capNumber,
-      });
       if (approachDaysNumber !== savedApproachDays) {
         queryClient.setQueryData(
           workspaceApi.WORKSPACE_KEY,
           await workspaceApi.changeRecentlyApproached(approachDaysNumber),
         );
       }
-      return next;
+      return availabilityApi.putWorkspaceAvailability({
+        weeklyHours: workingDaysOf(week),
+        dailyEmailCap: capNumber,
+      });
     },
     onSuccess: (next) => {
       queryClient.setQueryData(availabilityApi.WORKSPACE_AVAILABILITY_KEY, next);

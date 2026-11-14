@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../../../components/ui";
 import { typeInto } from "../../../test/noteEditor";
 import * as documentsApi from "../../candidates/api/documentsApi";
+import type { ApproachTouch } from "../../candidates/api/types";
 import * as emailTemplatesApi from "../../emailtemplates/api/emailTemplatesApi";
 import type { EmailTemplate } from "../../emailtemplates/api/emailTemplatesApi";
 import * as signaturesApi from "../../signatures/api/signaturesApi";
@@ -620,5 +621,36 @@ describe("ReplyComposer", () => {
     await userEvent.click(within(dialog).getByRole("checkbox"));
     await userEvent.click(sendAnyway);
     await waitFor(() => expect(conversationApi.sendMessage).toHaveBeenCalledTimes(1));
+  });
+
+  it("asks once for what it showed, and again when a new approach arrives while the composer is open", async () => {
+    vi.mocked(conversationApi.sendMessage).mockRejectedValue(new Error("offline"));
+    const sarasEmail: ApproachTouch = { kind: "EMAILED", byUserId: "u2", byName: "Sara Al-Mansour",
+      at: new Date(Date.now() - 12 * 86_400_000).toISOString(), projectId: "p2", positionTitle: "Head of Credit Risk",
+      samePosition: false, byYou: false, positionHidden: false };
+    const approached = (touches: ApproachTouch[]) =>
+      conversation({
+        composer: {
+          ...conversation().composer,
+          recentApproach: { tier: "CAUTION", windowDays: 90, touches, elsewhere: [], lastApproach: null },
+        },
+      });
+    const { rerender } = render(composerFor(approached([sarasEmail])), { wrapper });
+    await writeFirstEmail();
+    await userEvent.click(screen.getByRole("button", { name: "Send now" }));
+    const dialog = await screen.findByRole("dialog");
+    await userEvent.click(within(dialog).getByRole("checkbox"));
+    await userEvent.click(within(dialog).getByRole("button", { name: "Send anyway" }));
+    await waitFor(() => expect(conversationApi.sendMessage).toHaveBeenCalledTimes(1));
+
+    rerender(composerFor(approached([{ ...sarasEmail }])));
+    await userEvent.click(await screen.findByRole("button", { name: "Send now" }));
+    await waitFor(() => expect(conversationApi.sendMessage).toHaveBeenCalledTimes(2));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+
+    rerender(composerFor(approached([{ ...sarasEmail, kind: "REPLIED", at: new Date().toISOString() }, sarasEmail])));
+    await userEvent.click(await screen.findByRole("button", { name: "Send now" }));
+    expect(await screen.findByRole("dialog")).toHaveTextContent("Replied to Sara Al-Mansour");
+    expect(conversationApi.sendMessage).toHaveBeenCalledTimes(2);
   });
 });

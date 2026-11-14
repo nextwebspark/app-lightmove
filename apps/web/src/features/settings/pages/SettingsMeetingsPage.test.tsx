@@ -111,6 +111,29 @@ describe("SettingsMeetingsPage", () => {
     await waitFor(() => expect(workspaceApi.changeRecentlyApproached).toHaveBeenCalledWith(30));
   });
 
+  it("keeps the hours on screen when they fail to save after the window did, and does not resend the window", async () => {
+    vi.mocked(availabilityApi.putWorkspaceAvailability).mockRejectedValue(new Error("offline"));
+    vi.mocked(workspaceApi.changeRecentlyApproached).mockResolvedValue({ ...WORKSPACE, recentlyApproachedDays: 30 });
+    renderPage();
+
+    const approachWindow = await screen.findByRole("spinbutton", { name: "Recently approached window" });
+    await userEvent.clear(approachWindow);
+    await userEvent.type(approachWindow, "30");
+    const cap = screen.getByRole("spinbutton", { name: "Daily email limit" });
+    await userEvent.clear(cap);
+    await userEvent.type(cap, "40");
+    await userEvent.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() => expect(availabilityApi.putWorkspaceAvailability).toHaveBeenCalledTimes(1));
+    expect(screen.getByRole("spinbutton", { name: "Daily email limit" })).toHaveValue(40);
+    expect(screen.getByRole("spinbutton", { name: "Recently approached window" })).toHaveValue(30);
+
+    vi.mocked(availabilityApi.putWorkspaceAvailability).mockResolvedValue(SAUDI);
+    await userEvent.click(screen.getByRole("button", { name: "Save changes" }));
+    await waitFor(() => expect(availabilityApi.putWorkspaceAvailability).toHaveBeenCalledTimes(2));
+    expect(workspaceApi.changeRecentlyApproached).toHaveBeenCalledTimes(1);
+  });
+
   it("will not save a week nobody works or a cap past the deployment's", async () => {
     renderPage();
 

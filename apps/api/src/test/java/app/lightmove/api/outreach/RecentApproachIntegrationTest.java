@@ -9,9 +9,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import app.lightmove.api.FixtureJdbc;
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
+import java.sql.Timestamp;
 import java.time.Duration;
 import java.time.Instant;
-import java.sql.Timestamp;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -110,6 +110,60 @@ class RecentApproachIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("a client seat on the other position does not open it: it stays unnamed, and never says placed")
+    void aClientSeatElsewhereKeepsItUnnamed() throws Exception {
+        jdbc.update("""
+                with seat as (
+                    insert into app_lm_project_member (project_id, member_id, added_by)
+                    select ?::uuid, id, ?::uuid from app_lm_workspace_member
+                    where user_id = ?::uuid and workspace_id = ?::uuid
+                    returning id)
+                insert into app_lm_project_member_role (project_member_id, role_id)
+                select seat.id, role.id from seat, app_lm_role role where role.name = 'CLIENT' and role.scope = 'PROJECT'
+                """, cfoSearch, yaraId, saraId, workspaceId);
+        moveTo(laylaOnCfo, "placed");
+        email(yaraId, cfoSearch, "OUTBOUND", "MANUAL", "SENT", Duration.ofDays(4));
+
+        JsonNode approach = body(as(sara, get("/api/v1/projects/" + creditRiskSearch + "/outreach/conversations/"
+                        + laylaOnCreditRisk)).andExpect(status().isOk()).andReturn()).at("/composer/recentApproach");
+        assertThat(approach.at("/touches/0/positionHidden").asBoolean()).isTrue();
+        JsonNode elsewhere = approach.at("/elsewhere/0");
+        assertThat(elsewhere.get("visible").asBoolean()).isFalse();
+        assertThat(elsewhere.get("inProcess").asBoolean()).isTrue();
+        assertThat(elsewhere.get("placed").asBoolean()).isFalse();
+        assertThat(approach.toString()).doesNotContain("Group CFO").doesNotContain(cfoSearch);
+    }
+
+    @Test
+    @DisplayName("a retired status that has not left the running is still in process elsewhere")
+    void aRetiredStatusIsStillInProcess() throws Exception {
+        jdbc.update("""
+                insert into app_lm_workspace_candidate_status (workspace_id, stage_id, key, label, position)
+                select workspace_id, stage_id, 'heldForLater', 'Held for later', 99
+                from app_lm_workspace_candidate_status where workspace_id = ?::uuid and key = 'interested'
+                """, workspaceId);
+        moveTo(laylaOnCreditRisk, "heldForLater");
+        jdbc.update("""
+                update app_lm_workspace_candidate_status set retired_at = now()
+                where workspace_id = ?::uuid and key = 'heldForLater'""", workspaceId);
+
+        JsonNode approach = composerApproach();
+        assertThat(approach.get("tier").asText()).isEqualTo("CAUTION");
+        assertThat(approach.at("/elsewhere/0/inProcess").asBoolean()).isTrue();
+        assertThat(approach.at("/elsewhere/0/statusLabel").asText()).isEqualTo("Held for later");
+    }
+
+    @Test
+    @DisplayName("the caller's own call logged on no position is already in their conversation")
+    void ownLogWithNoPositionIsLeftOut() throws Exception {
+        jdbc.update("""
+                insert into app_lm_person_note (workspace_id, person_id, kind, body, author_user_id, occurred_at)
+                values (?::uuid, ?::uuid, 'CALL', 'Called from the pool', ?::uuid, now() - interval '2 days')
+                """, workspaceId, laylaPersonId, yaraId);
+        assertThat(composerApproach().get("touches")).isEmpty();
+    }
+
+    @Test
     @DisplayName("a reply leads, and a logged LinkedIn message counts as an approach")
     void aReplyLeadsAndLoggedTouchesCount() throws Exception {
         email(saraId, creditRiskSearch, "OUTBOUND", "MANUAL", "SENT", Duration.ofDays(12));
@@ -160,11 +214,7 @@ class RecentApproachIntegrationTest extends FlowTestSupport {
     @Test
     @DisplayName("out of process elsewhere is a quiet line, and an archived position says nothing")
     void outOfProcessElsewhereIsQuiet() throws Exception {
-        jdbc.update("""
-                update app_lm_project_candidate set status_id = (
-                    select id from app_lm_workspace_candidate_status
-                    where workspace_id = ?::uuid and key = 'notInterested')
-                where id = ?::uuid""", workspaceId, laylaOnCreditRisk);
+        moveTo(laylaOnCreditRisk, "notInterested");
         JsonNode approach = composerApproach();
         assertThat(approach.get("tier").asText()).isEqualTo("INFO");
         assertThat(approach.at("/elsewhere/0/inProcess").asBoolean()).isFalse();
@@ -193,6 +243,13 @@ class RecentApproachIntegrationTest extends FlowTestSupport {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"candidateIds\":[\"%s\"]}".formatted(laylaOnCfo)))
                 .andExpect(status().isOk()).andReturn()).at("/people/0");
+    }
+
+    private void moveTo(String candidateId, String statusKey) {
+        jdbc.update("""
+                update app_lm_project_candidate set status_id = (
+                    select id from app_lm_workspace_candidate_status where workspace_id = ?::uuid and key = ?)
+                where id = ?::uuid""", workspaceId, statusKey, candidateId);
     }
 
     private ResultActions changeWindow(String token, int days) throws Exception {

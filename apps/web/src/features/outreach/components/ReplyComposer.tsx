@@ -12,7 +12,7 @@ import { templateVocabulary } from "../../emailtemplates/lib/templateVariables";
 import type { RecentApproach } from "../../candidates/api/types";
 import { RecentApproachConfirm } from "../../candidates/components/RecentApproachConfirm";
 import { RecentApproachNote } from "../../candidates/components/RecentApproachNote";
-import { isCaution } from "../../candidates/lib/recentApproach";
+import { approachKeyOf, isCaution } from "../../candidates/lib/recentApproach";
 import { NoteEditor, type NoteEditorHandle } from "../../notes/components/NoteEditor";
 import { parseNoteMarkdown, plainNoteDoc, serializeNoteDoc } from "../../notes/lib/noteMarkdown";
 import { PrivacyFooterNote } from "./PrivacyFooterPreview";
@@ -158,8 +158,13 @@ function OpenComposer({
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
   const [chosenAddress, setChosenAddress] = useState(emails[0]);
-  const [isApproachUnderstood, setIsApproachUnderstood] = useState(false);
+  const [understoodApproach, setUnderstoodApproach] = useState<string | null>(null);
   const [heldSend, setHeldSend] = useState<{ at: Date | null } | null>(null);
+  const isApproaching = isCaution(recentApproach);
+  const approachKey = approachKeyOf(recentApproach);
+  useEffect(() => {
+    if (!isApproaching) setHeldSend(null);
+  }, [isApproaching]);
   const [attachments, setAttachments] = useState<ComposerAttachment[]>([]);
   const [appliedTemplateId, setAppliedTemplateId] = useState<string | null>(null);
   const [isSavingTemplate, setIsSavingTemplate] = useState(false);
@@ -282,7 +287,7 @@ function OpenComposer({
     !send.isPending &&
     !signature.isPending;
   const requestSend = (at: Date | null) => {
-    if (isCaution(recentApproach) && !isApproachUnderstood) {
+    if (isApproaching && understoodApproach !== approachKey) {
       setHeldSend({ at });
       return;
     }
@@ -391,7 +396,7 @@ function OpenComposer({
               </p>
             )}
             <RecentApproachNote approach={recentApproach} className="mt-1.5" />
-            {isCaution(recentApproach) && (
+            {isApproaching && (
               <RecentApproachConfirm
                 open={heldSend !== null}
                 fullName={fullName}
@@ -400,9 +405,9 @@ function OpenComposer({
                 onClose={() => setHeldSend(null)}
                 onConfirm={() => {
                   const held = heldSend;
-                  setIsApproachUnderstood(true);
+                  setUnderstoodApproach(approachKey);
                   setHeldSend(null);
-                  if (held) send.mutate(held.at);
+                  if (held && canSend) send.mutate(held.at);
                 }}
               />
             )}
