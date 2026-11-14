@@ -50,6 +50,13 @@ export const STOP_REASONS: Record<string, string> = {
   BOOKED: "A call was booked",
 };
 
+/** A `LAWFUL_BASIS_CHANGED` line's basis, as the server writes it (an enum name). */
+const BASES: Record<string, string> = {
+  LEGITIMATE_INTEREST: "Legitimate interest",
+  CONSENT: "Consent",
+  CONTRACT: "Contract",
+};
+
 /** The fields an `UPDATED_FROM_CALL` line names, by the key the server writes; never their values. */
 const CALL_FIELDS: Record<string, string> = {
   noticePeriod: "Notice period",
@@ -239,6 +246,30 @@ function phraseOf(
       return { text: `restricted processing${onThem}`, detail: null };
     case "PROCESSING_RESTRICTION_LIFTED":
       return { text: `lifted the processing restriction${onThem}`, detail: null };
+    case "LAWFUL_BASIS_CHANGED":
+      return {
+        text: details.basis ? `recorded a lawful basis${forThem}` : `put the lawful basis${forThem} back on the default`,
+        detail: details.basis ? BASES[details.basis] ?? null : null,
+      };
+    case "PRIVACY_NOTICE_SENT":
+      return {
+        text: `told${them || " them"} the firm holds their details`,
+        detail: details.channel === "OUTREACH_EMAIL" ? "In the first outreach email" : "Privacy notice",
+      };
+    case "PRIVACY_NOTICE_MARKED":
+      return { text: `marked${them} as notified`, detail: details.notifiedOn ? `Told on ${details.notifiedOn}` : null };
+    case "PRIVACY_NOTICE_FAILED":
+      return {
+        text: `sent${them || " them"} a privacy notice that could not be delivered`,
+        detail: "Not marked as notified",
+      };
+    case "PRIVACY_OBJECTED":
+      return { text: "objected from their privacy page", detail: "Do not contact set and added to the suppression list" };
+    case "PRIVACY_REQUEST_RECEIVED":
+      return {
+        text: details.kind === "deletion" ? "asked for their data to be deleted" : "asked for a copy of their data",
+        detail: "From their privacy page",
+      };
     case "OUTREACH_ENROLLED":
       return {
         text: `added${them} to ${details.sequence ? `the sequence ${details.sequence}` : "a sequence"} on ${where}`,

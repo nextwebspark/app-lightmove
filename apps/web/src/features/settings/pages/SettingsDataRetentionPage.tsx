@@ -6,7 +6,9 @@ import { useAuth } from "../../auth/AuthProvider";
 import { useDataProtection } from "../../candidates/lib/useDataProtection";
 import * as workspaceApi from "../../workspace/api/workspaceApi";
 import * as dataRetentionApi from "../api/dataRetentionApi";
+import * as candidatePrivacyApi from "../../candidates/api/candidatePrivacyApi";
 import { AiOnPeopleCard } from "../components/AiOnPeopleCard";
+import { CandidatePrivacyCard } from "../components/CandidatePrivacyCard";
 import { CandidateRetentionCard } from "../components/CandidateRetentionCard";
 import { DueForDeletionCard } from "../components/DueForDeletionCard";
 import { SuppressionListCard } from "../components/SuppressionListCard";
@@ -28,7 +30,7 @@ export function SettingsDataRetentionPage() {
         title="Data & retention"
         subtitle={
           dataProtection.offered
-            ? "What the AI may work out, how long candidates are kept, and who must never be added again."
+            ? "What the AI may work out, what candidates are told, how long they are kept, and who must never be added again."
             : "What the AI may work out about the people you hold."
         }
       />
@@ -50,9 +52,20 @@ function DataRetentionSettings() {
     queryKey: dataRetentionApi.CANDIDATE_RETENTION_KEY,
     queryFn: ({ signal }) => dataRetentionApi.getCandidateRetention(signal),
   });
+  const privacy = useQuery({
+    queryKey: candidatePrivacyApi.CANDIDATE_PRIVACY_KEY,
+    queryFn: ({ signal }) => candidatePrivacyApi.getCandidatePrivacy(signal),
+  });
 
   return (
     <>
+      {privacy.isError ? (
+        <p className="text-note text-u-text3">{messageFor(privacy.error)}</p>
+      ) : privacy.isPending ? (
+        <CardsSkeleton />
+      ) : (
+        <CandidatePrivacyCard saved={privacy.data} />
+      )}
       {retention.isError ? (
         <p className="text-note text-u-text3">{messageFor(retention.error)}</p>
       ) : retention.isPending ? (

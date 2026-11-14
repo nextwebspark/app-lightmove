@@ -1,8 +1,10 @@
 import { request, requestBlob } from "../../../lib/apiClient";
 import { HISTORY_LIMIT, type ActivityHistory } from "./personCrmApi";
 import type {
+  BulkPrivacyNoticeResult,
   CandidateTag,
   CandidateTagColour,
+  LawfulBasis,
   MapToPositionResult,
   PersonErasurePreview,
   PersonNote,
@@ -67,7 +69,9 @@ export function listPool(
   const params = poolQueryOf(filters);
   params.set("page", String(page));
   params.set("size", String(size));
-  return request<PoolPage>(`/candidates?${params}`, { signal });
+  return request<PoolPage & { viewCounts: { notNotified?: number } }>(`/candidates?${params}`, { signal }).then(
+    (page) => ({ ...page, viewCounts: { ...page.viewCounts, not_notified: page.viewCounts.notNotified ?? 0 } }),
+  );
 }
 
 /** Everyone the filters show, as the CSV the server writes. */
@@ -143,6 +147,32 @@ export function setProcessingRestriction(
   return request<PersonRecord>(`/candidates/${personId}/processing-restriction`, {
     method: "PUT",
     body: { restricted, reason, suppress },
+  });
+}
+
+/** A basis to record on the person, or null to put them back on the workspace's default (#923). */
+export function setLawfulBasis(personId: string, lawfulBasis: LawfulBasis | null): Promise<PersonRecord> {
+  return request<PersonRecord>(`/candidates/${personId}/lawful-basis`, { method: "PUT", body: { lawfulBasis } });
+}
+
+/** Emails the person a privacy notice from Uncava in the firm's name; they are marked notified once it goes. */
+export function sendPrivacyNotice(personId: string): Promise<PersonRecord> {
+  return request<PersonRecord>(`/candidates/${personId}/privacy-notice`, { method: "POST" });
+}
+
+/** Records that a colleague told them another way; `notifiedOn` is a `YYYY-MM-DD` day, today or earlier. */
+export function markNotified(personId: string, notifiedOn: string): Promise<PersonRecord> {
+  return request<PersonRecord>(`/candidates/${personId}/privacy-notice/marked`, {
+    method: "POST",
+    body: { notifiedOn },
+  });
+}
+
+/** Sends everyone it can; who it could not reach comes back with why, never dropped silently. */
+export function sendPrivacyNotices(personIds: string[]): Promise<BulkPrivacyNoticeResult> {
+  return request<BulkPrivacyNoticeResult>("/candidates/bulk/privacy-notice", {
+    method: "POST",
+    body: { personIds },
   });
 }
 

@@ -37,6 +37,8 @@ public record PersonRecordResponse(
         DoNotContactResponse doNotContact,
         /** Null unless processing of the person is restricted. */
         ProcessingRestrictionResponse processingRestriction,
+        /** The lawful basis in force and whether, and how, the person was told (#923). */
+        PersonPrivacyResponse privacy,
         List<UUID> tagIds,
         /** A {@code CandidateSource} wire token: the door the person first came through. */
         String source,

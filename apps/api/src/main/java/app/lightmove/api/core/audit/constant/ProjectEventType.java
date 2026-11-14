@@ -89,6 +89,16 @@ public enum ProjectEventType implements AuditEventType {
     PERSON_RETENTION_KEPT,
     /** Everything held on a person left as one zip, to answer their subject access request (#919). Counts only. */
     PERSON_SUBJECT_ACCESS_EXPORTED,
+    /** A person's lawful basis recorded or put back on the workspace's default (#923). Records the basis only. */
+    PERSON_LAWFUL_BASIS_CHANGED,
+    /** A privacy notice sent to a person, or a colleague recording they were told another way. By id. */
+    PERSON_PRIVACY_NOTICE_SENT,
+    PERSON_PRIVACY_NOTICE_MARKED,
+    /** The mail provider refused a privacy notice after it was recorded; the person is no longer marked told by it. */
+    PERSON_PRIVACY_NOTICE_FAILED,
+    /** From the person's own privacy page, with no signed-in actor: an objection, or a copy or deletion asked for. */
+    PERSON_OBJECTED,
+    PERSON_PRIVACY_REQUESTED,
 
     /** The Pipeline page's three working facts: the team's manual order, the next action, client visibility. */
     CANDIDATE_PIPELINE_REORDERED,

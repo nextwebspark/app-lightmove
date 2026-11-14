@@ -39,6 +39,10 @@ public class PersonPoolQuery {
 
     private static final String OWNED_BY_CALLER = "p.owner_user_id = :caller";
 
+    /** Art. 14's month: held longer than that and never told the firm holds their data. */
+    private static final String NOT_NOTIFIED =
+            "p.privacy_notified_at IS NULL AND p.created_at < now() - interval '30 days'";
+
     private final NamedParameterJdbcTemplate jdbc;
 
     public List<UUID> page(UUID workspaceId, UUID callerId, PoolCriteria criteria, int offset, int limit) {
@@ -70,10 +74,12 @@ public class PersonPoolQuery {
                 + " count(*) FILTER (WHERE " + OWNED_BY_CALLER + ") AS mine,"
                 + " count(*) FILTER (WHERE " + IN_ACTIVE_POSITION + ") AS active,"
                 + " count(*) FILTER (WHERE " + IN_NO_POSITION + ") AS unplaced,"
+                + " count(*) FILTER (WHERE " + NOT_NOTIFIED + ") AS not_notified,"
                 + " (SELECT count(*) FROM app_lm_person q WHERE q.workspace_id = :workspaceId) AS pool"
                 + " FROM app_lm_person p WHERE " + where;
         return jdbc.queryForObject(sql, params, (row, index) -> new PoolViewCounts(row.getLong("everyone"),
-                row.getLong("mine"), row.getLong("active"), row.getLong("unplaced"), row.getLong("pool")));
+                row.getLong("mine"), row.getLong("active"), row.getLong("unplaced"), row.getLong("not_notified"),
+                row.getLong("pool")));
     }
 
     /** The countries the pool's people are recorded in, for the filter's list. */
@@ -151,6 +157,7 @@ public class PersonPoolQuery {
                 case MINE -> OWNED_BY_CALLER;
                 case ACTIVE -> IN_ACTIVE_POSITION;
                 case UNPLACED -> IN_NO_POSITION;
+                case NOT_NOTIFIED -> NOT_NOTIFIED;
                 case ALL -> "true";
             });
         }

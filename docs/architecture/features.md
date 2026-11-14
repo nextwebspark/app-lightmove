@@ -418,6 +418,12 @@ nor kept from its answer (`BackgroundNeeds`), the classifier is not asked and it
 is `AI_ASSESSMENT_DISABLED`, and the worker below runs nothing; turning gender or nationality off clears the AI's
 unconfirmed values and every reading across the workspace in the same write (`InferredBackgroundEraser`, implemented
 in `candidate`). Workspaces founded since V216 start with all four off; see `docs/gdpr/ai-controls-922.md`.
+**Telling a candidate (#923, V218):** the firm's privacy details (Settings → Data & retention → Candidate privacy), a
+lawful basis per person (null follows the workspace's default), Mark as notified, and Send privacy notice from the
+drawer or the selection bar (`PersonPrivacyService`), sent by Uncava in the firm's name with its reply-to. The notice
+links to the public `/privacy/:token` page (`PrivacyPageService`, resolved through V218's resolver), where the person
+objects (do not contact plus suppression) or asks the admins for a copy or a deletion; a Not notified quick view lists
+anyone held over a month and never told. See `docs/gdpr/privacy-notices-923.md`.
 `CandidateAiEnrichWorker` runs the background alone, unprompted and audited like a press, once a capture's research
 lands or Find executives files someone — asking nothing when nothing is missing, and nothing at all while the
 workspace's AI-enrich on capture is off (`CANDIDATE_AI_ENRICH_ON_CAPTURE` stays the platform's kill-switch above it)

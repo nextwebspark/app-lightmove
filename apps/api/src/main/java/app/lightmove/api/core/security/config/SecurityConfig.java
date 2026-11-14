@@ -321,6 +321,12 @@ public class SecurityConfig {
                         .permitAll()
                         .requestMatchers(HttpMethod.POST, API + "/outreach/booking/*").permitAll()
 
+                        // A privacy notice's page (#923): the person it was sent to holds no session; the random
+                        // token in the link is the credential, and it names one person in one workspace.
+                        .requestMatchers(HttpMethod.GET, API + "/privacy/links/*").permitAll()
+                        .requestMatchers(HttpMethod.POST, API + "/privacy/links/*/objection",
+                                API + "/privacy/links/*/requests").permitAll()
+
                         // A picture an email shows, fetched by the recipient's mail client: the random token is the credential.
                         .requestMatchers(HttpMethod.GET, API + "/email-images/*").permitAll()
 

@@ -64,5 +64,11 @@ public record RateLimitSettings(
 
         /** A browser reporting its zone: a few an hour per person, a whole firm from one office IP. */
         @DefaultValue("30") int deviceTimeZoneReportsPerHour,
-        @DefaultValue("600") int deviceTimeZoneReportsPerHourPerIp
+        @DefaultValue("600") int deviceTimeZoneReportsPerHourPerIp,
+
+        /** Opening a privacy page from a notice (#923): public and read-only; a brake on scanning tokens. */
+        @DefaultValue("30") int privacyPageOpensPerMinute,
+
+        /** An objection or a request from a privacy page: each one tells the firm's admins, so a tight brake. */
+        @DefaultValue("10") int privacyPageRequestsPerHour
 ) {}

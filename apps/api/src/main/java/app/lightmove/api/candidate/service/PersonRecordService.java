@@ -3,7 +3,9 @@ package app.lightmove.api.candidate.service;
 import app.lightmove.api.candidate.dto.DoNotContactResponse;
 import app.lightmove.api.candidate.dto.PersonPositionResponse;
 import app.lightmove.api.candidate.dto.PersonRecordResponse;
+import app.lightmove.api.candidate.dto.PersonPrivacyResponse;
 import app.lightmove.api.candidate.dto.ProcessingRestrictionResponse;
+import app.lightmove.api.candidate.model.CandidatePrivacySettings;
 import app.lightmove.api.candidate.model.Candidate;
 import app.lightmove.api.candidate.model.Person;
 import app.lightmove.api.candidate.model.PersonEmployer;
@@ -51,6 +53,7 @@ public class PersonRecordService {
     private final ProjectAccess projectAccess;
     private final WorkspaceAccess workspaceAccess;
     private final PersonEmployerResolver employers;
+    private final CandidatePrivacySettingsService privacySettings;
 
     /** The person a mandate's row maps, after checking the mandate is the caller's workspace's. */
     @Transactional(readOnly = true)
@@ -80,7 +83,7 @@ public class PersonRecordService {
     PersonRecordResponse toRecord(UUID userId, Person person) {
         List<Candidate> mapped = candidates.findPositionsOfPerson(person.getWorkspaceId(), person.getId());
         Map<UUID, User> named = usersOf(Stream.concat(Stream.of(person.getCreatedBy(), person.getDoNotContactSetBy(),
-                        person.getProcessingRestrictedBy()),
+                        person.getProcessingRestrictedBy(), person.getLawfulBasisSetBy()),
                 mapped.stream().map(Candidate::getAddedBy)).toList());
         User filer = named.get(person.getCreatedBy());
         PersonEmployer employer = PersonEmployerResolver.employerOf(person, mapped);
@@ -96,7 +99,8 @@ public class PersonRecordService {
                 CandidateResponseMapper.contactsOf(person),
                 positionsOf(userId, person.getWorkspaceId(), mapped, null, named),
                 person.getOwnerUserId(), doNotContactOf(person, named),
-                processingRestrictionOf(userId, person, named), List.copyOf(person.getTagIds()),
+                processingRestrictionOf(userId, person, named), privacyOf(person, named),
+                List.copyOf(person.getTagIds()),
                 person.getSource().value(), person.getCreatedAt(), person.getCreatedBy(),
                 filer == null ? null : filer.getFullName());
     }
@@ -162,6 +166,15 @@ public class PersonRecordService {
         return new ProcessingRestrictionResponse(person.getProcessingRestrictedReason(),
                 person.getProcessingRestrictedBy(), restrictor == null ? null : restrictor.getFullName(),
                 person.getProcessingRestrictedAt(), mayLift);
+    }
+
+    private PersonPrivacyResponse privacyOf(Person person, Map<UUID, User> named) {
+        CandidatePrivacySettings firm = privacySettings.settingsOf(person.getWorkspaceId());
+        User setter = person.getLawfulBasisSetBy() == null ? null : named.get(person.getLawfulBasisSetBy());
+        return new PersonPrivacyResponse(PersonPrivacyService.basisOf(person, firm).value(),
+                person.getLawfulBasis() == null, setter == null ? null : setter.getFullName(),
+                person.getLawfulBasisSetAt(), person.getPrivacyNotifiedAt(),
+                person.getPrivacyNoticeChannel() == null ? null : person.getPrivacyNoticeChannel().value());
     }
 
     private Map<UUID, User> usersOf(Collection<UUID> ids) {

@@ -97,6 +97,18 @@ public class RateLimitGuard {
         checkRateLimit("booking-page-book", slug, request, config.bookingPageBookingsPerHour(), Duration.ofHours(1));
     }
 
+    /** A privacy page (#923), keyed on the caller's IP and the link's hash: nobody signs in to open one. */
+    public void checkPrivacyPageOpen(String tokenHash, HttpServletRequest request) {
+        checkRateLimit("privacy-page-open", tokenHash, request, config.privacyPageOpensPerMinute(),
+                Duration.ofMinutes(1));
+    }
+
+    /** An objection or request from a privacy page, keyed like opening it. */
+    public void checkPrivacyPageRequest(String tokenHash, HttpServletRequest request) {
+        checkRateLimit("privacy-page-request", tokenHash, request, config.privacyPageRequestsPerHour(),
+                Duration.ofHours(1));
+    }
+
     /** Keyed on the person, as an email keys the others: the request is signed in and carries none. */
     public void checkDeviceTimeZoneReport(UUID userId, HttpServletRequest request) {
         checkRateLimit("device-time-zone", userId.toString(), request, config.deviceTimeZoneReportsPerHour(),

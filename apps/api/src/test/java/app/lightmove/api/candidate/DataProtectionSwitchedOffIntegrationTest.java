@@ -51,7 +51,18 @@ class DataProtectionSwitchedOffIntegrationTest extends FlowTestSupport {
                         {"months":12}"""),
                 get("/api/v1/workspace/retention/due"),
                 post("/api/v1/workspace/retention/due/keep").content(people),
-                post("/api/v1/workspace/retention/due/erase").content(people));
+                post("/api/v1/workspace/retention/due/erase").content(people),
+                get("/api/v1/workspace/candidate-privacy"),
+                put("/api/v1/workspace/candidate-privacy").content("""
+                        {"defaultLawfulBasis":"consent"}"""),
+                put("/api/v1/candidates/" + someone + "/lawful-basis").content("""
+                        {"lawfulBasis":"consent"}"""),
+                post("/api/v1/candidates/" + someone + "/privacy-notice"),
+                post("/api/v1/candidates/" + someone + "/privacy-notice/marked").content("""
+                        {"notifiedOn":"2026-01-01"}"""),
+                post("/api/v1/candidates/bulk/privacy-notice").content(people),
+                get("/api/v1/privacy/links/not-a-real-token"),
+                post("/api/v1/privacy/links/not-a-real-token/objection"));
         for (MockHttpServletRequestBuilder route : routes) {
             assertThat(codeOf(mvc.perform(route.header("Authorization", "Bearer " + admin)
                             .contentType(MediaType.APPLICATION_JSON))

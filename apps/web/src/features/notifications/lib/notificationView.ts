@@ -51,7 +51,13 @@ const OUTREACH_SECTION_OF: Partial<Record<NotificationKind, DrawerSection>> = {
  * names one, or on the part of it its work is in; an executive since unmapped from the position opens on the
  * Candidates page; else My positions.
  */
+const PRIVACY_KINDS: ReadonlySet<NotificationKind> = new Set(["copy_requested", "deletion_requested", "person_objected"]);
+
 export function notificationHref(notification: NotificationResponse): string {
+  // A privacy request (#923) is about the person, never a position.
+  if (PRIVACY_KINDS.has(notification.kind) && notification.personId) {
+    return `/candidates?person=${encodeURIComponent(notification.personId)}`;
+  }
   if (!notification.projectId) return "/";
   if (!notification.candidateId) {
     if (!notification.personId) return positionPipelinePath(notification.projectId);

@@ -68,6 +68,12 @@ const FAMILY_OF: Record<PersonActivityKind, ActivityFamily> = {
   DO_NOT_CONTACT_CLEARED: "contact",
   PROCESSING_RESTRICTED: "profile",
   PROCESSING_RESTRICTION_LIFTED: "profile",
+  LAWFUL_BASIS_CHANGED: "profile",
+  PRIVACY_NOTICE_SENT: "profile",
+  PRIVACY_NOTICE_MARKED: "profile",
+  PRIVACY_NOTICE_FAILED: "profile",
+  PRIVACY_OBJECTED: "profile",
+  PRIVACY_REQUEST_RECEIVED: "profile",
   DOCUMENT_ADDED: "documents",
   DOCUMENT_VERSION_ADDED: "documents",
   DOCUMENT_REMOVED: "documents",
@@ -107,6 +113,8 @@ const MINOR_KINDS: ReadonlySet<string> = new Set<PersonActivityKind>([
   "DOCUMENT_REMOVED",
   "DOCUMENT_VERSION_REMOVED",
   "ASSESSMENT_REVIEWED",
+  "LAWFUL_BASIS_CHANGED",
+  "PRIVACY_NOTICE_MARKED",
 ]);
 
 export function isMinor(entry: PersonTimelineEntry): boolean {
@@ -171,6 +179,17 @@ export function iconOf(entry: PersonTimelineEntry): string | null {
       return ICONS.lock;
     case "PROCESSING_RESTRICTION_LIFTED":
       return ICONS.unlock;
+    case "LAWFUL_BASIS_CHANGED":
+    case "PRIVACY_REQUEST_RECEIVED":
+      return ICONS.lock;
+    case "PRIVACY_NOTICE_SENT":
+      return ICONS.mail;
+    case "PRIVACY_NOTICE_MARKED":
+      return ICONS.check;
+    case "PRIVACY_NOTICE_FAILED":
+      return ICONS.info;
+    case "PRIVACY_OBJECTED":
+      return ICONS.ban;
     case "DOCUMENT_ADDED":
     case "DOCUMENT_VERSION_ADDED":
       return ICONS.file;
@@ -221,6 +240,8 @@ const AUTOMATION_CAUSES: Record<string, string> = {
 
 export function actorOf(entry: PersonTimelineEntry): ActivityActor {
   if (entry.kind === "EMAIL_REPLIED") return { kind: "executive" };
+  // From their own privacy page (#923): nobody on the team stands behind these.
+  if (entry.kind === "PRIVACY_OBJECTED" || entry.kind === "PRIVACY_REQUEST_RECEIVED") return { kind: "executive" };
   if (entry.kind === "MEETING_BOOKED" && String(entry.details.viaLink) === "true") return { kind: "executive" };
   if (entry.kind === "STATUS_CHANGED" && entry.details.automation) {
     return { kind: "automation", triggeredBy: entry.actorName };
@@ -317,6 +338,18 @@ export function verbOf(entry: PersonTimelineEntry): string {
       return "restricted processing";
     case "PROCESSING_RESTRICTION_LIFTED":
       return "lifted the processing restriction";
+    case "LAWFUL_BASIS_CHANGED":
+      return details.basis ? `recorded ${lawfulBasisPhrase(details.basis)} as the lawful basis` : "put the lawful basis back on the workspace default";
+    case "PRIVACY_NOTICE_SENT":
+      return details.channel === "OUTREACH_EMAIL" ? "told them through the first outreach email" : "sent a privacy notice";
+    case "PRIVACY_NOTICE_MARKED":
+      return "marked them as notified";
+    case "PRIVACY_NOTICE_FAILED":
+      return "sent a privacy notice that could not be delivered";
+    case "PRIVACY_OBJECTED":
+      return "objected from their privacy page";
+    case "PRIVACY_REQUEST_RECEIVED":
+      return details.kind === "deletion" ? "asked for their data to be deleted" : "asked for a copy of their data";
     case "OUTREACH_ENROLLED":
       return "added them to a sequence";
     case "EMAIL_SENT":
@@ -692,5 +725,17 @@ export function actorRoleOf(actor: ActivityActor): string {
       return "Uncava, automatically";
     default:
       return "Nobody recorded who";
+  }
+}
+
+/** A `LAWFUL_BASIS_CHANGED` line's `basis` detail, written as the enum name. */
+function lawfulBasisPhrase(basis: string): string {
+  switch (basis) {
+    case "CONSENT":
+      return "consent";
+    case "CONTRACT":
+      return "a contract";
+    default:
+      return "legitimate interest";
   }
 }

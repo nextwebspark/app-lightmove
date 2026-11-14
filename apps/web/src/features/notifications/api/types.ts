@@ -10,7 +10,10 @@ export type NotificationKind =
   | "outreach_bounced"
   | "call_booked"
   | "added_to_team"
-  | "tasks_moved";
+  | "tasks_moved"
+  | "copy_requested"
+  | "deletion_requested"
+  | "person_objected";
 
 export interface NotificationResponse {
   id: string;
@@ -59,7 +62,8 @@ export type NotificationPreferenceKind =
   | "outreach_bounced"
   | "call_booked"
   | "added_to_team"
-  | "tasks_moved";
+  | "tasks_moved"
+  | "privacy_request";
 
 export interface NotificationPreferences {
   kinds: { kind: NotificationPreferenceKind; inApp: boolean; email: boolean }[];

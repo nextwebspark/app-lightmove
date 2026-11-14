@@ -17,10 +17,13 @@ public class LogEmailSender implements EmailSender {
                 ┌─────────────────────────────────────────────────────────────────
                 │ EMAIL (not sent — provider is 'log')
                 │ To:      {}
+                │ From:    {}
+                │ Reply:   {}
                 │ Subject: {}
                 ├─────────────────────────────────────────────────────────────────
                 {}
                 └─────────────────────────────────────────────────────────────────
-                """, message.to(), message.subject(), message.textBody());
+                """, message.to(), message.senderName() == null ? "Uncava" : message.senderName() + " via Uncava",
+                message.replyTo() == null ? "-" : message.replyTo(), message.subject(), message.textBody());
     }
 }

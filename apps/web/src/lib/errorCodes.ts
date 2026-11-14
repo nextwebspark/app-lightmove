@@ -88,6 +88,11 @@ export type ApiErrorCode =
   | "PERSON_PROCESSING_RESTRICTION_NOT_YOURS"
   | "PERSON_ERASE_SEND_IN_FLIGHT"
   | "SUPPRESSION_UNAVAILABLE"
+  | "CANDIDATE_PRIVACY_NOT_SET_UP"
+  | "PRIVACY_NOTICE_NO_EMAIL"
+  | "PRIVACY_NOTICE_RECENTLY_SENT"
+  | "PRIVACY_NOTICE_DAILY_LIMIT"
+  | "PRIVACY_LINK_EXPIRED"
   | "TASK_ASSIGNEE_NOT_ON_TEAM"
   | "TASK_NOT_YOURS"
   | "STRATEGY_SEARCH_NAME_TAKEN"
@@ -311,6 +316,12 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   PERSON_PROCESSING_RESTRICTION_NOT_YOURS: "Only the person who restricted processing, or an admin, can lift it.",
   PERSON_ERASE_SEND_IN_FLIGHT: "An email to this person is sending right now. Try again in a minute.",
   SUPPRESSION_UNAVAILABLE: "Your workspace's suppression list can't be checked right now, so nobody can be added. Contact Uncava support.",
+  CANDIDATE_PRIVACY_NOT_SET_UP:
+    "An admin needs to fill in your firm's privacy details in Settings → Data & retention before notices can go.",
+  PRIVACY_NOTICE_NO_EMAIL: "There's no email address on file for this person.",
+  PRIVACY_NOTICE_RECENTLY_SENT: "This person was sent a privacy notice in the last 14 days.",
+  PRIVACY_NOTICE_DAILY_LIMIT: "Your workspace has sent today's privacy notices. Try again tomorrow.",
+  PRIVACY_LINK_EXPIRED: "This link has expired.",
   // Two uploads raise this — the spreadsheet import and the position description — so the wording
   // stays neutral. Naming one screen's file types here misdescribes the other's refusal, and each
   // dropzone already states what it takes.

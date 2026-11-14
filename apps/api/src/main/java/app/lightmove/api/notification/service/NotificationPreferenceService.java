@@ -1,6 +1,8 @@
 package app.lightmove.api.notification.service;
 
 import app.lightmove.api.common.constant.ApiValueEnum;
+import app.lightmove.api.core.security.rbac.WorkspaceAccess;
+import app.lightmove.api.core.security.rbac.WorkspaceAction;
 import app.lightmove.api.notification.constant.NotificationKind;
 import app.lightmove.api.notification.constant.NotificationPreferenceKind;
 import app.lightmove.api.notification.dto.NotificationKindPreferenceDto;
@@ -30,11 +32,15 @@ public class NotificationPreferenceService {
 
     private final NotificationPreferences preferences;
     private final DateTimePreferenceService dateTimePreferences;
+    private final WorkspaceAccess workspaceAccess;
 
     @Transactional(readOnly = true)
     public NotificationPreferencesDto of(UUID userId, UUID workspaceId) {
         Map<NotificationPreferenceKind, NotificationPreferences.Channels> chosen = preferences.of(userId, workspaceId);
+        boolean admin = workspaceAccess.holdsAction(userId, workspaceId, WorkspaceAction.WORKSPACE_MANAGE);
+        // A privacy page's requests reach admins alone, so nobody else is offered a switch for them.
         return new NotificationPreferencesDto(Arrays.stream(NotificationPreferenceKind.values())
+                .filter(kind -> admin || kind != NotificationPreferenceKind.PRIVACY_REQUEST)
                 .map(kind -> new NotificationKindPreferenceDto(kind.value(), chosen.get(kind).inApp(),
                         EMAILED.contains(kind) && chosen.get(kind).email()))
                 .toList(), preferences.digest(userId, workspaceId), dateTimePreferences.zoneOf(workspaceId, userId).getId());

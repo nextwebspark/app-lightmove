@@ -43,6 +43,11 @@ changes. Copy no mockup draws — toasts, errors, banners, empty states — foll
 | **Uncava support** | who switches on a feature a workspace cannot | "this deployment" |
 | **Audit log** | the workspace's record of sign-ins, member and access changes, exports and downloads, settings, API keys and AI apps, and outreach, in Settings → Security for an admin | activity log, events |
 | **Suppression list** | the people a workspace may not add again — erased at their request, objecting to being processed, or entered by an admin — recognised by LinkedIn profile or email, in Settings for an admin | blocklist, blacklist, do-not-add list |
+| **Privacy notice** | the email Uncava sends in the firm's name telling a candidate it holds their details, where they came from and how to object or ask for a copy, from the Candidates drawer or a selection | GDPR email, Art. 14 notice, data notice |
+| **Notified** / **Not notified** | whether a candidate was told the firm holds their details — by a privacy notice, their first outreach email, or a colleague marking it by hand; Not notified is also the Candidates quick view of people held over a month and never told | informed, aware, Art. 14 status |
+| **Lawful basis** | why the firm may hold a candidate's details — Legitimate interest, Consent or Contract — the workspace default unless one is recorded on the person | legal basis, processing ground |
+| **Candidate privacy** | Settings → Data & retention's card naming the firm as controller: its legal name, privacy contact, notice link and default lawful basis | controller settings, GDPR settings |
+| **Privacy page** | the public page a privacy notice links to, where a candidate objects or asks for a copy or deletion | data portal, preference centre |
 | **Export personal data** | an admin's one zip of everything held on a person, to answer their request for a copy of it (subject access), from the Candidates drawer's ⋯ | DSAR, SAR, subject access request export |
 | **Two-factor authentication** | a code from an authenticator app asked for after the password, turned on in Settings → Security | MFA, 2FA, TOTP, OTP |
 | **Authenticator app** | the phone app that shows the six-digit code | token, device |

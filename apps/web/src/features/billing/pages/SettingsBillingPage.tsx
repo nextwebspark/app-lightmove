@@ -34,7 +34,8 @@ import {
   boughtBeforeCheckout,
   type CheckoutReturn,
 } from "../lib/checkoutReturn";
-import { useBilling, useIsWorkspaceAdmin } from "../lib/useBilling";
+import { useIsWorkspaceAdmin } from "../../auth/useIsWorkspaceAdmin";
+import { useBilling } from "../lib/useBilling";
 import { useStripeRedirect } from "../lib/useStripeRedirect";
 
 type Dialog = "plans" | "buy" | null;

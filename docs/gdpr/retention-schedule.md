@@ -74,6 +74,7 @@ once by `ops/cloudsql/scrub-audit-pii.sql`.
 | `app_lm_person_document` | person, CV and references | the team's record | with the person | erasure, removal | cascade |
 | `app_lm_person_document_version` | person, file metadata | each file of a document | with the person | erasure, removal | cascade, `StorageDeletionSweeper` |
 | `app_lm_person_activity` | person, who did what | the timeline | with the person | erasure | cascade |
+| `app_lm_person_privacy_link` | person, who sent a notice, when; the link's token as a hash | the person's privacy notices (#923) and the page they open | with the person | erasure | cascade |
 | `app_lm_person_meeting` | person, consultant, call times | calls with the executive | with the person | erasure, calendar change | cascade |
 | `app_lm_project_candidate` | person on a position, frozen V91 copy | the mapping | with the person or the position | erasure, unmapping | cascade |
 | `app_lm_candidate_contact` | frozen V54 copy of contacts | none: frozen for #606 | with the mapping | erasure, #606 cleanup | cascade |
@@ -101,6 +102,7 @@ once by `ops/cloudsql/scrub-audit-pii.sql`.
 | `app_lm_credit_hold` | user, person | a paid find in flight | with the ledger | — | — |
 | `app_lm_credit_entry` | user, person | the contact-credit ledger, append-only | statutory ⚖️; financial record | — | none: append-only (#256) |
 | `app_lm_audit_event` | actor, ids, IP address, browser line; never a name or contact in its details (#927) | the security audit trail | statutory ⚖️; floor set by counsel | — | none until #256 |
+| `app_lm_workspace_candidate_privacy` | the firm's privacy contact address, the admin who last changed it | the firm as controller in every privacy notice (#923) | while the workspace exists | workspace purge, an admin clearing it | `WorkspacePurge` |
 | `app_lm_workspace_suppression` | one-way hashes only | who no door may file again | until an admin removes the entry | removal | — |
 | `app_lm_vendor_person` | an executive's vendor record | the people cache, shared by every workspace | `lightmove.enrichment.people-cache-ttl` (30 days) | age, erasure | `RetentionSweeper` |
 | `app_lm_vendor_people_search` | profile slugs a search returned | the people cache | `lightmove.enrichment.people-cache-ttl` (30 days) | age, erasure | `RetentionSweeper` |

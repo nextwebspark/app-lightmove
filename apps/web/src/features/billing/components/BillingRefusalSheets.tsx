@@ -20,7 +20,8 @@ import {
   trialOf,
   type BillingRefusal,
 } from "../lib/billingView";
-import { useBilling, useIsWorkspaceAdmin } from "../lib/useBilling";
+import { useIsWorkspaceAdmin } from "../../auth/useIsWorkspaceAdmin";
+import { useBilling } from "../lib/useBilling";
 
 /**
  * The out-of-credits, trial-ended and fair-use sheets, opened by a 402 `INSUFFICIENT_CREDITS` or `TRIAL_ENDED`, or a
