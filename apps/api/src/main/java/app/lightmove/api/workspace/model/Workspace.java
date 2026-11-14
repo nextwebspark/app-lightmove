@@ -39,6 +39,9 @@ import org.hibernate.type.SqlTypes;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Workspace extends BaseEntity {
 
+    public static final int DEFAULT_RECENTLY_APPROACHED_DAYS = 90;
+    public static final int MAX_RECENTLY_APPROACHED_DAYS = 365;
+
     @Setter
     @Column(nullable = false, length = 160)
     private String name;
@@ -76,6 +79,10 @@ public class Workspace extends BaseEntity {
 
     @Column(name = "ai_enrich_automatically", nullable = false)
     private boolean aiEnrichAutomatically;
+
+    /** How far back a teammate's approach warns before outreach (V222); 0 turns the warning off. */
+    @Column(name = "recently_approached_days", nullable = false)
+    private int recentlyApproachedDays = DEFAULT_RECENTLY_APPROACHED_DAYS;
 
     /** The universe row this firm was picked as at signup; null for a firm typed in by hand (V68). */
     @Column(name = "apollo_account_id")
@@ -217,6 +224,14 @@ public class Workspace extends BaseEntity {
         this.aiInferNationality = controls.inferNationality();
         this.aiDraftAssessments = controls.draftAssessments();
         this.aiEnrichAutomatically = controls.enrichAutomatically();
+    }
+
+    /** The one write of the recently approached window, so every change passes the audited path that calls it. */
+    public void changeRecentlyApproachedDays(int days) {
+        if (days < 0 || days > MAX_RECENTLY_APPROACHED_DAYS) {
+            throw new IllegalArgumentException("recentlyApproachedDays out of range");
+        }
+        this.recentlyApproachedDays = days;
     }
 
     /** The one write of the date and time settings, so every change passes the audited path that calls it. */

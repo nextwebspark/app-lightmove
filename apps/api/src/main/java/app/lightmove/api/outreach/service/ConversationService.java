@@ -12,6 +12,7 @@ import app.lightmove.api.candidate.service.NextActionLookup;
 import app.lightmove.api.candidate.service.PersonNoteService;
 import app.lightmove.api.candidate.service.PersonTimelineService;
 import app.lightmove.api.candidate.service.PositionPipelineService;
+import app.lightmove.api.candidate.service.RecentApproachReader;
 import app.lightmove.api.common.constant.NoteFormat;
 import app.lightmove.api.common.note.NoteText;
 import app.lightmove.api.core.error.constant.ErrorCode;
@@ -134,6 +135,7 @@ public class ConversationService {
     private final UserRepository users;
     private final Clock clock;
     private final OutreachPrivacyService privacy;
+    private final RecentApproachReader recentApproaches;
 
     @Transactional(readOnly = true)
     public ConversationListResponse list(UUID userId, UUID workspaceId, UUID projectId, ConversationView view,
@@ -224,7 +226,8 @@ public class ConversationService {
                 people.emailSentMoveOf(workspaceId, projectId, candidateId).orElse(null),
                 new AttachmentLimitsResponse(attachments.limits().maxFiles(), attachments.limits().maxFileBytes(),
                         attachments.limits().maxTotalBytes()),
-                tokens, privacy.footerStatementsOf(workspaceId, List.of(personId)).get(personId));
+                tokens, privacy.footerStatementsOf(workspaceId, List.of(personId)).get(personId),
+                recentApproaches.approachOf(userId, workspaceId, personId, projectId));
     }
 
     private ConversationContactResponse contactOf(UUID workspaceId, UUID projectId, UUID candidateId) {

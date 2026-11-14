@@ -1,5 +1,7 @@
 package app.lightmove.api.candidate.repository;
 
+import app.lightmove.api.candidate.constant.PersonNoteKind;
+import app.lightmove.api.candidate.model.LoggedContactRow;
 import app.lightmove.api.candidate.model.NoteViewpoint;
 import app.lightmove.api.candidate.model.PersonNote;
 import app.lightmove.api.core.error.constant.ErrorCode;
@@ -53,6 +55,16 @@ public interface PersonNoteRepository extends JpaRepository<PersonNote, UUID> {
             WHERE id = :id AND workspace_id = :workspaceId AND person_id = :personId AND deleted_at IS NOT NULL
             """, nativeQuery = true)
     int restore(@Param("id") UUID id, @Param("workspaceId") UUID workspaceId, @Param("personId") UUID personId);
+
+    /** Every live logged touch with these people, on any position, without its words: Recently approached's read. */
+    @Query("""
+            select n.personId as personId, n.projectId as projectId, n.authorUserId as authorUserId, n.kind as kind,
+                   coalesce(n.occurredAt, n.createdAt) as at
+            from PersonNote n
+            where n.workspaceId = :workspaceId and n.personId in :personIds and n.kind in :kinds
+            """)
+    List<LoggedContactRow> findLoggedContacts(UUID workspaceId, Collection<UUID> personIds,
+                                              Collection<PersonNoteKind> kinds);
 
     /** The notes a viewpoint reads, pinned first and then newest first. */
     default List<PersonNote> findReadablePinnedFirst(UUID workspaceId, UUID personId, NoteViewpoint viewpoint) {

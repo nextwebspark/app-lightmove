@@ -6,6 +6,7 @@ import { Avatar, Button, ChoiceCardGroup, DateInput, Modal, Skeleton, useToast }
 import type { ChoiceCardOption } from "../../../components/ui";
 import { cn } from "../../../lib/cn";
 import { codeOf, messageFor } from "../../../lib/errorCodes";
+import { approachLines, isCaution } from "../../candidates/lib/recentApproach";
 import { MAILBOX_KEY } from "../api/mailboxApi";
 import * as sequenceApi from "../api/sequenceApi";
 import type {
@@ -123,7 +124,8 @@ export function EnrolDialog({
 
   const [step, setStep] = useState<EnrolStep>("choose");
   const [chosenSequenceId, setChosenSequenceId] = useState<string | null>(null);
-  const [unticked, setUnticked] = useState<ReadonlySet<string>>(new Set());
+  // Ticks moved off each person's default: everyone addable starts ticked, someone recently approached unticked.
+  const [flipped, setFlipped] = useState<ReadonlySet<string>>(new Set());
   const [reviewed, setReviewed] = useState<Record<string, ReviewedEmail>>({});
   const [reviewingId, setReviewingId] = useState<string | null>(null);
   const [startChoice, setStartChoice] = useState<StartChoice>({ mode: "NOW", date: "", time: "" });
@@ -142,7 +144,8 @@ export function EnrolDialog({
   const everyone = people.data ?? [];
   const addable = everyone.filter((person) => person.skipReason === null);
   const skipped = everyone.filter((person) => person.skipReason !== null);
-  const chosen = addable.filter((person) => !unticked.has(person.candidateId));
+  const chosen = addable.filter((person) => isTicked(person, flipped));
+  const approached = addable.filter((person) => isCaution(person.recentApproach));
   const isOverTheCap = chosen.length > sequenceApi.MAX_PEOPLE_PER_START;
   const connection = mailbox.data?.connection ?? null;
   const canSend = connection?.status === "ACTIVE";
@@ -358,9 +361,9 @@ export function EnrolDialog({
           isLoading={people.isPending}
           loadError={people.isError ? messageFor(people.error) : null}
           everyone={everyone}
-          unticked={unticked}
+          flipped={flipped}
           onToggle={(candidateId) =>
-            setUnticked((current) => {
+            setFlipped((current) => {
               const next = new Set(current);
               if (next.has(candidateId)) next.delete(candidateId);
               else next.add(candidateId);
@@ -400,6 +403,7 @@ export function EnrolDialog({
           sequence={sequence}
           chosen={chosen}
           skipped={skipped}
+          approached={approached}
           senderAddress={connection?.address ?? ""}
           timeZone={timeZone}
           choice={startChoice}
@@ -449,7 +453,7 @@ function ChooseStep({
   isLoading,
   loadError,
   everyone,
-  unticked,
+  flipped,
   onToggle,
 }: {
   projectId: string;
@@ -461,7 +465,7 @@ function ChooseStep({
   isLoading: boolean;
   loadError: string | null;
   everyone: EnrollmentCandidate[];
-  unticked: ReadonlySet<string>;
+  flipped: ReadonlySet<string>;
   onToggle: (candidateId: string) => void;
 }) {
   const byCompany = useMemo(() => {
@@ -535,6 +539,9 @@ function ChooseStep({
             </div>
             {members.map((person) => {
               const isSkipped = person.skipReason !== null;
+              const approachNote = !isSkipped && isCaution(person.recentApproach)
+                ? approachLines(person.recentApproach!)[0] ?? null
+                : null;
               return (
                 <label
                   key={person.candidateId}
@@ -546,7 +553,7 @@ function ChooseStep({
                   <input
                     type="checkbox"
                     disabled={isSkipped}
-                    checked={!isSkipped && !unticked.has(person.candidateId)}
+                    checked={isTicked(person, flipped)}
                     onChange={() => onToggle(person.candidateId)}
                     aria-label={person.fullName}
                   />
@@ -557,10 +564,15 @@ function ChooseStep({
                   <span
                     className={cn(
                       "ms-auto shrink-0 font-mono text-[11.5px]",
-                      person.skipReason === "DO_NOT_CONTACT" ? "text-u-offlimits" : "text-u-text3",
+                      person.skipReason === "DO_NOT_CONTACT"
+                        ? "text-u-offlimits"
+                        : approachNote
+                          ? "text-u-signal"
+                          : "text-u-text3",
                     )}
+                    title={approachNote ? approachLines(person.recentApproach!).join("\n") : undefined}
                   >
-                    {skipNoteOf(person)}
+                    {approachNote ?? skipNoteOf(person)}
                   </span>
                 </label>
               );
@@ -718,6 +730,7 @@ function StartStep({
   sequence,
   chosen,
   skipped,
+  approached,
   senderAddress,
   timeZone,
   choice,
@@ -727,6 +740,7 @@ function StartStep({
   sequence: Sequence;
   chosen: EnrollmentCandidate[];
   skipped: EnrollmentCandidate[];
+  approached: EnrollmentCandidate[];
   senderAddress: string;
   timeZone: string;
   choice: StartChoice;
@@ -843,6 +857,12 @@ function StartStep({
             </dd>
           </>
         )}
+        {approached.length > 0 && (
+          <>
+            <dt className="text-u-signal">Recently approached</dt>
+            <dd>{approachedSummaryOf(approached, chosen)}</dd>
+          </>
+        )}
       </dl>
     </div>
   );
@@ -905,6 +925,21 @@ function openerPlaceholderOf(email: ReviewedEmail): string | undefined {
   if (email.isDrafting) return "Drafting an opener… or write your own.";
   if (email.draftFailed) return "The opener couldn't be drafted. Write one, or redraft.";
   return undefined;
+}
+
+function isTicked(person: EnrollmentCandidate, flipped: ReadonlySet<string>): boolean {
+  if (person.skipReason !== null) return false;
+  return isCaution(person.recentApproach) === flipped.has(person.candidateId);
+}
+
+/** "1 included, 2 left out": a teammate reached them first, so each one in is a choice someone made on Choose. */
+function approachedSummaryOf(approached: EnrollmentCandidate[], chosen: EnrollmentCandidate[]): string {
+  const chosenIds = new Set(chosen.map((person) => person.candidateId));
+  const included = approached.filter((person) => chosenIds.has(person.candidateId)).length;
+  const leftOut = approached.length - included;
+  const parts = [included > 0 && `${included} included`, leftOut > 0 && `${leftOut} left out`].filter(Boolean);
+  const hint = leftOut > 0 ? ". Tick them on Choose to include them" : "";
+  return `${parts.join(", ")}: someone on your team approached ${approached.length === 1 ? "this person" : "them"} recently${hint}`;
 }
 
 function skipNoteOf(person: EnrollmentCandidate): string {

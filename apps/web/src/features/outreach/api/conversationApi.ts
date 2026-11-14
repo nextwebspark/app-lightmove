@@ -4,6 +4,7 @@ import type {
   CandidatePhone,
   PersonNote,
   PersonTimelineEntry,
+  RecentApproach,
 } from "../../candidates/api/types";
 import type { PipelineRow } from "../../pipeline/api/types";
 import type { TaskKind, TaskPerson, TaskRule } from "../../tasks/api/types";
@@ -154,6 +155,8 @@ export interface ConversationComposer {
   tokens: RecipientTokens | null;
   /** The sentence the privacy footer added at send opens with; null when data protection is off. */
   privacyFooter: string | null;
+  /** Who on the team already reached this person, on any position: a warning, never a lock. */
+  recentApproach: RecentApproach | null;
 }
 
 export interface Conversation {

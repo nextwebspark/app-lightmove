@@ -6,6 +6,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../../../components/ui";
 import * as availabilityApi from "../api/availabilityApi";
 import type { WorkspaceAvailability } from "../api/availabilityApi";
+import * as workspaceApi from "../../workspace/api/workspaceApi";
+import type { WorkspaceDetail } from "../../workspace/api/types";
 import { SettingsMeetingsPage } from "./SettingsMeetingsPage";
 
 vi.mock("../api/availabilityApi", async (importOriginal) => ({
@@ -13,6 +15,14 @@ vi.mock("../api/availabilityApi", async (importOriginal) => ({
   getWorkspaceAvailability: vi.fn(),
   putWorkspaceAvailability: vi.fn(),
 }));
+
+vi.mock("../../workspace/api/workspaceApi", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../workspace/api/workspaceApi")>()),
+  workspace: vi.fn(),
+  changeRecentlyApproached: vi.fn(),
+}));
+
+const WORKSPACE = { id: "w1", recentlyApproachedDays: 90 } as WorkspaceDetail;
 
 const SUNDAY_TO_THURSDAY = (["SUNDAY", "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY"] as const).map((day) => ({
   day,
@@ -45,6 +55,7 @@ describe("SettingsMeetingsPage", () => {
   beforeEach(() => {
     vi.resetAllMocks();
     vi.mocked(availabilityApi.getWorkspaceAvailability).mockResolvedValue(SAUDI);
+    vi.mocked(workspaceApi.workspace).mockResolvedValue(WORKSPACE);
   });
 
   it("shows the week the firm's country keeps until an admin chooses one", async () => {
@@ -79,6 +90,25 @@ describe("SettingsMeetingsPage", () => {
       }),
     );
     expect(await screen.findByText("Meetings & email saved")).toBeInTheDocument();
+    expect(workspaceApi.changeRecentlyApproached).not.toHaveBeenCalled();
+  });
+
+  it("saves how far back a teammate's approach warns, 0 to 365 days", async () => {
+    vi.mocked(availabilityApi.putWorkspaceAvailability).mockResolvedValue(SAUDI);
+    vi.mocked(workspaceApi.changeRecentlyApproached).mockResolvedValue({ ...WORKSPACE, recentlyApproachedDays: 30 });
+    renderPage();
+
+    const approachWindow = await screen.findByRole("spinbutton", { name: "Recently approached window" });
+    expect(approachWindow).toHaveValue(90);
+    await userEvent.clear(approachWindow);
+    await userEvent.type(approachWindow, "400");
+    expect(screen.getByRole("alert")).toHaveTextContent("Choose from 0 to 365 days.");
+    expect(screen.getByRole("button", { name: "Save changes" })).toBeDisabled();
+
+    await userEvent.clear(approachWindow);
+    await userEvent.type(approachWindow, "30");
+    await userEvent.click(screen.getByRole("button", { name: "Save changes" }));
+    await waitFor(() => expect(workspaceApi.changeRecentlyApproached).toHaveBeenCalledWith(30));
   });
 
   it("will not save a week nobody works or a cap past the deployment's", async () => {

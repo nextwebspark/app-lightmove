@@ -58,6 +58,10 @@ export function changeAiControls(controls: AiControls): Promise<WorkspaceDetail>
   return request<WorkspaceDetail>("/workspace/ai-controls", { method: "PUT", body: controls });
 }
 
+export function changeRecentlyApproached(days: number): Promise<WorkspaceDetail> {
+  return request<WorkspaceDetail>("/workspace/recently-approached", { method: "PUT", body: { days } });
+}
+
 export function inferredBackground(): Promise<InferredBackground> {
   return request<InferredBackground>("/workspace/ai-controls/inferred-background");
 }

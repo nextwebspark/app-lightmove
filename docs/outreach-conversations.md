@@ -451,6 +451,10 @@ unmap; attachment bytes go when their email is cancelled or definitely fails, an
 may have (phase 5 lists what is not yet swept). When
 person merge is built, message and attachment rows move with the enrollments.
 
+The composer and Add to sequence also carry `recentApproach`: who on the team reached the person on any position,
+read across positions by `RecentApproachReader`. It returns who, how, when and the position title, never a subject or
+body. It warns and never refuses (`docs/recently-approached.md`).
+
 ## H. Phases (one PR each, each shippable)
 
 1. **Ledger + conversation reads (no UI change) — built.** V144; `OutreachMessage` + the message enums;

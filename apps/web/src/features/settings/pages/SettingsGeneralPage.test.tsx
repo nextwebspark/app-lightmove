@@ -59,6 +59,7 @@ const typedWorkspace = {
   company: null,
   dateTime: WORKSPACE_DATE_TIME,
   deletionGraceDays: 30,
+  recentlyApproachedDays: 90,
 } satisfies WorkspaceDetail;
 
 const renderPage = () =>

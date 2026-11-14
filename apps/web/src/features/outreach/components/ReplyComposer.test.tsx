@@ -88,7 +88,7 @@ function conversation(overrides: Partial<Conversation> = {}): Conversation {
       locationCountry: null,
       doNotContact: false,
     },
-    composer: { replySubject: null, replyStopsRun: false, emailSentMovesTo: null, attachmentLimits: { maxFiles: 5, maxFileBytes: 3_000_000, maxTotalBytes: 10_485_760 }, tokens: null, privacyFooter: null },
+    composer: { replySubject: null, replyStopsRun: false, emailSentMovesTo: null, attachmentLimits: { maxFiles: 5, maxFileBytes: 3_000_000, maxTotalBytes: 10_485_760 }, tokens: null, privacyFooter: null, recentApproach: null },
     events: [],
     truncated: false,
     ...overrides,
@@ -153,7 +153,7 @@ function aTemplate(overrides: Partial<EmailTemplate>): EmailTemplate {
   };
 }
 
-const WITH_TOKENS = { replySubject: null, replyStopsRun: false, emailSentMovesTo: null, attachmentLimits: { maxFiles: 5, maxFileBytes: 3_000_000, maxTotalBytes: 10_485_760 }, tokens: TOKENS, privacyFooter: null };
+const WITH_TOKENS = { replySubject: null, replyStopsRun: false, emailSentMovesTo: null, attachmentLimits: { maxFiles: 5, maxFileBytes: 3_000_000, maxTotalBytes: 10_485_760 }, tokens: TOKENS, privacyFooter: null, recentApproach: null };
 
 function wrapper({ children }: { children: ReactNode }) {
   return (
@@ -367,7 +367,7 @@ describe("ReplyComposer", () => {
     const { rerender } = render(composerFor(conversation()), { wrapper });
     await writeFirstEmail();
 
-    const withThread = conversation({ composer: { replySubject: "Re: Hello", replyStopsRun: false, emailSentMovesTo: null, attachmentLimits: { maxFiles: 5, maxFileBytes: 3_000_000, maxTotalBytes: 10_485_760 }, tokens: null, privacyFooter: null } });
+    const withThread = conversation({ composer: { replySubject: "Re: Hello", replyStopsRun: false, emailSentMovesTo: null, attachmentLimits: { maxFiles: 5, maxFileBytes: 3_000_000, maxTotalBytes: 10_485_760 }, tokens: null, privacyFooter: null, recentApproach: null } });
     rerender(composerFor(withThread));
     expect(screen.getByText("First email to Fatima")).toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: "Subject" })).toHaveValue("A conversation");
@@ -377,7 +377,7 @@ describe("ReplyComposer", () => {
     const { rerender } = render(composerFor(conversation()), { wrapper });
     expect(screen.getByText("First email to Fatima")).toBeInTheDocument();
 
-    rerender(composerFor(conversation({ composer: { replySubject: "Re: Hello", replyStopsRun: false, emailSentMovesTo: null, attachmentLimits: { maxFiles: 5, maxFileBytes: 3_000_000, maxTotalBytes: 10_485_760 }, tokens: null, privacyFooter: null } })));
+    rerender(composerFor(conversation({ composer: { replySubject: "Re: Hello", replyStopsRun: false, emailSentMovesTo: null, attachmentLimits: { maxFiles: 5, maxFileBytes: 3_000_000, maxTotalBytes: 10_485_760 }, tokens: null, privacyFooter: null, recentApproach: null } })));
     const composer = screen.getByRole("region", { name: "Reply" });
     expect(within(composer).getByText("Reply to Fatima")).toBeInTheDocument();
 
@@ -387,17 +387,17 @@ describe("ReplyComposer", () => {
 
   it("says a reply stops the running sequence only where the server says it would", async () => {
     const { rerender } = render(
-      composerFor(conversation({ composer: { replySubject: "Re: Hello", replyStopsRun: false, emailSentMovesTo: null, attachmentLimits: { maxFiles: 5, maxFileBytes: 3_000_000, maxTotalBytes: 10_485_760 }, tokens: null, privacyFooter: null } })),
+      composerFor(conversation({ composer: { replySubject: "Re: Hello", replyStopsRun: false, emailSentMovesTo: null, attachmentLimits: { maxFiles: 5, maxFileBytes: 3_000_000, maxTotalBytes: 10_485_760 }, tokens: null, privacyFooter: null, recentApproach: null } })),
       { wrapper },
     );
     expect(screen.queryByText(/Sending stops the running sequence/)).not.toBeInTheDocument();
 
-    rerender(composerFor(conversation({ composer: { replySubject: "Re: Hello", replyStopsRun: true, emailSentMovesTo: null, attachmentLimits: { maxFiles: 5, maxFileBytes: 3_000_000, maxTotalBytes: 10_485_760 }, tokens: null, privacyFooter: null } })));
+    rerender(composerFor(conversation({ composer: { replySubject: "Re: Hello", replyStopsRun: true, emailSentMovesTo: null, attachmentLimits: { maxFiles: 5, maxFileBytes: 3_000_000, maxTotalBytes: 10_485_760 }, tokens: null, privacyFooter: null, recentApproach: null } })));
     expect(screen.getByText(/Sending stops the running sequence/)).toBeInTheDocument();
   });
 
   it("refuses a body past the server's limit before anything is sent", async () => {
-    render(composerFor(conversation({ composer: { replySubject: "Re: Hello", replyStopsRun: false, emailSentMovesTo: null, attachmentLimits: { maxFiles: 5, maxFileBytes: 3_000_000, maxTotalBytes: 10_485_760 }, tokens: null, privacyFooter: null } })), {
+    render(composerFor(conversation({ composer: { replySubject: "Re: Hello", replyStopsRun: false, emailSentMovesTo: null, attachmentLimits: { maxFiles: 5, maxFileBytes: 3_000_000, maxTotalBytes: 10_485_760 }, tokens: null, privacyFooter: null, recentApproach: null } })), {
       wrapper,
     });
     const box = await screen.findByRole("textbox", { name: "Message" });
@@ -583,5 +583,34 @@ describe("ReplyComposer", () => {
       await userEvent.click(screen.getByRole("button", { name: "Send now" }));
       expect(await screen.findByText(/Some variables have nothing to fill them/)).toBeInTheDocument();
     });
+  });
+
+  it("says who on the team already approached the person, and still lets the email go", async () => {
+    const twelveDaysAgo = new Date(Date.now() - 12 * 86_400_000).toISOString();
+    const withApproach = conversation({
+      composer: {
+        ...conversation().composer,
+        recentApproach: {
+          tier: "CAUTION",
+          windowDays: 90,
+          touches: [
+            { kind: "EMAILED", byUserId: "u2", byName: "Sara Al-Mansour", at: twelveDaysAgo, projectId: "p2",
+              positionTitle: "Head of Credit Risk", samePosition: false, byYou: false },
+          ],
+          elsewhere: [
+            { projectId: "p2", positionTitle: "Head of Credit Risk", statusLabel: "Interested", statusColour: "green",
+              inProcess: true, placed: false, addedByName: "Sara Al-Mansour", statusChangedAt: null, workable: false },
+          ],
+          lastApproach: null,
+        },
+      },
+    });
+    render(composerFor(withApproach), { wrapper });
+
+    const note = screen.getByRole("note", { name: "Recently approached" });
+    expect(note).toHaveTextContent("Sara Al-Mansour emailed · 12 days ago · Head of Credit Risk");
+    await userEvent.click(within(note).getByRole("button", { name: "+1 more" }));
+    expect(note).toHaveTextContent("In process on Head of Credit Risk · Interested · added by Sara Al-Mansour");
+    expect(screen.getByRole("button", { name: "Send now" })).toBeInTheDocument();
   });
 });

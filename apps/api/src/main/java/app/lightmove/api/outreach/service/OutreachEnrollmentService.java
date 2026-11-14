@@ -1,9 +1,11 @@
 package app.lightmove.api.outreach.service;
 
+import app.lightmove.api.candidate.dto.RecentApproachResponse;
 import app.lightmove.api.candidate.model.OutreachRecipient;
 import app.lightmove.api.candidate.model.RecipientEmail;
 import app.lightmove.api.candidate.service.CandidateOutreachService;
 import app.lightmove.api.candidate.service.OutreachPrivacyService;
+import app.lightmove.api.candidate.service.RecentApproachReader;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.error.constant.ErrorCode;
@@ -76,6 +78,7 @@ public class OutreachEnrollmentService {
     private final Clock clock;
     private final EmailSignatureService signatures;
     private final OutreachPrivacyService privacy;
+    private final RecentApproachReader recentApproaches;
 
     @Transactional(readOnly = true)
     public EnrollmentCandidatesResponse candidates(UUID userId, UUID workspaceId, UUID projectId,
@@ -91,6 +94,8 @@ public class OutreachEnrollmentService {
         SenderContext sender = personalisation.senderContextOf(userId, workspaceId, projectId);
         Map<UUID, String> footers = privacy.footerStatementsOf(workspaceId,
                 recipients.stream().map(OutreachRecipient::personId).toList());
+        Map<UUID, RecentApproachResponse> approached = recentApproaches.approachesOf(userId, workspaceId,
+                recipients.stream().map(OutreachRecipient::personId).toList(), projectId);
         return new EnrollmentCandidatesResponse(recipients.stream()
                 .map(recipient -> {
                     OutreachSkipReason skip = eligible.skipReasonOf(recipient);
@@ -101,7 +106,7 @@ public class OutreachEnrollmentService {
                             recipient.emails().stream().map(RecipientEmailResponse::of).toList(), skip,
                             held == null ? null : sequenceNames.get(held.getSequenceId()),
                             SequenceTokensResponse.of(OutreachPersonalisation.tokensOf(recipient, sender, null)),
-                            footers.get(recipient.personId()));
+                            footers.get(recipient.personId()), approached.get(recipient.personId()));
                 })
                 .toList());
     }

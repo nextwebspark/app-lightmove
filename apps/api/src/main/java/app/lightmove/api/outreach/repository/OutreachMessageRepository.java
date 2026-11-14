@@ -4,6 +4,7 @@ import app.lightmove.api.outreach.constant.MessageDirection;
 import app.lightmove.api.outreach.constant.MessageKind;
 import app.lightmove.api.outreach.constant.MessageStatus;
 import app.lightmove.api.outreach.model.OutreachMessage;
+import app.lightmove.api.outreach.model.PersonMessageTouch;
 import app.lightmove.api.outreach.model.PersonNextSend;
 import app.lightmove.api.outreach.model.PersonScheduledSender;
 import app.lightmove.api.outreach.model.PersonSentTally;
@@ -149,6 +150,23 @@ public interface OutreachMessageRepository extends JpaRepository<OutreachMessage
               and m.status = app.lightmove.api.outreach.constant.MessageStatus.SCHEDULED
             """)
     List<PersonScheduledSender> findScheduledSendersOfEachPerson(UUID workspaceId, UUID projectId);
+
+    /**
+     * Every email that went or waits to go to these people, and every reply, on any position: Recently approached's
+     * read. No subject and no body leave the query.
+     */
+    @Query("""
+            select m.personId as personId, m.projectId as projectId, m.senderUserId as senderUserId,
+                   m.direction as direction, coalesce(m.sentAt, m.sendAt, m.occurredAt) as at
+            from OutreachMessage m
+            where m.workspaceId = :workspaceId and m.personId in :personIds
+              and ((m.direction = app.lightmove.api.outreach.constant.MessageDirection.OUTBOUND
+                    and m.status in (app.lightmove.api.outreach.constant.MessageStatus.SENT,
+                                     app.lightmove.api.outreach.constant.MessageStatus.SCHEDULED))
+                or (m.direction = app.lightmove.api.outreach.constant.MessageDirection.INBOUND
+                    and m.kind = app.lightmove.api.outreach.constant.MessageKind.REPLY))
+            """)
+    List<PersonMessageTouch> findTouchesOfPeople(UUID workspaceId, Collection<UUID> personIds);
 
     /** When the first email went to one executive on a position, or null before any has. */
     @Query("""

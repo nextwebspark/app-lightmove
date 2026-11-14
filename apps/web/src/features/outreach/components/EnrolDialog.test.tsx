@@ -83,6 +83,7 @@ function person(candidateId: string, fullName: string, overrides: Partial<Enroll
     emails: [{ address: `${candidateId}@target.example`, kind: "work", verified: true }],
     skipReason: null,
     inSequence: null,
+    recentApproach: null,
     tokens: {
       firstName: fullName.split(" ")[0],
       currentTitle: "CFO",
@@ -164,6 +165,42 @@ describe("EnrolDialog", () => {
       expect(screen.getByRole("checkbox", { name })).toBeDisabled();
     }
     expect(screen.getByText("1 to add · 4 skipped")).toBeInTheDocument();
+  });
+
+  it("leaves someone a teammate recently approached unticked, says who, and counts them on Start", async () => {
+    vi.mocked(sequenceApi.getEnrollmentCandidates).mockResolvedValue([
+      person("a", "Priya Raman"),
+      person("b", "Rajesh Menon", {
+        recentApproach: {
+          tier: "CAUTION",
+          windowDays: 90,
+          touches: [
+            { kind: "EMAILED", byUserId: "u2", byName: "Sara Al-Mansour", at: new Date(Date.now() - 12 * 86_400_000).toISOString(),
+              projectId: "p2", positionTitle: "Head of Credit Risk", samePosition: false, byYou: false },
+          ],
+          elsewhere: [],
+          lastApproach: null,
+        },
+      }),
+    ]);
+    renderDialog();
+
+    expect(await screen.findByText("Sara Al-Mansour emailed · 12 days ago · Head of Credit Risk")).toBeInTheDocument();
+    const rajesh = screen.getByRole("checkbox", { name: "Rajesh Menon" });
+    expect(rajesh).not.toBeChecked();
+    expect(rajesh).toBeEnabled();
+    expect(screen.getByRole("checkbox", { name: "Priya Raman" })).toBeChecked();
+
+    await userEvent.click(rajesh);
+    expect(rajesh).toBeChecked();
+    await userEvent.click(rajesh);
+    await userEvent.click(screen.getByRole("button", { name: "Review 1 email" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Next" }));
+    expect(
+      await screen.findByText(
+        "1 left out: someone on your team approached this person recently. Tick them on Choose to include them",
+      ),
+    ).toBeInTheDocument();
   });
 
   it("ticks the sender's default under the email, on every email of the run, and starts with it", async () => {

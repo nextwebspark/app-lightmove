@@ -9,6 +9,8 @@ import type { EmailTemplate } from "../../emailtemplates/api/emailTemplatesApi";
 import { SaveAsTemplateDialog } from "../../emailtemplates/components/SaveAsTemplateDialog";
 import { TemplatePicker } from "../../emailtemplates/components/TemplatePicker";
 import { templateVocabulary } from "../../emailtemplates/lib/templateVariables";
+import type { RecentApproach } from "../../candidates/api/types";
+import { RecentApproachNote } from "../../candidates/components/RecentApproachNote";
 import { NoteEditor, type NoteEditorHandle } from "../../notes/components/NoteEditor";
 import { parseNoteMarkdown, plainNoteDoc, serializeNoteDoc } from "../../notes/lib/noteMarkdown";
 import { PrivacyFooterNote } from "./PrivacyFooterPreview";
@@ -91,6 +93,7 @@ export function ReplyComposer({
       attachmentLimits={composer.attachmentLimits}
       tokens={composer.tokens}
       addsPrivacyFooter={composer.privacyFooter != null}
+      recentApproach={composer.recentApproach}
       autoFocus={autoFocus}
       onSent={onSent}
       onDraftChange={onDraftChange}
@@ -116,6 +119,7 @@ function OpenComposer({
   attachmentLimits,
   tokens,
   addsPrivacyFooter,
+  recentApproach,
   autoFocus,
   onSent,
   onDraftChange,
@@ -137,6 +141,7 @@ function OpenComposer({
   attachmentLimits: AttachmentLimits;
   tokens: RecipientTokens | null;
   addsPrivacyFooter: boolean;
+  recentApproach: RecentApproach | null;
   autoFocus: boolean;
   onSent?: () => void;
   onDraftChange?: (hasDraft: boolean) => void;
@@ -371,6 +376,7 @@ function OpenComposer({
                 Too long to send. Shorten it to {BODY_MAX_LENGTH.toLocaleString("en-GB")} characters.
               </p>
             )}
+            <RecentApproachNote approach={recentApproach} className="mt-1.5" />
             <div className="mt-1 flex flex-wrap items-center gap-2">
               <AttachButton
                 projectId={projectId}

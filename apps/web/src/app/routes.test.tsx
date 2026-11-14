@@ -342,6 +342,7 @@ describe("routes — the settings gates", () => {
       company: null,
       dateTime: WORKSPACE_DATE_TIME,
       deletionGraceDays: 30,
+      recentlyApproachedDays: 90,
     });
 
     renderAt("/settings/general");

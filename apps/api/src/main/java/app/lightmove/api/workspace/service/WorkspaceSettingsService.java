@@ -191,6 +191,25 @@ public class WorkspaceSettingsService implements WorkspaceAiControlsReader {
         return requireWorkspace(workspaceId).getCalendarSync();
     }
 
+    @Transactional
+    public WorkspaceDetail changeRecentlyApproachedDays(UUID actorId, UUID workspaceId, int days,
+                                                       HttpServletRequest request) {
+        Workspace workspace = workspaces.lockById(workspaceId)
+                .orElseThrow(() -> ApiException.of(ErrorCode.WORKSPACE_NOT_FOUND));
+        int previous = workspace.getRecentlyApproachedDays();
+        if (previous == days) {
+            return detail(workspace);
+        }
+        workspace.changeRecentlyApproachedDays(days);
+        audit.event(WorkspaceEventType.WORKSPACE_UPDATED)
+                .actor(actorId).workspace(workspaceId).from(request)
+                .detail("section", "recentlyApproached")
+                .detail("from", String.valueOf(previous))
+                .detail("to", String.valueOf(days))
+                .record();
+        return detail(workspace);
+    }
+
     /**
      * Turning an inference off clears what it left on the workspace's people in the same transaction, so a value
      * the workspace has said it does not want is never held past the switch. The row is locked before anything is
