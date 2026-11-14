@@ -115,7 +115,9 @@ class NylasMailboxGatewayTest {
                     new VendorClientFactory(properties), limiter, new VendorCallGuard(limiter, properties),
                     RestClient.builder());
 
-            live.send("grant-1", new OutgoingEmail("priya@client.example", "A CFO role", "<p>Hi</p>"));
+            live.send("grant-1", new OutgoingEmail("priya@client.example", "A CFO role", "<p>Hi</p>", null, List.of(),
+                    List.of(new app.lightmove.api.outreach.model.MailHeader("List-Unsubscribe",
+                            "<https://app.example/api/v1/privacy/links/t/opt-out>"))));
             SentEmail sent = live.send("grant-1", new OutgoingEmail("priya@client.example", "The brief",
                     "<p>Attached</p>", "msg-0", List.of(new EmailAttachment("Brief.pdf", "application/pdf",
                             "%PDF-1.7 brief".getBytes(java.nio.charset.StandardCharsets.US_ASCII)))));
@@ -123,6 +125,9 @@ class NylasMailboxGatewayTest {
             assertThat(sent.messageId()).isEqualTo("msg-1");
             assertThat(contentTypes.get(0)).startsWith("application/json");
             assertThat(JSON.readTree(bodies.get(0)).has("attachments")).isFalse();
+            assertThat(JSON.readTree(bodies.get(0)).get("custom_headers").get(0).get("name").asString())
+                    .isEqualTo("List-Unsubscribe");
+            assertThat(bodies.get(1)).doesNotContain("custom_headers");
             assertThat(contentTypes.get(1)).startsWith("multipart/form-data");
             String multipart = bodies.get(1);
             assertThat(multipart).contains("Content-Disposition: form-data; name=\"message\"")

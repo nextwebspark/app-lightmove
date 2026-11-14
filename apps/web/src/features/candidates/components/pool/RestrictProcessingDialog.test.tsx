@@ -50,6 +50,7 @@ const PERSON: PersonRecord = {
     basisSetAt: null,
     notifiedAt: null,
     noticeChannel: null,
+    optedOutAt: null,
   },
   tagIds: [],
   source: "manual",

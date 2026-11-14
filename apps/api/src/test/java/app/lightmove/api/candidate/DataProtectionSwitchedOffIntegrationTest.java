@@ -62,7 +62,8 @@ class DataProtectionSwitchedOffIntegrationTest extends FlowTestSupport {
                         {"notifiedOn":"2026-01-01"}"""),
                 post("/api/v1/candidates/bulk/privacy-notice").content(people),
                 get("/api/v1/privacy/links/not-a-real-token"),
-                post("/api/v1/privacy/links/not-a-real-token/objection"));
+                post("/api/v1/privacy/links/not-a-real-token/objection"),
+                post("/api/v1/privacy/links/not-a-real-token/opt-out"));
         for (MockHttpServletRequestBuilder route : routes) {
             assertThat(codeOf(mvc.perform(route.header("Authorization", "Bearer " + admin)
                             .contentType(MediaType.APPLICATION_JSON))

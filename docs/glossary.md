@@ -47,6 +47,8 @@ changes. Copy no mockup draws — toasts, errors, banners, empty states — foll
 | **Notified** / **Not notified** | whether a candidate was told the firm holds their details — by a privacy notice, their first outreach email, or a colleague marking it by hand; Not notified is also the Candidates quick view of people held over a month and never told | informed, aware, Art. 14 status |
 | **Lawful basis** | why the firm may hold a candidate's details — Legitimate interest, Consent or Contract — the workspace default unless one is recorded on the person | legal basis, processing ground |
 | **Candidate privacy** | Settings → Data & retention's card naming the firm as controller: its legal name, privacy contact, notice link and default lawful basis | controller settings, GDPR settings |
+| **Privacy footer** | the fixed lines every outreach email ends with: the firm, where the details came from, its privacy notice and Stop emails from us | unsubscribe footer, legal footer |
+| **Opted out** | a candidate used an email's Stop emails from us, or their mail app's Unsubscribe: every sequence stopped, do not contact set, and on the suppression list | unsubscribed |
 | **Privacy page** | the public page a privacy notice links to, where a candidate objects or asks for a copy or deletion | data portal, preference centre |
 | **Export personal data** | an admin's one zip of everything held on a person, to answer their request for a copy of it (subject access), from the Candidates drawer's ⋯ | DSAR, SAR, subject access request export |
 | **Two-factor authentication** | a code from an authenticator app asked for after the password, turned on in Settings → Security | MFA, 2FA, TOTP, OTP |

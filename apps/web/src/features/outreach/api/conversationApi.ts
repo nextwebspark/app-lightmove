@@ -152,6 +152,8 @@ export interface ConversationComposer {
    * here is one the send would refuse. The booking link only where one exists.
    */
   tokens: RecipientTokens | null;
+  /** The sentence the privacy footer added at send opens with (#924); null when data protection is off. */
+  privacyFooter: string | null;
 }
 
 export interface Conversation {

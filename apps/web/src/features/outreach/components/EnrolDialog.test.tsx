@@ -91,6 +91,7 @@ function person(candidateId: string, fullName: string, overrides: Partial<Enroll
       location: "Dubai",
       senderFirstName: "Yara",
     },
+    privacyFooter: null,
     ...overrides,
   };
 }
@@ -266,6 +267,32 @@ describe("EnrolDialog", () => {
     expect(screen.getByText(/The fallback stands in for \{\{currentTitle\}\}/)).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Next" }));
     expect(await screen.findByRole("button", { name: "Start sequence" })).toBeEnabled();
+  });
+
+  it("draws the privacy footer under the email as the executive receives it, where the workspace adds one", async () => {
+    vi.mocked(sequenceApi.getEnrollmentCandidates).mockResolvedValue([
+      person("a", "Priya Raman", {
+        privacyFooter:
+          "Meridian Search Partners FZ-LLC holds your professional details, which came from our own research.",
+      }),
+    ]);
+    renderDialog();
+    await userEvent.click(await screen.findByRole("button", { name: "Review 1 email" }));
+
+    const footer = await screen.findByLabelText("Privacy footer");
+    expect(footer).toHaveTextContent(
+      "Meridian Search Partners FZ-LLC holds your professional details, which came from our own research.",
+    );
+    expect(footer).toHaveTextContent("Our privacy notice · Stop emails from us");
+  });
+
+  it("draws no privacy footer where the workspace adds none", async () => {
+    vi.mocked(sequenceApi.getEnrollmentCandidates).mockResolvedValue([person("a", "Priya Raman")]);
+    renderDialog();
+    await userEvent.click(await screen.findByRole("button", { name: "Review 1 email" }));
+
+    expect(await screen.findByRole("textbox", { name: "Opener" })).toBeInTheDocument();
+    expect(screen.queryByLabelText("Privacy footer")).not.toBeInTheDocument();
   });
 
   it("leaves no blank lines at the end of a first email with no opener", async () => {

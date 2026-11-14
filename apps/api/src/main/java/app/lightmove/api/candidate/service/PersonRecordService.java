@@ -54,6 +54,7 @@ public class PersonRecordService {
     private final WorkspaceAccess workspaceAccess;
     private final PersonEmployerResolver employers;
     private final CandidatePrivacySettingsService privacySettings;
+    private final OutreachPrivacyService outreachPrivacy;
 
     /** The person a mandate's row maps, after checking the mandate is the caller's workspace's. */
     @Transactional(readOnly = true)
@@ -174,7 +175,8 @@ public class PersonRecordService {
         return new PersonPrivacyResponse(PersonPrivacyService.basisOf(person, firm).value(),
                 person.getLawfulBasis() == null, setter == null ? null : setter.getFullName(),
                 person.getLawfulBasisSetAt(), person.getPrivacyNotifiedAt(),
-                person.getPrivacyNoticeChannel() == null ? null : person.getPrivacyNoticeChannel().value());
+                person.getPrivacyNoticeChannel() == null ? null : person.getPrivacyNoticeChannel().value(),
+                outreachPrivacy.optedOutAtOf(person));
     }
 
     private Map<UUID, User> usersOf(Collection<UUID> ids) {

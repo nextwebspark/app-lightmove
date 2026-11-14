@@ -25,7 +25,9 @@ import app.lightmove.api.outreach.model.DeliveryFailure;
 import app.lightmove.api.outreach.model.GrantedMailbox;
 import app.lightmove.api.outreach.model.InboundMessage;
 import app.lightmove.api.outreach.model.MailboxAccessWithdrawn;
+import app.lightmove.api.outreach.model.MailHeader;
 import app.lightmove.api.outreach.model.MailboxGrants;
+import app.lightmove.api.outreach.model.OutgoingEmail;
 import app.lightmove.api.outreach.service.OutreachDispatcher;
 import app.lightmove.api.outreach.service.OutreachInboxService;
 import app.lightmove.api.outreach.service.OutreachSendService;
@@ -47,6 +49,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import org.awaitility.Awaitility;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -134,7 +137,7 @@ class OutreachDispatchIntegrationTest extends FlowTestSupport {
         assertThat(enrollmentOf(priya).get("signature_html")).isNull();
         dispatcher.dispatchAt(monday);
         assertThat(sentTo("priya@" + domain).getFirst().email().htmlBody())
-                .isEqualTo("<p>Hi Priya,</p><p>We are hiring a Group CFO.</p>");
+                .startsWith("<p>Hi Priya,</p><p>We are hiring a Group CFO.</p><p style=");
 
         String rajesh = executive("Rajesh Iyer", "rajesh@" + domain);
         MvcResult refused = startTimed(createSequence("Foreign"), List.of(person(rajesh, "rajesh@" + domain, null)),
@@ -182,6 +185,113 @@ class OutreachDispatchIntegrationTest extends FlowTestSupport {
                 .doesNotContain("/book/your-link");
     }
 
+    @Test
+    @DisplayName("every email ends with the privacy footer and one-click unsubscribe headers; the ledger keeps the body")
+    void everyEmailCarriesThePrivacyFooter() throws Exception {
+        String rajesh = executive("Rajesh Iyer", "rajesh@" + domain);
+        start(createSequence("Before the firm is set up"), rajesh, "rajesh@" + domain, null);
+        dispatcher.dispatchAt(monday);
+        SentRecord unconfigured = sentTo("rajesh@" + domain).getFirst();
+        assertThat(unconfigured.email().htmlBody())
+                .contains("We hold your professional details, which came from our own research.")
+                .contains("Stop emails from us");
+        assertThat(personColumn(rajesh, "privacy_notified_at")).isNull();
+
+        savePrivacySettings();
+        String priya = executive("Priya Raman", "priya@" + domain);
+        assertThat(choose(priya).get("privacyFooter").asText())
+                .isEqualTo("Meridian Search Partners FZ-LLC holds your professional details, which came from our "
+                        + "own research.");
+        start(createSequence("Configured"), priya, "priya@" + domain, null);
+        dispatcher.dispatchAt(monday);
+
+        OutgoingEmail sent = sentTo("priya@" + domain).getFirst().email();
+        assertThat(sent.htmlBody()).startsWith("<p>Hi Priya,</p>")
+                .contains("Meridian Search Partners FZ-LLC holds your professional details")
+                .contains("href=\"https://meridian.example/privacy\"")
+                .contains("/privacy/").contains("?action=opt-out");
+        assertThat(sent.headers()).extracting(MailHeader::name)
+                .containsExactly("List-Unsubscribe", "List-Unsubscribe-Post");
+        assertThat(sent.headers().getFirst().value()).matches("<http.+/api/v1/privacy/links/[^/]+/opt-out>");
+        assertThat(jdbc.queryForObject("select body from app_lm_outreach_message m join app_lm_outreach_enrollment e "
+                + "on e.id = m.enrollment_id where e.candidate_id = ?::uuid", String.class, priya))
+                .doesNotContain("Stop emails").doesNotContain("privacy");
+        assertThat(personColumn(priya, "privacy_notice_channel")).isEqualTo("OUTREACH_EMAIL");
+        assertThat(activityKinds(priya)).contains("PRIVACY_NOTICE_SENT");
+        assertThat(jdbc.queryForObject("select purpose from app_lm_person_privacy_link l join app_lm_project_candidate c "
+                + "on c.person_id = l.person_id where c.id = ?::uuid", String.class, priya)).isEqualTo("OPT_OUT");
+
+        // A follow-up carries a link of its own, and a person already told keeps the telling they had.
+        Object toldAt = personColumn(priya, "privacy_notified_at");
+        dispatcher.dispatchAt(monday.plus(Duration.ofDays(3)));
+        OutgoingEmail followUp = sentTo("priya@" + domain).get(1).email();
+        assertThat(followUp.headers().getFirst().value()).isNotEqualTo(sent.headers().getFirst().value());
+        assertThat(personColumn(priya, "privacy_notified_at")).isEqualTo(toldAt);
+    }
+
+    @Test
+    @DisplayName("one-click unsubscribe stops every live run, fails the person's waiting emails, and is recorded once")
+    void oneClickUnsubscribeStopsEverything() throws Exception {
+        savePrivacySettings();
+        String priya = executive("Priya Raman", "priya@" + domain);
+        start(createSequence("Approach"), priya, "priya@" + domain, null);
+        dispatcher.dispatchAt(monday);
+        String header = sentTo("priya@" + domain).getFirst().email().headers().getFirst().value();
+        String oneClick = URI.create(header.substring(1, header.length() - 1)).getPath();
+        as(consultant, post(outreach("/conversations/" + priya + "/messages")).contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"toAddress":"priya@%s","subject":"Later","replyInThread":false,"body":"Hello",
+                         "sendAt":"%s"}""".formatted(domain, monday.plus(Duration.ofDays(10)))))
+                .andExpect(status().isCreated());
+
+        mvc.perform(post(oneClick).contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                        .content("List-Unsubscribe=One-Click"))
+                .andExpect(status().isOk());
+        mvc.perform(post(oneClick).contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                        .content("List-Unsubscribe=One-Click"))
+                .andExpect(status().isOk());
+
+        assertThat(enrollmentOf(priya)).containsEntry("status", "STOPPED").containsEntry("stop_reason", "OPTED_OUT");
+        assertThat(jdbc.queryForObject("select fail_reason from app_lm_outreach_message where candidate_id = ?::uuid "
+                + "and enrollment_id is null", String.class, priya)).isEqualTo("OPTED_OUT");
+        assertThat(personColumn(priya, "do_not_contact")).isEqualTo(true);
+        assertThat(personColumn(priya, "do_not_contact_reason")).isEqualTo("Opted out by email");
+        assertThat(activityKinds(priya).stream().filter("PRIVACY_OPTED_OUT"::equals)).hasSize(1);
+        assertThat(jdbc.queryForObject("select count(*) from app_lm_workspace_suppression s join app_lm_person p "
+                + "on p.workspace_id = s.workspace_id join app_lm_project_candidate c on c.person_id = p.id "
+                + "where c.id = ?::uuid and s.reason = 'OBJECTED'", Integer.class, priya)).isPositive();
+        Awaitility.await().atMost(Duration.ofSeconds(10)).untilAsserted(() -> assertThat(jdbc.queryForList("""
+                select n.kind from app_lm_notification n join app_lm_user u on u.id = n.recipient_user_id
+                where u.email = ?""", String.class, "yara@" + domain)).contains("CANDIDATE_OPTED_OUT"));
+        String personId = body(as(consultant, get("/api/v1/projects/" + projectId + "/candidates/" + priya))
+                .andReturn()).get("personId").asText();
+        assertThat(body(as(consultant, get("/api/v1/candidates/" + personId)).andExpect(status().isOk()).andReturn())
+                .get("privacy").get("optedOutAt").isNull()).isFalse();
+
+        dispatcher.dispatchAt(monday.plus(Duration.ofDays(11)));
+        assertThat(sentTo("priya@" + domain)).hasSize(1);
+    }
+
+    private void savePrivacySettings() throws Exception {
+        as(consultant, put("/api/v1/workspace/candidate-privacy").contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"controllerName":"Meridian Search Partners FZ-LLC","privacyContactEmail":"privacy@%s",
+                         "noticeUrl":"https://meridian.example/privacy","defaultLawfulBasis":"legitimate_interest"}
+                        """.formatted(domain)))
+                .andExpect(status().isOk());
+    }
+
+    private JsonNode choose(String candidateId) throws Exception {
+        return body(as(consultant, post(outreach("/enrollment-candidates")).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"candidateIds\":[\"%s\"]}".formatted(candidateId)))
+                .andExpect(status().isOk()).andReturn()).get("people").get(0);
+    }
+
+    private Object personColumn(String candidateId, String column) {
+        return jdbc.queryForObject("select p." + column + " from app_lm_person p join app_lm_project_candidate c "
+                + "on c.person_id = p.id where c.id = ?::uuid", Object.class, candidateId);
+    }
+
     private void startSigned(String sequenceId, String candidateId, String address, String signatureId)
             throws Exception {
         startTimed(sequenceId, List.of(person(candidateId, address, null)),
@@ -208,7 +318,8 @@ class OutreachDispatchIntegrationTest extends FlowTestSupport {
         assertThat(first).hasSize(1);
         assertThat(first.getFirst().email().subject()).isEqualTo("Confidential: Group CFO");
         assertThat(first.getFirst().email().htmlBody())
-                .isEqualTo("<p>Hi Priya,</p><p>Your treasury work stood out.</p><p>We are hiring a Group CFO.</p>");
+                .startsWith("<p>Hi Priya,</p><p>Your treasury work stood out.</p><p>We are hiring a Group CFO.</p>"
+                        + "<p style=");
         assertThat(first.getFirst().email().replyToMessageId()).isNull();
         Map<String, Object> afterFirst = enrollmentOf(priya);
         assertThat(afterFirst.get("status")).isEqualTo("ACTIVE");
@@ -224,7 +335,9 @@ class OutreachDispatchIntegrationTest extends FlowTestSupport {
         assertThat(both).hasSize(2);
         SentRecord second = both.get(1);
         assertThat(second.email().subject()).isEqualTo("Re: Confidential: Group CFO");
-        assertThat(second.email().htmlBody()).isEqualTo("<p>Following up, Priya.</p>");
+        // The privacy footer (#924) follows the body as it leaves; the ledger keeps the body alone.
+        assertThat(second.email().htmlBody()).startsWith("<p>Following up, Priya.</p><p style=")
+                .contains("Stop emails from us");
         assertThat(second.email().replyToMessageId()).isEqualTo(afterFirst.get("last_message_id"));
         assertThat(enrollmentOf(priya).get("thread_id")).isEqualTo(afterFirst.get("thread_id"));
 
@@ -248,7 +361,8 @@ class OutreachDispatchIntegrationTest extends FlowTestSupport {
 
         List<SentRecord> sent = sentTo("priya@" + domain);
         assertThat(sent).hasSize(2);
-        assertThat(sent.get(1).email().htmlBody()).isEqualTo("<p>Following up from the Gulf, Priya. Still in ?</p>");
+        assertThat(sent.get(1).email().htmlBody())
+                .startsWith("<p>Following up from the Gulf, Priya. Still in ?</p><p style=");
         assertThat(jdbc.queryForObject("""
                 select m.body_text from app_lm_outreach_message m join app_lm_outreach_enrollment e on e.id = m.enrollment_id
                 where e.candidate_id = ?::uuid order by m.step desc limit 1""", String.class, priya))

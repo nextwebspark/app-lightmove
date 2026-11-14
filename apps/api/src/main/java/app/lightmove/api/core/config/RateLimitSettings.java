@@ -70,5 +70,12 @@ public record RateLimitSettings(
         @DefaultValue("30") int privacyPageOpensPerMinute,
 
         /** An objection or a request from a privacy page: each one tells the firm's admins, so a tight brake. */
-        @DefaultValue("10") int privacyPageRequestsPerHour
+        @DefaultValue("10") int privacyPageRequestsPerHour,
+
+        /**
+         * An outreach email's stop link (#924), per link and per IP. A mail app's one-click Unsubscribe is posted from
+         * the provider's own servers, so one IP speaks for many people and its budget is wide.
+         */
+        @DefaultValue("10") int privacyOptOutsPerHour,
+        @DefaultValue("1000") int privacyOptOutsPerHourPerIp
 ) {}

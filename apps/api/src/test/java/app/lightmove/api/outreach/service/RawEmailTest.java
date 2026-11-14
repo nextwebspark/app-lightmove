@@ -4,9 +4,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import app.lightmove.api.outreach.model.EmailAttachment;
+import app.lightmove.api.outreach.model.MailHeader;
 import app.lightmove.api.outreach.model.OutgoingEmail;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
+import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -108,6 +110,22 @@ class RawEmailTest {
                 "Hello", "<p>Hi</p>"), null, null)).isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> RawEmail.of(new OutgoingEmail("priya@client.example", "Hello\nBcc: spy@evil.example",
                 "<p>Hi</p>"), null, null)).isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    @DisplayName("the privacy footer's one-click unsubscribe goes as headers of its own (#924)")
+    void oneClickUnsubscribeHeaders() {
+        String text = sent(RawEmail.of(new OutgoingEmail("priya@client.example", "A CFO role", "<p>Hi</p>", null,
+                List.of(), List.of(
+                        new MailHeader("List-Unsubscribe", "<https://app.example/api/v1/privacy/links/t/opt-out>"),
+                        new MailHeader("List-Unsubscribe-Post", "List-Unsubscribe=One-Click"))), null, null));
+
+        assertThat(text).contains("List-Unsubscribe: <https://app.example/api/v1/privacy/links/t/opt-out>\r\n")
+                .contains("List-Unsubscribe-Post: List-Unsubscribe=One-Click\r\n");
+        assertThat(text.indexOf("List-Unsubscribe")).isLessThan(text.indexOf("\r\n\r\n"));
+        assertThatThrownBy(() -> RawEmail.of(new OutgoingEmail("priya@client.example", "A CFO role", "<p>Hi</p>",
+                null, List.of(), List.of(new MailHeader("List-Unsubscribe", "<a>\r\nBcc: x@y.example"))), null, null))
+                .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test

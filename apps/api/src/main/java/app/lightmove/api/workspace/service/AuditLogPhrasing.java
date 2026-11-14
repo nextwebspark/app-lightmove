@@ -182,6 +182,7 @@ public class AuditLogPhrasing {
         on(ProjectEventType.PERSON_PRIVACY_NOTICE_MARKED, line -> "Marked a candidate as notified");
         on(ProjectEventType.PERSON_PRIVACY_NOTICE_FAILED, line -> "A candidate's privacy notice could not be sent");
         on(ProjectEventType.PERSON_OBJECTED, line -> "A candidate objected from their privacy page");
+        on(ProjectEventType.PERSON_OPTED_OUT, line -> "A candidate stopped emails from an outreach email");
         on(ProjectEventType.PERSON_PRIVACY_REQUESTED, line -> line.is("kind", "deletion")
                 ? "A candidate asked for their data to be deleted" : "A candidate asked for a copy of their data");
         on(ProjectEventType.CANDIDATE_PIPELINE_REORDERED, line -> "Reordered the pipeline");

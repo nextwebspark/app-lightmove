@@ -9,6 +9,7 @@ import app.lightmove.api.candidate.model.CandidateCompensation;
 import app.lightmove.api.candidate.model.CandidateContact;
 import app.lightmove.api.candidate.model.CandidatePrivacySettings;
 import app.lightmove.api.candidate.model.Person;
+import app.lightmove.api.candidate.model.PersonOptedOut;
 import app.lightmove.api.candidate.model.PersonPrivacyRequested;
 import app.lightmove.api.candidate.repository.PersonRepository;
 import app.lightmove.api.common.constant.ApiValueEnum;
@@ -47,6 +48,7 @@ public class PrivacyPageService {
 
     private static final String PERSON_TARGET = "person";
     private static final String OBJECTION_REASON = "Objected through their privacy page";
+    private static final String OPT_OUT_REASON = "Opted out by email";
 
     /** A second click on the same request within a day tells nobody again. */
     private static final Duration REPEAT_WINDOW = Duration.ofDays(1);
@@ -120,6 +122,36 @@ public class PrivacyPageService {
         });
     }
 
+    /**
+     * Stop emails (#924): the footer's link and a mail app's one-click Unsubscribe (RFC 8058) both land here. Do not
+     * contact and the suppression list as for an objection; outreach stops the person's runs in this transaction
+     * ({@link PersonOptedOut}). Only the first use of a link is recorded, so a mail app posting twice tells nobody
+     * twice.
+     */
+    public void optOut(String token, HttpServletRequest request) {
+        String tokenHash = Tokens.hash(token);
+        rateLimit.checkPrivacyOptOut(tokenHash, request);
+        inLinksWorkspace(tokenHash, link -> {
+            Person person = liveLinksPerson(link);
+            int firstUse = jdbc.update("""
+                    UPDATE app_lm_person_privacy_link SET used_at = now() WHERE id = :id AND used_at IS NULL
+                    """, new MapSqlParameterSource("id", link.id()));
+            boolean marked = person.markDoNotContact(OPT_OUT_REASON, null);
+            int suppressed = suppression.suppressPerson(person, null, SuppressionReason.OBJECTED);
+            if (firstUse == 0 && !marked && suppressed == 0) {
+                return null;
+            }
+            activity.record(person, null, null, PersonActivityKind.PRIVACY_OPTED_OUT, PersonActivityDetails.none());
+            audit.event(ProjectEventType.PERSON_OPTED_OUT)
+                    .workspace(link.workspaceId()).target(PERSON_TARGET, person.getId()).from(request)
+                    .detail("suppressionEntries", suppressed)
+                    .record();
+            events.publishEvent(new PersonOptedOut(link.workspaceId(), person.getId(),
+                    person.getOwnerUserId() != null ? person.getOwnerUserId() : link.sentBy()));
+            return null;
+        });
+    }
+
     /** A copy or a deletion: told to the admins, answered by a person, never fulfilled from here. */
     public void request(String token, String wireKind, HttpServletRequest request) {
         PrivacyRequestKind kind = ApiValueEnum.require(PrivacyRequestKind.class, wireKind, "request");
@@ -149,10 +181,12 @@ public class PrivacyPageService {
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
         return WorkspaceScope.call(resolved.workspaceId(), () -> transactions.execute(status -> {
             PrivacyLink link = jdbc.query("""
-                    SELECT id, workspace_id, person_id, expires_at FROM app_lm_person_privacy_link WHERE id = :id
+                    SELECT id, workspace_id, person_id, sent_by, expires_at FROM app_lm_person_privacy_link
+                    WHERE id = :id
                     """, new MapSqlParameterSource("id", resolved.id()), (row, index) -> new PrivacyLink(
                     row.getObject("id", UUID.class), row.getObject("workspace_id", UUID.class),
-                    row.getObject("person_id", UUID.class), row.getTimestamp("expires_at").toInstant()))
+                    row.getObject("person_id", UUID.class), row.getObject("sent_by", UUID.class),
+                    row.getTimestamp("expires_at").toInstant()))
                     .stream().findFirst().orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
             return work.apply(link);
         }));
@@ -226,7 +260,7 @@ public class PrivacyPageService {
         return Boolean.TRUE.equals(jdbc.queryForObject("SELECT EXISTS (" + query + ")", parameters, Boolean.class));
     }
 
-    private record PrivacyLink(UUID id, UUID workspaceId, UUID personId, Instant expiresAt) {
+    private record PrivacyLink(UUID id, UUID workspaceId, UUID personId, UUID sentBy, Instant expiresAt) {
 
         boolean isExpired(Instant now) {
             return !now.isBefore(expiresAt);

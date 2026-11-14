@@ -37,6 +37,13 @@ public class PrivacyPageController {
         pages.object(token, request);
     }
 
+    /** RFC 8058's one-click Unsubscribe as well as the page's button: no confirmation, and a 200 with no body. */
+    @PostMapping("/opt-out")
+    @ResponseStatus(HttpStatus.OK)
+    public void optOut(@PathVariable String token, HttpServletRequest request) {
+        pages.optOut(token, request);
+    }
+
     @PostMapping("/requests")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void request(@PathVariable String token, @Valid @RequestBody PrivacyPageRequest body,

@@ -33,6 +33,9 @@ public interface OutreachEnrollmentRepository extends JpaRepository<OutreachEnro
 
     List<OutreachEnrollment> findByWorkspaceIdAndStatusIn(UUID workspaceId, Collection<EnrollmentStatus> statuses);
 
+    List<OutreachEnrollment> findByWorkspaceIdAndPersonIdAndStatusIn(UUID workspaceId, UUID personId,
+                                                                      Collection<EnrollmentStatus> statuses);
+
     long countByProjectIdAndStatusIn(UUID projectId, Collection<EnrollmentStatus> statuses);
 
     Optional<OutreachEnrollment> findByIdAndWorkspaceIdAndProjectId(UUID id, UUID workspaceId, UUID projectId);

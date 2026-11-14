@@ -74,6 +74,7 @@ const FAMILY_OF: Record<PersonActivityKind, ActivityFamily> = {
   PRIVACY_NOTICE_FAILED: "profile",
   PRIVACY_OBJECTED: "profile",
   PRIVACY_REQUEST_RECEIVED: "profile",
+  PRIVACY_OPTED_OUT: "profile",
   DOCUMENT_ADDED: "documents",
   DOCUMENT_VERSION_ADDED: "documents",
   DOCUMENT_REMOVED: "documents",
@@ -189,6 +190,7 @@ export function iconOf(entry: PersonTimelineEntry): string | null {
     case "PRIVACY_NOTICE_FAILED":
       return ICONS.info;
     case "PRIVACY_OBJECTED":
+    case "PRIVACY_OPTED_OUT":
       return ICONS.ban;
     case "DOCUMENT_ADDED":
     case "DOCUMENT_VERSION_ADDED":
@@ -240,8 +242,14 @@ const AUTOMATION_CAUSES: Record<string, string> = {
 
 export function actorOf(entry: PersonTimelineEntry): ActivityActor {
   if (entry.kind === "EMAIL_REPLIED") return { kind: "executive" };
-  // From their own privacy page (#923): nobody on the team stands behind these.
-  if (entry.kind === "PRIVACY_OBJECTED" || entry.kind === "PRIVACY_REQUEST_RECEIVED") return { kind: "executive" };
+  // From their own privacy page (#923) or an outreach email's stop link (#924): nobody on the team stands behind these.
+  if (
+    entry.kind === "PRIVACY_OBJECTED" ||
+    entry.kind === "PRIVACY_REQUEST_RECEIVED" ||
+    entry.kind === "PRIVACY_OPTED_OUT"
+  ) {
+    return { kind: "executive" };
+  }
   if (entry.kind === "MEETING_BOOKED" && String(entry.details.viaLink) === "true") return { kind: "executive" };
   if (entry.kind === "STATUS_CHANGED" && entry.details.automation) {
     return { kind: "automation", triggeredBy: entry.actorName };
@@ -348,6 +356,8 @@ export function verbOf(entry: PersonTimelineEntry): string {
       return "sent a privacy notice that could not be delivered";
     case "PRIVACY_OBJECTED":
       return "objected from their privacy page";
+    case "PRIVACY_OPTED_OUT":
+      return "stopped emails from an outreach email";
     case "PRIVACY_REQUEST_RECEIVED":
       return details.kind === "deletion" ? "asked for their data to be deleted" : "asked for a copy of their data";
     case "OUTREACH_ENROLLED":

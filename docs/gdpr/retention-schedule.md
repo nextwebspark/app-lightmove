@@ -74,7 +74,7 @@ once by `ops/cloudsql/scrub-audit-pii.sql`.
 | `app_lm_person_document` | person, CV and references | the team's record | with the person | erasure, removal | cascade |
 | `app_lm_person_document_version` | person, file metadata | each file of a document | with the person | erasure, removal | cascade, `StorageDeletionSweeper` |
 | `app_lm_person_activity` | person, who did what | the timeline | with the person | erasure | cascade |
-| `app_lm_person_privacy_link` | person, who sent a notice, when; the link's token as a hash | the person's privacy notices (#923) and the page they open | with the person | erasure | cascade |
+| `app_lm_person_privacy_link` | person, who sent a notice or an outreach email, when, when a stop link was used; the link's token as a hash | the person's privacy notices (#923), each outreach email's stop link (#924), and the page they open | with the person | erasure | cascade |
 | `app_lm_person_meeting` | person, consultant, call times | calls with the executive | with the person | erasure, calendar change | cascade |
 | `app_lm_project_candidate` | person on a position, frozen V91 copy | the mapping | with the person or the position | erasure, unmapping | cascade |
 | `app_lm_candidate_contact` | frozen V54 copy of contacts | none: frozen for #606 | with the mapping | erasure, #606 cleanup | cascade |

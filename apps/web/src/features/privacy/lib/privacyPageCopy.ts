@@ -44,7 +44,8 @@ export function basisSentence(basis: PrivacyPage["lawfulBasis"]): string {
   }
 }
 
-export type PrivacyChoice = "object" | "copy" | "deletion";
+/** `optOut` is offered only by an outreach email's stop link (`?action=opt-out`, #924), never in the list. */
+export type PrivacyChoice = "object" | "copy" | "deletion" | "optOut";
 
 export const CHOICES: readonly { key: PrivacyChoice; label: string; detail: string }[] = [
   { key: "object", label: "Don't contact me again", detail: "We stop all contact and will not add your details again." },
@@ -56,31 +57,49 @@ export const CHOICES: readonly { key: PrivacyChoice; label: string; detail: stri
   { key: "deletion", label: "Delete my data", detail: "Our privacy team deletes what we hold, within one month." },
 ];
 
-export function confirmationOf(choice: PrivacyChoice, firm: string): { title: string; body: string; cta: string } {
+export function confirmationOf(
+  choice: PrivacyChoice,
+  firm: string,
+): { title: string; body: string; cta: string; back: string } {
   switch (choice) {
+    case "optOut":
+      return {
+        title: `Stop emails from ${firm === "We" ? "us" : firm}?`,
+        body: "You won't receive any more emails from our consultants, and we won't add your details again.",
+        cta: "Stop emails",
+        back: "See all your choices",
+      };
     case "object":
       return {
         title: "Stop all contact from us?",
         body: `${firm} will not contact you again, by email or any other way, and will not add your details again. We keep only what we need to remember not to contact you.`,
         cta: "Don't contact me again",
+        back: "Back",
       };
     case "copy":
       return {
         title: "Ask for a copy of your data?",
         body: "We will send a copy of everything we hold about you to the email address we have for you, within one month.",
         cta: "Send the request",
+        back: "Back",
       };
     case "deletion":
       return {
         title: "Ask us to delete your data?",
         body: "We will delete what we hold about you within one month, unless the law requires us to keep part of it, and we will tell you when it is done. We keep only a note that you asked, so we do not add your details again.",
         cta: "Send the request",
+        back: "Back",
       };
   }
 }
 
 export function doneOf(choice: PrivacyChoice, firm: string): { title: string; body: string } {
   switch (choice) {
+    case "optOut":
+      return {
+        title: "You won't receive more emails from us",
+        body: `${firm} has recorded that you want no more emails. Nobody here will contact you, and your details will not be added again.`,
+      };
     case "object":
       return {
         title: "You won't hear from us again",

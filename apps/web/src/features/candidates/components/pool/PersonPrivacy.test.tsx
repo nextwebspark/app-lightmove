@@ -56,6 +56,7 @@ const PERSON = {
     basisSetAt: null,
     notifiedAt: null,
     noticeChannel: null,
+    optedOutAt: null,
   },
   addedAt: "2026-07-01T10:00:00Z",
   source: "extension",

@@ -227,7 +227,7 @@ class OutreachOwnEmailIntegrationTest extends FlowTestSupport {
                 {"toAddress":"%s","subject":"A conversation","replyInThread":false,"body":"Hello"}"""
                 .formatted(priyaAddress));
         dispatcher.dispatchAt(Instant.now().plusSeconds(5));
-        assertThat(gateway.sent().getLast().email().htmlBody()).isEqualTo("<p>Hello</p>");
+        assertThat(gateway.sent().getLast().email().htmlBody()).startsWith("<p>Hello</p><p style=");
     }
 
     @Test

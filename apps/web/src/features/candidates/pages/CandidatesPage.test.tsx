@@ -197,6 +197,7 @@ const record: PersonRecord = {
     basisSetAt: null,
     notifiedAt: null,
     noticeChannel: null,
+    optedOutAt: null,
   },
   tagIds: ["t1"],
   source: "manual",

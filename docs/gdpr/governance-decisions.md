@@ -25,7 +25,7 @@ placeholders it names.
 |---|---|---|---|---|
 | B1 | Legitimate interests holds for mapping, sourcing, outreach and the cache | [lia.md](lia.md) | privacy policy lawful-basis table | open |
 | B2 | Reliance on Art. 14(5)(b) (disproportionate effort) for executives never contacted | the notice is built (#923): an admin sets the firm's details, staff send a notice one by one or in bulk, and a Not notified view lists anyone held over a month and never told; nothing sends one automatically | privacy policy "Executives" | open |
-| B3 | Is outreach to executives direct marketing (Art. 21(2))? | sent one-to-one from the consultant's mailbox, in sequences | privacy policy "Your right to object"; #924 | open |
+| B3 | Is outreach to executives direct marketing (Art. 21(2))? | sent one-to-one from the consultant's mailbox, in sequences; every email ends with the firm's footer and a link to stop emails, with one-click `List-Unsubscribe` except from Microsoft mailboxes (#924) | privacy policy "Your right to object" | open |
 | B4 | Is Stripe Uncava's processor or a controller? | Checkout collects card, address, tax id | sub-processor list | open |
 | B5 | Are Google, Microsoft and Zoom the customer's own providers or Uncava's sub-processors? | the consultant connects their own account; Uncava reads reply text in threads it sent | sub-processor list; DPA | open |
 | B6 | Is Uncava a controller of the shared vendor cache? | shared by every workspace, 30 days | [ropa.md](ropa.md) C5 | open |

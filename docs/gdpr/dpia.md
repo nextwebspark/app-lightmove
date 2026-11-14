@@ -42,7 +42,7 @@ Find executives / People Search (rules) ───────┘          │
 | Minimisation | The extension sends a name and URL only; import shows the model headers only; models never see contacts, compensation or custom columns (`ContactRedaction`, `CandidateDossier`); contacts are looked up only on request |
 | Accuracy | Every AI value is flagged in `ai_inferred_fields` until a consultant confirms or changes it; the drawer shows it as the AI's |
 | Storage limitation | The firm's candidate period with admin review; fixed periods for system rows; the cache 30 days; the workspace purge ([retention-schedule.md](retention-schedule.md)) |
-| Transparency | The subject access export explains each AI use (`AiUse`); the Art. 14 notice is **not yet built** (#923, #1267) |
+| Transparency | The subject access export explains each AI use (`AiUse`); the Art. 14 notice (#923) and the outreach footer with its opt-out (#924) are built behind `DATA_PROTECTION_ENABLED` |
 | Rights | Access, erasure, restriction, objection with suppression, portability (the export's JSON) ([use-cases.md](use-cases.md)) |
 | Processors | [subprocessors.md](subprocessors.md); transfers in [tia.md](tia.md) |
 
@@ -70,11 +70,11 @@ Likelihood and severity: L(ow), M(edium), H(igh). Residual risk assumes the meas
 
 | # | Risk to people | L | S | Measures in place | Planned | Residual |
 |---|---|---|---|---|---|---|
-| R1 | Collected without being told (Art. 14) | H | M | subject access export; erasure and objection | #923/#1267 notice; #924 footer and opt-out | L |
+| R1 | Collected without being told (Art. 14) | H | M | subject access export; erasure and objection; #923 notice; #924 footer (the first email tells them) | #1267 consent phases | L |
 | R2 | Nationality reveals ethnic origin; discrimination in selection | M | H | switch off for new workspaces; clearing on off; evidence rules; human review | an Art. 9 decision ⚖️; diversity report counting confirmed values only | M |
 | R3 | Inaccurate AI value treated as fact | M | M | flags until confirmed; correction; export shows the logic | — | L |
 | R4 | A scored assessment unfairly excludes someone | L | H | human submits; total computed by software; inferred scores capped | Art. 22 position ⚖️ | L |
-| R5 | Unwanted bulk outreach; objection ignored | M | M | do not contact, restriction and suppression stop sends | #924 one-click opt-out and `List-Unsubscribe` | L |
+| R5 | Unwanted bulk outreach; objection ignored | M | M | do not contact, restriction and suppression stop sends; #924 footer opt-out and one-click `List-Unsubscribe` (not from Microsoft mailboxes) | — | L |
 | R6 | A person objects to Uncava but stays in other workspaces | M | M | erasure removes the shared cache entry | the request procedure; cross-workspace suppression (#920) ⚖️ | M |
 | R7 | Cross-tenant disclosure | L | H | per-query workspace filter; forced row-level security; tests | — | L |
 | R8 | Uncava staff read tenant data directly | M | H | audit trail for app actions | remove standing grants, break-glass access (data-protection-plan 1.1); Data Access audit logs (1.2) | L |

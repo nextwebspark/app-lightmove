@@ -382,7 +382,8 @@ export type PersonActivityKind =
   | "PRIVACY_NOTICE_MARKED"
   | "PRIVACY_NOTICE_FAILED"
   | "PRIVACY_OBJECTED"
-  | "PRIVACY_REQUEST_RECEIVED";
+  | "PRIVACY_REQUEST_RECEIVED"
+  | "PRIVACY_OPTED_OUT";
 
 /** The timeline's filter chips, as the server's `TimelineGroup` tokens. */
 export type TimelineGroup = "positions" | "notes" | "contacts" | "profile" | "tags" | "documents";
@@ -532,6 +533,8 @@ export interface PersonPrivacy {
   basisSetAt: string | null;
   notifiedAt: string | null;
   noticeChannel: PrivacyNoticeChannel | null;
+  /** When they last stopped emails from an outreach email's link (#924); null once do not contact is cleared. */
+  optedOutAt: string | null;
 }
 
 /** A workspace person as the Candidates drawer reads them. Staff-only. */

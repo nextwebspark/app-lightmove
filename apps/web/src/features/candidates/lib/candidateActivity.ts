@@ -46,6 +46,7 @@ export const STOP_REASONS: Record<string, string> = {
   SEND_FAILED: "The mail service refused the email",
   SEND_UNCERTAIN: "A send may not have gone through, so nothing more was sent",
   POSITION_ARCHIVED: "The position was archived",
+  OPTED_OUT: "They opted out of emails",
   BOUNCED: "The address bounced",
   BOOKED: "A call was booked",
 };
@@ -265,6 +266,11 @@ function phraseOf(
       };
     case "PRIVACY_OBJECTED":
       return { text: "objected from their privacy page", detail: "Do not contact set and added to the suppression list" };
+    case "PRIVACY_OPTED_OUT":
+      return {
+        text: "stopped emails from an outreach email",
+        detail: "Every sequence stopped, do not contact set and added to the suppression list",
+      };
     case "PRIVACY_REQUEST_RECEIVED":
       return {
         text: details.kind === "deletion" ? "asked for their data to be deleted" : "asked for a copy of their data",

@@ -109,7 +109,8 @@ class BookingLinkIntegrationTest extends FlowTestSupport {
         String link = "http://localhost:5173/book/" + slug;
         SentRecord first = sentTo("priya@" + domain).getFirst();
         assertThat(first.email().htmlBody())
-                .isEqualTo("<p>Hi Priya,</p><p>Pick a time that suits you: <a href=\"" + link + "\">" + link + "</a></p>");
+                .startsWith("<p>Hi Priya,</p><p>Pick a time that suits you: <a href=\"" + link + "\">" + link + "</a></p>"
+                        + "<p style=");
 
         // A second Start reuses the page rather than making another.
         String rajesh = executive("Rajesh Menon", "rajesh@" + domain);

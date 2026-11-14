@@ -11,6 +11,7 @@ import { TemplatePicker } from "../../emailtemplates/components/TemplatePicker";
 import { templateVocabulary } from "../../emailtemplates/lib/templateVariables";
 import { NoteEditor, type NoteEditorHandle } from "../../notes/components/NoteEditor";
 import { parseNoteMarkdown, plainNoteDoc, serializeNoteDoc } from "../../notes/lib/noteMarkdown";
+import { PrivacyFooterNote } from "./PrivacyFooterPreview";
 import { SignatureChooser, SignatureUnderEmail } from "../../signatures/components/SignatureChooser";
 import * as signaturesApi from "../../signatures/api/signaturesApi";
 import { useSignatureChoice } from "../../signatures/lib/useSignatureChoice";
@@ -89,6 +90,7 @@ export function ReplyComposer({
       nextStepIndex={currentRun.run ? currentRun.run.sentCount : null}
       attachmentLimits={composer.attachmentLimits}
       tokens={composer.tokens}
+      addsPrivacyFooter={composer.privacyFooter != null}
       autoFocus={autoFocus}
       onSent={onSent}
       onDraftChange={onDraftChange}
@@ -113,6 +115,7 @@ function OpenComposer({
   nextStepIndex,
   attachmentLimits,
   tokens,
+  addsPrivacyFooter,
   autoFocus,
   onSent,
   onDraftChange,
@@ -133,6 +136,7 @@ function OpenComposer({
   nextStepIndex: number | null;
   attachmentLimits: AttachmentLimits;
   tokens: RecipientTokens | null;
+  addsPrivacyFooter: boolean;
   autoFocus: boolean;
   onSent?: () => void;
   onDraftChange?: (hasDraft: boolean) => void;
@@ -287,6 +291,7 @@ function OpenComposer({
         )}
         {fromAddress && <span className="ms-auto font-mono text-meta text-u-text3">From {fromAddress}</span>}
       </div>
+      {addsPrivacyFooter && <PrivacyFooterNote />}
       <NoteEditor
         value={body}
         format="markdown"
