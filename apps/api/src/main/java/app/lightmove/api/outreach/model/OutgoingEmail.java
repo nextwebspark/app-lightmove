@@ -39,7 +39,7 @@ public record OutgoingEmail(String to, String subject, String htmlBody, String r
     }
 
     /**
-     * The email as it leaves (#924): the privacy footer after everything else, signature included, and the one-click
+     * The email as it leaves: the privacy footer after everything else, signature included, and the one-click
      * unsubscribe headers (RFC 8058). None when data protection is off.
      */
     public OutgoingEmail withPrivacyFooter(OutreachPrivacyFooter footer) {

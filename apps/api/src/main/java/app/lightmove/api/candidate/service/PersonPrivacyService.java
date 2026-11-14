@@ -9,6 +9,7 @@ import app.lightmove.api.candidate.dto.BulkPrivacyNoticeResponse;
 import app.lightmove.api.candidate.dto.PersonRecordResponse;
 import app.lightmove.api.candidate.dto.PrivacyNoticeSkipResponse;
 import app.lightmove.api.candidate.model.CandidatePrivacySettings;
+import app.lightmove.api.candidate.model.MintedPrivacyLink;
 import app.lightmove.api.candidate.model.Person;
 import app.lightmove.api.candidate.model.PrivacyNoticesQueued;
 import app.lightmove.api.candidate.model.QueuedPrivacyNotice;
@@ -21,7 +22,6 @@ import app.lightmove.api.core.email.model.EmailMessage;
 import app.lightmove.api.core.email.service.EmailTemplates;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
-import app.lightmove.api.core.security.token.Tokens;
 import jakarta.servlet.http.HttpServletRequest;
 import java.sql.Timestamp;
 import java.time.Clock;
@@ -63,6 +63,7 @@ public class PersonPrivacyService {
     private final CandidatePrivacySettingsService settings;
     private final SuppressionGate suppression;
     private final NamedParameterJdbcTemplate jdbc;
+    private final PrivacyLinkStore privacyLinks;
     private final EmailTemplates templates;
     private final ApplicationEventPublisher events;
     private final AuditService audit;
@@ -72,7 +73,8 @@ public class PersonPrivacyService {
 
     public PersonPrivacyService(PersonRepository people, PersonRecordService records, PersonActivityRecorder activity,
                                 CandidatePrivacySettingsService settings, SuppressionGate suppression,
-                                NamedParameterJdbcTemplate jdbc, EmailTemplates templates,
+                                NamedParameterJdbcTemplate jdbc, PrivacyLinkStore privacyLinks,
+                                EmailTemplates templates,
                                 ApplicationEventPublisher events, AuditService audit, Clock clock,
                                 LightMoveProperties properties) {
         this.people = people;
@@ -81,6 +83,7 @@ public class PersonPrivacyService {
         this.settings = settings;
         this.suppression = suppression;
         this.jdbc = jdbc;
+        this.privacyLinks = privacyLinks;
         this.templates = templates;
         this.events = events;
         this.audit = audit;
@@ -192,18 +195,10 @@ public class PersonPrivacyService {
         // Microseconds, as the column keeps it, so a refused send can tell its own telling from a later one.
         Instant now = clock.instant().truncatedTo(ChronoUnit.MICROS);
         List<QueuedPrivacyNotice> queued = new ArrayList<>(recipients.size());
-        List<MapSqlParameterSource> links = new ArrayList<>(recipients.size());
+        Map<UUID, MintedPrivacyLink> links = privacyLinks.mintEach(workspaceId,
+                recipients.stream().map(Person::getId).toList(), PrivacyLinkPurpose.NOTICE, userId, now, LINK_LIFETIME);
         for (Person person : recipients) {
-            UUID linkId = UUID.randomUUID();
-            String token = Tokens.generate();
-            links.add(new MapSqlParameterSource("id", linkId)
-                    .addValue("workspaceId", workspaceId)
-                    .addValue("personId", person.getId())
-                    .addValue("tokenHash", Tokens.hash(token))
-                    .addValue("purpose", PrivacyLinkPurpose.NOTICE.name())
-                    .addValue("sentBy", userId)
-                    .addValue("now", Timestamp.from(now))
-                    .addValue("expiresAt", Timestamp.from(now.plus(LINK_LIFETIME))));
+            MintedPrivacyLink link = links.get(person.getId());
             Instant previouslyNotifiedAt = person.getPrivacyNotifiedAt();
             PrivacyNoticeChannel previousChannel = person.getPrivacyNoticeChannel();
             person.recordNotified(now, PrivacyNoticeChannel.PRIVACY_EMAIL);
@@ -215,16 +210,11 @@ public class PersonPrivacyService {
             EmailMessage email = templates.buildPrivacyNoticeEmail(person.emailContacts().getFirst().getValue(),
                     firm.controllerName(), firm.privacyContactEmail(),
                     PrivacyNoticeWording.sourceOf(person.getSource()),
-                    PrivacyNoticeWording.basisOf(basisOf(person, firm)), baseUrl + "/privacy/" + token,
+                    PrivacyNoticeWording.basisOf(basisOf(person, firm)), baseUrl + "/privacy/" + link.token(),
                     firm.noticeUrl());
-            queued.add(new QueuedPrivacyNotice(linkId, person.getId(), now, previouslyNotifiedAt, previousChannel,
+            queued.add(new QueuedPrivacyNotice(link.id(), person.getId(), now, previouslyNotifiedAt, previousChannel,
                     email));
         }
-        jdbc.batchUpdate("""
-                INSERT INTO app_lm_person_privacy_link (id, workspace_id, person_id, token_hash, purpose, sent_by,
-                                                        created_at, expires_at)
-                VALUES (:id, :workspaceId, :personId, :tokenHash, :purpose, :sentBy, :now, :expiresAt)
-                """, links.toArray(MapSqlParameterSource[]::new));
         events.publishEvent(new PrivacyNoticesQueued(workspaceId, userId, List.copyOf(queued)));
     }
 

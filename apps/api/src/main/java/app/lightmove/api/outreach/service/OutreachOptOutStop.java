@@ -20,10 +20,10 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * A person who stopped emails (#924), or objected from their privacy page (#923), is sent nothing more: every live run
- * on them stops as opted out, and every email a consultant scheduled for them that the dispatcher has not yet taken
- * fails, in the transaction that recorded it. One already taken is on its way; its send-time re-check finds do not
- * contact.
+ * A person who stopped emails, or objected from their privacy page, is sent nothing more: every live run on them stops
+ * and every email a consultant scheduled for them that the dispatcher has not yet taken fails, in the transaction that
+ * recorded it. One already taken is on its way; its send-time re-check finds do not contact. An objection is not an
+ * opt-out, so it stops as do not contact, the reason that re-check would have written.
  */
 @Component
 @RequiredArgsConstructor
@@ -39,32 +39,32 @@ class OutreachOptOutStop {
     @EventListener
     @Transactional(propagation = Propagation.MANDATORY)
     public void onOptedOut(PersonOptedOut optedOut) {
-        stopEverything(optedOut.workspaceId(), optedOut.personId());
+        stopEverything(optedOut.workspaceId(), optedOut.personId(), OutreachStopReason.OPTED_OUT);
     }
 
     @EventListener
     @Transactional(propagation = Propagation.MANDATORY)
     public void onObjected(PersonPrivacyRequested requested) {
         if (requested.kind() == PrivacyRequestKind.OBJECTION) {
-            stopEverything(requested.workspaceId(), requested.personId());
+            stopEverything(requested.workspaceId(), requested.personId(), OutreachStopReason.DO_NOT_CONTACT);
         }
     }
 
-    private void stopEverything(UUID workspaceId, UUID personId) {
+    private void stopEverything(UUID workspaceId, UUID personId, OutreachStopReason reason) {
         Instant now = clock.instant();
         enrollments.findByWorkspaceIdAndPersonIdAndStatusIn(workspaceId, personId, EnrollmentStatus.LIVE)
-                .forEach(enrollment -> outcomes.stop(enrollment, OutreachStopReason.OPTED_OUT, null, now, null));
+                .forEach(enrollment -> outcomes.stop(enrollment, reason, null, now, null));
         messages.findByWorkspaceIdAndPersonIdAndStatus(workspaceId, personId, MessageStatus.SCHEDULED).stream()
                 .filter(message -> message.getSendingSince() == null)
                 .forEach(message -> {
-                    message.fail(OutreachStopReason.OPTED_OUT, now);
+                    message.fail(reason, now);
                     if (!message.keepsAttachmentFiles()) {
                         attachments.deleteFilesOnCommit(message.getId());
                     }
                     audit.projectEvent(ProjectEventType.OUTREACH_MESSAGE_FAILED, message.getSenderUserId(),
                                     message.getWorkspaceId(), message.getProjectId(), null)
                             .detail("messageId", message.getId().toString())
-                            .detail("reason", OutreachStopReason.OPTED_OUT.name())
+                            .detail("reason", reason.name())
                             .record();
                 });
     }

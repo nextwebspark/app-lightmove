@@ -12,7 +12,6 @@ import lombok.experimental.Accessors;
 public enum PrivacyLinkPurpose implements ApiValueEnum {
 
     NOTICE("notice"),
-    /** The stop-emails link one outreach email carries (#924). */
     OPT_OUT("opt_out");
 
     private final String value;

@@ -273,7 +273,8 @@ never a manual task — `completed_by = sender`, `TASK_COMPLETED` line, audit. D
 **Cancel** `DELETE …/outreach/messages/{id}`: only `SCHEDULED` with `sending_since IS NULL`
 (`MESSAGE_ALREADY_SENDING`) → `CANCELLED` (row kept, hidden from reads). `PositionArchiveOutreach` also cancels
 the position's scheduled messages; the Disconnect confirm counts them. `OutreachOptOutStop` (#924) fails a person's
-waiting messages as `OPTED_OUT` and stops their live runs when they stop emails or object from their privacy page.
+waiting messages and stops their live runs when they stop emails (`OPTED_OUT`) or object from their privacy page
+(`DO_NOT_CONTACT`, what the send-time re-check would write: an objection is not an email opt-out).
 
 **The privacy footer (#924)**, behind `DATA_PROTECTION_ENABLED`: both send paths mint a stop link in `prepare` and hand
 the gateway `prepared.outgoing()` — the stored body plus the footer, and `List-Unsubscribe` headers where the provider

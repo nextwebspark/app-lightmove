@@ -73,7 +73,7 @@ public record RateLimitSettings(
         @DefaultValue("10") int privacyPageRequestsPerHour,
 
         /**
-         * An outreach email's stop link (#924), per link and per IP. A mail app's one-click Unsubscribe is posted from
+         * An outreach email's stop link, per link and per IP. A mail app's one-click Unsubscribe is posted from
          * the provider's own servers, so one IP speaks for many people and its budget is wide.
          */
         @DefaultValue("10") int privacyOptOutsPerHour,

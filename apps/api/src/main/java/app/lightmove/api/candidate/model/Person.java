@@ -6,6 +6,7 @@ import app.lightmove.api.candidate.constant.CandidateSource;
 import app.lightmove.api.candidate.constant.ContactChannel;
 import app.lightmove.api.candidate.constant.ContactKind;
 import app.lightmove.api.candidate.constant.ContactSource;
+import app.lightmove.api.candidate.constant.DoNotContactReasons;
 import app.lightmove.api.candidate.constant.EnrichmentVendor;
 import app.lightmove.api.candidate.constant.Gender;
 import app.lightmove.api.candidate.constant.LawfulBasis;
@@ -678,6 +679,16 @@ public class Person extends BaseEntity {
         this.doNotContactSetBy = setBy;
         this.doNotContactSetAt = Instant.now();
         return true;
+    }
+
+    /**
+     * When the person's own stop link set do not contact, else null: cleared and set again by hand, or set first for
+     * another reason, it is not their opt-out the drawer should tell.
+     */
+    public Instant optedOutByEmailAt() {
+        boolean byTheirLink = doNotContact && doNotContactSetBy == null
+                && DoNotContactReasons.OPTED_OUT_BY_EMAIL.equals(doNotContactReason);
+        return byTheirLink ? doNotContactSetAt : null;
     }
 
     public boolean clearDoNotContact() {

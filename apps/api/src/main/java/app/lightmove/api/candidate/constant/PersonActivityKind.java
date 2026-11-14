@@ -122,7 +122,6 @@ public enum PersonActivityKind {
     /** The person asked for a copy of their data, or for its deletion, from the public privacy page. */
     PRIVACY_REQUEST_RECEIVED,
 
-    /** The person took the stop-emails link of an outreach email, or their mail app's Unsubscribe (#924). */
     PRIVACY_OPTED_OUT;
 
     /** Kinds still on old rows that no read shows. */

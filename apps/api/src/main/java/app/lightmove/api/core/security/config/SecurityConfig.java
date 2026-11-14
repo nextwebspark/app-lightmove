@@ -324,7 +324,7 @@ public class SecurityConfig {
                         // A privacy notice's page (#923): the person it was sent to holds no session; the random
                         // token in the link is the credential, and it names one person in one workspace.
                         .requestMatchers(HttpMethod.GET, API + "/privacy/links/*").permitAll()
-                        // An outreach email's stop link (#924) is posted by the person's mail app as well (RFC 8058).
+                        // An outreach email's stop link is posted by the person's mail app as well (RFC 8058).
                         .requestMatchers(HttpMethod.POST, API + "/privacy/links/*/objection",
                                 API + "/privacy/links/*/requests", API + "/privacy/links/*/opt-out").permitAll()
 

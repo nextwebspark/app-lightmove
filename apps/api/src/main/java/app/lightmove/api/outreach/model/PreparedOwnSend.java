@@ -6,7 +6,7 @@ import java.util.UUID;
 
 /**
  * A consultant's claimed email, checked and ready for the mail service. {@code email} is as the ledger keeps it;
- * {@code footer} (#924) is added only as it leaves, and is null when data protection is off.
+ * {@code footer} is added only as it leaves, and is null when data protection is off.
  */
 public record PreparedOwnSend(UUID messageId, String grantId, OutgoingEmail email, OutreachPrivacyFooter footer) {
 

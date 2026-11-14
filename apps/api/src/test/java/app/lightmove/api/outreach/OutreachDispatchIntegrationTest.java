@@ -272,6 +272,49 @@ class OutreachDispatchIntegrationTest extends FlowTestSupport {
         assertThat(sentTo("priya@" + domain)).hasSize(1);
     }
 
+    @Test
+    @DisplayName("do not contact cleared and set again by hand no longer reads as the person's opt-out")
+    void optOutIsForgottenOnceDoNotContactIsSetAgainByHand() throws Exception {
+        savePrivacySettings();
+        String priya = executive("Priya Raman", "priya@" + domain);
+        start(createSequence("Approach"), priya, "priya@" + domain, null);
+        dispatcher.dispatchAt(monday);
+        String header = sentTo("priya@" + domain).getFirst().email().headers().getFirst().value();
+        mvc.perform(post(URI.create(header.substring(1, header.length() - 1)).getPath())
+                        .contentType(MediaType.APPLICATION_FORM_URLENCODED).content("List-Unsubscribe=One-Click"))
+                .andExpect(status().isOk());
+        String personId = body(as(consultant, get("/api/v1/projects/" + projectId + "/candidates/" + priya))
+                .andReturn()).get("personId").asText();
+
+        markDoNotContact(personId, "{\"doNotContact\":false}");
+        JsonNode remarked = markDoNotContact(personId, "{\"doNotContact\":true,\"reason\":\"Placed elsewhere\"}");
+
+        assertThat(remarked.get("privacy").get("optedOutAt").isNull()).isTrue();
+    }
+
+    @Test
+    @DisplayName("an objection from the privacy page stops the run as do not contact, not as an email opt-out")
+    void objectionStopsTheRunAsDoNotContact() throws Exception {
+        savePrivacySettings();
+        String priya = executive("Priya Raman", "priya@" + domain);
+        start(createSequence("Approach"), priya, "priya@" + domain, null);
+        dispatcher.dispatchAt(monday);
+        String header = sentTo("priya@" + domain).getFirst().email().headers().getFirst().value();
+        String objection = URI.create(header.substring(1, header.length() - 1)).getPath()
+                .replace("/opt-out", "/objection");
+
+        mvc.perform(post(objection)).andExpect(status().isNoContent());
+
+        assertThat(enrollmentOf(priya)).containsEntry("status", "STOPPED")
+                .containsEntry("stop_reason", "DO_NOT_CONTACT");
+        assertThat(personColumn(priya, "do_not_contact_reason")).isEqualTo("Objected through their privacy page");
+    }
+
+    private JsonNode markDoNotContact(String personId, String json) throws Exception {
+        return body(as(consultant, put("/api/v1/candidates/" + personId + "/do-not-contact")
+                .contentType(MediaType.APPLICATION_JSON).content(json)).andExpect(status().isOk()).andReturn());
+    }
+
     private void savePrivacySettings() throws Exception {
         as(consultant, put("/api/v1/workspace/candidate-privacy").contentType(MediaType.APPLICATION_JSON)
                 .content("""
