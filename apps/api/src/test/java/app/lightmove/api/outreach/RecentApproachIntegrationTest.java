@@ -77,12 +77,36 @@ class RecentApproachIntegrationTest extends FlowTestSupport {
         assertThat(touch.get("samePosition").asBoolean()).isFalse();
         assertThat(composer.at("/elsewhere/0/positionTitle").asText()).isEqualTo("Head of Credit Risk");
         assertThat(composer.at("/elsewhere/0/inProcess").asBoolean()).isTrue();
+        assertThat(composer.at("/elsewhere/0/visible").asBoolean()).isTrue();
         assertThat(composer.toString()).doesNotContain("Confidential introduction");
 
         JsonNode row = enrolRow();
         assertThat(row.get("skipReason").isNull()).isTrue();
         assertThat(row.at("/recentApproach/tier").asText()).isEqualTo("CAUTION");
         assertThat(row.at("/recentApproach/touches/0/byName").asText()).isEqualTo("Sara Al-Mansour");
+    }
+
+    @Test
+    @DisplayName("a position the caller cannot open is only another position, with its stage")
+    void aPositionTheCallerCannotOpenStaysUnnamed() throws Exception {
+        email(yaraId, cfoSearch, "OUTBOUND", "MANUAL", "SENT", Duration.ofDays(4));
+
+        JsonNode approach = body(as(sara, get("/api/v1/projects/" + creditRiskSearch + "/outreach/conversations/"
+                        + laylaOnCreditRisk)).andExpect(status().isOk()).andReturn()).at("/composer/recentApproach");
+        assertThat(approach.get("tier").asText()).isEqualTo("CAUTION");
+        JsonNode touch = approach.at("/touches/0");
+        assertThat(touch.get("byName").asText()).isEqualTo("Yara Haddad");
+        assertThat(touch.get("positionHidden").asBoolean()).isTrue();
+        assertThat(touch.get("projectId").isNull()).isTrue();
+        assertThat(touch.get("positionTitle").isNull()).isTrue();
+        JsonNode elsewhere = approach.at("/elsewhere/0");
+        assertThat(elsewhere.get("visible").asBoolean()).isFalse();
+        assertThat(elsewhere.get("inProcess").asBoolean()).isTrue();
+        assertThat(elsewhere.get("stageLabel").isNull()).isFalse();
+        assertThat(elsewhere.get("positionTitle").isNull()).isTrue();
+        assertThat(elsewhere.get("statusLabel").isNull()).isTrue();
+        assertThat(elsewhere.get("addedByName").isNull()).isTrue();
+        assertThat(approach.toString()).doesNotContain("Group CFO").doesNotContain(cfoSearch);
     }
 
     @Test

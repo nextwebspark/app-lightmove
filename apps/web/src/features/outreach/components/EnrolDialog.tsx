@@ -6,6 +6,7 @@ import { Avatar, Button, ChoiceCardGroup, DateInput, Modal, Skeleton, useToast }
 import type { ChoiceCardOption } from "../../../components/ui";
 import { cn } from "../../../lib/cn";
 import { codeOf, messageFor } from "../../../lib/errorCodes";
+import { RecentApproachConfirm } from "../../candidates/components/RecentApproachConfirm";
 import { approachLines, isCaution } from "../../candidates/lib/recentApproach";
 import { MAILBOX_KEY } from "../api/mailboxApi";
 import * as sequenceApi from "../api/sequenceApi";
@@ -126,6 +127,7 @@ export function EnrolDialog({
   const [chosenSequenceId, setChosenSequenceId] = useState<string | null>(null);
   // Ticks moved off each person's default: everyone addable starts ticked, someone recently approached unticked.
   const [flipped, setFlipped] = useState<ReadonlySet<string>>(new Set());
+  const [confirming, setConfirming] = useState<EnrollmentCandidate | null>(null);
   const [reviewed, setReviewed] = useState<Record<string, ReviewedEmail>>({});
   const [reviewingId, setReviewingId] = useState<string | null>(null);
   const [startChoice, setStartChoice] = useState<StartChoice>({ mode: "NOW", date: "", time: "" });
@@ -146,6 +148,21 @@ export function EnrolDialog({
   const skipped = everyone.filter((person) => person.skipReason !== null);
   const chosen = addable.filter((person) => isTicked(person, flipped));
   const approached = addable.filter((person) => isCaution(person.recentApproach));
+  const flip = (candidateId: string) =>
+    setFlipped((current) => {
+      const next = new Set(current);
+      if (next.has(candidateId)) next.delete(candidateId);
+      else next.add(candidateId);
+      return next;
+    });
+  const handleToggle = (candidateId: string) => {
+    const person = addable.find((candidate) => candidate.candidateId === candidateId);
+    if (person && isCaution(person.recentApproach) && !isTicked(person, flipped)) {
+      setConfirming(person);
+      return;
+    }
+    flip(candidateId);
+  };
   const isOverTheCap = chosen.length > sequenceApi.MAX_PEOPLE_PER_START;
   const connection = mailbox.data?.connection ?? null;
   const canSend = connection?.status === "ACTIVE";
@@ -362,14 +379,20 @@ export function EnrolDialog({
           loadError={people.isError ? messageFor(people.error) : null}
           everyone={everyone}
           flipped={flipped}
-          onToggle={(candidateId) =>
-            setFlipped((current) => {
-              const next = new Set(current);
-              if (next.has(candidateId)) next.delete(candidateId);
-              else next.add(candidateId);
-              return next;
-            })
-          }
+          onToggle={handleToggle}
+        />
+      )}
+      {confirming && isCaution(confirming.recentApproach) && (
+        <RecentApproachConfirm
+          open
+          fullName={confirming.fullName}
+          approach={confirming.recentApproach}
+          confirmLabel="Include"
+          onClose={() => setConfirming(null)}
+          onConfirm={() => {
+            flip(confirming.candidateId);
+            setConfirming(null);
+          }}
         />
       )}
       {step === "review" && sequence && reviewing && (
@@ -540,7 +563,7 @@ function ChooseStep({
             {members.map((person) => {
               const isSkipped = person.skipReason !== null;
               const approachNote = !isSkipped && isCaution(person.recentApproach)
-                ? approachLines(person.recentApproach!)[0] ?? null
+                ? (approachLines(person.recentApproach!)[0]?.text ?? null)
                 : null;
               return (
                 <label
@@ -570,7 +593,11 @@ function ChooseStep({
                           ? "text-u-signal"
                           : "text-u-text3",
                     )}
-                    title={approachNote ? approachLines(person.recentApproach!).join("\n") : undefined}
+                    title={
+                      approachNote
+                        ? approachLines(person.recentApproach!).map((line) => line.text).join("\n")
+                        : undefined
+                    }
                   >
                     {approachNote ?? skipNoteOf(person)}
                   </span>

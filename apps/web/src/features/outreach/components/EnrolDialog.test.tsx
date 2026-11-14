@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -176,7 +176,7 @@ describe("EnrolDialog", () => {
           windowDays: 90,
           touches: [
             { kind: "EMAILED", byUserId: "u2", byName: "Sara Al-Mansour", at: new Date(Date.now() - 12 * 86_400_000).toISOString(),
-              projectId: "p2", positionTitle: "Head of Credit Risk", samePosition: false, byYou: false },
+              projectId: "p2", positionTitle: "Head of Credit Risk", samePosition: false, byYou: false, positionHidden: false },
           ],
           elsewhere: [],
           lastApproach: null,
@@ -192,8 +192,15 @@ describe("EnrolDialog", () => {
     expect(screen.getByRole("checkbox", { name: "Priya Raman" })).toBeChecked();
 
     await userEvent.click(rajesh);
+    const dialog = await screen.findByRole("dialog", { name: "Rajesh Menon was recently approached" });
+    const include = within(dialog).getByRole("button", { name: "Include" });
+    expect(include).toBeDisabled();
+    expect(rajesh).not.toBeChecked();
+    await userEvent.click(within(dialog).getByRole("checkbox"));
+    await userEvent.click(include);
     expect(rajesh).toBeChecked();
     await userEvent.click(rajesh);
+    expect(rajesh).not.toBeChecked();
     await userEvent.click(screen.getByRole("button", { name: "Review 1 email" }));
     await userEvent.click(await screen.findByRole("button", { name: "Next" }));
     expect(

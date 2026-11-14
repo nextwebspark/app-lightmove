@@ -4,9 +4,9 @@ import java.time.Instant;
 import java.util.UUID;
 
 /**
- * Another position mapping the person, and where they stand on it. {@code workable} says whether the caller may open
- * it; the title is shown either way, as the drawer's Positions shows it.
+ * Another position mapping the person, and where they stand on it. On one the caller cannot open, {@code visible} is
+ * false and only the stage and whether they are in process are said: no id, title, status or who added them.
  */
 public record ApproachPositionResponse(UUID projectId, String positionTitle, String statusLabel, String statusColour,
-                                       boolean inProcess, boolean placed, String addedByName, Instant statusChangedAt,
-                                       boolean workable) {}
+                                       String stageLabel, boolean inProcess, boolean placed, String addedByName,
+                                       Instant statusChangedAt, boolean visible) {}

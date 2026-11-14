@@ -39,7 +39,8 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * Recently approached: who on the team has reached these people, on any position, and where else they are mapped —
  * the warning before an email, a sequence or an add. The caller's own touches on the position they are working from
- * are already in their conversation and are left out. It warns and never refuses.
+ * are already in their conversation and are left out. A position the caller cannot open is named only as another
+ * position, with its stage. It warns and never refuses.
  */
 @Service
 @RequiredArgsConstructor
@@ -96,13 +97,13 @@ public class RecentApproachReader {
                 .filter(Objects::nonNull).collect(Collectors.toSet());
         Map<UUID, Project> mandates = projects.findAllById(projectIds).stream()
                 .collect(Collectors.toMap(Project::getId, Function.identity()));
-        Set<UUID> workable = projectAccess.projectsWithAction(callerId, workspaceId, List.copyOf(projectIds),
-                ProjectAction.WORK_EXECUTE);
+        Set<UUID> viewable = projectAccess.projectsWithAction(callerId, workspaceId, List.copyOf(projectIds),
+                ProjectAction.WORK_VIEW);
         Map<UUID, String> names = namesOf(Stream.concat(
                 touchesByPerson.values().stream().flatMap(List::stream).map(PersonTouch::byUserId),
                 mappedByPerson.values().stream().flatMap(List::stream).map(Candidate::getAddedBy)));
 
-        TouchNaming naming = new TouchNaming(callerId, currentProjectId, mandates, names);
+        TouchNaming naming = new TouchNaming(callerId, currentProjectId, mandates, viewable, names);
         Map<UUID, RecentApproachResponse> answers = new HashMap<>();
         for (UUID personId : asked) {
             List<PersonTouch> touches = touchesByPerson.getOrDefault(personId, List.of());
@@ -112,7 +113,7 @@ public class RecentApproachReader {
             PersonTouch older = recent.isEmpty()
                     ? touches.stream().max(Comparator.comparing(PersonTouch::at)).orElse(null) : null;
             List<ApproachPositionResponse> elsewhere = elsewhereOf(
-                    mappedByPerson.getOrDefault(personId, List.of()), mandates, workable, names);
+                    mappedByPerson.getOrDefault(personId, List.of()), mandates, viewable, names);
             answers.put(personId, new RecentApproachResponse(tierOf(recent, older, elsewhere), windowDays,
                     recent.stream().map(naming::of).toList(), elsewhere,
                     older == null ? null : naming.of(older)));
@@ -139,7 +140,7 @@ public class RecentApproachReader {
 
     /** In process on a live position, all of them; out of process, the newest few. A closed position says neither. */
     private static List<ApproachPositionResponse> elsewhereOf(List<Candidate> mapped, Map<UUID, Project> mandates,
-                                                              Set<UUID> workable, Map<UUID, String> names) {
+                                                              Set<UUID> viewable, Map<UUID, String> names) {
         List<Candidate> live = mapped.stream()
                 .filter(row -> {
                     Project mandate = mandates.get(row.getProjectId());
@@ -152,12 +153,22 @@ public class RecentApproachReader {
         Stream<Candidate> outOfProcess = live.stream().filter(row -> row.getStatus().hasLeftTheRunning())
                 .limit(MAX_OUT_OF_PROCESS);
         return Stream.concat(inProcess, outOfProcess)
-                .map(row -> new ApproachPositionResponse(row.getProjectId(),
-                        mandates.get(row.getProjectId()).getPositionTitle(), row.getStatus().getLabel(),
-                        row.getStatus().getColour().value(), row.getStatus().isInProcess(),
-                        PLACED_STATUS_KEY.equals(row.getStatus().getStatusKey()), names.get(row.getAddedBy()),
-                        row.getStatusChangedAt(), workable.contains(row.getProjectId())))
+                .map(row -> positionOf(row, mandates.get(row.getProjectId()), viewable.contains(row.getProjectId()),
+                        names))
                 .toList();
+    }
+
+    private static ApproachPositionResponse positionOf(Candidate row, Project mandate, boolean visible,
+                                                       Map<UUID, String> names) {
+        boolean placed = PLACED_STATUS_KEY.equals(row.getStatus().getStatusKey());
+        String stage = row.getStatus().getStage().getLabel();
+        if (!visible) {
+            return new ApproachPositionResponse(null, null, null, null, stage, row.getStatus().isInProcess(), placed,
+                    null, null, false);
+        }
+        return new ApproachPositionResponse(row.getProjectId(), mandate.getPositionTitle(), row.getStatus().getLabel(),
+                row.getStatus().getColour().value(), stage, row.getStatus().isInProcess(), placed,
+                names.get(row.getAddedBy()), row.getStatusChangedAt(), true);
     }
 
     private Map<UUID, String> namesOf(Stream<UUID> userIds) {
@@ -172,13 +183,15 @@ public class RecentApproachReader {
     }
 
     private record TouchNaming(UUID callerId, UUID currentProjectId, Map<UUID, Project> mandates,
-                               Map<UUID, String> names) {
+                               Set<UUID> viewable, Map<UUID, String> names) {
 
         ApproachTouchResponse of(PersonTouch touch) {
-            Project mandate = touch.projectId() == null ? null : mandates.get(touch.projectId());
+            boolean here = Objects.equals(touch.projectId(), currentProjectId);
+            boolean hidden = touch.projectId() != null && !here && !viewable.contains(touch.projectId());
+            Project mandate = touch.projectId() == null || hidden ? null : mandates.get(touch.projectId());
             return new ApproachTouchResponse(touch.kind(), touch.byUserId(), names.get(touch.byUserId()), touch.at(),
-                    touch.projectId(), mandate == null ? null : mandate.getPositionTitle(),
-                    Objects.equals(touch.projectId(), currentProjectId), Objects.equals(touch.byUserId(), callerId));
+                    hidden ? null : touch.projectId(), mandate == null ? null : mandate.getPositionTitle(), here,
+                    Objects.equals(touch.byUserId(), callerId), hidden);
         }
     }
 }

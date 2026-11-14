@@ -2,8 +2,9 @@
 
 Two researchers approaching the same executive, for two positions or by accident for one, reads as unprofessional
 to the executive and to the client. Before an email, a sequence or an add to a position, Uncava says who on the team
-has already reached the person and where else they are in process. It is a warning. It never holds a send, a
-sequence start or an add. The hard stops are unchanged: do not contact, a restriction of processing, the suppression
+has already reached the person and where else they are in process. Going ahead asks first: a dialog lists what is
+known and a box must be ticked ("I have read this and want to go ahead with …") before the email goes or the person
+is included. Nothing is blocked once it is ticked. The hard stops are unchanged: do not contact, a restriction of processing, the suppression
 list, and already in a sequence on this position.
 
 Gap #1 of `docs/spott-gap-analysis.md`. Mockups: `Outreach.dc.html?approached=true` (composer, Add to sequence),
@@ -28,7 +29,10 @@ A logged note is credited to whoever logged it. Nothing reads or returns a subje
 Where else the person is mapped comes from `CandidateRepository.findPositionsOfPeople`:
 - In process on a position that is not archived is amber. A `placed` status reads "Placed on …".
 - Out of process shows as a quiet line, the newest three.
-- A position title shows even without a seat on it, as the drawer's Positions does; `workable` says whether it opens.
+- **A position the caller cannot open (`WORK_VIEW`) stays unnamed, on the server.** A touch there carries
+  `positionHidden` and no project id or title; a mapping there carries `visible: false`, its stage label and whether
+  they are in process, and no id, title, status or who added them. The screen says "another position". A visible
+  one carries its title, status and a link. The teammate's name is always given, so the two can talk.
 
 ## Tiers and window
 
@@ -48,13 +52,18 @@ the warning off. It is set in Settings → Meetings & email (`PUT /api/v1/worksp
   OutreachApproachHistory` implements, so `candidate` never depends on `outreach`.
 - `RecentApproachResponse` is staff-only. It rides `ConversationComposerResponse.recentApproach` and
   `EnrollmentCandidateResponse.recentApproach`, and never `CandidateResponse`.
-- SPA: `RecentApproachNote` (`features/candidates/components`) sits in `ReplyComposer`'s footer. In Add to sequence,
-  a row at `CAUTION` starts **unticked but tickable** and names the newest line. Start's summary counts those people
-  included and left out (`EnrolDialog`). Wording is in `features/candidates/lib/recentApproach.ts`.
+- SPA: `RecentApproachNote` is one line in `ReplyComposer`'s footer. Send now or Schedule at `CAUTION` opens
+  `RecentApproachConfirm` once per composer, and Send anyway or Schedule anyway stays disabled until the box is
+  ticked. In Add to sequence, a row at `CAUTION` starts unticked. Ticking it opens the same dialog (Include), and
+  Start's summary counts those people included and left out (`EnrolDialog`). Wording is in
+  `features/candidates/lib/recentApproach.ts`.
+- The tick is not sent to the server. The email itself already lands on the timeline with its sender.
 
 ## Next (PR 2: adding to a position)
 
 These pieces are not built yet:
+- The drawer's Positions (`PersonRecordService.positionsOf`) still names every position to every staff member. It
+  should follow the same `WORK_VIEW` rule.
 - `outOfProcess` on `PersonPositionResponse`, for the pool's Add to position line.
 - The executive drawer's header line.
 - The extension's held pre-check, which gains where else the person is in process.

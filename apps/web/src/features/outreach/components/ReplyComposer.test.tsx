@@ -585,7 +585,7 @@ describe("ReplyComposer", () => {
     });
   });
 
-  it("says who on the team already approached the person, and still lets the email go", async () => {
+  it("asks before an email goes to someone a teammate recently approached, then sends once the box is ticked", async () => {
     const twelveDaysAgo = new Date(Date.now() - 12 * 86_400_000).toISOString();
     const withApproach = conversation({
       composer: {
@@ -594,23 +594,31 @@ describe("ReplyComposer", () => {
           tier: "CAUTION",
           windowDays: 90,
           touches: [
-            { kind: "EMAILED", byUserId: "u2", byName: "Sara Al-Mansour", at: twelveDaysAgo, projectId: "p2",
-              positionTitle: "Head of Credit Risk", samePosition: false, byYou: false },
+            { kind: "EMAILED", byUserId: "u2", byName: "Sara Al-Mansour", at: twelveDaysAgo, projectId: null,
+              positionTitle: null, samePosition: false, byYou: false, positionHidden: true },
           ],
           elsewhere: [
-            { projectId: "p2", positionTitle: "Head of Credit Risk", statusLabel: "Interested", statusColour: "green",
-              inProcess: true, placed: false, addedByName: "Sara Al-Mansour", statusChangedAt: null, workable: false },
+            { projectId: null, positionTitle: null, statusLabel: null, statusColour: null, stageLabel: "Approach",
+              inProcess: true, placed: false, addedByName: null, statusChangedAt: null, visible: false },
           ],
           lastApproach: null,
         },
       },
     });
     render(composerFor(withApproach), { wrapper });
+    expect(screen.getByRole("note", { name: "Recently approached" })).toHaveTextContent(
+      "Sara Al-Mansour emailed · 12 days ago · another position · +1 more",
+    );
+    await writeFirstEmail();
+    await userEvent.click(screen.getByRole("button", { name: "Send now" }));
 
-    const note = screen.getByRole("note", { name: "Recently approached" });
-    expect(note).toHaveTextContent("Sara Al-Mansour emailed · 12 days ago · Head of Credit Risk");
-    await userEvent.click(within(note).getByRole("button", { name: "+1 more" }));
-    expect(note).toHaveTextContent("In process on Head of Credit Risk · Interested · added by Sara Al-Mansour");
-    expect(screen.getByRole("button", { name: "Send now" })).toBeInTheDocument();
+    const dialog = await screen.findByRole("dialog");
+    expect(dialog).toHaveTextContent("In process on another position · Approach");
+    expect(conversationApi.sendMessage).not.toHaveBeenCalled();
+    const sendAnyway = within(dialog).getByRole("button", { name: "Send anyway" });
+    expect(sendAnyway).toBeDisabled();
+    await userEvent.click(within(dialog).getByRole("checkbox"));
+    await userEvent.click(sendAnyway);
+    await waitFor(() => expect(conversationApi.sendMessage).toHaveBeenCalledTimes(1));
   });
 });

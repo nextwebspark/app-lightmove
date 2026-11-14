@@ -1,6 +1,12 @@
 import { formatTimeAgo } from "../../../lib/format";
 import type { ApproachKind, ApproachPosition, ApproachTouch, RecentApproach } from "../api/types";
 
+/** One thing a screen says, and the position it opens when the reader may open it. */
+export interface ApproachLine {
+  text: string;
+  href: string | null;
+}
+
 const LOGGED: Partial<Record<ApproachKind, string>> = {
   CALL_LOGGED: "logged a call",
   LINKEDIN_LOGGED: "logged a LinkedIn message",
@@ -27,26 +33,49 @@ function whatOf(touch: ApproachTouch): string {
   }
 }
 
-/** "Sara Al-Mansour emailed · 12 days ago · Head of Credit Risk": who, how, when, where. Never the words. */
-export function touchLine(touch: ApproachTouch, now: Date = new Date()): string {
-  const where = touch.samePosition ? "this position" : touch.positionTitle;
-  return [whatOf(touch), whenOf(touch.at, now), where].filter(Boolean).join(" · ");
+function hrefOf(projectId: string | null): string | null {
+  return projectId ? `/projects/${projectId}` : null;
 }
 
-export function positionLine(position: ApproachPosition): string {
-  if (position.placed) return `Placed on ${position.positionTitle}`;
-  if (!position.inProcess) return `${position.statusLabel} on ${position.positionTitle}`;
+/** "Sara Al-Mansour emailed · 12 days ago · Head of Credit Risk": who, how, when, where. Never the words. */
+export function touchLine(touch: ApproachTouch, now: Date = new Date()): ApproachLine {
+  const where = touch.samePosition ? "this position" : touch.positionHidden ? "another position" : touch.positionTitle;
+  return {
+    text: [whatOf(touch), whenOf(touch.at, now), where].filter(Boolean).join(" · "),
+    href: touch.samePosition ? null : hrefOf(touch.projectId),
+  };
+}
+
+/** A position the reader cannot open is "another position" and its stage, nothing more. */
+export function positionLine(position: ApproachPosition): ApproachLine {
+  if (!position.visible) {
+    const text = position.placed
+      ? "Placed on another position"
+      : position.inProcess
+        ? `In process on another position · ${position.stageLabel}`
+        : "Out of process on another position";
+    return { text, href: null };
+  }
+  const title = position.positionTitle ?? "another position";
+  const href = hrefOf(position.projectId);
+  if (position.placed) return { text: `Placed on ${title}`, href };
+  if (!position.inProcess) return { text: `${position.statusLabel} on ${title}`, href };
   const by = position.addedByName ? ` · added by ${position.addedByName}` : "";
-  return `In process on ${position.positionTitle} · ${position.statusLabel}${by}`;
+  return { text: `In process on ${title} · ${position.statusLabel}${by}`, href };
 }
 
 /** Every line a screen says, loudest first: a reply, the window's touches, in process elsewhere, then the quiet ones. */
-export function approachLines(approach: RecentApproach, now: Date = new Date()): string[] {
+export function approachLines(approach: RecentApproach, now: Date = new Date()): ApproachLine[] {
   const recent = approach.touches.map((touch) => touchLine(touch, now));
   const inProcess = approach.elsewhere.filter((position) => position.inProcess).map(positionLine);
   const outOfProcess = approach.elsewhere.filter((position) => !position.inProcess).map(positionLine);
-  const older = approach.lastApproach ? [`Last approached: ${touchLine(approach.lastApproach, now)}`] : [];
-  return [...recent, ...inProcess, ...older, ...outOfProcess];
+  const older = approach.lastApproach ? [touchLine(approach.lastApproach, now)] : [];
+  return [
+    ...recent,
+    ...inProcess,
+    ...older.map((line) => ({ ...line, text: `Last approached: ${line.text}` })),
+    ...outOfProcess,
+  ];
 }
 
 /** Whether a screen should say anything at all. */
@@ -54,7 +83,7 @@ export function hasApproach(approach: RecentApproach | null | undefined): approa
   return !!approach && approach.tier !== "NONE";
 }
 
-/** Amber: the warning a bulk list leaves unticked. */
-export function isCaution(approach: RecentApproach | null | undefined): boolean {
+/** Amber: going ahead asks first, and a bulk list leaves the person unticked. */
+export function isCaution(approach: RecentApproach | null | undefined): approach is RecentApproach {
   return approach?.tier === "CAUTION";
 }

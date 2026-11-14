@@ -345,7 +345,10 @@ export type ApproachKind =
   | "MEETING_LOGGED"
   | "EMAIL_LOGGED";
 
-/** One approach: who, how, when and for which position — never the words. */
+/**
+ * One approach: who, how, when and for which position — never the words. On a position the caller cannot open,
+ * `positionHidden` is set and its id and title never arrive.
+ */
 export interface ApproachTouch {
   kind: ApproachKind;
   byUserId: string | null;
@@ -355,19 +358,24 @@ export interface ApproachTouch {
   positionTitle: string | null;
   samePosition: boolean;
   byYou: boolean;
+  positionHidden: boolean;
 }
 
-/** Another position mapping the person, and where they stand on it. */
+/**
+ * Another position mapping the person, and where they stand on it. On one the caller cannot open (`visible` false)
+ * only the stage and whether they are in process arrive.
+ */
 export interface ApproachPosition {
-  projectId: string;
-  positionTitle: string;
-  statusLabel: string;
-  statusColour: string;
+  projectId: string | null;
+  positionTitle: string | null;
+  statusLabel: string | null;
+  statusColour: string | null;
+  stageLabel: string;
   inProcess: boolean;
   placed: boolean;
   addedByName: string | null;
   statusChangedAt: string | null;
-  workable: boolean;
+  visible: boolean;
 }
 
 /**

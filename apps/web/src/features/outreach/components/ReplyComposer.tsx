@@ -10,7 +10,9 @@ import { SaveAsTemplateDialog } from "../../emailtemplates/components/SaveAsTemp
 import { TemplatePicker } from "../../emailtemplates/components/TemplatePicker";
 import { templateVocabulary } from "../../emailtemplates/lib/templateVariables";
 import type { RecentApproach } from "../../candidates/api/types";
+import { RecentApproachConfirm } from "../../candidates/components/RecentApproachConfirm";
 import { RecentApproachNote } from "../../candidates/components/RecentApproachNote";
+import { isCaution } from "../../candidates/lib/recentApproach";
 import { NoteEditor, type NoteEditorHandle } from "../../notes/components/NoteEditor";
 import { parseNoteMarkdown, plainNoteDoc, serializeNoteDoc } from "../../notes/lib/noteMarkdown";
 import { PrivacyFooterNote } from "./PrivacyFooterPreview";
@@ -79,6 +81,7 @@ export function ReplyComposer({
     <OpenComposer
       projectId={projectId}
       candidateId={executive.candidateId}
+      fullName={executive.fullName}
       firstName={firstName}
       fromAddress={"connection" in mailbox ? mailbox.connection.address : null}
       timeZone={"connection" in mailbox ? mailbox.connection.timeZone : getDateTimePreferences().timeZone}
@@ -105,6 +108,7 @@ export function ReplyComposer({
 function OpenComposer({
   projectId,
   candidateId,
+  fullName,
   firstName,
   fromAddress,
   timeZone,
@@ -127,6 +131,7 @@ function OpenComposer({
 }: {
   projectId: string;
   candidateId: string;
+  fullName: string;
   firstName: string;
   fromAddress: string | null;
   timeZone: string;
@@ -153,6 +158,8 @@ function OpenComposer({
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
   const [chosenAddress, setChosenAddress] = useState(emails[0]);
+  const [isApproachUnderstood, setIsApproachUnderstood] = useState(false);
+  const [heldSend, setHeldSend] = useState<{ at: Date | null } | null>(null);
   const [attachments, setAttachments] = useState<ComposerAttachment[]>([]);
   const [appliedTemplateId, setAppliedTemplateId] = useState<string | null>(null);
   const [isSavingTemplate, setIsSavingTemplate] = useState(false);
@@ -274,6 +281,13 @@ function OpenComposer({
     unsendable.length === 0 &&
     !send.isPending &&
     !signature.isPending;
+  const requestSend = (at: Date | null) => {
+    if (isCaution(recentApproach) && !isApproachUnderstood) {
+      setHeldSend({ at });
+      return;
+    }
+    send.mutate(at);
+  };
   const footnote = composerFootnoteOf({
     isReply,
     resolvesReplyTask,
@@ -377,6 +391,21 @@ function OpenComposer({
               </p>
             )}
             <RecentApproachNote approach={recentApproach} className="mt-1.5" />
+            {isCaution(recentApproach) && (
+              <RecentApproachConfirm
+                open={heldSend !== null}
+                fullName={fullName}
+                approach={recentApproach}
+                confirmLabel={heldSend?.at ? "Schedule anyway" : "Send anyway"}
+                onClose={() => setHeldSend(null)}
+                onConfirm={() => {
+                  const held = heldSend;
+                  setIsApproachUnderstood(true);
+                  setHeldSend(null);
+                  if (held) send.mutate(held.at);
+                }}
+              />
+            )}
             <div className="mt-1 flex flex-wrap items-center gap-2">
               <AttachButton
                 projectId={projectId}
@@ -404,13 +433,13 @@ function OpenComposer({
                   timeZone={timeZone}
                   disabled={!canSend}
                   pending={send.isPending && send.variables !== null}
-                  onSchedule={(at) => send.mutate(at)}
+                  onSchedule={(at) => requestSend(at)}
                 />
                 <Button
                   size="xs"
                   disabled={!canSend}
                   loading={send.isPending && send.variables === null}
-                  onClick={() => send.mutate(null)}
+                  onClick={() => requestSend(null)}
                 >
                   Send now
                 </Button>
