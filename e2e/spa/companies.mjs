@@ -130,7 +130,7 @@ const repInvite = await api(`/projects/${PROJECT}/representatives/invitations`, 
   body: { fullName: "Cora Client", position: "Group COO", email: REP_EMAIL } });
 if (repInvite.status >= 300) console.log(`representative invitation answered ${repInvite.status}: ${JSON.stringify(repInvite.body)}`);
 await api("/onboarding/accept-invitation-signup", { method: "POST",
-  body: { token: await tokenFor(REP_EMAIL, "accept-invite"), fullName: "Cora Client", password: PASSWORD } });
+  body: { token: await tokenFor(REP_EMAIL, "accept-invite"), fullName: "Cora Client", password: PASSWORD, termsAccepted: true } });
 
 const triagePage = async (status, extra = "") => (await api(`${TRIAGE}?status=${status}&size=100${extra}`, { token })).body;
 const peopleOf = async () => (await api(PEOPLE, { token })).body.candidates;

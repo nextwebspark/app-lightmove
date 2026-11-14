@@ -156,6 +156,16 @@ public class Workspace extends BaseEntity {
     @Column(name = "purged_at", insertable = false, updatable = false)
     private Instant purgedAt;
 
+    /** The data processing agreement the founder accepted for the firm (#928); null where none was asked. */
+    @Column(name = "dpa_accepted_at", updatable = false)
+    private Instant dpaAcceptedAt;
+
+    @Column(name = "dpa_version", updatable = false, length = 32)
+    private String dpaVersion;
+
+    @Column(name = "dpa_accepted_by", updatable = false)
+    private UUID dpaAcceptedBy;
+
     public static Workspace create(String name, String slug, String emailDomain, UUID createdBy,
                                    WorkspaceMode mode, WorkspaceCompany company) {
         Workspace workspace = new Workspace();
@@ -169,6 +179,13 @@ public class Workspace extends BaseEntity {
         workspace.persona = HiringPersona.seededFrom(seedOf(company));
         workspace.defaultCurrency = Currencies.startingCurrencyFor(company == null ? null : company.country());
         return workspace;
+    }
+
+    /** Only as the workspace is founded: a new version of the agreement asks the workspaces created after it. */
+    public void recordDpaAcceptance(String version, UUID acceptedBy, Instant acceptedAt) {
+        this.dpaVersion = Objects.requireNonNull(version, "version");
+        this.dpaAcceptedBy = acceptedBy;
+        this.dpaAcceptedAt = acceptedAt;
     }
 
     /** Never the slug (in URLs) or the email domain: a workspace can be re-described, not re-identified. */

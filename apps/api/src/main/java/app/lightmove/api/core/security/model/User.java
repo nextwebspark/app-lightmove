@@ -169,15 +169,26 @@ public class User extends BaseEntity {
      * copied in once the sign-in commits.
      */
     public static User registerFederated(String email, String fullName, Instant verifiedAt,
-                                         String privacyPolicyVersion) {
+                                         Instant termsAcceptedAt, String privacyPolicyVersion) {
         User user = new User();
         user.email = email;
         user.fullName = fullName;
         user.status = UserStatus.ACTIVE;
         user.emailVerifiedAt = verifiedAt;
-        user.termsAcceptedAt = verifiedAt;
+        user.termsAcceptedAt = termsAcceptedAt;
         user.privacyPolicyVersion = privacyPolicyVersion;
         return user;
+    }
+
+    /** Whether the terms and privacy policy changed since this person last accepted them, or they never did. */
+    public boolean owesTermsAcceptance(String currentVersion) {
+        return !currentVersion.equals(privacyPolicyVersion);
+    }
+
+    /** The re-acceptance sheet's tick: the version they read, with when. */
+    public void acceptTerms(String version, Instant acceptedAt) {
+        this.privacyPolicyVersion = version;
+        this.termsAcceptedAt = acceptedAt;
     }
 
     /** @return whether the device moved to another zone, which only then is recorded */

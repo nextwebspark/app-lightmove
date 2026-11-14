@@ -283,7 +283,7 @@ class CandidateContactsIntegrationTest extends FlowTestSupport {
         String rep = body(mvc.perform(post("/api/v1/onboarding/accept-invitation-signup")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"token":"%s","fullName":"Ext Rep","password":"%s"}
+                                {"token":"%s","fullName":"Ext Rep","password":"%s","termsAccepted":true}
                                 """.formatted(email.latestTokenFor(repEmail), PASSWORD)))
                 .andReturn()).get("accessToken").asText();
         mvc.perform(post("/api/v1/projects/" + projectId + "/representatives")

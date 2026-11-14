@@ -39,8 +39,17 @@ public enum ErrorCode {
 
     ALREADY_IN_WORKSPACE(HttpStatus.CONFLICT, "You already belong to a workspace"),
 
+    /** The deployment names a data processing agreement, and the founder did not accept it. Nothing was created. */
+    DPA_ACCEPTANCE_REQUIRED(HttpStatus.BAD_REQUEST, "Accept the Data Processing Agreement to create the workspace"),
+
     TOKEN_INVALID(HttpStatus.BAD_REQUEST, "This link is not valid"),
     TOKEN_EXPIRED(HttpStatus.BAD_REQUEST, "This link has expired"),
+
+    /** A first provider sign-in's terms step, past its ten minutes or already used. Nothing was created. */
+    REGISTRATION_EXPIRED(HttpStatus.GONE, "This sign-up has expired. Sign in with your provider again"),
+
+    /** The terms changed again between the sheet opening and the tick: the person must read the new ones. */
+    TERMS_VERSION_OUTDATED(HttpStatus.CONFLICT, "Our terms changed again while this was open. Reload to read them"),
 
     REFRESH_TOKEN_INVALID(HttpStatus.UNAUTHORIZED, "Your session has ended. Please sign in again"),
     /** Reuse of a rotated token. The family is already dead by the time this reaches the client. */

@@ -31,7 +31,8 @@ workspace and no single customer decides its purpose (#917, "Why").
 ## 2. Uncava as processor (Art. 30(2))
 
 **Controllers:** each customer firm, for the data in its own workspace. Name and contact details are on the
-workspace (`app_lm_workspace`) and the signed DPA [DPA record: #928].
+workspace (`app_lm_workspace`), with the DPA its founder accepted for the firm where the deployment names one — the
+version, the time and who (`dpa_version`, `dpa_accepted_at`, `dpa_accepted_by`, kept on the tombstone; #928).
 
 **Categories of processing carried out on each controller's behalf:**
 

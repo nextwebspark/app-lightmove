@@ -1207,7 +1207,7 @@ class OutreachDispatchIntegrationTest extends FlowTestSupport {
         String rep = body(mvc.perform(post("/api/v1/onboarding/accept-invitation-signup")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"token":"%s","fullName":"Rep Person","password":"%s"}
+                                {"token":"%s","fullName":"Rep Person","password":"%s","termsAccepted":true}
                                 """.formatted(email.latestTokenFor(repEmail), PASSWORD)))
                 .andExpect(status().isCreated())
                 .andReturn()).get("accessToken").asText();

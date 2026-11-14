@@ -414,6 +414,18 @@ mind. `OAUTH_CANCELLED` keeps them apart, and the SPA maps it to *no message at 
 branches on the **error code**, never on the provider: that distinction is what keeps it on the
 right side of the yml-block rule.
 
+**A first sign-in with a provider creates nothing until the terms are ticked** (#928). Every signup door asks for an
+unticked box — the password form, the invited signup and this one — so an account's recorded acceptance is always
+something its person did, never the moment a provider vouched for an address. For an identity and address nobody
+holds, the success handler refuses what it always refused (reserved ids, no or unproven address, the work-email rule),
+then parks the provider's claims in `app_lm_pending_registration` behind the `lm_pending_registration` cookie (the
+challenge cookie's idiom: hashed, single use, minutes long, path-scoped) and answers `/auth/callback?challenge=terms`;
+`POST /auth/oauth/registration` spends it and runs the same find-link-register path (`ProviderSignInService`) the
+callback does, so an address that gained an account meanwhile is linked — wiped first if nobody verified it — rather
+than doubled. That submit keeps the double-submit check: the cookie creates an account. Changed terms are asked again
+over every signed-in screen (`termsUpdateRequired` on `/me`), and a tick names the version shown: one that is no longer
+current is refused rather than recorded against terms the person never read.
+
 **Sign-in runs in a popup** (`apps/web/src/features/auth/oauthPopup.ts`), so the app never unloads
 and someone who backs out returns to the page they left. Three things about it are load-bearing:
 `window.open` must be called *synchronously* in the click or the browser blocks it; a blocked popup

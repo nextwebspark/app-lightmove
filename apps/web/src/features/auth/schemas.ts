@@ -24,6 +24,11 @@ export const passwordRule = z
 
 // Trimmed before validating, and the server does the same on the way in: a pasted address routinely
 // carries a trailing space, and telling someone their own address is malformed over it is absurd.
+/** The terms tick (#928): required on every signup door, in the mockups' own words. */
+const termsAccepted = z.boolean().refine((ticked) => ticked, {
+  message: "Tick the box to accept the Terms and Privacy Policy.",
+});
+
 const email = z
   .string()
   .trim()
@@ -41,6 +46,7 @@ export const signupSchema = z
     email,
     password: passwordRule,
     confirmPassword: z.string().min(1, "Re-enter your password"),
+    termsAccepted,
   })
   .refine((values) => values.password === values.confirmPassword, {
     message: "Those passwords don't match",
@@ -56,6 +62,7 @@ export const acceptInviteSchema = z
     fullName: z.string().min(1, "Enter your full name").max(160, "That name is too long"),
     password: passwordRule,
     confirmPassword: z.string().min(1, "Re-enter your password"),
+    termsAccepted,
   })
   .refine((values) => values.password === values.confirmPassword, {
     message: "Those passwords don't match",
@@ -82,7 +89,12 @@ export const workspaceSchema = z.object({
   // put in one by not noticing the question.
   mode: z.enum(WORKSPACE_MODES, { message: "Choose who you hire for" }),
   name: z.string().trim().min(1, "Enter your organization's name").max(160, "That name is too long"),
+  /** Asked only while founding, and only where the deployment names an agreement: the form checks it then. */
+  dpaAccepted: z.boolean(),
 });
+
+/** The same rule's words, for the form that knows whether the agreement is asked. */
+export const DPA_REQUIRED_MESSAGE = "Tick the box to accept the Data Processing Agreement.";
 
 export const inviteSchema = z.object({
   invites: z

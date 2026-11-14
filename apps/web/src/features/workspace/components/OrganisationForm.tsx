@@ -1,10 +1,11 @@
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { Controller, useForm } from "react-hook-form";
-import { Button, FormError } from "../../../components/ui";
+import { Button, ConsentCheckbox, FormError } from "../../../components/ui";
 import * as authApi from "../../auth/api/authApi";
 import type { CreateWorkspaceRequest, User, WorkspaceSummary } from "../../auth/api/types";
-import { workspaceSchema, type WorkspaceValues } from "../../auth/schemas";
+import { DPA_REQUIRED_MESSAGE, workspaceSchema, type WorkspaceValues } from "../../auth/schemas";
 import type { CompanySearchSource } from "../../clients/components/CompanyPicker";
 import { workspaceCompanyPick } from "../../clients/lib/companyPick";
 import type { CompanySuggestion } from "../../strategy/api/types";
@@ -41,25 +42,45 @@ export function OrganisationForm({
     return pick.source === "universe" ? pick.company : null;
   });
 
+  // Founding only, and only where the deployment names an agreement: correcting the step never asks again.
+  const legal = useQuery({
+    queryKey: authApi.WORKSPACE_LEGAL_KEY,
+    queryFn: authApi.workspaceLegal,
+    enabled: !editing,
+    staleTime: Infinity,
+    retry: false,
+  });
+  const dpaUrl = !editing && legal.data?.dpaVersion ? legal.data.dpaUrl : null;
+
   const {
     control,
     handleSubmit,
     watch,
     setValue,
+    setError,
     formState: { errors, isSubmitting },
   } = useForm<WorkspaceValues>({
     resolver: zodResolver(workspaceSchema),
     defaultValues: {
       mode: editing?.mode,
       name: editing?.name ?? "",
+      dpaAccepted: false,
     },
   });
   const mode = watch("mode");
   const name = watch("name");
 
-  const onSubmit = async (values: WorkspaceValues) => {
+  const onSubmit = async ({ dpaAccepted, ...values }: WorkspaceValues) => {
     setFormError(null);
-    const payload = { ...values, apolloAccountId: match?.apolloAccountId ?? null };
+    if (dpaUrl && !dpaAccepted) {
+      setError("dpaAccepted", { message: DPA_REQUIRED_MESSAGE });
+      return;
+    }
+    const payload = {
+      ...values,
+      apolloAccountId: match?.apolloAccountId ?? null,
+      ...(editing ? {} : { dpaAccepted }),
+    };
     try {
       await onDone(await submit(payload));
     } catch (error) {
@@ -97,6 +118,24 @@ export function OrganisationForm({
           error={errors.name?.message}
           autoFocus
         />
+
+        {/* The firm is the controller of what it keeps here and Uncava its processor (Signup.dc.html `dpaOffered`). */}
+        {dpaUrl && (
+          <Controller
+            control={control}
+            name="dpaAccepted"
+            render={({ field, fieldState }) => (
+              <ConsentCheckbox checked={field.value} onChange={field.onChange} error={fieldState.error?.message}>
+                I accept the{" "}
+                <a href={dpaUrl} target="_blank" rel="noopener noreferrer" className="text-u-accent hover:underline">
+                  Data Processing Agreement
+                  <span className="sr-only"> (opens in a new tab)</span>
+                </a>{" "}
+                on behalf of this organization.
+              </ConsentCheckbox>
+            )}
+          />
+        )}
 
         <Button type="submit" loading={isSubmitting} className="w-full">
           {submitLabel}

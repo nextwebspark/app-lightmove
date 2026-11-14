@@ -328,6 +328,11 @@ function SignInAgain({
         setPending(null);
         setOwesCode(true);
       },
+      // A provider account nobody here holds: no session changed, and it is certainly not this one.
+      onTermsRequired: () => {
+        setPending(null);
+        setError(`Sign in with the account you use for ${email}.`);
+      },
       onError: (errorCode) => {
         setPending(null);
         setError(messageForOAuthError(errorCode));

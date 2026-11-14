@@ -57,10 +57,13 @@ export function FilterCheckRow({
 export function CheckBox({
   checked,
   size = "md",
+  invalid = false,
 }: {
   /** `"mixed"` is a select-all box over a partial selection — a dash, not a tick. */
   checked: boolean | "mixed";
   size?: "sm" | "md";
+  /** A required box left unticked: its ring turns to the error colour, as a refused field's border does. */
+  invalid?: boolean;
 }) {
   const box = size === "md" ? "h-[16px] w-[16px]" : "h-[15px] w-[15px]";
   const glyph = 9;
@@ -70,7 +73,7 @@ export function CheckBox({
       className={cn(
         "grid flex-none place-items-center rounded-[4px] shadow-[inset_0_0_0_1.5px_currentColor]",
         box,
-        checked ? "bg-u-accent-tint text-u-accent" : "text-u-border-strong",
+        checked ? "bg-u-accent-tint text-u-accent" : invalid ? "text-u-offlimits" : "text-u-border-strong",
       )}
     >
       <svg

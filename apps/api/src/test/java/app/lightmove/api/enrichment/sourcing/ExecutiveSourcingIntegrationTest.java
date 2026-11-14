@@ -465,7 +465,7 @@ class ExecutiveSourcingIntegrationTest extends FlowTestSupport {
         String bearer = "Bearer " + body(mvc.perform(post("/api/v1/onboarding/accept-invitation-signup")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"token":"%s","fullName":"A Client","password":"%s"}
+                                {"token":"%s","fullName":"A Client","password":"%s","termsAccepted":true}
                                 """.formatted(email.latestTokenFor(clientEmail), PASSWORD)))
                 .andExpect(status().isCreated())
                 .andReturn()).get("accessToken").asText();

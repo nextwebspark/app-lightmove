@@ -6,6 +6,7 @@ import { AppRoutes } from "./app/routes";
 import { ToastProvider } from "./components/ui";
 import { AssistantProvider } from "./features/assistant/AssistantProvider";
 import { AuthProvider } from "./features/auth/AuthProvider";
+import { TermsUpdateSheet } from "./features/auth/components/TermsUpdateSheet";
 import { BillingRefusalSheets } from "./features/billing/components/BillingRefusalSheets";
 import { applyStoredTheme } from "./features/theme/useTheme";
 import { DateTimeBoundary } from "./lib/datetime/DateTimeBoundary";
@@ -43,6 +44,9 @@ createRoot(document.getElementById("root")!).render(
               </DateTimeBoundary>
             </AssistantProvider>
             <BillingRefusalSheets />
+            {/* Over every signed-in screen, the signup steps and the extension's pairing included, until changed
+                terms are accepted: beside the routes rather than in each guard, so no route is added without it. */}
+            <TermsUpdateSheet />
           </ToastProvider>
         </AuthProvider>
       </BrowserRouter>

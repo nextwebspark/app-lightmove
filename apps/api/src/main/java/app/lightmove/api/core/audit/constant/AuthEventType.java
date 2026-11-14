@@ -7,6 +7,8 @@ package app.lightmove.api.core.audit.constant;
 public enum AuthEventType implements AuditEventType {
 
     USER_SIGNED_UP,
+    /** A signed-in person accepted a changed version of the terms and privacy policy; the version only. */
+    USER_TERMS_ACCEPTED,
     EMAIL_VERIFICATION_SENT,
     EMAIL_VERIFIED,
 

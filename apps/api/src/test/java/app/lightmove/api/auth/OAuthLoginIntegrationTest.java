@@ -3,13 +3,16 @@ package app.lightmove.api.auth;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import app.lightmove.api.FixtureJdbc;
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.StubPictureFetcher;
+import app.lightmove.api.core.security.constant.PrivacyPolicy;
 import app.lightmove.api.core.security.mfa.TestTotp;
 import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.model.UserIdentity;
@@ -18,9 +21,11 @@ import app.lightmove.api.core.security.repository.UserRepository;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.security.service.OAuth2LoginFailureHandler;
 import app.lightmove.api.core.security.service.OAuth2LoginSuccessHandler;
+import app.lightmove.api.core.security.token.Tokens;
 import app.lightmove.api.workspace.constant.MemberStatus;
 import app.lightmove.api.workspace.repository.WorkspaceMemberRepository;
 import jakarta.servlet.http.Cookie;
+import tools.jackson.databind.JsonNode;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
@@ -33,6 +38,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpMethod;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -60,6 +66,7 @@ import org.springframework.security.oauth2.core.oidc.user.DefaultOidcUser;
 class OAuthLoginIntegrationTest extends FlowTestSupport {
 
     private static final AtomicInteger RUN = new AtomicInteger();
+    private static final String PENDING_REGISTRATION = "lm_pending_registration";
 
     @Autowired OAuth2LoginSuccessHandler handler;
     @Autowired OAuth2LoginFailureHandler failures;
@@ -68,6 +75,7 @@ class OAuthLoginIntegrationTest extends FlowTestSupport {
     @Autowired UserIdentityRepository identities;
     @Autowired WorkspaceMemberRepository members;
     @Autowired StubPictureFetcher pictures;
+    @Autowired @FixtureJdbc JdbcTemplate fixtures;
 
     @Test
     @DisplayName("a provider named only in configuration registers a user and stores a copy of its picture")
@@ -88,6 +96,110 @@ class OAuthLoginIntegrationTest extends FlowTestSupport {
         UserIdentity identity = identities.findByProviderAndProviderUserId("LINKEDIN", "linkedin-subject-1")
                 .orElseThrow();
         assertThat(identity.getUserId()).isEqualTo(user.getId());
+    }
+
+    @Test
+    @DisplayName("a first sign-in creates nothing until the terms are ticked, then the tick creates the account once")
+    void aFirstSignInWaitsForTheTerms() throws Exception {
+        String email = emailForThisTest();
+
+        MockHttpServletResponse held = callback("linkedin", "linkedin-subject-terms", email,
+                Map.of("name", "Yara Haddad"));
+
+        assertThat(held.getRedirectedUrl()).endsWith("/auth/callback?challenge=terms").doesNotContain("#token=");
+        assertThat(held.getCookie("lm_refresh")).isNull();
+        Cookie hold = held.getCookie(PENDING_REGISTRATION);
+        assertThat(hold).isNotNull();
+        assertThat(hold.isHttpOnly()).isTrue();
+        assertThat(hold.getPath()).isEqualTo("/api/v1/auth/oauth/registration");
+        assertThat(users.findByEmail(email)).isEmpty();
+        assertThat(fixtures.queryForObject("SELECT count(*) FROM app_lm_pending_registration WHERE token_hash = ?",
+                Integer.class, Tokens.hash(hold.getValue()))).isEqualTo(1);
+
+        JsonNode shown = body(mvc.perform(get("/api/v1/auth/oauth/registration").cookie(hold))
+                .andExpect(status().isOk()).andReturn());
+        assertThat(shown.get("provider").asText()).isEqualTo("linkedin");
+        assertThat(shown.get("email").asText()).isEqualTo(email);
+        assertThat(shown.get("fullName").asText()).isEqualTo("Yara Haddad");
+
+        MvcResult unticked = completeRegistration(hold, false);
+        assertThat(unticked.getResponse().getStatus()).isEqualTo(400);
+        assertThat(users.findByEmail(email)).isEmpty();
+
+        Instant beforeTick = Instant.now();
+        MvcResult ticked = completeRegistration(hold, true);
+        assertThat(ticked.getResponse().getStatus()).as(ticked.getResponse().getContentAsString()).isEqualTo(200);
+        assertThat(body(ticked).get("accessToken").asText()).isNotBlank();
+        assertThat(ticked.getResponse().getCookie("lm_refresh")).isNotNull();
+        assertThat(ticked.getResponse().getCookie(PENDING_REGISTRATION).getMaxAge()).isZero();
+
+        User user = users.findByEmail(email).orElseThrow();
+        assertThat(user.getFullName()).isEqualTo("Yara Haddad");
+        assertThat(user.isEmailVerified()).isTrue();
+        assertThat(user.getTermsAcceptedAt()).isAfterOrEqualTo(beforeTick.truncatedTo(ChronoUnit.MILLIS));
+        assertThat(user.getPrivacyPolicyVersion()).isEqualTo(PrivacyPolicy.CURRENT_VERSION);
+        assertThat(identities.findByProviderAndProviderUserId("LINKEDIN", "linkedin-subject-terms")).isPresent();
+
+        // Single use: the same cookie a second time answers as one that never existed.
+        MvcResult replayed = completeRegistration(hold, true);
+        assertThat(replayed.getResponse().getStatus()).isEqualTo(410);
+        assertThat(codeOf(replayed)).isEqualTo("REGISTRATION_EXPIRED");
+    }
+
+    @Test
+    @DisplayName("a held registration past its ten minutes, or replaced by a later sign-in, creates nothing")
+    void aHeldRegistrationExpiresAndIsReplaced() throws Exception {
+        String email = emailForThisTest();
+        Cookie first = callback("linkedin", "linkedin-subject-late", email, Map.of()).getCookie(PENDING_REGISTRATION);
+        Cookie second = callback("linkedin", "linkedin-subject-late", email, Map.of()).getCookie(PENDING_REGISTRATION);
+
+        MvcResult replaced = completeRegistration(first, true);
+        assertThat(codeOf(replaced)).isEqualTo("REGISTRATION_EXPIRED");
+
+        fixtures.update("UPDATE app_lm_pending_registration SET expires_at = now() - interval '1 second' "
+                + "WHERE token_hash = ?", Tokens.hash(second.getValue()));
+        MvcResult late = completeRegistration(second, true);
+        assertThat(late.getResponse().getStatus()).isEqualTo(410);
+        mvc.perform(get("/api/v1/auth/oauth/registration").cookie(second)).andExpect(status().isGone());
+        assertThat(users.findByEmail(email)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("the terms step's submit keeps the double-submit check, since its cookie creates an account")
+    void theTermsSubmitNeedsTheCsrfHeader() throws Exception {
+        String email = emailForThisTest();
+        Cookie hold = callback("linkedin", "linkedin-subject-csrf", email, Map.of()).getCookie(PENDING_REGISTRATION);
+
+        mvc.perform(post("/api/v1/auth/oauth/registration").cookie(hold)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json.writeValueAsString(Map.of("termsAccepted", true))))
+                .andExpect(status().isForbidden());
+        assertThat(users.findByEmail(email)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("a consumer address is refused at the callback, before anyone is asked to tick anything")
+    void aConsumerAddressIsRefusedBeforeTheTerms() throws Exception {
+        MockHttpServletResponse response = callback("google", "google-subject-gmail",
+                "someone%d@gmail.com".formatted(RUN.incrementAndGet()), Map.of());
+
+        assertThat(response.getRedirectedUrl()).endsWith("/auth/callback?error=EMAIL_NOT_WORK_ADDRESS");
+        assertThat(response.getCookie(PENDING_REGISTRATION)).isNull();
+    }
+
+    @Test
+    @DisplayName("an address that gained an account while the terms waited is linked, not doubled")
+    void anAccountMadeMeanwhileIsLinked() throws Exception {
+        String email = "meanwhile@" + domain;
+        Cookie hold = callback("linkedin", "linkedin-subject-meanwhile", email, Map.of()).getCookie(PENDING_REGISTRATION);
+        verifiedUser("Made Meanwhile", email);
+        User existing = users.findByEmail(email).orElseThrow();
+
+        MvcResult ticked = completeRegistration(hold, true);
+
+        assertThat(ticked.getResponse().getStatus()).as(ticked.getResponse().getContentAsString()).isEqualTo(200);
+        assertThat(identities.findByProviderAndProviderUserId("LINKEDIN", "linkedin-subject-meanwhile")
+                .orElseThrow().getUserId()).isEqualTo(existing.getId());
     }
 
     @Test
@@ -204,7 +316,7 @@ class OAuthLoginIntegrationTest extends FlowTestSupport {
     void claimsALegacyPictureOnceAndThenHoldsIt() throws Exception {
         String email = emailForThisTest();
         // Every row that predates the avatar_source column looks like this: a picture and no owner.
-        User legacy = User.registerFederated(email, "Alok Kumar", Instant.now(), "2026-07-01");
+        User legacy = User.registerFederated(email, "Alok Kumar", Instant.now(), Instant.now(), "2026-07-01");
         legacy.showAvatar(null, "https://cdn.example/legacy.jpg");
         users.save(legacy);
 
@@ -397,9 +509,9 @@ class OAuthLoginIntegrationTest extends FlowTestSupport {
     void sendsAnUnexpectedFailureBackToTheSpa() throws Exception {
         String email = emailForThisTest();
 
-        // A name longer than full_name's 160 characters stands in for anything establishSession does
-        // not guard — concretely the double-callback race, where two concurrent first sign-ins both
-        // miss the lookups and the loser dies on the unique email constraint. The handler runs in the
+        // A name longer than full_name's 160 characters stands in for anything the sign-in does not
+        // guard — concretely the double-callback race, where two concurrent sign-ins both miss the
+        // lookups and the loser dies on a unique constraint. The handler runs in the
         // security filter chain, outside GlobalExceptionHandler, so anything that escapes it is a raw
         // container error page rather than a login screen with a sentence on it.
         MockHttpServletResponse response = signIn("linkedin", "linkedin-subject-unexpected", email,
@@ -537,15 +649,48 @@ class OAuthLoginIntegrationTest extends FlowTestSupport {
 
     private MockHttpServletResponse signIn(String registrationId, String subject, String email,
                                            Map<String, Object> extraClaims) throws Exception {
+        return signIn(registrationId, claimsOf(subject, email, extraClaims));
+    }
+
+    /**
+     * A sign-in as the person sees it: someone new ticks the terms on the step the callback sends them to, and the
+     * provider's callback then signs them in like anyone else. The response is the callback that signed them in.
+     */
+    private MockHttpServletResponse signIn(String registrationId, Map<String, Object> claims) throws Exception {
+        MockHttpServletResponse response = callback(registrationId, claims);
+        if (response.getRedirectedUrl() != null && response.getRedirectedUrl().endsWith("?challenge=terms")) {
+            MvcResult registered = completeRegistration(response.getCookie(PENDING_REGISTRATION), true);
+            assertThat(registered.getResponse().getStatus())
+                    .as(registered.getResponse().getContentAsString()).isEqualTo(200);
+            return callback(registrationId, claims);
+        }
+        return response;
+    }
+
+    private MvcResult completeRegistration(Cookie held, boolean termsAccepted) throws Exception {
+        return mvc.perform(post("/api/v1/auth/oauth/registration")
+                        .cookie(held).with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json.writeValueAsString(Map.of("termsAccepted", termsAccepted))))
+                .andReturn();
+    }
+
+    private static Map<String, Object> claimsOf(String subject, String email, Map<String, Object> extraClaims) {
         Map<String, Object> claims = new HashMap<>(Map.of(
                 "sub", subject,
                 "email", email,
                 "email_verified", true));
         claims.putAll(extraClaims);
-        return signIn(registrationId, claims);
+        return claims;
     }
 
-    private MockHttpServletResponse signIn(String registrationId, Map<String, Object> claims) throws Exception {
+    private MockHttpServletResponse callback(String registrationId, String subject, String email,
+                                             Map<String, Object> extraClaims) throws Exception {
+        return callback(registrationId, claimsOf(subject, email, extraClaims));
+    }
+
+    /** The provider's callback alone, as the handler answers it. */
+    private MockHttpServletResponse callback(String registrationId, Map<String, Object> claims) throws Exception {
         Instant now = Instant.now();
         OidcIdToken idToken = new OidcIdToken("id-token", now, now.plus(1, ChronoUnit.HOURS), claims);
         DefaultOidcUser principal = new DefaultOidcUser(

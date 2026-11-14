@@ -13,6 +13,7 @@ import { AcceptInvitePage } from "../features/auth/pages/AcceptInvitePage";
 import { ForgotPasswordPage } from "../features/auth/pages/ForgotPasswordPage";
 import { LoginPage } from "../features/auth/pages/LoginPage";
 import { OAuthCallbackPage } from "../features/auth/pages/OAuthCallbackPage";
+import { PROVIDER_TERMS_PATH, ProviderTermsPage } from "../features/auth/pages/ProviderTermsPage";
 import { ResetPasswordPage } from "../features/auth/pages/ResetPasswordPage";
 import { TWO_FACTOR_SIGN_IN_PATH, TwoFactorChallengePage } from "../features/auth/pages/TwoFactorChallengePage";
 import { SignupPage } from "../features/auth/pages/SignupPage";
@@ -75,6 +76,8 @@ export function AppRoutes() {
       <Route path="/login" element={<AnonymousOnly><LoginPage /></AnonymousOnly>} />
       <Route path={TWO_FACTOR_SIGN_IN_PATH} element={<AnonymousOnly><TwoFactorChallengePage /></AnonymousOnly>} />
       <Route path="/signup" element={<AnonymousOnly><SignupPage /></AnonymousOnly>} />
+      {/* A first provider sign-in's terms step: no account yet, only the cookie the callback set. */}
+      <Route path={PROVIDER_TERMS_PATH} element={<AnonymousOnly><ProviderTermsPage /></AnonymousOnly>} />
       <Route path="/forgot-password" element={<AnonymousOnly><ForgotPasswordPage /></AnonymousOnly>} />
 
       {/* Public: the link is clicked from an email, in a browser that may have no session at all. */}

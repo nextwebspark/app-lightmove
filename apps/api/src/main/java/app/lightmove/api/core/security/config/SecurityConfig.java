@@ -146,6 +146,9 @@ public class SecurityConfig {
                                 API + "/auth/password/forgot",
                                 API + "/auth/password/reset",
                                 API + "/auth/mfa/verify",   // authenticated by the challenge cookie and the code
+                                // A first provider sign-in's terms step, by the held registration's cookie; its
+                                // submit keeps the double-submit check, since that cookie creates an account.
+                                API + "/auth/oauth/registration",
                                 API + "/auth/csrf",
                                 API + "/auth/providers",
                                 API + "/auth/extension/refresh",

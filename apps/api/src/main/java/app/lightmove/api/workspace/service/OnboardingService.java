@@ -3,6 +3,8 @@ package app.lightmove.api.workspace.service;
 import app.lightmove.api.billing.trial.service.WorkspaceTrials;
 import app.lightmove.api.core.audit.constant.WorkspaceEventType;
 import app.lightmove.api.core.audit.service.AuditService;
+import app.lightmove.api.core.config.LegalSettings;
+import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.email.service.EmailAddressValidator;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
@@ -15,12 +17,14 @@ import app.lightmove.api.core.security.repository.UserRepository;
 import app.lightmove.api.core.security.service.WorkspaceSelection;
 import app.lightmove.api.core.tenant.WorkspaceScope;
 import app.lightmove.api.workspace.constant.MemberStatus;
+import app.lightmove.api.workspace.dto.WorkspaceLegalResponse;
 import app.lightmove.api.workspace.model.CreateWorkspaceCommand;
 import app.lightmove.api.workspace.model.Workspace;
 import app.lightmove.api.workspace.model.WorkspaceMember;
 import app.lightmove.api.workspace.repository.WorkspaceMemberRepository;
 import app.lightmove.api.workspace.repository.WorkspaceRepository;
 import jakarta.servlet.http.HttpServletRequest;
+import java.time.Clock;
 import java.util.Set;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -48,35 +52,47 @@ public class OnboardingService {
     private final RateLimitGuard rateLimit;
     private final WorkspaceSettingsService settings;
     private final WorkspaceTrials trials;
+    private final Clock clock;
+    private final LightMoveProperties properties;
 
     /** Signup's door, gated on verification alone — so shut to anyone already in a workspace. */
     @Transactional
-    public Workspace createFirstWorkspace(UUID userId, CreateWorkspaceCommand command,
+    public Workspace createFirstWorkspace(UUID userId, CreateWorkspaceCommand command, boolean dpaAccepted,
                                           HttpServletRequest request) {
         // Locked before the membership is read. Read first, a submit committing between that read and the account's
         // load left the check seeing no workspace and the row already at its new version, so @Version passed too and
         // a double-clicked step founded two workspaces.
         users.lockToFoundFirstWorkspace(userId).orElseThrow(() -> ApiException.of(ErrorCode.INVALID_CREDENTIALS));
         requireNoExistingMembership(userId);
-        return createWorkspace(userId, command, request);
+        return createWorkspace(userId, command, dpaAccepted, request);
     }
 
     /**
      * The caller is verified ({@code SecurityConfig} refuses {@code /onboarding/**} otherwise). The
-     * domain comes from the user's own address, never the request, so nobody can claim another firm's.
+     * domain comes from the user's own address, never the request, so nobody can claim another firm's. Where the
+     * deployment names a data processing agreement, the founder accepts it for the firm here — both doors pass this
+     * way, so neither can found a workspace without it.
      */
     @Transactional
-    public Workspace createWorkspace(UUID userId, CreateWorkspaceCommand command,
+    public Workspace createWorkspace(UUID userId, CreateWorkspaceCommand command, boolean dpaAccepted,
                                      HttpServletRequest request) {
         User user = requireUser(userId);
+        LegalSettings legal = properties.legal();
+        if (legal.asksForDpa() && !dpaAccepted) {
+            throw ApiException.of(ErrorCode.DPA_ACCEPTANCE_REQUIRED);
+        }
         rateLimit.checkWorkspaceCreation(user.getEmail(), request);
 
         String domain = EmailAddressValidator.domainOf(user.getEmail());
         WorkspaceIdentity identity = companyResolver.resolve(command.name(), command.apolloAccountId());
         String slug = SlugGenerator.from(identity.name(), workspaces::existsBySlug);
 
-        Workspace workspace = workspaces.save(Workspace.create(
-                identity.name(), slug, domain, userId, command.mode(), identity.company()));
+        Workspace founded = Workspace.create(identity.name(), slug, domain, userId, command.mode(),
+                identity.company());
+        if (legal.asksForDpa()) {
+            founded.recordDpaAcceptance(legal.dpaVersion(), userId, clock.instant());
+        }
+        Workspace workspace = workspaces.save(founded);
 
         selection.remember(user, members.save(WorkspaceMember.invite(
                 workspace.getId(), userId, Set.of(rbac.role(WorkspaceRole.ADMIN)), userId)));
@@ -90,9 +106,15 @@ public class OnboardingService {
         audit.event(WorkspaceEventType.WORKSPACE_CREATED)
                 .actor(userId).workspace(workspace.getId()).from(request)
                 .detail("domain", domain).detail("slug", slug).detail("mode", workspace.getMode().name())
+                .detailIfPresent("dpaVersion", workspace.getDpaVersion())
                 .record();
 
         return workspace;
+    }
+
+    public WorkspaceLegalResponse legal() {
+        LegalSettings legal = properties.legal();
+        return new WorkspaceLegalResponse(legal.dpaVersion(), legal.dpaUrl());
     }
 
     /**

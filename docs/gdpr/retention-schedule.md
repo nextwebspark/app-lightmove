@@ -51,6 +51,7 @@ once by `ops/cloudsql/scrub-audit-pii.sql`.
 | `app_lm_user_mfa_factor` | sealed authenticator secret | two-factor | while two-factor is on | turned off, account deletion | — |
 | `app_lm_user_mfa_recovery_code` | hashed codes | two-factor recovery | while two-factor is on | regenerated, turned off, account deletion | — |
 | `app_lm_user_platform_role` | who is Uncava staff | platform access | while granted | revoked by ops script | — |
+| `app_lm_pending_registration` | provider subject, work email, name, picture link | a first provider sign-in waiting on the terms tick (#928), before any account exists | 10 minutes; the row 1 day past expiry ⚖️ | the tick, a later sign-in by the same identity, expiry | `PendingRegistrationService`, `RetentionSweeper` |
 | `app_lm_mfa_challenge` | user, challenge hash | a sign-in waiting on its code | 1 day past expiry ⚖️ | expiry, account deletion | `RetentionSweeper` |
 | `app_lm_verification_token` | user, token hash | email verification, password reset | 30 days past expiry ⚖️ | expiry, account deletion | `RetentionSweeper` |
 | `app_lm_refresh_token` | user, IP address, browser line | sessions, stolen-token detection | 30 days past the family's last expiry ⚖️ | expiry, account deletion | `RetentionSweeper` |

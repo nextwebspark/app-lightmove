@@ -14,6 +14,7 @@ public record RetentionSettings(
         @DefaultValue("30d") Duration refreshTokensAfter,
         @DefaultValue("30d") Duration verificationTokensAfter,
         @DefaultValue("1d") Duration mfaChallengesAfter,
+        @DefaultValue("1d") Duration pendingRegistrationsAfter,
         @DefaultValue("90d") Duration invitationsAfter,
         @DefaultValue("90d") Duration notificationsAfter,
         @DefaultValue("90d") Duration digestsAfter,

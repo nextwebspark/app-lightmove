@@ -487,6 +487,10 @@ V220 adds #924's outreach opt-out: `app_lm_person_privacy_link.purpose` gains `O
 valid a year) and `used_at`; `OPTED_OUT` joins the enrollment stop-reason and message fail-reason CHECKs,
 `PRIVACY_OPTED_OUT` the activity CHECK and `CANDIDATE_OPTED_OUT` the notification CHECK
 (`docs/gdpr/privacy-notices-923.md`).
+V221 adds #928's terms and DPA records: `app_lm_pending_registration` (a first provider sign-in held until the terms
+are ticked — provider, subject, address, name, picture link, a token's SHA-256, ten minutes, single use; global, so
+outside row-level security) and `dpa_accepted_at`, `dpa_version`, `dpa_accepted_by` on `app_lm_workspace`, set together
+or not at all (`docs/gdpr/terms-acceptance-928.md`).
 V195 adds `app_lm_workspace_suppression` (`kind` `PROFILE_SLUG | EMAIL`, a keyed `value_hash` unique per workspace and
 kind, the `key_id` it was taken under, `reason` `ERASED | OBJECTED | MANUAL`, an admin's `note`), forced row-level security
 in the same migration.

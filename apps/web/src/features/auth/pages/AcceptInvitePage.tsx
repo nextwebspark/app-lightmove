@@ -1,7 +1,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { useForm } from "react-hook-form";
+import { Controller, useForm } from "react-hook-form";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Button, Card, Field, FormError, Input, Logo, Notice, Spinner } from "../../../components/ui";
 import { ApiRequestError } from "../../../lib/apiClient";
@@ -121,19 +121,20 @@ function AcceptSignupForm({ token, invitation }: { token: string; invitation: In
   const once = useSingleFlight();
 
   const {
+    control,
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
   } = useForm<AcceptInviteValues>({
     resolver: zodResolver(acceptInviteSchema),
-    defaultValues: { fullName: "", password: "", confirmPassword: "" },
+    defaultValues: { fullName: "", password: "", confirmPassword: "", termsAccepted: false },
   });
 
   const onSubmit = (values: AcceptInviteValues) => once(async () => {
     setFormError(null);
     setAlreadyRegistered(false);
     try {
-      const joined = await acceptInviteSignup(token, values.fullName, values.password);
+      const joined = await acceptInviteSignup(token, values.fullName, values.password, values.termsAccepted);
       navigate(await landingAfterJoining(joined, queryClient), { replace: true, state: NO_POSITIONS_ORIGIN });
     } catch (error) {
       // The one failure with a way forward: this address already has an account, so log in and accept
@@ -226,17 +227,29 @@ function AcceptSignupForm({ token, invitation }: { token: string; invitation: In
             </span>
           </Notice>
         ) : (
-          <Button type="submit" loading={isSubmitting} className="mt-1 w-full">
-            Accept &amp; join
-          </Button>
+          <>
+            <Controller
+              control={control}
+              name="termsAccepted"
+              render={({ field, fieldState }) => (
+                <LegalConsent
+                  checked={field.value}
+                  onChange={field.onChange}
+                  error={fieldState.error?.message}
+                  className="mb-4"
+                />
+              )}
+            />
+            <Button type="submit" loading={isSubmitting} className="mt-1 w-full">
+              Accept &amp; join
+            </Button>
+          </>
         )}
       </form>
 
       {!alreadyRegistered && (
         <OAuthButtons onError={handleProviderError} stayOnPage returnTo={ACCEPT_INVITE_PATH} />
       )}
-
-      <LegalConsent className="mt-4" />
     </Shell>
   );
 }

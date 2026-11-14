@@ -171,7 +171,7 @@ public abstract class FlowTestSupport {
         return body(mvc.perform(post("/api/v1/onboarding/accept-invitation-signup")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"token":"%s","fullName":"%s","password":"%s"}
+                                {"token":"%s","fullName":"%s","password":"%s","termsAccepted":true}
                                 """.formatted(email.latestTokenFor(representativeEmail), fullName, PASSWORD)))
                 .andExpect(status().isCreated())
                 .andReturn()).get("accessToken").asText();

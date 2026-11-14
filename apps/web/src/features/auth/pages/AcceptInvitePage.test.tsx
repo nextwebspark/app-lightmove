@@ -91,6 +91,8 @@ describe("AcceptInvitePage", () => {
         locale: "en",
         platformActions: [],
         pendingInvitations: [],
+        termsUpdateRequired: false,
+        termsVersion: "2026-07-01",
   workspaces: [],
         workspace: {
           id: "w1",
@@ -113,6 +115,7 @@ describe("AcceptInvitePage", () => {
     await user.type(screen.getByPlaceholderText("Yara Haddad"), "Sara Al-Mansour");
     await user.type(screen.getByPlaceholderText("8+ characters"), "secret123");
     await user.type(screen.getByPlaceholderText("Re-enter your password"), "secret123");
+    await user.click(screen.getByRole("checkbox", { name: /I agree to the Terms/ }));
     await user.click(screen.getByRole("button", { name: /accept & join/i }));
 
     await waitFor(() =>
@@ -120,6 +123,7 @@ describe("AcceptInvitePage", () => {
         "abc123",
         "Sara Al-Mansour",
         "secret123",
+        true,
       ),
     );
   });
@@ -132,6 +136,7 @@ describe("AcceptInvitePage", () => {
     await user.type(screen.getByPlaceholderText("Yara Haddad"), "Sara Al-Mansour");
     await user.type(screen.getByPlaceholderText("8+ characters"), "secret123");
     await user.type(screen.getByPlaceholderText("Re-enter your password"), "different1");
+    await user.click(screen.getByRole("checkbox", { name: /I agree to the Terms/ }));
     await user.click(screen.getByRole("button", { name: /accept & join/i }));
 
     expect(await screen.findByText("Those passwords don't match")).toBeInTheDocument();
@@ -155,6 +160,7 @@ describe("AcceptInvitePage", () => {
     await user.type(screen.getByPlaceholderText("Yara Haddad"), "Sara Al-Mansour");
     await user.type(screen.getByPlaceholderText("8+ characters"), "secret123");
     await user.type(screen.getByPlaceholderText("Re-enter your password"), "secret123");
+    await user.click(screen.getByRole("checkbox", { name: /I agree to the Terms/ }));
     await user.click(screen.getByRole("button", { name: /accept & join/i }));
 
     const cta = await screen.findByRole("link", { name: /log in to accept/i });
@@ -194,6 +200,7 @@ describe("AcceptInvitePage", () => {
       await user.type(screen.getByPlaceholderText("Yara Haddad"), "Sara Al-Mansour");
       await user.type(screen.getByPlaceholderText("8+ characters"), "secret123");
       await user.type(screen.getByPlaceholderText("Re-enter your password"), "secret123");
+      await user.click(screen.getByRole("checkbox", { name: /I agree to the Terms/ }));
       await user.click(screen.getByRole("button", { name: /accept & join/i }));
       return user;
     };
@@ -231,6 +238,8 @@ describe("AcceptInvitePage", () => {
       locale: "en",
       platformActions: [],
       pendingInvitations: [],
+      termsUpdateRequired: false,
+      termsVersion: "2026-07-01",
   workspaces: [],
       workspace: null,
     });
@@ -295,12 +304,16 @@ describe("AcceptInvitePage", () => {
       ],
       workspaces: [],
       workspace: null,
+      termsUpdateRequired: false,
+      termsVersion: "2026-07-01",
     };
     vi.mocked(restoreSession).mockResolvedValue("access-token");
     vi.mocked(authApi.me).mockResolvedValue(sara);
     vi.mocked(authApi.acceptInvitationById).mockResolvedValue({
       ...sara,
       pendingInvitations: [],
+      termsUpdateRequired: false,
+      termsVersion: "2026-07-01",
       workspaces: [joined],
       workspace: joined,
     });
@@ -341,6 +354,8 @@ describe("AcceptInvitePage", () => {
       locale: "en",
       platformActions: [],
       pendingInvitations: [],
+      termsUpdateRequired: false,
+      termsVersion: "2026-07-01",
       workspaces: [],
       workspace: null,
     });
@@ -412,6 +427,7 @@ describe("AcceptInvitePage", () => {
     await user.type(screen.getByPlaceholderText("Yara Haddad"), "Sara Al-Mansour");
     await user.type(screen.getByPlaceholderText("8+ characters"), "secret123");
     await user.type(screen.getByPlaceholderText("Re-enter your password"), "secret123");
+    await user.click(screen.getByRole("checkbox", { name: /I agree to the Terms/ }));
     await user.dblClick(screen.getByRole("button", { name: /accept & join/i }));
 
     await waitFor(() => expect(authApi.acceptInvitationSignup).toHaveBeenCalled());
@@ -435,6 +451,8 @@ describe("AcceptInvitePage", () => {
       locale: "en",
       platformActions: [],
       pendingInvitations: [],
+      termsUpdateRequired: false,
+      termsVersion: "2026-07-01",
       workspaces: [],
       workspace: null,
     });

@@ -44,9 +44,16 @@ interface AuthContextValue {
   signIn: (email: string, password: string) => Promise<User | MfaChallenge>;
   /** Finishes a challenged sign-in with a code from the authenticator app, or a recovery code. */
   completeSecondFactor: (code: string) => Promise<User>;
-  signUp: (fullName: string, email: string, password: string) => Promise<User>;
+  signUp: (fullName: string, email: string, password: string, termsAccepted: boolean) => Promise<User>;
   /** Creates the invited account and adopts the session it returns — the invitee is in immediately. */
-  acceptInviteSignup: (token: string, fullName: string, password: string) => Promise<User>;
+  acceptInviteSignup: (token: string, fullName: string, password: string, termsAccepted: boolean) => Promise<User>;
+  /**
+   * The terms step of a first provider sign-in: creates the account and adopts its session — or, where the address
+   * turned out to be a factor holder's account, answers the challenge for the code.
+   */
+  completeProviderSignup: (termsAccepted: boolean) => Promise<User | MfaChallenge>;
+  /** The re-acceptance sheet's tick: the version it showed, which must still be current. */
+  acceptTerms: (version: string) => Promise<User>;
   /** Redeems a verification link and adopts the session it returns — proving the mailbox is the sign-in. */
   verifyEmail: (token: string) => Promise<User | MfaChallenge>;
   /**
@@ -239,15 +246,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const signUp = useCallback(
-    async (fullName: string, email: string, password: string) => {
-      const session = await authApi.signup({
-        fullName,
-        email,
-        password,
-        // The form will not submit without the box ticked; sending it explicitly keeps the server the
-        // one that decides, rather than trusting the button to have been disabled.
-        termsAccepted: true,
-      });
+    async (fullName: string, email: string, password: string, termsAccepted: boolean) => {
+      const session = await authApi.signup({ fullName, email, password, termsAccepted });
       startFreshSession();
       setUser(session.user);
       return session.user;
@@ -256,14 +256,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const acceptInviteSignup = useCallback(
-    async (token: string, fullName: string, password: string) => {
-      const session = await authApi.acceptInvitationSignup(token, fullName, password);
+    async (token: string, fullName: string, password: string, termsAccepted: boolean) => {
+      const session = await authApi.acceptInvitationSignup(token, fullName, password, termsAccepted);
       startFreshSession();
       setUser(session.user);
       return session.user;
     },
     [startFreshSession],
   );
+
+  const completeProviderSignup = useCallback(
+    async (termsAccepted: boolean) => adoptAnswer(await authApi.completeRegistration(termsAccepted)),
+    [adoptAnswer],
+  );
+
+  const acceptTerms = useCallback(async (version: string) => {
+    const accepted = await authApi.acceptTerms(version);
+    setUser(accepted);
+    return accepted;
+  }, []);
 
   const verifyEmail = useCallback(
     async (token: string) => adoptAnswer(await authApi.verifyEmail(token)),
@@ -369,6 +380,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       completeSecondFactor,
       signUp,
       acceptInviteSignup,
+      completeProviderSignup,
+      acceptTerms,
       verifyEmail,
       resetPassword,
       signOut,
@@ -386,6 +399,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       completeSecondFactor,
       signUp,
       acceptInviteSignup,
+      completeProviderSignup,
+      acceptTerms,
       verifyEmail,
       resetPassword,
       signOut,

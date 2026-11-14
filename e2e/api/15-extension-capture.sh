@@ -163,7 +163,7 @@ REP_EMAIL=$(new_email extrep)
 post_json "/projects/$PROJECT/representatives/invitations" \
   "$(jq -nc --arg e "$REP_EMAIL" '{fullName:"Rita Rep", position:"Chair", email:$e}')" -H "$AUTH" >/dev/null
 post_json /onboarding/accept-invitation-signup "$(jq -nc --arg t "$(token_for "$REP_EMAIL" accept-invite)" \
-  --arg p "$PASSWORD" '{token:$t, fullName:"Rita Rep", password:$p}')" >/dev/null
+  --arg p "$PASSWORD" '{token:$t, fullName:"Rita Rep", password:$p, termsAccepted:true}')" >/dev/null
 post_json /auth/login "$(jq -nc --arg e "$REP_EMAIL" --arg p "$PASSWORD" '{email:$e,password:$p}')" >/dev/null
 REP_AUTH="$(auth_header "$(json '.accessToken')")"
 

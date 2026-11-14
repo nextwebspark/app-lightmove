@@ -1,7 +1,9 @@
 package app.lightmove.api.workspace.dto;
 
 import app.lightmove.api.core.security.service.PasswordPolicy;
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
@@ -17,5 +19,9 @@ public record AcceptInvitationSignupRequest(
         @NotBlank(message = "Choose a password")
         @Size(min = PasswordPolicy.MIN_LENGTH, message = "Use at least 8 characters")
         @Pattern(regexp = ".*\\d.*", message = "Include at least one number")
-        String password
+        String password,
+
+        @NotNull(message = "Tick the box to accept the Terms and Privacy Policy")
+        @AssertTrue(message = "Tick the box to accept the Terms and Privacy Policy")
+        Boolean termsAccepted
 ) {}

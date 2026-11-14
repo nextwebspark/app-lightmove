@@ -32,9 +32,14 @@ const POPUP_HEIGHT = 640;
 
 /**
  * What the popup reports back. `code` is an `ErrorCode` name the SPA maps to a sentence; `secondFactor` is a person
- * with two-factor on, whose challenge cookie the server set in place of a session.
+ * with two-factor on, whose challenge cookie the server set in place of a session; `termsRequired` is someone new,
+ * whose identity the server holds behind a cookie until they tick the terms (#928) — no account exists yet.
  */
-export type OAuthOutcome = { status: "success" } | { status: "secondFactor" } | { status: "error"; code: string };
+export type OAuthOutcome =
+  | { status: "success" }
+  | { status: "secondFactor" }
+  | { status: "termsRequired" }
+  | { status: "error"; code: string };
 
 interface OAuthOutcomeMessage {
   message: typeof OAUTH_OUTCOME_MESSAGE;
@@ -47,6 +52,8 @@ export interface OAuthSignInHandlers {
   onSuccess: () => void;
   /** The provider proved who they are, and their code is still owed: on to the code step, as after a password. */
   onSecondFactor: () => void;
+  /** Someone new: on to the terms step, which creates the account. */
+  onTermsRequired: () => void;
   /** The provider or our own checks refused. `code` is an `ErrorCode` name. */
   onError: (code: string) => void;
   /** The user backed out, or walked away. Not an error — say nothing and release the button. */
@@ -126,6 +133,7 @@ function listenForOutcome(popup: Window, handshakeId: string, handlers: OAuthSig
     settle(() => {
       if (outcome.status === "success") handlers.onSuccess();
       else if (outcome.status === "secondFactor") handlers.onSecondFactor();
+      else if (outcome.status === "termsRequired") handlers.onTermsRequired();
       else handlers.onError(outcome.code);
     });
   };
@@ -232,6 +240,9 @@ function outcomeFrom(data: unknown, expectedHandshakeId: string): OAuthOutcome |
   }
   if (outcome?.status === "secondFactor") {
     return { status: "secondFactor" };
+  }
+  if (outcome?.status === "termsRequired") {
+    return { status: "termsRequired" };
   }
   if (outcome?.status === "error" && typeof outcome.code === "string") {
     return { status: "error", code: outcome.code };

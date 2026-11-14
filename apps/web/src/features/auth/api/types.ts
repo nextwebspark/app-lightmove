@@ -93,6 +93,11 @@ export interface User {
    */
   pendingInvitations: PendingInvitation[];
 
+  /** The terms and privacy policy changed since this person last accepted them: every screen waits for the tick. */
+  termsUpdateRequired: boolean;
+  /** The version in force, sent back with the tick so it names what was read. */
+  termsVersion: string;
+
   /**
    * Empty for everyone but LightMove staff. Shows the Platform settings group and nothing more — the
    * server re-reads the grant on every platform call.
@@ -249,6 +254,22 @@ export interface CreateWorkspaceRequest {
   mode: WorkspaceMode;
   /** The universe company picked; null for a firm typed in by hand. The server files it under its own name. */
   apolloAccountId: string | null;
+  /** The data processing agreement's tick, sent only while founding; editing the step never asks again. */
+  dpaAccepted?: boolean;
+}
+
+/** What founding a workspace asks the founder to accept (#928); both null where the deployment names no agreement. */
+export interface WorkspaceLegal {
+  dpaVersion: string | null;
+  dpaUrl: string | null;
+}
+
+/** A first provider sign-in waiting on the terms tick: the provider's details, shown before any account exists. */
+export interface PendingRegistration {
+  /** The registration id, lower-case, for the button's mark. */
+  provider: string;
+  email: string;
+  fullName: string;
 }
 
 export interface InviteRequest {

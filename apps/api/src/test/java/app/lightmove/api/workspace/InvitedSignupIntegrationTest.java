@@ -117,6 +117,28 @@ class InvitedSignupIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("an invitee who has not ticked the terms is refused, and the same token still admits once they do")
+    void theTermsMustBeTicked() throws Exception {
+        String alok = "alok@" + domain;
+        String omar = "omar@" + domain;
+        createWorkspace(verifiedUser("Alok Kumar", alok), "Terms Firm");
+        invite(login(alok), omar, "MEMBER");
+        String token = email.latestTokenFor(omar);
+
+        MvcResult unticked = mvc.perform(post("/api/v1/onboarding/accept-invitation-signup")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json.writeValueAsString(java.util.Map.of(
+                                "token", token, "fullName", "Omar Khalil", "password", PASSWORD))))
+                .andReturn();
+        assertThat(codeOf(unticked)).isEqualTo("VALIDATION_FAILED");
+        assertThat(body(unticked).get("fieldErrors").toString()).contains("termsAccepted");
+        assertThat(userRepo.findByEmail(omar)).isEmpty();
+
+        acceptSignup(token, "Omar Khalil", PASSWORD).andExpect(status().isCreated());
+        assertThat(userRepo.findByEmail(omar).orElseThrow().getTermsAcceptedAt()).isNotNull();
+    }
+
+    @Test
     @DisplayName("a weak password is refused and leaves nothing behind — the same token still works after")
     void weakPasswordRollsBackCleanly() throws Exception {
         String alok = "alok@" + domain;
@@ -163,7 +185,7 @@ class InvitedSignupIntegrationTest extends FlowTestSupport {
         return mvc.perform(post("/api/v1/onboarding/accept-invitation-signup")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
-                        {"token":"%s","fullName":"%s","password":"%s"}
+                        {"token":"%s","fullName":"%s","password":"%s","termsAccepted":true}
                         """.formatted(token, fullName, password)));
     }
 

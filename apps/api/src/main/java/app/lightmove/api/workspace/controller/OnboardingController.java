@@ -12,6 +12,8 @@ import app.lightmove.api.strategy.service.CompanySuggestionSearch;
 import app.lightmove.api.workspace.dto.AcceptInvitationRequest;
 import app.lightmove.api.workspace.dto.AcceptInvitationSignupRequest;
 import app.lightmove.api.workspace.dto.CreateWorkspaceRequest;
+import app.lightmove.api.workspace.dto.FoundWorkspaceRequest;
+import app.lightmove.api.workspace.dto.WorkspaceLegalResponse;
 import app.lightmove.api.workspace.model.Workspace;
 import app.lightmove.api.workspace.model.WorkspaceMember;
 import app.lightmove.api.workspace.service.InvitationAcceptService;
@@ -56,10 +58,17 @@ public class OnboardingController {
     @PostMapping("/workspace")
     @ResponseStatus(HttpStatus.CREATED)
     public UserResponse createWorkspace(@AuthenticationPrincipal AuthPrincipal principal,
-                                        @Valid @RequestBody CreateWorkspaceRequest request,
+                                        @Valid @RequestBody FoundWorkspaceRequest request,
                                         HttpServletRequest httpRequest) {
-        Workspace workspace = onboarding.createFirstWorkspace(principal.userId(), request.toCommand(), httpRequest);
+        Workspace workspace = onboarding.createFirstWorkspace(principal.userId(), request.toCommand(),
+                request.acceptsDpa(), httpRequest);
         return assembler.userIn(principal.userId(), workspace.getId());
+    }
+
+    /** What founding a workspace asks the founder to accept, for signup's step and Settings → Workspaces alike. */
+    @GetMapping("/legal")
+    public WorkspaceLegalResponse legal() {
+        return onboarding.legal();
     }
 
     /** "Back" after the step committed. The workspace id is the principal's, never a parameter. */
