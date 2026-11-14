@@ -17,7 +17,6 @@ import app.lightmove.api.core.security.repository.UserRepository;
 import app.lightmove.api.core.security.service.WorkspaceSelection;
 import app.lightmove.api.core.tenant.WorkspaceScope;
 import app.lightmove.api.workspace.constant.MemberStatus;
-import app.lightmove.api.workspace.dto.WorkspaceLegalResponse;
 import app.lightmove.api.workspace.model.CreateWorkspaceCommand;
 import app.lightmove.api.workspace.model.Workspace;
 import app.lightmove.api.workspace.model.WorkspaceMember;
@@ -110,11 +109,6 @@ public class OnboardingService {
                 .record();
 
         return workspace;
-    }
-
-    public WorkspaceLegalResponse legal() {
-        LegalSettings legal = properties.legal();
-        return new WorkspaceLegalResponse(legal.dpaVersion(), legal.dpaUrl());
     }
 
     /**

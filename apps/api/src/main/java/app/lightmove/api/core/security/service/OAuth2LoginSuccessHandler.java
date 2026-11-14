@@ -21,6 +21,7 @@ import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.Locale;
+import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
@@ -79,12 +80,12 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
 
         try {
             ProviderIdentity identity = identify(provider, oidcUser);
-            SignInOutcome outcome = transactions.execute(status ->
-                    providerSignIn.signInKnown(identity, request).orElse(null));
-            if (outcome == null) {
+            Optional<SignInOutcome> known = transactions.execute(status -> providerSignIn.signInKnown(identity, request));
+            if (known.isEmpty()) {
                 holdForTerms(identity, response);
                 return;
             }
+            SignInOutcome outcome = known.get();
             if (outcome instanceof MfaChallengeIssued challenge) {
                 // No session yet: the challenge cookie waits for the code, which the opener sends, so nothing
                 // crosses between the popup and the app but the outcome.

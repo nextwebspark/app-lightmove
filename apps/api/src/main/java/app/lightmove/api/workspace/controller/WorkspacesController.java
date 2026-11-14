@@ -3,7 +3,7 @@ package app.lightmove.api.workspace.controller;
 import app.lightmove.api.core.security.controller.AuthResponseAssembler;
 import app.lightmove.api.core.security.dto.UserResponse;
 import app.lightmove.api.core.security.model.AuthPrincipal;
-import app.lightmove.api.workspace.dto.FoundWorkspaceRequest;
+import app.lightmove.api.workspace.dto.CreateWorkspaceRequest;
 import app.lightmove.api.workspace.model.Workspace;
 import app.lightmove.api.workspace.service.OnboardingService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -34,7 +34,7 @@ public class WorkspacesController {
     @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("@workspaceAuthorizer.staff(principal)")
     public UserResponse create(@AuthenticationPrincipal AuthPrincipal principal,
-                               @Valid @RequestBody FoundWorkspaceRequest request,
+                               @Valid @RequestBody CreateWorkspaceRequest request,
                                HttpServletRequest httpRequest) {
         Workspace workspace = onboarding.createWorkspace(principal.userId(), request.toCommand(),
                 request.acceptsDpa(), httpRequest);
