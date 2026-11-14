@@ -59,7 +59,7 @@ const PERSON_KINDS: ReadonlySet<NotificationKind> = new Set([
 ]);
 
 export function notificationHref(notification: NotificationResponse): string {
-  // A privacy request (#923) or an opt-out (#924) is about the person, never a position.
+  // A privacy request (#923) or an opt-out is about the person, never a position.
   if (PERSON_KINDS.has(notification.kind) && notification.personId) {
     return `/candidates?person=${encodeURIComponent(notification.personId)}`;
   }

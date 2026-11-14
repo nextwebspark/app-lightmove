@@ -242,7 +242,7 @@ const AUTOMATION_CAUSES: Record<string, string> = {
 
 export function actorOf(entry: PersonTimelineEntry): ActivityActor {
   if (entry.kind === "EMAIL_REPLIED") return { kind: "executive" };
-  // From their own privacy page (#923) or an outreach email's stop link (#924): nobody on the team stands behind these.
+  // From their own privacy page (#923) or an outreach email's stop link: nobody on the team stands behind these.
   if (
     entry.kind === "PRIVACY_OBJECTED" ||
     entry.kind === "PRIVACY_REQUEST_RECEIVED" ||

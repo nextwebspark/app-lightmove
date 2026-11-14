@@ -14,7 +14,6 @@ export type NotificationKind =
   | "copy_requested"
   | "deletion_requested"
   | "person_objected"
-  /** To the person's owner, else the email's sender (#924): their runs have already stopped. */
   | "candidate_opted_out";
 
 export interface NotificationResponse {

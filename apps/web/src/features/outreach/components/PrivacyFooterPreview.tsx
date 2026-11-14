@@ -1,7 +1,7 @@
 import { Icon, ICONS } from "../../../components/layout/Icon";
 
 /**
- * The privacy footer every outreach email ends with (#924, `Outreach.dc.html`'s review footer), drawn as the executive
+ * The privacy footer every outreach email ends with (`Outreach.dc.html`'s review footer), drawn as the executive
  * receives it. The links are drawn, never followed: each email gets a stop link of its own when it is sent.
  */
 export function PrivacyFooterPreview({ statement }: { statement: string }) {

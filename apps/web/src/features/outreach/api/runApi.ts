@@ -28,7 +28,6 @@ export type StopReason =
   | "POSITION_ARCHIVED"
   /** A consultant's own email only: it waited past its sender's access to the position. */
   | "SENDER_WITHOUT_ACCESS"
-  /** The person stopped emails from an email's link, their mail app's Unsubscribe, or their privacy page (#924). */
   | "OPTED_OUT";
 
 export interface OutreachRun {

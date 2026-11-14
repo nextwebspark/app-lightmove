@@ -533,7 +533,7 @@ export interface PersonPrivacy {
   basisSetAt: string | null;
   notifiedAt: string | null;
   noticeChannel: PrivacyNoticeChannel | null;
-  /** When they last stopped emails from an outreach email's link (#924); null once do not contact is cleared. */
+  /** When their own stop link set the do not contact that stands now; null otherwise. */
   optedOutAt: string | null;
 }
 

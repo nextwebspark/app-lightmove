@@ -44,7 +44,7 @@ export function objectFromPrivacyPage(token: string): Promise<void> {
   return request<void>(`/privacy/links/${encodeURIComponent(token)}/objection`, { method: "POST", anonymous: true });
 }
 
-/** Stop emails (#924): the same door an outreach email's List-Unsubscribe header posts to. */
+/** Stop emails: the same door an outreach email's List-Unsubscribe header posts to. */
 export function optOutFromPrivacyPage(token: string): Promise<void> {
   return request<void>(`/privacy/links/${encodeURIComponent(token)}/opt-out`, { method: "POST", anonymous: true });
 }

@@ -26,7 +26,7 @@ type Stage = { step: "notice" } | { step: "confirm"; choice: PrivacyChoice } | {
  * sent to holds no session; the firm speaks as controller and Uncava appears only as the software. It lists the kinds
  * of data held and where they came from, never the values or the person's name, because a link can be forwarded.
  * Every choice is a request the firm acts on; nothing is deleted or sent from here. An outreach email's stop link
- * (`?action=opt-out`, #924) opens on its confirmation, never on a send: mail scanners open links.
+ * (`?action=opt-out`) opens on its confirmation, never on a send: mail scanners open links.
  */
 export default function PrivacyLinkPage() {
   const { token = "" } = useParams();
@@ -107,7 +107,7 @@ function Notice({ token, page }: { token: string; page: PrivacyPage }) {
   });
 
   if (stage.step === "confirm") {
-    const confirmation = confirmationOf(stage.choice, firm);
+    const confirmation = confirmationOf(stage.choice, page.controllerName);
     return (
       <>
         <h1 className="m-0 text-title font-semibold">{confirmation.title}</h1>
@@ -126,7 +126,7 @@ function Notice({ token, page }: { token: string; page: PrivacyPage }) {
   }
 
   if (stage.step === "done") {
-    const done = doneOf(stage.choice, firm);
+    const done = doneOf(stage.choice, page.controllerName);
     return (
       <div role="status">
         <span className="grid size-10 place-items-center rounded-full bg-u-direct-tint text-u-direct">

@@ -44,7 +44,7 @@ export function basisSentence(basis: PrivacyPage["lawfulBasis"]): string {
   }
 }
 
-/** `optOut` is offered only by an outreach email's stop link (`?action=opt-out`, #924), never in the list. */
+/** `optOut` is offered only by an outreach email's stop link (`?action=opt-out`), never in the list. */
 export type PrivacyChoice = "object" | "copy" | "deletion" | "optOut";
 
 export const CHOICES: readonly { key: PrivacyChoice; label: string; detail: string }[] = [
@@ -57,14 +57,16 @@ export const CHOICES: readonly { key: PrivacyChoice; label: string; detail: stri
   { key: "deletion", label: "Delete my data", detail: "Our privacy team deletes what we hold, within one month." },
 ];
 
+/** `controllerName` is null until the firm has named itself; the page then speaks as "we". */
 export function confirmationOf(
   choice: PrivacyChoice,
-  firm: string,
+  controllerName: string | null,
 ): { title: string; body: string; cta: string; back: string } {
+  const firm = controllerName ?? "We";
   switch (choice) {
     case "optOut":
       return {
-        title: `Stop emails from ${firm === "We" ? "us" : firm}?`,
+        title: `Stop emails from ${controllerName ?? "us"}?`,
         body: "You won't receive any more emails from our consultants, and we won't add your details again.",
         cta: "Stop emails",
         back: "See all your choices",
@@ -93,27 +95,29 @@ export function confirmationOf(
   }
 }
 
-export function doneOf(choice: PrivacyChoice, firm: string): { title: string; body: string } {
+export function doneOf(choice: PrivacyChoice, controllerName: string | null): { title: string; body: string } {
+  const firmHas = controllerName ? `${controllerName} has` : "We have";
+  const privacyTeam = controllerName ? `${controllerName}'s privacy team` : "Our privacy team";
   switch (choice) {
     case "optOut":
       return {
         title: "You won't receive more emails from us",
-        body: `${firm} has recorded that you want no more emails. Nobody here will contact you, and your details will not be added again.`,
+        body: `${firmHas} recorded that you want no more emails. Nobody here will contact you, and your details will not be added again.`,
       };
     case "object":
       return {
         title: "You won't hear from us again",
-        body: `${firm} has recorded your objection. Nobody here will contact you, and your details will not be added again.`,
+        body: `${firmHas} recorded your objection. Nobody here will contact you, and your details will not be added again.`,
       };
     case "copy":
       return {
         title: "Your request has been sent",
-        body: `${firm}'s privacy team has your request for a copy of your data, and will reply within one month.`,
+        body: `${privacyTeam} has your request for a copy of your data, and will reply within one month.`,
       };
     case "deletion":
       return {
         title: "Your request has been sent",
-        body: `${firm}'s privacy team has your request to delete your data, and will reply within one month.`,
+        body: `${privacyTeam} has your request to delete your data, and will reply within one month.`,
       };
   }
 }
