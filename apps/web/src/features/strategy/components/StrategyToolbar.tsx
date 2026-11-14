@@ -8,6 +8,7 @@ import { TOOLBAR_COUNT, TOOLBAR_OUTLINE, TOOLBAR_ROW, ToolbarLabel, ToolbarSearc
 import { cn } from "../../../lib/cn";
 import { SaveSearchMenu } from "./SaveSearchMenu";
 import { sameFilter } from "../lib/filterIdentity";
+import { isInverted } from "../lib/filterRanges";
 import { companyColumns, DEFAULT_COLUMN_VISIBILITY } from "../lib/companyColumns";
 
 /** Derived once: the column definitions are a module constant, not per-render state. */
@@ -16,10 +17,11 @@ const HIDEABLE_COMPANY_COLUMNS = hideableColumnsOf(companyColumns);
 /**
  * A range narrows the scope only once a bound is typed. Entering Custom Range emits an empty one —
  * that is a mode, not a constraint, and the server normalises it away — so counting it would put the
- * badge at 1 over an unfiltered table. Matches FilterSidebar's rangeTag, which shows no tag for it.
+ * badge at 1 over an unfiltered table. Matches FilterSidebar's rangeTag, which shows no tag for it. An
+ * inverted range is never saved (`savableFilter`), so it constrains nothing either.
  */
 function constrains(range: NumericRange | null): boolean {
-  return range !== null && (range.min !== null || range.max !== null);
+  return range !== null && (range.min !== null || range.max !== null) && !isInverted(range);
 }
 
 /**

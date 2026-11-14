@@ -2,6 +2,7 @@ import type { FacetCount, NumericRange } from "../api/types";
 import { cn } from "../../../lib/cn";
 import { FacetsUnavailable } from "./FacetsUnavailable";
 import { FilterCheckRow } from "../../../components/ui/FilterCheckRow";
+import { isInverted } from "../lib/filterRanges";
 
 /**
  * The Employees and Revenue panels. The mode is derived, never stored (a non-null `range` is Custom), and switching
@@ -50,18 +51,27 @@ export function RangeFilter({
       </div>
 
       {isCustom ? (
-        <div className="flex items-center gap-2">
-          <BoundInput
-            placeholder={minPlaceholder}
-            value={range.min}
-            onChange={(min) => onRangeChange({ ...range, min })}
-          />
-          <span className="font-sans text-[12px] font-medium text-u-text3">to</span>
-          <BoundInput
-            placeholder={maxPlaceholder}
-            value={range.max}
-            onChange={(max) => onRangeChange({ ...range, max })}
-          />
+        <div className="flex flex-col gap-1.5">
+          <div className="flex items-center gap-2">
+            <BoundInput
+              placeholder={minPlaceholder}
+              value={range.min}
+              invalid={isInverted(range)}
+              onChange={(min) => onRangeChange({ ...range, min })}
+            />
+            <span className="font-sans text-[12px] font-medium text-u-text3">to</span>
+            <BoundInput
+              placeholder={maxPlaceholder}
+              value={range.max}
+              invalid={isInverted(range)}
+              onChange={(max) => onRangeChange({ ...range, max })}
+            />
+          </div>
+          {isInverted(range) && (
+            <p role="alert" className="font-sans text-meta text-u-signal">
+              The minimum is above the maximum, so this range is not applied.
+            </p>
+          )}
         </div>
       ) : (
         <div className="flex flex-col gap-[2px]">
@@ -136,16 +146,19 @@ const MAX_BOUND_DIGITS = 15;
 function BoundInput({
   placeholder,
   value,
+  invalid,
   onChange,
 }: {
   placeholder: string;
   value: number | null;
+  invalid: boolean;
   onChange: (value: number | null) => void;
 }) {
   return (
     <input
       inputMode="numeric"
       aria-label={placeholder}
+      aria-invalid={invalid || undefined}
       placeholder={placeholder}
       value={value ?? ""}
       onChange={(event) => {
@@ -155,7 +168,10 @@ function BoundInput({
         const raw = event.target.value.replace(/[^\d]/g, "").slice(0, MAX_BOUND_DIGITS);
         onChange(raw === "" ? null : Number(raw));
       }}
-      className="w-0 flex-1 rounded-md border border-u-border-strong bg-u-raised px-2 py-[5px] font-sans text-[12px] font-medium text-u-text outline-none focus:border-u-accent"
+      className={cn(
+        "w-0 flex-1 rounded-md border border-u-border-strong bg-u-raised px-2 py-[5px] font-sans text-[12px] font-medium text-u-text outline-none focus:border-u-accent",
+        invalid && "border-u-signal focus:border-u-signal",
+      )}
     />
   );
 }

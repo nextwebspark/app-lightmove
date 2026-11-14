@@ -138,7 +138,7 @@ is held back rather than sent (the step does not save until it is named) and the
 ### Strategy
 | Field | Client | Server | Shown as |
 |---|---|---|---|
-| ☐ Range min / max | none | `@AssertTrue` min ≤ max | toast + autosave |
+| Range min / max | digits only, ≤ 15; min > max is flagged under the inputs and saved as no range, so the rest of the filter still saves | `@AssertTrue` min ≤ max | sentence |
 | Saved search name | trimmed, ≤ 120 | `@NotBlank @Size(120)`, unique | sentence |
 | People name (the toolbar's search box, not the rail) | ≤ 120 | `@Size(120)` | toast + autosave |
 | ☐ People chips | ≤ 50 items, no item length | ≤ 50 × 160/500 | toast |

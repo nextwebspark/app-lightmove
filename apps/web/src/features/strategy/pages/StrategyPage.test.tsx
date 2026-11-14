@@ -637,6 +637,34 @@ describe("StrategyPage — the filter sidebar and its results", () => {
     expect(vi.mocked(strategyApi.putFilter).mock.calls.at(-1)![1].employeeBands).toEqual([]);
   });
 
+  it("never sends an inverted range, so a later chip still saves", async () => {
+    renderPage();
+    const filtersButton = await screen.findByRole("button", { name: /Show Filters|Hide Filters/ });
+    const filters = await screen.findByRole("region", { name: "Filters" });
+    await userEvent.click(within(filters).getByRole("button", { name: "# Employees" }));
+    await userEvent.click(within(filters).getByRole("radio", { name: "Custom Range" }));
+    await userEvent.type(within(filters).getByLabelText("Max"), "100");
+    await userEvent.type(within(filters).getByLabelText("Min"), "500");
+
+    // The server refuses min > max whole; sent, that refusal held back every chip clicked after it.
+    expect(within(filters).getByRole("alert")).toHaveTextContent(/minimum is above the maximum/);
+    expect(within(filters).getByLabelText("Min")).toHaveAttribute("aria-invalid", "true");
+    expect(within(filtersButton).getByText("0")).toBeInTheDocument();
+
+    await userEvent.click(within(filters).getByRole("button", { name: "Location" }));
+    await userEvent.click(within(filters).getByRole("button", { name: /Qatar/ }));
+
+    await waitFor(
+      () => expect(vi.mocked(strategyApi.putFilter).mock.calls.at(-1)![1].countries).toEqual(["Qatar"]),
+      { timeout: 2000 },
+    );
+    for (const [, sent] of vi.mocked(strategyApi.putFilter).mock.calls) {
+      expect(sent.employeeRange === null || sent.employeeRange.min === null || sent.employeeRange.max === null
+        || sent.employeeRange.min <= sent.employeeRange.max).toBe(true);
+    }
+    expect(vi.mocked(strategyApi.putFilter).mock.calls.at(-1)![1].employeeRange).toBeNull();
+  });
+
   it("counts a custom range as an active axis, but not the mode switch on its own", async () => {
     renderPage();
     const filtersButton = await screen.findByRole("button", { name: /Show Filters|Hide Filters/ });
