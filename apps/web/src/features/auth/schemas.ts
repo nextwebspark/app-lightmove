@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { TERMS_REQUIRED_MESSAGE } from "../../lib/errorCodes";
 import { WORKSPACE_MODES } from "./api/types";
 
 /**
@@ -22,13 +23,11 @@ export const passwordRule = z
   })
   .regex(/\d/, "Include at least one number");
 
+/** The terms tick (#928): required on every signup door, in the mockups' own words. */
+const termsAccepted = z.boolean().refine((ticked) => ticked, { message: TERMS_REQUIRED_MESSAGE });
+
 // Trimmed before validating, and the server does the same on the way in: a pasted address routinely
 // carries a trailing space, and telling someone their own address is malformed over it is absurd.
-/** The terms tick (#928): required on every signup door, in the mockups' own words. */
-const termsAccepted = z.boolean().refine((ticked) => ticked, {
-  message: "Tick the box to accept the Terms and Privacy Policy.",
-});
-
 const email = z
   .string()
   .trim()
@@ -92,9 +91,6 @@ export const workspaceSchema = z.object({
   /** Asked only while founding, and only where the deployment names an agreement: the form checks it then. */
   dpaAccepted: z.boolean(),
 });
-
-/** The same rule's words, for the form that knows whether the agreement is asked. */
-export const DPA_REQUIRED_MESSAGE = "Tick the box to accept the Data Processing Agreement.";
 
 export const inviteSchema = z.object({
   invites: z

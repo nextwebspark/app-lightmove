@@ -1,9 +1,6 @@
 import { ConsentCheckbox } from "../../../components/ui";
 import { PRIVACY_URL, TERMS_URL } from "../../../lib/links";
 
-/** The mockups' words when the box is left unticked, on every door that asks. */
-export const TERMS_REQUIRED_MESSAGE = "Tick the box to accept the Terms and Privacy Policy.";
-
 /**
  * The terms tick (#928): unticked, on the password signup, the invited signup, a first provider sign-in and the
  * re-acceptance sheet alike, so the account's recorded acceptance is always something the person did.

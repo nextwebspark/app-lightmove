@@ -5,7 +5,8 @@ import { formatDate } from "../../../lib/datetime";
 import { messageFor } from "../../../lib/errorCodes";
 import { TERMS_URL } from "../../../lib/links";
 import { useAuth } from "../AuthProvider";
-import { LegalConsent, TERMS_REQUIRED_MESSAGE } from "./LegalConsent";
+import { useRequiredTick } from "../useRequiredTick";
+import { LegalConsent } from "./LegalConsent";
 
 /**
  * Pages a signed-in person may open that are not the app: someone else's booking or privacy page, the public guide,
@@ -31,23 +32,14 @@ export function TermsUpdateSheet() {
 function TermsUpdateDialog({ version }: { version: string }) {
   const { acceptTerms, signOut } = useAuth();
   const navigate = useNavigate();
-  const [ticked, setTicked] = useState(false);
-  const [tickError, setTickError] = useState<string | undefined>();
+  const tick = useRequiredTick();
   const [formError, setFormError] = useState<string | null>(null);
   const [accepting, setAccepting] = useState(false);
 
   const changedOn = /^\d{4}-\d{2}-\d{2}$/.test(version) ? formatDate(version) : null;
 
-  const handleTick = (checked: boolean) => {
-    setTicked(checked);
-    setTickError(undefined);
-  };
-
   const handleAccept = async () => {
-    if (!ticked) {
-      setTickError(TERMS_REQUIRED_MESSAGE);
-      return;
-    }
+    if (!tick.confirm()) return;
     setFormError(null);
     setAccepting(true);
     try {
@@ -99,7 +91,7 @@ function TermsUpdateDialog({ version }: { version: string }) {
         What changed
         <span className="sr-only"> (opens in a new tab)</span>
       </a>
-      <LegalConsent checked={ticked} onChange={handleTick} error={tickError} className="mb-0" />
+      <LegalConsent {...tick.consent} className="mb-0" />
     </Modal>
   );
 }

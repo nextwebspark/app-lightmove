@@ -5,9 +5,9 @@ import { Button } from "../../../components/ui";
 import { GoogleMark } from "../../../components/ui/BrandMarks";
 import { useAuth } from "../AuthProvider";
 import * as authApi from "../api/authApi";
+import { PROVIDER_TERMS_PATH } from "../authPaths";
 import { messageForOAuthError } from "../oauthErrors";
 import { startOAuthSignIn } from "../oauthPopup";
-import { PROVIDER_TERMS_PATH } from "../pages/ProviderTermsPage";
 import { TWO_FACTOR_SIGN_IN_PATH } from "../pages/TwoFactorChallengePage";
 import { landingAfterSignIn, takeReturnTo } from "../returnTo";
 

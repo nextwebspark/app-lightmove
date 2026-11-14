@@ -1,6 +1,10 @@
 import { ApiRequestError } from "./apiClient";
 import { AutosaveFailedError } from "./useAutosave";
 
+/** The terms tick's words when left unticked, on every door that asks (#928). */
+export const TERMS_REQUIRED_MESSAGE = "Tick the box to accept the Terms and Privacy Policy.";
+export const DPA_REQUIRED_MESSAGE = "Tick the box to accept the Data Processing Agreement.";
+
 /**
  * The backend's ErrorCode enum, mirrored — the machine-readable identity every failure carries.
  * UI switches on these; `messageFor` is the one place user-facing wording lives, so the same failure
@@ -257,7 +261,7 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   ALREADY_IN_WORKSPACE: "You already belong to a workspace. Found another from Settings → Workspaces.",
   REGISTRATION_EXPIRED: "This sign-up has expired. Sign in again to start over.",
   TERMS_VERSION_OUTDATED: "Our terms changed again while this was open. Reload the page to read them.",
-  DPA_ACCEPTANCE_REQUIRED: "Tick the box to accept the Data Processing Agreement.",
+  DPA_ACCEPTANCE_REQUIRED: DPA_REQUIRED_MESSAGE,
   EMAIL_NOT_VERIFIED: "Verify your email address to continue.",
   ACCOUNT_SUSPENDED: "This account has been suspended.",
   EMAIL_NOT_WORK_ADDRESS: "Use your work email — the domain identifies your organization.",

@@ -75,6 +75,24 @@ describe("WorkspaceStepPage — the data processing agreement (#928)", () => {
     );
   });
 
+  it("holds the founding submit when the agreement's details fail to load, and recovers on a retry", async () => {
+    vi.mocked(authApi.workspaceLegal)
+      .mockRejectedValueOnce(new TypeError("Failed to fetch"))
+      .mockResolvedValue({ dpaVersion: "2026-11-01", dpaUrl: "https://uncava.com/dpa" });
+    const user = userEvent.setup();
+    renderPage();
+
+    const retry = await screen.findByRole("button", { name: "Try again" });
+    expect(screen.getByRole("button", { name: "Continue" })).toBeDisabled();
+    expect(screen.queryByRole("checkbox", { name: /Data Processing Agreement/ })).not.toBeInTheDocument();
+
+    await user.click(retry);
+
+    expect(await screen.findByRole("checkbox", { name: /Data Processing Agreement/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Continue" })).toBeEnabled();
+    expect(screen.queryByRole("button", { name: "Try again" })).not.toBeInTheDocument();
+  });
+
   it("asks nothing where the deployment names no agreement", async () => {
     renderPage();
 

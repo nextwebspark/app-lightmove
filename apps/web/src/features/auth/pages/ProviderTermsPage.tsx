@@ -3,17 +3,18 @@ import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { AuthLogo, Avatar, Button, Card, FormError, Spinner } from "../../../components/ui";
 import { ApiRequestError } from "../../../lib/apiClient";
-import { messageFor } from "../../../lib/errorCodes";
+import { codeOf, messageFor } from "../../../lib/errorCodes";
 import { ThemeToggle } from "../../theme/ThemeToggle";
 import { useAuth } from "../AuthProvider";
 import * as authApi from "../api/authApi";
 import { isMfaChallenge } from "../api/types";
-import { LegalConsent, TERMS_REQUIRED_MESSAGE } from "../components/LegalConsent";
+import { LegalConsent } from "../components/LegalConsent";
 import { providerLabel } from "../components/OAuthButtons";
 import { landingAfterSignIn, safeReturnTo } from "../returnTo";
+import { useRequiredTick } from "../useRequiredTick";
 import { TWO_FACTOR_SIGN_IN_PATH } from "./TwoFactorChallengePage";
 
-export const PROVIDER_TERMS_PATH = "/signup/terms";
+const UNREACHABLE = "Could not reach Uncava. Check your connection and try again.";
 
 /**
  * A first sign-in with Google or LinkedIn (Signup.dc.html `step=terms`): the provider proved the address, but nothing
@@ -26,8 +27,7 @@ export function ProviderTermsPage() {
   const location = useLocation();
   const returnTo = safeReturnTo((location.state as { from?: unknown } | null)?.from);
 
-  const [ticked, setTicked] = useState(false);
-  const [tickError, setTickError] = useState<string | undefined>();
+  const tick = useRequiredTick();
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -38,16 +38,8 @@ export function ProviderTermsPage() {
     staleTime: Infinity,
   });
 
-  const handleTick = (checked: boolean) => {
-    setTicked(checked);
-    setTickError(undefined);
-  };
-
   const handleCreate = async () => {
-    if (!ticked) {
-      setTickError(TERMS_REQUIRED_MESSAGE);
-      return;
-    }
+    if (!tick.confirm()) return;
     setFormError(null);
     setSubmitting(true);
     try {
@@ -62,7 +54,7 @@ export function ProviderTermsPage() {
       setFormError(
         error instanceof ApiRequestError
           ? messageFor(error)
-          : "Could not reach Uncava. Check your connection and try again.",
+          : UNREACHABLE,
       );
     }
   };
@@ -77,6 +69,16 @@ export function ProviderTermsPage() {
           <div className="grid place-items-center py-6 text-u-text3" role="status" aria-label="Loading">
             <Spinner />
           </div>
+        ) : pending.isError && codeOf(pending.error) !== "REGISTRATION_EXPIRED" ? (
+          <>
+            <h1 className="type-title">One more step</h1>
+            <p className="mb-6 mt-1 text-body text-u-text2">
+              {pending.error instanceof ApiRequestError ? messageFor(pending.error) : UNREACHABLE}
+            </p>
+            <Button type="button" loading={pending.isFetching} onClick={() => void pending.refetch()} className="w-full">
+              Try again
+            </Button>
+          </>
         ) : pending.isError ? (
           <>
             <h1 className="type-title">This sign-up has expired</h1>
@@ -105,7 +107,7 @@ export function ProviderTermsPage() {
               </span>
             </div>
 
-            <LegalConsent checked={ticked} onChange={handleTick} error={tickError} />
+            <LegalConsent {...tick.consent} />
 
             <Button type="button" loading={submitting} onClick={handleCreate} className="w-full">
               Create account

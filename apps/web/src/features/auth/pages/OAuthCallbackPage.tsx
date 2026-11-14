@@ -6,7 +6,7 @@ import { useAuth } from "../AuthProvider";
 import * as authApi from "../api/authApi";
 import { type OAuthOutcome, reportOAuthOutcome, takeHandshakeId } from "../oauthPopup";
 import { TWO_FACTOR_SIGN_IN_PATH } from "./TwoFactorChallengePage";
-import { PROVIDER_TERMS_PATH } from "./ProviderTermsPage";
+import { PROVIDER_TERMS_PATH } from "../authPaths";
 import { landingAfterSignIn, takeReturnTo } from "../returnTo";
 
 /**

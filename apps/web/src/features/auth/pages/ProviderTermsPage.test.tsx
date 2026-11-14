@@ -80,4 +80,22 @@ describe("ProviderTermsPage", () => {
     expect(screen.getByRole("link", { name: "Back to sign up" })).toHaveAttribute("href", "/signup");
     expect(screen.queryByRole("button", { name: "Create account" })).not.toBeInTheDocument();
   });
+
+  it("treats a failed read as a connection problem, not an expiry, and recovers on a retry", async () => {
+    let online = false;
+    vi.mocked(authApi.pendingRegistration).mockImplementation(async () => {
+      if (!online) throw new TypeError("Failed to fetch");
+      return { provider: "google", email: "yara@meridian.example", fullName: "Yara Haddad" };
+    });
+    const user = userEvent.setup();
+    renderPage();
+
+    expect(await screen.findByText(/Could not reach Uncava/)).toBeInTheDocument();
+    expect(screen.queryByText("This sign-up has expired")).not.toBeInTheDocument();
+
+    online = true;
+    await user.click(screen.getByRole("button", { name: "Try again" }));
+
+    expect(await screen.findByRole("button", { name: "Create account" })).toBeInTheDocument();
+  });
 });

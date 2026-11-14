@@ -5,11 +5,11 @@ import { Controller, useForm } from "react-hook-form";
 import { Button, ConsentCheckbox, FormError } from "../../../components/ui";
 import * as authApi from "../../auth/api/authApi";
 import type { CreateWorkspaceRequest, User, WorkspaceSummary } from "../../auth/api/types";
-import { DPA_REQUIRED_MESSAGE, workspaceSchema, type WorkspaceValues } from "../../auth/schemas";
+import { workspaceSchema, type WorkspaceValues } from "../../auth/schemas";
 import type { CompanySearchSource } from "../../clients/components/CompanyPicker";
 import { workspaceCompanyPick } from "../../clients/lib/companyPick";
 import type { CompanySuggestion } from "../../strategy/api/types";
-import { messageFor } from "../../../lib/errorCodes";
+import { codeOf, DPA_REQUIRED_MESSAGE, messageFor } from "../../../lib/errorCodes";
 import { FirmNameField } from "./FirmNameField";
 import { WorkspaceModeChoice } from "./WorkspaceModeChoice";
 
@@ -51,6 +51,9 @@ export function OrganisationForm({
     retry: false,
   });
   const dpaUrl = !editing && legal.data?.dpaVersion ? legal.data.dpaUrl : null;
+  // Until the deployment says whether an agreement is asked, a founding submit could only be refused for a box
+  // nobody was shown.
+  const legalUnknown = !editing && !legal.isSuccess;
 
   const {
     control,
@@ -72,6 +75,7 @@ export function OrganisationForm({
 
   const onSubmit = async ({ dpaAccepted, ...values }: WorkspaceValues) => {
     setFormError(null);
+    if (legalUnknown) return;
     if (dpaUrl && !dpaAccepted) {
       setError("dpaAccepted", { message: DPA_REQUIRED_MESSAGE });
       return;
@@ -84,6 +88,7 @@ export function OrganisationForm({
     try {
       await onDone(await submit(payload));
     } catch (error) {
+      if (codeOf(error) === "DPA_ACCEPTANCE_REQUIRED") void legal.refetch();
       setFormError(messageFor(error));
     }
   };
@@ -137,7 +142,16 @@ export function OrganisationForm({
           />
         )}
 
-        <Button type="submit" loading={isSubmitting} className="w-full">
+        {!editing && legal.isError && (
+          <div role="alert" className="mb-4 flex items-center justify-between gap-3 text-note text-u-offlimits">
+            <span>Could not load the sign-up details. Check your connection and try again.</span>
+            <Button type="button" variant="secondary" size="xs" onClick={() => void legal.refetch()}>
+              Try again
+            </Button>
+          </div>
+        )}
+
+        <Button type="submit" loading={isSubmitting || (legalUnknown && legal.isFetching)} disabled={legalUnknown} className="w-full">
           {submitLabel}
         </Button>
       </form>
