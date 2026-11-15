@@ -6,7 +6,6 @@ import { Button, FormError, useToast } from "../../../components/ui";
 import { DetailPill } from "../../../components/ui/DetailList";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { cn } from "../../../lib/cn";
-import { copyText } from "../../../lib/clipboard";
 import { messageFor } from "../../../lib/errorCodes";
 import { creditsLabel, shownPricesOf } from "../../billing/lib/billingView";
 import { useBillingRead } from "../../billing/lib/useBilling";
@@ -24,9 +23,10 @@ import {
 } from "../../candidates/lib/candidateForm";
 import { useContactLookup } from "../lib/useContactLookup";
 import { dialHrefOf } from "../lib/phoneLinks";
+import { CopyContactButton } from "./CopyContactButton";
+import { isReachable } from "../lib/phoneReach";
 import {
   AddedCodePill,
-  CopyPhoneButton,
   PhoneNumberLink,
   SaveInternationalButton,
   WhatsAppLink,
@@ -176,7 +176,6 @@ export function ContactChannels({
   onMakePrimary?: (channel: "email" | "phone", value: string) => void;
   reach?: PhoneReach;
 }) {
-  const toast = useToast();
   const starOf = (channel: "email" | "phone", count: number, value: string, index: number) =>
     count > 1 ? (
       <PrimaryStar
@@ -202,7 +201,6 @@ export function ContactChannels({
               key={entry.address}
               entry={entry}
               star={starOf("email", contacts.emails.length, entry.address, index)}
-              onCopy={() => copy("Email", entry.address)}
             />
           ))
         )}
@@ -222,7 +220,6 @@ export function ContactChannels({
               key={entry.number}
               entry={entry}
               star={starOf("phone", contacts.phones.length, entry.number, index)}
-              onCopy={() => copy("Phone", entry.number)}
               reach={reach}
             />
           ))
@@ -231,10 +228,6 @@ export function ContactChannels({
 
     </div>
   );
-
-  async function copy(what: string, value: string) {
-    toast((await copyText(value)) ? `${what} copied` : "Couldn't copy");
-  }
 }
 
 /**
@@ -334,7 +327,7 @@ function ContactChannel({
   );
 }
 
-function EmailLine({ entry, star, onCopy }: { entry: CandidateEmail; star: ReactNode; onCopy: () => void }) {
+function EmailLine({ entry, star }: { entry: CandidateEmail; star: ReactNode }) {
   return (
     <li className="flex min-w-0 items-center gap-1.5">
       {star}
@@ -345,7 +338,7 @@ function EmailLine({ entry, star, onCopy }: { entry: CandidateEmail; star: React
         {entry.address}
       </a>
       <ContactPills entry={entry} />
-      <CopyButton what="email" onCopy={onCopy} />
+      <CopyContactButton what="Email" value={entry.address} className="ms-auto" />
     </li>
   );
 }
@@ -355,12 +348,10 @@ const PHONE_TEXT = "min-w-0 truncate font-mono text-[13px] text-u-text";
 function PhoneLine({
   entry,
   star,
-  onCopy,
   reach,
 }: {
   entry: CandidatePhone;
   star: ReactNode;
-  onCopy: () => void;
   reach?: PhoneReach;
 }) {
   if (reach) {
@@ -370,13 +361,13 @@ function PhoneLine({
         <PhoneNumberLink
           phone={entry}
           reach={reach}
-          className={cn("font-mono text-body", reach.actionable ? "text-u-accent" : "text-u-text")}
+          className={cn("font-mono text-body", isReachable(reach) ? "text-u-accent" : "text-u-text")}
         />
         <ContactPills entry={entry} />
         <AddedCodePill phone={entry} reach={reach} />
         <span className="ms-auto flex flex-none items-center gap-0.5">
           <WhatsAppLink phone={entry} reach={reach} />
-          {reach.actionable && <CopyPhoneButton phone={entry} />}
+          {isReachable(reach) && <CopyContactButton what="Phone" value={entry.number} />}
         </span>
         <SaveInternationalButton phone={entry} reach={reach} />
       </li>
@@ -394,7 +385,7 @@ function PhoneLine({
         <span className={PHONE_TEXT}>{entry.number}</span>
       )}
       <ContactPills entry={entry} />
-      <CopyButton what="phone" onCopy={onCopy} />
+      <CopyContactButton what="Phone" value={entry.number} className="ms-auto" />
     </li>
   );
 }
@@ -415,20 +406,6 @@ function ContactPills({ entry }: { entry: CandidateEmail | CandidatePhone }) {
       )}
       {entry.verified && <DetailPill label="Verified" className="bg-u-direct-tint text-u-direct" />}
     </>
-  );
-}
-
-function CopyButton({ what, onCopy }: { what: string; onCopy: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onCopy}
-      aria-label={`Copy ${what}`}
-      title="Copy"
-      className="ms-auto flex flex-none rounded-md p-1 text-u-text3 transition hover:bg-u-raised hover:text-u-text"
-    >
-      <Icon d={ICONS.copy} size={13} />
-    </button>
   );
 }
 

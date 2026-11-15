@@ -1,23 +1,12 @@
-import { Icon, ICONS } from "../../../components/layout/Icon";
-import { useToast } from "../../../components/ui";
 import { NetworkMark } from "../../../components/ui/NetworkMark";
 import { cn } from "../../../lib/cn";
-import { copyText } from "../../../lib/clipboard";
 import type { CandidatePhone } from "../../candidates/api/types";
-import { addedCallingCodeOf, dialHrefOf, whatsappHrefOf } from "../lib/phoneLinks";
+import { addedCallingCodeOf, dialHrefOf, offersWhatsApp, whatsappHrefOf } from "../lib/phoneLinks";
+import { isReachable, type PhoneReach } from "../lib/phoneReach";
 
-/**
- * Who a number reaches and what the reader may do with it. `actionable` is false for a reader who may not reach out
- * and for someone on do not contact; `refusal` says why to a reader who sees the number as text.
- */
-export interface PhoneReach {
-  personName: string;
-  locationCountry: string | null;
-  actionable: boolean;
-  refusal?: string;
-  /** Saves a locally written number with the calling code the server added; absent for a reader who may not edit. */
-  onSaveInternational?: (phone: CandidatePhone) => void;
-}
+export type { PhoneReach };
+
+const ADD_COUNTRY_CODE = "Add the country code to open WhatsApp";
 
 /** The number as the button: it dials through the device's own phone app, or reads as text where nobody may call. */
 export function PhoneNumberLink({
@@ -30,9 +19,9 @@ export function PhoneNumberLink({
   className?: string;
 }) {
   const href = dialHrefOf(phone);
-  if (!reach.actionable || !href) {
+  if (!isReachable(reach) || !href) {
     return (
-      <span title={reach.refusal} className={cn("min-w-0 truncate", className)}>
+      <span title={textTitleOf(reach)} className={cn("min-w-0 truncate", className)}>
         {phone.number}
       </span>
     );
@@ -51,19 +40,27 @@ export function PhoneNumberLink({
 
 /**
  * WhatsApp's own mark, opening the chat in a new tab (wa.me hands it to the app where it is installed). Without a
- * calling code there is no chat to open, so the mark stays, disabled, saying what is missing; a landline has none.
+ * calling code the mark stays, faded, and opens Edit contact details for whoever may edit.
  */
 export function WhatsAppLink({ phone, reach, size = 14 }: { phone: CandidatePhone; reach: PhoneReach; size?: number }) {
-  if (!reach.actionable || phone.lineType === "landline") return null;
+  if (!isReachable(reach) || !offersWhatsApp(phone)) return null;
   const href = whatsappHrefOf(phone);
+  if (!href && reach.onAddCountryCode) {
+    return (
+      <button
+        type="button"
+        onClick={reach.onAddCountryCode}
+        aria-label={ADD_COUNTRY_CODE}
+        title={ADD_COUNTRY_CODE}
+        className="flex flex-none rounded-md p-1 opacity-35 transition hover:bg-u-raised hover:opacity-100"
+      >
+        <NetworkMark network="whatsapp" size={size} />
+      </button>
+    );
+  }
   if (!href) {
     return (
-      <span
-        role="img"
-        aria-label="Add the country code to open WhatsApp"
-        title="Add the country code to open WhatsApp"
-        className="flex flex-none p-1 opacity-35"
-      >
+      <span role="img" aria-label={ADD_COUNTRY_CODE} title={ADD_COUNTRY_CODE} className="flex flex-none p-1 opacity-35">
         <NetworkMark network="whatsapp" size={size} />
       </span>
     );
@@ -82,25 +79,10 @@ export function WhatsAppLink({ phone, reach, size = 14 }: { phone: CandidatePhon
   );
 }
 
-export function CopyPhoneButton({ phone, size = 13 }: { phone: CandidatePhone; size?: number }) {
-  const toast = useToast();
-  return (
-    <button
-      type="button"
-      onClick={async () => toast((await copyText(phone.number)) ? "Phone copied" : "Couldn't copy")}
-      aria-label="Copy phone"
-      title="Copy"
-      className="flex flex-none rounded-md p-1 text-u-text3 transition hover:bg-u-raised hover:text-u-text"
-    >
-      <Icon d={ICONS.copy} size={size} />
-    </button>
-  );
-}
-
 /** Says a calling code was added from the person's or the firm's country; the written number is unchanged. */
 export function AddedCodePill({ phone, reach }: { phone: CandidatePhone; reach: PhoneReach }) {
   const code = addedCallingCodeOf(phone);
-  if (!reach.actionable || !code) return null;
+  if (!isReachable(reach) || !code) return null;
   return (
     <span
       title={`${addedFromOf(phone, code, reach)}. The saved number is unchanged.`}
@@ -111,10 +93,9 @@ export function AddedCodePill({ phone, reach }: { phone: CandidatePhone; reach: 
   );
 }
 
-/** Offers to keep the calling code the server added, to whoever may edit; the server spells it the international way. */
 export function SaveInternationalButton({ phone, reach }: { phone: CandidatePhone; reach: PhoneReach }) {
-  if (!reach.actionable || !reach.onSaveInternational || !addedCallingCodeOf(phone) || !phone.international) return null;
   const onSave = reach.onSaveInternational;
+  if (!isReachable(reach) || !onSave || !addedCallingCodeOf(phone) || !phone.international) return null;
   return (
     <button
       type="button"
@@ -124,6 +105,11 @@ export function SaveInternationalButton({ phone, reach }: { phone: CandidatePhon
       Save as {phone.international}
     </button>
   );
+}
+
+function textTitleOf(reach: PhoneReach): string | undefined {
+  if (reach.doNotContact) return "Do not contact is set";
+  return reach.mayReachOut ? undefined : "You can read this number but not reach out on this position";
 }
 
 function callTitleOf(phone: CandidatePhone, reach: PhoneReach): string {

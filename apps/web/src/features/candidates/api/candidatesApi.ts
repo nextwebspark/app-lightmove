@@ -144,6 +144,14 @@ export function replaceContacts(
   });
 }
 
+/** Save as: the server adds the calling code it reads for this held number, keeping where the number came from. */
+export function savePhoneInternational(projectId: string, candidateId: string, number: string): Promise<Candidate> {
+  return request<Candidate>(`/projects/${projectId}/candidates/${candidateId}/contacts/phones/international`, {
+    method: "POST",
+    body: { number },
+  });
+}
+
 /**
  * Moves someone along the line and touches nothing else — the status pill on the read-only profile
  * panel, which a researcher flicks while reading.

@@ -8,8 +8,9 @@ import { cn } from "../../../lib/cn";
 import * as shareConsentApi from "../../candidates/api/shareConsentApi";
 import { ShareConsentPromptDialog } from "../../candidates/components/consent/ShareConsentPromptDialog";
 import { PersonAvatar } from "../../candidates/components/pool/PersonAvatar";
+import { CopyContactButton } from "../../contactlookup/components/CopyContactButton";
+import { isReachable } from "../../contactlookup/lib/phoneReach";
 import {
-  CopyPhoneButton,
   PhoneNumberLink,
   WhatsAppLink,
   type PhoneReach,
@@ -77,8 +78,8 @@ export function CandidateDetailsPane({
   const phoneReach: PhoneReach = {
     personName: executive.fullName,
     locationCountry: contact.locationCountry,
-    actionable: !contact.doNotContact,
-    refusal: contact.doNotContact ? "Do not contact is set" : undefined,
+    mayReachOut: true,
+    doNotContact: contact.doNotContact,
   };
   const clientVisible = clientVisibility.isPending
     ? (clientVisibility.variables?.clientVisible ?? executive.clientVisible)
@@ -158,10 +159,10 @@ export function CandidateDetailsPane({
                 <PhoneNumberLink
                   phone={phone}
                   reach={phoneReach}
-                  className={cn("font-mono", phoneReach.actionable && "text-u-accent")}
+                  className={cn("font-mono", isReachable(phoneReach) && "text-u-accent")}
                 />
                 <WhatsAppLink phone={phone} reach={phoneReach} size={12} />
-                {phoneReach.actionable && <CopyPhoneButton phone={phone} size={11} />}
+                {isReachable(phoneReach) && <CopyContactButton what="Phone" value={phone.number} size={11} />}
               </div>
             ))
           )}

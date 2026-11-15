@@ -172,6 +172,7 @@ is held back rather than sent (the step does not save until it is named) and the
 | Executive currency | picker over the served list; a stored code stays offered | ISO 4217, blank and case forgiven (`@SuppliedCurrencyCode`) | banner |
 | ☐ Languages | one string ≤ 1200 | ≤ 20 × 60 | banner |
 | ☐ Phone | none | a digit | banner |
+| Phone Save as (#1337) | offered only for a number given a calling code from the person's or the firm's country | `WORK_EXECUTE`; `@NotBlank @Size(320)` `number`; a number with no calling code to add, or no longer held, `VALIDATION_FAILED`; the code is read on the server, never sent | toast |
 | Contact primary (per channel) | one star per channel; moving it clears the others | at most one `primary` per channel (`VALIDATION_FAILED` "Only one email can be primary"); none listed leaves the first of the ledger's order standing in | toast |
 | ☐ Candidates search `q`, `page` | none | unbounded `q`; `page × size` overflows | — |
 | ☐ Companies search box `search` (triage list, its people read, talent map, export; the Pipeline's `q`) | trimmed | trimmed, case-insensitive substring with `%` and `_` literal (`SearchText`), unbounded; notes and tags match only for `WORK_EXECUTE` | — |

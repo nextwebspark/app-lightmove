@@ -16,8 +16,9 @@ import * as contactLookupApi from "../../contactlookup/api/contactLookupApi";
 import { ContactDetailsDialog } from "../../contactlookup/components/ContactDetailsDialog";
 import { ContactsReadDialog } from "../../contactlookup/components/ContactsReadDialog";
 import { ContactChannels } from "../../contactlookup/components/ContactPanel";
+import { CopyContactButton } from "../../contactlookup/components/CopyContactButton";
+import { isReachable } from "../../contactlookup/lib/phoneReach";
 import {
-  CopyPhoneButton,
   PhoneNumberLink,
   WhatsAppLink,
   type PhoneReach,
@@ -50,7 +51,7 @@ import type {
   PersonNoteKind,
   SaveCandidatePayload,
 } from "../api/types";
-import { contactInputsOf, contactLineOf, replayOf, type ProfileFormSection } from "../lib/candidateForm";
+import { replayOf, type ProfileFormSection } from "../lib/candidateForm";
 import type { ActivityExecutive } from "../lib/activityPresentation";
 import { candidateGenderLabel } from "../lib/candidateVocabulary";
 import { statusStyle } from "../lib/pipelineStatus";
@@ -329,20 +330,8 @@ export function CandidateProfile({
     onError: (error) => toast.error(messageFor(error)),
   });
   const nationalityReading = canWrite && !candidate.nationality ? background.nationalityReading : null;
-  // Keeps the calling code the server added to a locally written number; every other line is saved as it stands. The
-  // rewritten number is a new line to the server, filed last, so the first one stays first by being made the primary.
   const saveInternational = useMutation({
-    mutationFn: (phone: CandidatePhone) =>
-      candidatesApi.replaceContacts(projectId, candidate.id, {
-        emails: contactInputsOf(candidate.contacts.emails.map(contactLineOf)),
-        phones: contactInputsOf(
-          candidate.contacts.phones.map((entry, index) =>
-            entry.number === phone.number && phone.international
-              ? { ...contactLineOf(entry), value: phone.international, primary: index === 0 || entry.primary === true }
-              : contactLineOf(entry),
-          ),
-        ),
-      }),
+    mutationFn: (phone: CandidatePhone) => candidatesApi.savePhoneInternational(projectId, candidate.id, phone.number),
     onSuccess: (saved) => {
       toast("Number saved with its country code");
       onSaved(saved);
@@ -352,9 +341,10 @@ export function CandidateProfile({
   const phoneReach: PhoneReach = {
     personName: candidate.fullName,
     locationCountry: candidate.locationCountry,
-    actionable: canWrite && !doNotContact,
-    refusal: doNotContact ? "Do not contact is set" : undefined,
+    mayReachOut: canWrite,
+    doNotContact,
     onSaveInternational: saveInternational.isPending ? undefined : (phone) => saveInternational.mutate(phone),
+    onAddCountryCode: canWrite ? () => setContactWindow("details") : undefined,
   };
   const primaryPhone = candidate.contacts.phones[0];
 
@@ -465,7 +455,7 @@ export function CandidateProfile({
               <>
                 <PhoneNumberLink phone={primaryPhone} reach={phoneReach} className="transition hover:text-u-accent" />
                 <WhatsAppLink phone={primaryPhone} reach={phoneReach} size={12} />
-                {phoneReach.actionable && <CopyPhoneButton phone={primaryPhone} size={11} />}
+                {isReachable(phoneReach) && <CopyContactButton what="Phone" value={primaryPhone.number} size={11} />}
               </>
             ) : undefined
           }

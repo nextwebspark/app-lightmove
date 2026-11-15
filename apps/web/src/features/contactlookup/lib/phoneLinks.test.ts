@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CandidatePhone } from "../../candidates/api/types";
-import { addedCallingCodeOf, dialHrefOf, whatsappHrefOf } from "./phoneLinks";
+import { addedCallingCodeOf, dialHrefOf, offersWhatsApp, whatsappHrefOf } from "./phoneLinks";
 
 const phone = (patch: Partial<CandidatePhone>): CandidatePhone => ({
   number: "050 441 2087",
@@ -14,7 +14,13 @@ const phone = (patch: Partial<CandidatePhone>): CandidatePhone => ({
 
 describe("phone links", () => {
   it("dials the international number where the server read one", () => {
-    const local = phone({ international: "+971 50 441 2087", countrySource: "location", lineType: "mobile" });
+    const local = phone({
+      international: "+971 50 441 2087",
+      e164: "+971504412087",
+      callingCode: "+971",
+      countrySource: "location",
+      lineType: "mobile",
+    });
     expect(dialHrefOf(local)).toBe("tel:+971504412087");
     expect(whatsappHrefOf(local)).toBe("https://wa.me/971504412087");
     expect(addedCallingCodeOf(local)).toBe("+971");
@@ -27,14 +33,19 @@ describe("phone links", () => {
     expect(dialHrefOf(phone({ number: "ask the office" }))).toBeNull();
   });
 
-  it("opens no chat without a calling code, nor for a landline", () => {
+  it("opens no chat without a calling code, nor for a landline or a service number", () => {
     expect(whatsappHrefOf(phone({}))).toBeNull();
-    expect(whatsappHrefOf(phone({ international: "+971 4 330 0000", countrySource: "location", lineType: "landline" }))).toBeNull();
+    expect(offersWhatsApp(phone({}))).toBe(true);
+    for (const lineType of ["landline", "service"] as const) {
+      const fixed = phone({ e164: "+97143300000", countrySource: "location", lineType });
+      expect(whatsappHrefOf(fixed)).toBeNull();
+      expect(offersWhatsApp(fixed)).toBe(false);
+    }
   });
 
   it("names an added calling code only, never one the number was written with", () => {
-    expect(addedCallingCodeOf(phone({ international: "+971 50 441 2087", countrySource: "given" }))).toBeNull();
-    expect(addedCallingCodeOf(phone({ international: "+44 7400 123456", countrySource: "workspace" }))).toBe("+44");
+    expect(addedCallingCodeOf(phone({ callingCode: "+971", countrySource: "given" }))).toBeNull();
+    expect(addedCallingCodeOf(phone({ callingCode: "+44", countrySource: "workspace" }))).toBe("+44");
     expect(addedCallingCodeOf(phone({}))).toBeNull();
   });
 });

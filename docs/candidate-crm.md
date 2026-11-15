@@ -287,17 +287,28 @@ transaction, and every executive already mapped on any mandate comes out as a po
 
 ### Phones as the button (#1337)
 
-Each phone on `CandidatePhoneDto` carries, besides the number as written, `international` (spelled the international
-way, `+971 50 441 2087`), `countrySource` (`given`, `location`, `workspace`) and `lineType` (`mobile`, `landline`,
-`unknown`). `common/location` `PhoneNumbers` works them out on read with libphonenumber: a number written with `+` or
-`00` keeps its code; a local one takes the person's `location_country`, then the workspace's `company_country`, and
-only where it is a valid number there. Nothing is stored and no matching changes: phone is still never a key, and the
-written number stays the record until someone presses **Save as** (the contacts PUT, as any edit).
+Each phone on `CandidatePhoneDto` carries, besides the number as written, `international` (spelled for reading,
+`+971 50 441 2087`), `e164` (for dialling, `+971504412087`), `callingCode` (`+971`), `countrySource` (`given`,
+`location`, `workspace`) and `lineType` (`mobile`, `landline`, `service` for toll-free, premium-rate and shared-cost
+numbers, `unknown` for a number that may be either, as every US and Canadian one is). `common/location` `PhoneNumbers`
+works them out on read with libphonenumber: a number written with `+` or `00` keeps its code; a local one takes the
+person's `location_country`, then the workspace's `company_country`, and only where it is a valid number there. Nothing
+is stored and no matching changes: phone is still never a key, and the written number stays the record until someone
+presses **Save as**.
+
+**Save as** is its own write, `POST …/candidates/{id}/contacts/phones/international` with the held number. The server
+reads the calling code again rather than taking one from the browser, and respells that row in place
+(`Person.respellPhone`): its source, found-at, kind, verified flag and primary are kept, because adding a calling code
+corrects nothing a person or a provider said. Where the international spelling is already held, the local row folds into
+it. A number with no code to add, or no longer held, is a `VALIDATION_FAILED`. The stored spelling is the readable one,
+not E.164: the ledger keeps numbers as people write them, and the key is digits either way.
 
 The executive drawer's header phone, its Outreach tab's Contact lists, its read-only contact window and Outreach's
-Candidate details pane draw `PhoneActions`: the number dials (`tel:`), WhatsApp's mark opens `wa.me` in a new tab
-(none for a landline; disabled without a calling code), and Copy. An added calling code is named on a pill and in the
-link's title. Do not contact and a client seat leave the number as text.
+Candidate details pane draw `PhoneActions`: the number dials (`tel:` with `e164`), WhatsApp's mark opens `wa.me` in a
+new tab (none for a landline or a service number), and Copy. Without a calling code the mark stays faded, and for an
+editor it opens Edit contact details. An added calling code is named on a pill and in the link's title. Do not contact,
+a reader who may not reach out on the position, and a client seat leave the number as text, its title saying why.
+The Recently approached warning before a call is deferred to the "log it" tray (#1337, PR 3).
 
 ### Tags (Phase 4, V98): "Open to work", "Open to relocate", …
 
