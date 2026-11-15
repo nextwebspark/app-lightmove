@@ -14,6 +14,7 @@ import type {
 } from "../../candidates/api/candidatePrivacyApi";
 import type { LawfulBasis } from "../../candidates/api/types";
 import { LAWFUL_BASES } from "../../candidates/lib/candidatePrivacy";
+import { useWorkspaceVocabulary } from "../../workspace/lib/vocabulary";
 
 type Errors = Partial<Record<"privacyContactEmail" | "noticeUrl" | "renewalDaysBefore", string>>;
 
@@ -50,6 +51,7 @@ function modeHintOf(locked: boolean, mode: CandidatePrivacyMode): string {
 }
 
 function renewalHintOf(days: number): string {
+  if (!Number.isInteger(days)) return "Enter 0 to 90 days. 0 never asks again.";
   return days === 0
     ? "Never asked again: consent simply ends on its date."
     : `The candidate gets one email ${days} days before their consent ends. 0 never asks again.`;
@@ -77,6 +79,7 @@ function errorsOf(draft: CandidatePrivacySettingsChange): Errors {
 export function CandidatePrivacyCard({ saved }: { saved: CandidatePrivacySettings }) {
   const queryClient = useQueryClient();
   const toast = useToast();
+  const { unitLower } = useWorkspaceVocabulary();
   const [draft, setDraft] = useState(() => draftOf(saved));
   const [errors, setErrors] = useState<Errors>({});
 
@@ -116,7 +119,7 @@ export function CandidatePrivacyCard({ saved }: { saved: CandidatePrivacySetting
     {
       key: "shareWithClient",
       label: "Share my profile with a client for a specific role",
-      description: 'Asked for one position at a time. The email says "a confidential client" unless you name the client.',
+      description: `Asked for one position at a time. The email says "a confidential client" unless you name the ${unitLower}.`,
     },
     {
       key: "marketing",
@@ -256,8 +259,11 @@ export function CandidatePrivacyCard({ saved }: { saved: CandidatePrivacySetting
                 aria-label="Days before consent ends"
                 className="w-16"
                 invalid={!!errors.renewalDaysBefore}
-                value={String(draft.renewalDaysBefore)}
-                onChange={(event) => set("renewalDaysBefore", Number(event.target.value))}
+                value={Number.isNaN(draft.renewalDaysBefore) ? "" : String(draft.renewalDaysBefore)}
+                onChange={(event) =>
+                  // An empty field is no number at all, never 0: Number("") would quietly mean "never ask again".
+                  set("renewalDaysBefore", event.target.value.trim() === "" ? Number.NaN : Number(event.target.value))
+                }
               />
               days before consent ends
             </label>

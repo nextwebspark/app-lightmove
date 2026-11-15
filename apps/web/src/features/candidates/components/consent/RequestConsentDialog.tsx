@@ -40,10 +40,15 @@ function lockOf(consent: PersonConsent | undefined, renewalDaysBefore: number, n
       return `Already given, until ${day(consent.validUntil)}`;
     }
   }
-  const open = consent.requestOpenUntil && Date.parse(consent.requestOpenUntil) > now;
-  if (open && consent.requestedAt && now - Date.parse(consent.requestedAt) < RECENTLY_DAYS * DAY_MS) {
-    const again = new Date(Date.parse(consent.requestedAt) + RECENTLY_DAYS * DAY_MS).toISOString();
-    return `Asked on ${day(consent.requestedAt)}. You can ask again from ${day(again)}`;
+  const recently = (instant: string | null) => !!instant && now - Date.parse(instant) < RECENTLY_DAYS * DAY_MS;
+  const againFrom = (instant: string) => day(new Date(Date.parse(instant) + RECENTLY_DAYS * DAY_MS).toISOString());
+  const refused = consent.status === "declined" || consent.status === "withdrawn";
+  if (refused && consent.answeredAt && recently(consent.answeredAt)) {
+    const said = consent.status === "declined" ? "Declined" : "Withdrawn";
+    return `${said} on ${day(consent.answeredAt)}. You can ask again from ${againFrom(consent.answeredAt)}`;
+  }
+  if (consent.requestedAt && recently(consent.requestedAt)) {
+    return `Asked on ${day(consent.requestedAt)}. You can ask again from ${againFrom(consent.requestedAt)}`;
   }
   return null;
 }

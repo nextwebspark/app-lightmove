@@ -152,14 +152,23 @@ public class NotificationRules {
         });
     }
 
-    /** To whoever asked, else the person's owner: an answer on the page reads like a reply. */
+    /**
+     * To whoever asked, else the person's owner, else whoever sent the link — the first still on the staff, so an asker
+     * who has left does not swallow it. An answer on the page reads like a reply.
+     */
     @Async
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onConsentAnswered(ConsentAnswered answered) {
         inItsWorkspace(answered.workspaceId(), () -> {
+            UUID recipient = answered.recipientUserIds().stream()
+                    .filter(userId -> workspaceAccess.isStaff(userId, answered.workspaceId()))
+                    .findFirst().orElse(null);
+            if (recipient == null) {
+                return;
+            }
             String name = people.personNamesOf(answered.workspaceId(), List.of(answered.personId()))
                     .get(answered.personId());
-            deliver(new NotificationDraft(answered.workspaceId(), answered.recipientUserId(),
+            deliver(new NotificationDraft(answered.workspaceId(), recipient,
                     NotificationKind.CONSENT_ANSWERED, null, null, answered.personId(), null, null, null,
                     NotificationKind.CONSENT_ANSWERED.value() + ":" + answered.personId(), name, null, 1, null));
         });

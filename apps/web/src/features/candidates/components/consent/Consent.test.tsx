@@ -182,7 +182,7 @@ describe("Ask for consent", () => {
     // EmailTemplates.buildConsentRequestEmail's paragraphs, with ConsentWording.askingOf's bullets.
     expect(
       preview.getByText(
-        "Meridian Search Partners FZ-LLC is an executive search firm. We hold some of your professional details, which came from your public professional profile. We'd like your permission to:",
+        "Meridian Search Partners FZ-LLC holds some of your professional details, which came from your public professional profile. We'd like your permission to:",
       ),
     ).toBeInTheDocument();
     expect(preview.getByText("keep your details on file for future roles, for 24 months")).toBeInTheDocument();
@@ -215,6 +215,16 @@ describe("Ask for consent", () => {
     expect(screen.getByRole("checkbox", { name: /Career and market updates/ })).toBeDisabled();
     expect(screen.getByText(`Asked on ${day(iso(-3))}. You can ask again from ${day(iso(11))}`)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Send request" })).toBeDisabled();
+  });
+
+  it("locks a purpose declined in the last 14 days, though its request has closed", () => {
+    const person = personWith([
+      consent({ purpose: "marketing", status: "declined", requestedAt: iso(-20), answeredAt: iso(-1), answeredVia: "page" }),
+    ]);
+    renderWith(<RequestConsentDialog target={{ kind: "person", person }} firm={FIRM} onClose={vi.fn()} onSent={vi.fn()} />);
+
+    expect(screen.getByRole("checkbox", { name: /Career and market updates/ })).toBeDisabled();
+    expect(screen.getByText(`Declined on ${day(iso(-1))}. You can ask again from ${day(iso(13))}`)).toBeInTheDocument();
   });
 
   it("says who a selection skipped and why", async () => {

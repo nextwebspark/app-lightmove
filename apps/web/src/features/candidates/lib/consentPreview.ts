@@ -3,6 +3,7 @@ import type {
   ConsentRequestSkipReason,
   PersonConsent,
 } from "../api/types";
+import { skipReasonLabel } from "./candidatePrivacy";
 
 /**
  * The words the Candidates screens use for consent requests (#1267), as `Candidates.dc.html` draws them, and the request
@@ -20,7 +21,7 @@ const ROW_LABELS: Record<ConsentPurpose, string> = {
   marketing: "Career and market updates",
 };
 
-export function consentRowLabel(purpose: ConsentPurpose): string {
+function consentRowLabel(purpose: ConsentPurpose): string {
   return ROW_LABELS[purpose];
 }
 
@@ -78,12 +79,12 @@ export function consentRowOf(
 }
 
 const SKIPS: Record<ConsentRequestSkipReason, string> = {
-  no_email: "No email on file",
-  do_not_contact: "Do not contact",
-  processing_restricted: "Processing restricted",
-  suppressed: "On the suppression list",
+  no_email: skipReasonLabel("no_email"),
+  do_not_contact: skipReasonLabel("do_not_contact"),
+  processing_restricted: skipReasonLabel("processing_restricted"),
+  suppressed: skipReasonLabel("suppressed"),
   already_given: "Already agreed",
-  recently_asked: "Asked in the last 14 days",
+  recently_asked: "Asked or declined in the last 14 days",
   daily_cap: "Over today's limit",
 };
 
@@ -110,7 +111,7 @@ export function askedPurposeOf(
 }
 
 /** `ConsentWording.askingOf`: one bullet after "We'd like your permission to:". */
-export function askingOf(purpose: PersonalPurpose, months: number): string {
+function askingOf(purpose: PersonalPurpose, months: number): string {
   return purpose === "keep_on_file"
     ? `keep your details on file for future roles, for ${months} months`
     : "send you career and market updates";
@@ -132,7 +133,7 @@ export function consentRequestPreview(
 ): ConsentRequestPreview {
   return {
     subject: `${firm} would like your permission`,
-    intro: `${firm} is an executive search firm. We hold some of your professional details, which came from ${sourcePhrase}.`,
+    intro: `${firm} holds some of your professional details, which came from ${sourcePhrase}.`,
     asking: purposes.map((purpose) => askingOf(purpose, months)),
     closing: "Each is a separate choice, and you can say no to any of them. If you don't answer, nothing changes.",
   };

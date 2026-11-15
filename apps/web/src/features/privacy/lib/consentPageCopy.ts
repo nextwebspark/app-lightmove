@@ -18,7 +18,7 @@ export function requestTitleOf(firm: string): string {
 }
 
 export function requestLeadOf(firm: string): string {
-  return `${firm}, an executive search firm, holds some of your professional details. We would like your permission for the uses below. Each is a separate choice.`;
+  return `${firm} holds some of your professional details. We would like your permission for the uses below. Each is a separate choice.`;
 }
 
 export const REQUEST_SILENCE =
@@ -46,8 +46,9 @@ export function answeredBodyOf(firm: string, agreedToAnything: boolean): string 
     : `${firm} has recorded them. We've emailed you a confirmation.`;
 }
 
+/** A request with no answer on its link; an expired link is told nothing more, so this never says what was answered. */
 export function closedBodyOf(firm: string, closedOn: string): string {
-  return `It was open for 30 days and closed on ${closedOn}. Nothing changed: you didn't agree to anything, and ${firm} holds your details only as its privacy notice says.`;
+  return `It was open for 30 days and closed on ${closedOn}. Anything you didn't answer changed nothing, and ${firm} holds your details only as its privacy notice says.`;
 }
 
 export function manageLeadOf(firm: string): string {

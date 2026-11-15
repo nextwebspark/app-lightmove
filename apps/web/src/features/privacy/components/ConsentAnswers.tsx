@@ -29,9 +29,19 @@ function day(instant: string | null): string {
   return formatInstantDate(instant) ?? "";
 }
 
+/** A no to a renewal leaves the consent running to its own date, so it says that rather than a bare No. */
 function answerLineOf(consent: PrivacyPageConsent, said: YesNo): string {
-  if (said === "no") return "No";
+  if (said === "no") {
+    return consent.status === "given" && consent.validUntil ? `Not renewed, ends on ${day(consent.validUntil)}` : "No";
+  }
   return consent.validUntil ? `Yes, until ${day(consent.validUntil)}` : "Yes";
+}
+
+/** What the server says was answered on this link, so a reopened link shows the answers rather than "closed". */
+function answeredOnLinkOf(page: PrivacyPage): Record<string, YesNo> {
+  return Object.fromEntries(
+    page.consents.flatMap((consent) => (consent.answer ? [[consent.id, consent.answer === "given" ? "yes" : "no"]] : [])),
+  );
 }
 
 function refusalOf(failure: unknown, contact: string | null): string {
@@ -65,7 +75,7 @@ export function ConsentRequest({
 }: {
   token: string;
   page: PrivacyPage;
-  onSeeChoices: () => void;
+  onSeeChoices?: () => void;
 }) {
   const queryClient = useQueryClient();
   const firm = page.controllerName ?? "We";
@@ -83,18 +93,20 @@ export function ConsentRequest({
         })),
       ),
     onSuccess: async (_, given) => {
-      setSubmitted(given);
       await queryClient.invalidateQueries({ queryKey: privacyPageApi.PRIVACY_PAGE_KEY(token) });
+      setSubmitted(given);
     },
     onError: (failure) => setError(refusalOf(failure, page.privacyContactEmail)),
   });
 
-  if (submitted) {
-    const rows = page.consents.filter((consent) => submitted[consent.id]);
+  const answeredOnLink = answeredOnLinkOf(page);
+  const shownAnswers = submitted ?? (open.length === 0 ? answeredOnLink : {});
+  if (Object.keys(shownAnswers).length > 0) {
+    const rows = page.consents.filter((consent) => shownAnswers[consent.id]);
     return (
       <Done
         title="Thank you, your answers are saved"
-        body={answeredBodyOf(firm, Object.values(submitted).includes("yes"))}
+        body={answeredBodyOf(firm, Object.values(shownAnswers).includes("yes"))}
       >
         <ul aria-label="Your answers" className="mt-4 flex flex-col gap-2">
           {rows.map((consent) => (
@@ -106,10 +118,10 @@ export function ConsentRequest({
               <span
                 className={cn(
                   "flex-none text-note font-semibold",
-                  submitted[consent.id] === "yes" ? "text-u-direct" : "text-u-text2",
+                  shownAnswers[consent.id] === "yes" ? "text-u-direct" : "text-u-text2",
                 )}
               >
-                {answerLineOf(consent, submitted[consent.id])}
+                {answerLineOf(consent, shownAnswers[consent.id])}
               </span>
             </li>
           ))}
@@ -188,9 +200,11 @@ export function ConsentRequest({
       </p>
       <FormError message={error} />
       <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
-        <button type="button" onClick={onSeeChoices} className="text-note font-medium text-u-accent hover:underline">
-          See what we hold and your other choices
-        </button>
+        {onSeeChoices && (
+          <button type="button" onClick={onSeeChoices} className="text-note font-medium text-u-accent hover:underline">
+            See what we hold and your other choices
+          </button>
+        )}
         <Button
           size="md"
           loading={sending.isPending}

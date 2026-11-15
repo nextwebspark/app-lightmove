@@ -403,8 +403,8 @@ public class EmailTemplates {
                                                  String noticeUrl, String linkUntil) {
         List<EmailBlock> blocks = new ArrayList<>();
         blocks.add(greetingOf(recipientName));
-        blocks.add(EmailParagraph.of("%s is an executive search firm. We hold some of your professional details, "
-                + "which came from %s.", plain(firm), plain(sourcePhrase)));
+        blocks.add(EmailParagraph.of("%s holds some of your professional details, which came from %s.",
+                plain(firm), plain(sourcePhrase)));
         blocks.add(EmailParagraph.of("We'd like your permission to:"));
         asking.forEach(ask -> blocks.add(EmailParagraph.of("• %s", plain(ask))));
         blocks.add(EmailParagraph.of("Each is a separate choice, and you can say no to any of them. If you don't "

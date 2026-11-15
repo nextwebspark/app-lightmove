@@ -8,6 +8,8 @@ import * as candidatePrivacyApi from "../../candidates/api/candidatePrivacyApi";
 import type { CandidatePrivacySettings } from "../../candidates/api/candidatePrivacyApi";
 import { CandidatePrivacyCard } from "./CandidatePrivacyCard";
 
+vi.mock("../../auth/AuthProvider", () => ({ useAuth: () => ({ user: { workspace: { mode: "AGENCY" } } }) }));
+
 vi.mock("../../candidates/api/candidatePrivacyApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../candidates/api/candidatePrivacyApi")>()),
   putCandidatePrivacy: vi.fn(),
@@ -109,6 +111,19 @@ describe("CandidatePrivacyCard", () => {
     await user.click(screen.getByRole("button", { name: "Save changes" }));
     await waitFor(() => expect(candidatePrivacyApi.putCandidatePrivacy).toHaveBeenCalledTimes(1));
     expect(await screen.findByText("Enter an email address")).toBeInTheDocument();
+  });
+
+  it("refuses an emptied renewal field rather than reading it as never ask again", async () => {
+    const user = userEvent.setup();
+    renderCard({ ...SAVED, privacyMode: "consent", readyForConsent: true });
+
+    expect(screen.getByText(/unless you name the client\./)).toBeInTheDocument();
+    await user.clear(screen.getByRole("spinbutton", { name: "Days before consent ends" }));
+    expect(screen.queryByText("Never asked again: consent simply ends on its date.")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+
+    expect(await screen.findByText("Enter 0 to 90 days")).toBeInTheDocument();
+    expect(candidatePrivacyApi.putCandidatePrivacy).not.toHaveBeenCalled();
   });
 
   it("locks the mode until the firm's details are saved", () => {

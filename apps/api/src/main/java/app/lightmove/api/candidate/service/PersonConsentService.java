@@ -64,6 +64,7 @@ public class PersonConsentService {
     private static final Duration RECENTLY = Duration.ofDays(14);
     private static final String PERSON_TARGET = "person";
     private static final int SCAN_BATCH = 500;
+    private static final int SCAN_BATCHES_PER_RUN = 20;
     private static final Set<ConsentStatus> ANSWERS_BY_HAND = EnumSet.of(ConsentStatus.GIVEN, ConsentStatus.DECLINED,
             ConsentStatus.WITHDRAWN);
 
@@ -119,7 +120,7 @@ public class PersonConsentService {
         if (skip != null) {
             throw refusalOf(skip);
         }
-        queue(userId, workspaceId, Map.of(person, askable), firm, false, now, httpRequest);
+        queue(userId, workspaceId, Map.of(person, askable), Map.of(), firm, now, httpRequest);
         return records.toRecord(userId, person);
     }
 
@@ -156,7 +157,7 @@ public class PersonConsentService {
             }
             asking.put(person, askable);
         }
-        queue(userId, workspaceId, asking, firm, false, now, httpRequest);
+        queue(userId, workspaceId, asking, Map.of(), firm, now, httpRequest);
         return new BulkConsentRequestResponse(asking.size(), skipped);
     }
 
@@ -201,8 +202,21 @@ public class PersonConsentService {
      */
     @Transactional
     public int closeLapsed(UUID workspaceId, Instant now) {
-        List<PersonConsent> expired = new ArrayList<>(consents.closeLapsedRequests(workspaceId, now, SCAN_BATCH));
-        expired.addAll(consents.expireLapsedConsents(workspaceId, now, SCAN_BATCH));
+        List<PersonConsent> expired = new ArrayList<>();
+        for (int batch = 0; batch < SCAN_BATCHES_PER_RUN; batch++) {
+            List<PersonConsent> closed = consents.closeLapsedRequests(workspaceId, now, SCAN_BATCH);
+            closed.stream().filter(consent -> consent.status() == ConsentStatus.EXPIRED).forEach(expired::add);
+            if (closed.size() < SCAN_BATCH) {
+                break;
+            }
+        }
+        for (int batch = 0; batch < SCAN_BATCHES_PER_RUN; batch++) {
+            List<PersonConsent> ended = consents.expireLapsedConsents(workspaceId, now, SCAN_BATCH);
+            expired.addAll(ended);
+            if (ended.size() < SCAN_BATCH) {
+                break;
+            }
+        }
         if (expired.isEmpty()) {
             return 0;
         }
@@ -229,24 +243,36 @@ public class PersonConsentService {
             return 0;
         }
         budget.hold(workspaceId);
-        List<UUID> due = consents.peopleDueRenewal(workspaceId, now,
-                now.plus(Duration.ofDays(firm.renewalDaysBefore())), SCAN_BATCH);
-        if (due.isEmpty()) {
-            return 0;
-        }
-        List<Person> found = people.findByWorkspaceIdAndIdIn(workspaceId, due);
-        Set<UUID> suppressed = suppression.suppressedPeopleOf(workspaceId, found);
         int capacity = budget.remainingToday(workspaceId);
+        Instant windowEnd = now.plus(Duration.ofDays(firm.renewalDaysBefore()));
         Map<Person, Set<ConsentPurpose>> asking = new LinkedHashMap<>();
-        for (Person person : found) {
-            if (asking.size() >= capacity) {
+        Map<UUID, PersonConsent> renewing = new LinkedHashMap<>();
+        PersonConsent after = null;
+        while (asking.size() < capacity) {
+            List<PersonConsent> due = consents.dueRenewal(workspaceId, now, windowEnd, after, SCAN_BATCH);
+            if (due.isEmpty()) {
                 break;
             }
-            if (PrivacyEmailBudget.unreachableReasonOf(person, suppressed) == null) {
-                asking.put(person, EnumSet.of(ConsentPurpose.KEEP_ON_FILE));
+            after = due.getLast();
+            Map<UUID, Person> found = people.findByWorkspaceIdAndIdIn(workspaceId,
+                            due.stream().map(PersonConsent::personId).toList()).stream()
+                    .collect(Collectors.toMap(Person::getId, Function.identity()));
+            Set<UUID> suppressed = suppression.suppressedPeopleOf(workspaceId, found.values());
+            for (PersonConsent consent : due) {
+                Person person = found.get(consent.personId());
+                if (asking.size() >= capacity) {
+                    break;
+                }
+                if (person != null && PrivacyEmailBudget.unreachableReasonOf(person, suppressed) == null) {
+                    asking.put(person, EnumSet.of(ConsentPurpose.KEEP_ON_FILE));
+                    renewing.put(person.getId(), consent);
+                }
+            }
+            if (due.size() < SCAN_BATCH) {
+                break;
             }
         }
-        queue(null, workspaceId, asking, firm, true, now.truncatedTo(ChronoUnit.MICROS), null);
+        queue(null, workspaceId, asking, renewing, firm, now.truncatedTo(ChronoUnit.MICROS), null);
         return asking.size();
     }
 
@@ -255,7 +281,8 @@ public class PersonConsentService {
      * must not reach anyone, and a refused one is undone there.
      */
     private void queue(UUID senderId, UUID workspaceId, Map<Person, Set<ConsentPurpose>> asking,
-                       CandidatePrivacySettings firm, boolean renewal, Instant now, HttpServletRequest httpRequest) {
+                       Map<UUID, PersonConsent> renewals, CandidatePrivacySettings firm, Instant now,
+                       HttpServletRequest httpRequest) {
         if (asking.isEmpty()) {
             return;
         }
@@ -263,19 +290,24 @@ public class PersonConsentService {
                 asking.keySet().stream().map(Person::getId).toList(), PrivacyLinkPurpose.CONSENT, senderId, now,
                 REQUEST_LIFETIME);
         Instant expiresAt = now.plus(REQUEST_LIFETIME);
+        int months = firm.keepOnFileMonths();
         List<QueuedConsentRequest> queued = new ArrayList<>(asking.size());
         asking.forEach((person, purposes) -> {
             MintedPrivacyLink link = links.get(person.getId());
             List<ConsentPriorState> priors = new ArrayList<>();
             List<String> asks = new ArrayList<>();
-            PersonConsent renewing = renewal ? keptOnFile(person.getId()) : null;
+            PersonConsent renewing = renewals.get(person.getId());
+            boolean renewal = renewing != null;
             for (ConsentPurpose purpose : purposes) {
-                String sentence = renewing != null
-                        ? ConsentWording.renewalSentenceOf(renewing.answeredAt(), renewedUntil(renewing, firm))
-                        : ConsentWording.sentenceOf(purpose, firm.keepOnFileMonths(), null, null);
-                asks.add(ConsentWording.askingOf(purpose, firm.keepOnFileMonths(), null, null));
+                Integer promisedMonths = purpose == ConsentPurpose.KEEP_ON_FILE ? months : null;
+                String sentence = renewal
+                        ? ConsentWording.renewalSentenceOf(renewing.answeredAt(), renewedUntil(renewing, months))
+                        : ConsentWording.sentenceOf(purpose, months, null, null);
+                if (!renewal) {
+                    asks.add(ConsentWording.askingOf(purpose, months, null, null));
+                }
                 priors.add(consents.openRequest(workspaceId, person.getId(), purpose, null, senderId, link.id(), now,
-                        expiresAt, false, ConsentWording.VERSION, sentence));
+                        expiresAt, false, ConsentWording.VERSION, sentence, promisedMonths));
             }
             Instant previouslyNotifiedAt = person.getPrivacyNotifiedAt();
             PrivacyNoticeChannel previousChannel = person.getPrivacyNoticeChannel();
@@ -290,10 +322,10 @@ public class PersonConsentService {
                     .record();
             String recipient = person.emailContacts().getFirst().getValue();
             String pageLink = baseUrl + "/privacy/" + link.token();
-            EmailMessage email = renewing != null
+            EmailMessage email = renewal
                     ? templates.buildConsentRenewalEmail(recipient, person.getFullName(), firm.controllerName(),
                             firm.privacyContactEmail(), ConsentWording.dayOf(renewing.answeredAt()),
-                            ConsentWording.dayOf(renewing.validUntil()), firm.keepOnFileMonths(), pageLink,
+                            ConsentWording.dayOf(renewing.validUntil()), months, pageLink,
                             firm.noticeUrl(), ConsentWording.dayOf(expiresAt))
                     : templates.buildConsentRequestEmail(recipient, person.getFullName(), firm.controllerName(),
                             firm.privacyContactEmail(), PrivacyNoticeWording.sourceOf(person.getSource()), asks,
@@ -304,29 +336,28 @@ public class PersonConsentService {
         events.publishEvent(new ConsentRequestsQueued(workspaceId, senderId, List.copyOf(queued)));
     }
 
-    /** The keep-on-file consent a renewal asks about; the scan only names people who hold one. */
-    private PersonConsent keptOnFile(UUID personId) {
-        return consents.consentsOf(personId).stream()
-                .filter(consent -> consent.purpose() == ConsentPurpose.KEEP_ON_FILE && consent.projectId() == null
-                        && consent.validUntil() != null && consent.answeredAt() != null)
-                .findFirst().orElse(null);
-    }
-
     /** A renewal extends from the day the consent ends, so answering early loses nothing. */
-    static Instant renewedUntil(PersonConsent consent, CandidatePrivacySettings firm) {
-        return consent.validUntil().atZone(ZoneOffset.UTC).plusMonths(firm.keepOnFileMonths()).toInstant();
+    static Instant renewedUntil(PersonConsent consent, int months) {
+        return consent.validUntil().atZone(ZoneOffset.UTC).plusMonths(months).toInstant();
     }
 
     /**
-     * Fills {@code askable} with the purposes still worth asking: not already given beyond the renewal window, and not
-     * asked within the last 14 days. Answers why nothing is, or null.
+     * Fills {@code askable} with the purposes still worth asking: not already given beyond the renewal window, not
+     * asked within the last 14 days, and not declined or withdrawn within them. Answers why nothing is, or null.
      */
     private ConsentRequestSkipReason skipReasonOf(Person person, Set<UUID> suppressed, List<PersonConsent> held,
                                                   Set<ConsentPurpose> asked, CandidatePrivacySettings firm,
                                                   Instant now, Set<ConsentPurpose> askable) {
         PrivacyNoticeSkipReason unreachable = PrivacyEmailBudget.unreachableReasonOf(person, suppressed);
         if (unreachable != null) {
-            return ConsentRequestSkipReason.valueOf(unreachable.name());
+            return switch (unreachable) {
+                case NO_EMAIL -> ConsentRequestSkipReason.NO_EMAIL;
+                case DO_NOT_CONTACT -> ConsentRequestSkipReason.DO_NOT_CONTACT;
+                case PROCESSING_RESTRICTED -> ConsentRequestSkipReason.PROCESSING_RESTRICTED;
+                case SUPPRESSED -> ConsentRequestSkipReason.SUPPRESSED;
+                case RECENTLY_NOTIFIED, DAILY_CAP ->
+                        throw new IllegalStateException("Not a reason no email may reach someone: " + unreachable);
+            };
         }
         Instant renewalWindowEnd = now.plus(Duration.ofDays(firm.renewalDaysBefore()));
         boolean anyRecentlyAsked = false;
@@ -338,8 +369,7 @@ public class PersonConsentService {
                     && (consent.validUntil() == null || consent.validUntil().isAfter(renewalWindowEnd))) {
                 continue;
             }
-            if (consent != null && consent.isOpenAt(now) && consent.requestedAt() != null
-                    && consent.requestedAt().isAfter(now.minus(RECENTLY))) {
+            if (consent != null && consent.wasAskedOrRefusedSince(now.minus(RECENTLY))) {
                 anyRecentlyAsked = true;
                 continue;
             }

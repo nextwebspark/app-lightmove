@@ -1,5 +1,6 @@
 package app.lightmove.api.retention.service;
 
+import app.lightmove.api.candidate.constant.PersonActivityKind;
 import app.lightmove.api.candidate.service.PersonErasureService;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.constant.WorkspaceEventType;
@@ -18,6 +19,7 @@ import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -36,10 +38,14 @@ import org.springframework.transaction.annotation.Transactional;
 public class CandidateRetentionService {
 
     private static final String KEPT_KIND = "RETENTION_KEPT";
+    /** Asking for consent is not a touch: a request nobody answers must not keep someone past their period. */
+    private static final List<String> CONSENT_KINDS = Arrays.stream(PersonActivityKind.values())
+            .map(Enum::name).filter(kind -> kind.startsWith("CONSENT_")).toList();
     public static final int MAX_PAGE = 500;
 
     /**
-     * Over {@code p}, the person, bound to {@code :workspaceId} and {@code :cutoff}. Each touch is its own range test
+     * Over {@code p}, the person, bound to {@code :workspaceId}, {@code :cutoff}, {@code :now} and
+     * {@code :consentKinds}. Each touch is its own range test
      * rather than one {@code greatest(…)}, so the latest line is an index probe and only the due are read further.
      */
     private static final String DUE_WHERE = """
@@ -49,11 +55,10 @@ public class CandidateRetentionService {
               AND (p.retention_kept_at IS NULL OR p.retention_kept_at < :cutoff)
               AND NOT EXISTS (
                   SELECT 1 FROM app_lm_person_activity a WHERE a.person_id = p.id AND a.occurred_at >= :cutoff
-                     AND a.kind NOT IN ('CONSENT_REQUESTED', 'CONSENT_REQUEST_FAILED', 'CONSENT_ANSWERED',
-                                        'CONSENT_EXPIRED'))
+                     AND a.kind NOT IN (:consentKinds))
               AND NOT EXISTS (
                   SELECT 1 FROM app_lm_person_consent k WHERE k.person_id = p.id AND k.purpose = 'KEEP_ON_FILE'
-                     AND k.status = 'GIVEN' AND k.valid_until > now())
+                     AND k.status = 'GIVEN' AND k.valid_until > :now)
               AND NOT EXISTS (
                   SELECT 1 FROM app_lm_project_candidate c JOIN app_lm_project pr ON pr.id = c.project_id
                   WHERE c.person_id = p.id AND pr.archived_at IS NULL)
@@ -214,8 +219,10 @@ public class CandidateRetentionService {
         return clock.instant().atZone(ZoneOffset.UTC).minusMonths(months).toInstant();
     }
 
-    private static MapSqlParameterSource dueParameters(UUID workspaceId, Instant cutoff) {
-        return new MapSqlParameterSource("workspaceId", workspaceId).addValue("cutoff", Timestamp.from(cutoff));
+    private MapSqlParameterSource dueParameters(UUID workspaceId, Instant cutoff) {
+        return new MapSqlParameterSource("workspaceId", workspaceId).addValue("cutoff", Timestamp.from(cutoff))
+                .addValue("now", Timestamp.from(clock.instant()))
+                .addValue("consentKinds", CONSENT_KINDS);
     }
 
     /** A workspace's own choice; null months is never. */

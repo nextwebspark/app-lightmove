@@ -173,6 +173,11 @@ class PersonConsentIntegrationTest extends FlowTestSupport {
                 .contains("Manage your consents");
         assertThat(page.at("/consents/0/wording").asText() + page.at("/consents/1/wording").asText())
                 .contains("We would keep your details for 24 months");
+        JsonNode reopened = body(mvc.perform(get("/api/v1/privacy/links/" + token)).andExpect(status().isOk())
+                .andReturn());
+        assertThat(reopened.at("/consents/0/open").asBoolean()).isFalse();
+        assertThat(answerOn(reopened, "keep_on_file")).as("a reopened link says what was answered").isEqualTo("given");
+        assertThat(answerOn(reopened, "marketing")).isEqualTo("declined");
         String manage = tokenOf(confirmation);
         JsonNode managed = body(mvc.perform(get("/api/v1/privacy/links/" + manage)).andExpect(status().isOk())
                 .andReturn());
@@ -191,6 +196,109 @@ class PersonConsentIntegrationTest extends FlowTestSupport {
         assertThat(body(call(get("/api/v1/candidates?view=consent_refused"), null).andReturn())
                 .at("/viewCounts/consentRefused").asInt()).isEqualTo(1);
         assertThat(kinds()).contains("CONSENT_ANSWERED");
+    }
+
+    @Test
+    @DisplayName("a consent with no end date keeps its withdraw link past the longest dated one")
+    void manageLinkOutlastsAnUndatedConsent() throws Exception {
+        call(put("/api/v1/workspace/candidate-privacy"), CONSENT_MODE).andExpect(status().isOk());
+        ask(person, "keep_on_file", "marketing").andExpect(status().isOk());
+        String token = tokenOf(emailTo("noor@example.com"));
+        JsonNode page = body(mvc.perform(get("/api/v1/privacy/links/" + token)).andReturn());
+
+        answer(token, consentIdOf(page, "keep_on_file"), "given", consentIdOf(page, "marketing"), "given")
+                .andExpect(status().isNoContent());
+        Awaitility.await().atMost(Duration.ofSeconds(10)).until(() -> email.sent().stream()
+                .anyMatch(message -> message.subject().startsWith("Your answers")));
+        assertThat(db.queryForObject("select expires_at > now() + interval '35 months' from app_lm_person_privacy_link"
+                + " where person_id = ?::uuid and purpose = 'MANAGE'", Boolean.class, UUID.fromString(person)))
+                .as("market updates last until withdrawn, so 24 months of keeping them on file is not enough")
+                .isTrue();
+    }
+
+    @Test
+    @DisplayName("a yes lasts as long as the request said, whatever the settings say by the time it is answered")
+    void aYesLastsWhatTheRequestSaid() throws Exception {
+        call(put("/api/v1/workspace/candidate-privacy"), CONSENT_MODE).andExpect(status().isOk());
+        ask(person, "keep_on_file").andExpect(status().isOk());
+        String token = tokenOf(emailTo("noor@example.com"));
+        call(put("/api/v1/workspace/candidate-privacy"), CONSENT_MODE.replace("\"keepOnFileMonths\":24",
+                "\"keepOnFileMonths\":12")).andExpect(status().isOk());
+
+        JsonNode page = body(mvc.perform(get("/api/v1/privacy/links/" + token)).andReturn());
+        assertThat(page.at("/consents/0/keepOnFileMonths").asInt()).isEqualTo(24);
+        answer(token, consentIdOf(page, "keep_on_file"), "given", null, null).andExpect(status().isNoContent());
+        assertThat(db.queryForObject("select valid_until > now() + interval '23 months' from app_lm_person_consent"
+                + " where person_id = ?::uuid", Boolean.class, UUID.fromString(person))).isTrue();
+    }
+
+    @Test
+    @DisplayName("asking again never rewrites what a given consent agreed to, refused or declined")
+    void askingAgainKeepsTheWordsAgreedTo() throws Exception {
+        call(put("/api/v1/workspace/candidate-privacy"), CONSENT_MODE).andExpect(status().isOk());
+        ask(person, "keep_on_file").andExpect(status().isOk());
+        String token = tokenOf(emailTo("noor@example.com"));
+        String keep = consentIdOf(body(mvc.perform(get("/api/v1/privacy/links/" + token)).andReturn()),
+                "keep_on_file");
+        answer(token, keep, "given", null, null).andExpect(status().isNoContent());
+        String agreedTo = wordingOf(keep);
+        assertThat(agreedTo).contains("We would keep your details for 24 months");
+        db.update("update app_lm_person_consent set valid_until = now() + interval '10 days' where id = ?::uuid",
+                UUID.fromString(keep));
+
+        email.clear();
+        email.refuseDeliveryTo("noor@example.com");
+        scanner.scanAt(Instant.now());
+        Awaitility.await().atMost(Duration.ofSeconds(10))
+                .untilAsserted(() -> assertThat(kinds()).contains("CONSENT_REQUEST_FAILED"));
+        assertThat(wordingOf(keep)).isEqualTo(agreedTo);
+        assertThat(db.queryForObject("select request_wording from app_lm_person_consent where id = ?::uuid",
+                String.class, UUID.fromString(keep))).as("the refused renewal's question is put back")
+                .contains("We would keep your details for 24 months");
+
+        email.clear();
+        scanner.scanAt(Instant.now());
+        String renewal = tokenOf(emailTo("noor@example.com"));
+        assertThat(wordingOf(keep)).as("a renewal waiting leaves the consent's own words").isEqualTo(agreedTo);
+        answer(renewal, keep, "declined", null, null).andExpect(status().isNoContent());
+        assertThat(wordingOf(keep)).as("a no to the renewal leaves them too").isEqualTo(agreedTo);
+        assertThat(db.queryForObject("select wording from app_lm_person_consent_event where consent_id = ?::uuid"
+                + " and action = 'ANSWERED' and status = 'DECLINED'", String.class, UUID.fromString(keep)))
+                .as("the history keeps the renewal question that was declined").startsWith("You agreed on ");
+    }
+
+    @Test
+    @DisplayName("an answer recorded by hand after a request is renewed like any other")
+    void recordedAfterARequestIsRenewed() throws Exception {
+        call(put("/api/v1/workspace/candidate-privacy"), CONSENT_MODE).andExpect(status().isOk());
+        ask(person, "keep_on_file").andExpect(status().isOk());
+        emailTo("noor@example.com");
+        call(post("/api/v1/candidates/" + person + "/consents/recorded"), """
+                {"purpose":"keep_on_file","answer":"given","answeredOn":"%s"}""".formatted(
+                java.time.LocalDate.now(java.time.ZoneOffset.UTC).minusDays(1)))
+                .andExpect(status().isOk());
+        db.update("update app_lm_person_consent set valid_until = now() + interval '10 days' where person_id = ?::uuid",
+                UUID.fromString(person));
+
+        email.clear();
+        scanner.scanAt(Instant.now());
+        assertThat(emailTo("noor@example.com").subject()).startsWith("Your consent to keep your details ends on");
+    }
+
+    @Test
+    @DisplayName("someone who just said no is not asked again within 14 days")
+    void aNoIsNotAskedAgainAtOnce() throws Exception {
+        call(put("/api/v1/workspace/candidate-privacy"), CONSENT_MODE).andExpect(status().isOk());
+        ask(person, "marketing").andExpect(status().isOk());
+        String token = tokenOf(emailTo("noor@example.com"));
+        answer(token, consentIdOf(body(mvc.perform(get("/api/v1/privacy/links/" + token)).andReturn()), "marketing"),
+                "declined", null, null).andExpect(status().isNoContent());
+
+        assertThat(codeOf(ask(person, "marketing").andExpect(status().isConflict()).andReturn()))
+                .isEqualTo("CONSENT_RECENTLY_REQUESTED");
+        db.update("update app_lm_person_consent set requested_at = now() - interval '20 days',"
+                + " answered_at = now() - interval '15 days' where person_id = ?::uuid", UUID.fromString(person));
+        ask(person, "marketing").andExpect(status().isOk());
     }
 
     @Test
@@ -406,6 +514,20 @@ class PersonConsentIntegrationTest extends FlowTestSupport {
         return mvc.perform(post("/api/v1/privacy/links/" + token + "/consents")
                 .contentType(MediaType.APPLICATION_JSON).content("""
                         {"answers":[{"consentId":"%s","answer":"%s"}%s]}""".formatted(firstId, firstAnswer, second)));
+    }
+
+    private String wordingOf(String consentId) {
+        return db.queryForObject("select wording from app_lm_person_consent where id = ?::uuid", String.class,
+                UUID.fromString(consentId));
+    }
+
+    private static String answerOn(JsonNode page, String purpose) {
+        for (JsonNode consent : page.get("consents")) {
+            if (consent.get("purpose").asText().equals(purpose)) {
+                return consent.get("answer").asText();
+            }
+        }
+        throw new AssertionError("no " + purpose + " on the page");
     }
 
     private static String consentIdOf(JsonNode page, String purpose) {

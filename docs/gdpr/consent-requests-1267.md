@@ -25,30 +25,35 @@ Each is a row of [governance-decisions.md](governance-decisions.md) (B7–B11) f
 | Piece | What |
 |---|---|
 | `app_lm_workspace_candidate_privacy` | `privacy_mode` `NOTICES \| CONSENT`; the purposes offered (`consent_keep_on_file`, `consent_share_with_client`, `consent_marketing`); `keep_on_file_months` 12, 24 or 36; `consent_renewal_days` 0–90 (0 never asks again) |
-| `app_lm_person_consent` | where each purpose stands: `REQUESTED`, `GIVEN`, `DECLINED`, `WITHDRAWN`, `EXPIRED`. No row is never asked. `request_expires_at` is set while a request is open; on a `GIVEN` row it is a renewal waiting. `wording` and `wording_version` keep the sentence answered |
+| `app_lm_person_consent` | where each purpose stands: `REQUESTED`, `GIVEN`, `DECLINED`, `WITHDRAWN`, `EXPIRED`. No row is never asked. `request_expires_at` is set while a request is open; on a `GIVEN` row it is a renewal waiting. `wording` and `wording_version` keep the sentence last answered; the open request's own sentence and terms (`request_wording`, `request_wording_version`, `request_client_named`, `request_months`) wait beside them and are copied across only by an answer, so asking again never rewrites the proof of a consent given |
 | `app_lm_person_consent_event` | append-only: each `REQUESTED`, `ANSWERED`, `RECORDED` (by hand) and `EXPIRED`, with who acted (`STAFF`, `PAGE`, `BY_HAND`, `SYSTEM`) and the sentence shown |
-| `app_lm_person_privacy_link` | gains `CONSENT` (a request's page, 30 days) and `MANAGE` (a confirmation's link to withdraw, as long as the longest consent in force, else 36 months) |
+| `app_lm_person_privacy_link` | gains `CONSENT` (a request's page, 30 days) and `MANAGE` (a confirmation's link to withdraw, as long as the longest consent in force; one with no end date, like market updates, counts as 36 months from the answer) |
 
 ## How it works
 
 - **Asking** (`PersonConsentService`): one person or a selection of up to 500, for keep on file and marketing (a share
   is asked from its position, phase 3). The firm must be in consent mode with its details set. A person is skipped
   when no privacy email may reach them (no email, do not contact, restricted, suppressed), when everything asked is
-  already given beyond the renewal window (`already_given`), or when it was asked in the last 14 days
-  (`recently_asked`). Requests and privacy notices share one daily budget and one lock (`PrivacyEmailBudget`).
+  already given beyond the renewal window (`already_given`), or when it was asked, or declined or withdrawn, in the
+  last 14 days (`recently_asked`) — whether or not that request is still open. Requests and privacy notices share one daily budget and one lock (`PrivacyEmailBudget`).
   The email carries the notice's facts, so it marks the person told (`PRIVACY_EMAIL`).
 - **A refused send** is undone by `ConsentRequestMailer`: a purpose the request created is deleted, any other put back
-  as it stood, the person no longer marked told, `CONSENT_REQUEST_FAILED` on the timeline and a failed audit event.
+  as it stood (only while the row is still that request's: an answer recorded by hand or a newer request since stands), the person no longer marked told, `CONSENT_REQUEST_FAILED` on the timeline and a failed audit event.
 - **Answering** (`PrivacyPageService.answer`): on a `CONSENT` link, `given` or `declined` while the request is open; on
-  a `MANAGE` link, `withdrawn`. Answering twice changes nothing. A keep-on-file consent lasts the firm's months from
-  the answer; a yes to a renewal extends it from the day it would have ended, and a no leaves it to run to that day.
+  a `MANAGE` link, `withdrawn`. Answering twice changes nothing. A keep-on-file consent lasts the months the request
+  promised (`request_months`, set when it was sent), never the settings at the time of answering; a yes to a renewal extends it from the day it would have ended, and a no leaves it to run to that day.
   Every answer is confirmed by email, listing what was answered; while anything agreed to is in force the email
-  carries a `MANAGE` link. Whoever asked, else the owner, gets a
-  `CONSENT_ANSWERED` bell (under the replies preference).
-- **By hand**: a colleague records an answer given another way, with its day (today or earlier).
+  carries a `MANAGE` link. A no to a renewal is confirmed as "Not renewed, ends on …". Whoever asked, else the owner,
+  else whoever sent the link — the first still on the staff — gets a `CONSENT_ANSWERED` bell (under the replies
+  preference). A reopened request link shows what was answered on it, read from the history.
+- **By hand**: a colleague records an answer given another way, with its day (today or earlier, a day's slack for a
+  browser ahead of UTC). It clears the request's `requested_at`, so a day before the request still leaves the
+  consent due for renewal.
 - **The daily scan** (`ConsentExpiryScanner`, `lightmove.data-protection.consent-scan`, 03:20 UTC): requests past their
   date close (`EXPIRED`, or a renewal simply closes on a still-given consent); consents past `valid_until` become
-  `EXPIRED`; keep-on-file consents ending within `consent_renewal_days` are asked once more, within the day's budget.
+  `EXPIRED` (in batches of 500, up to 10,000 a run); keep-on-file consents ending within `consent_renewal_days` are
+  asked once more, within the day's budget, paging past the people no email may reach so they never hold back the
+  rest.
 - **Retention**: a keep-on-file consent in force holds the person out of the review list, and consent lines on the
   timeline never reset its clock, so asking someone does not keep them.
 - **Quick views**: `consent_asked` (an open request), `consent_ending` (ends within 30 days), `consent_refused`
@@ -83,10 +88,11 @@ them; a change is made in both.
   Ask for consent and Record an answer, also in the ⋯ menu. The selection bar's Ask for consent; the quick views
   Asked, no answer · Consent ending in 30 days · Declined or withdrawn.
 - **Dialogs** (`features/candidates/components/consent/`): `RequestConsentDialog` (one person, purposes already given
-  or asked in the last 14 days locked; a selection answers who it skipped and why after it sends) with the email
+  or asked, declined or withdrawn in the last 14 days locked; a selection answers who it skipped and why after it sends) with the email
   previewed word for word; `RecordConsentDialog`.
 - **The public page** (`PrivacyLinkPage` → `ConsentAnswers`): a request asks Yes or No per purpose with nothing
-  selected; a renewal asks once; answered lists what was said; a closed request says nothing changed. A manage link
+  selected; a renewal asks once; answered lists what was said, on a reopened link too; a closed request says that
+  anything unanswered changed nothing. A manage link
   lists what is in force, each withdrawn after one confirmation.
 - The bell names `consent_answered` as "answered your consent request".
 

@@ -53,6 +53,8 @@ export interface PrivacyPageConsent {
   answeredAt: string | null;
   /** How long a yes to keeping their details lasts; null for the other purposes. */
   keepOnFileMonths: number | null;
+  /** What was answered on this request's link, so a reopened link shows it; null while unanswered. */
+  answer: "given" | "declined" | null;
   roleTitle: string | null;
   clientName: string | null;
 }
