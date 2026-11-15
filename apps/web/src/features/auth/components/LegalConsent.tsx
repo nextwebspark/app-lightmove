@@ -1,20 +1,34 @@
-import { cn } from "../../../lib/cn";
+import { ConsentCheckbox } from "../../../components/ui";
 import { PRIVACY_URL, TERMS_URL } from "../../../lib/links";
 
-export function LegalConsent({ className }: { className?: string }) {
+/**
+ * The terms tick (#928): unticked, on the password signup, the invited signup, a first provider sign-in and the
+ * re-acceptance sheet alike, so the account's recorded acceptance is always something the person did.
+ */
+export function LegalConsent({
+  checked,
+  onChange,
+  error,
+  className,
+}: {
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  error?: string;
+  className?: string;
+}) {
   return (
-    <p className={cn("text-meta leading-relaxed text-u-text3", className)}>
-      By continuing you agree to the{" "}
+    <ConsentCheckbox checked={checked} onChange={onChange} error={error} className={className}>
+      I agree to the{" "}
       <a href={TERMS_URL} target="_blank" rel="noopener noreferrer" className="text-u-accent hover:underline">
         Terms
         <span className="sr-only"> (opens in a new tab)</span>
       </a>{" "}
-      and{" "}
+      and the{" "}
       <a href={PRIVACY_URL} target="_blank" rel="noopener noreferrer" className="text-u-accent hover:underline">
         Privacy Policy
         <span className="sr-only"> (opens in a new tab)</span>
       </a>
       .
-    </p>
+    </ConsentCheckbox>
   );
 }

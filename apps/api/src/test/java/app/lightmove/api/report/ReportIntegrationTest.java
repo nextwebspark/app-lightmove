@@ -211,7 +211,7 @@ class ReportIntegrationTest extends FlowTestSupport {
         String rep = body(mvc.perform(post("/api/v1/onboarding/accept-invitation-signup")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"token":"%s","fullName":"Ext Rep","password":"%s"}
+                                {"token":"%s","fullName":"Ext Rep","password":"%s","termsAccepted":true}
                                 """.formatted(email.latestTokenFor(repEmail), PASSWORD)))
                 .andExpect(status().isCreated())
                 .andReturn()).get("accessToken").asText();

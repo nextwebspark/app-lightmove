@@ -39,6 +39,9 @@ import org.hibernate.type.SqlTypes;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Workspace extends BaseEntity {
 
+    public static final int DEFAULT_RECENTLY_APPROACHED_DAYS = 90;
+    public static final int MAX_RECENTLY_APPROACHED_DAYS = 365;
+
     @Setter
     @Column(nullable = false, length = 160)
     private String name;
@@ -76,6 +79,10 @@ public class Workspace extends BaseEntity {
 
     @Column(name = "ai_enrich_automatically", nullable = false)
     private boolean aiEnrichAutomatically;
+
+    /** How far back a teammate's approach warns before outreach (V222); 0 turns the warning off. */
+    @Column(name = "recently_approached_days", nullable = false)
+    private int recentlyApproachedDays = DEFAULT_RECENTLY_APPROACHED_DAYS;
 
     /** The universe row this firm was picked as at signup; null for a firm typed in by hand (V68). */
     @Column(name = "apollo_account_id")
@@ -156,6 +163,16 @@ public class Workspace extends BaseEntity {
     @Column(name = "purged_at", insertable = false, updatable = false)
     private Instant purgedAt;
 
+    /** The data processing agreement the founder accepted for the firm (#928); null where none was asked. */
+    @Column(name = "dpa_accepted_at", updatable = false)
+    private Instant dpaAcceptedAt;
+
+    @Column(name = "dpa_version", updatable = false, length = 32)
+    private String dpaVersion;
+
+    @Column(name = "dpa_accepted_by", updatable = false)
+    private UUID dpaAcceptedBy;
+
     public static Workspace create(String name, String slug, String emailDomain, UUID createdBy,
                                    WorkspaceMode mode, WorkspaceCompany company) {
         Workspace workspace = new Workspace();
@@ -169,6 +186,13 @@ public class Workspace extends BaseEntity {
         workspace.persona = HiringPersona.seededFrom(seedOf(company));
         workspace.defaultCurrency = Currencies.startingCurrencyFor(company == null ? null : company.country());
         return workspace;
+    }
+
+    /** Only as the workspace is founded: a new version of the agreement asks the workspaces created after it. */
+    public void recordDpaAcceptance(String version, UUID acceptedBy, Instant acceptedAt) {
+        this.dpaVersion = Objects.requireNonNull(version, "version");
+        this.dpaAcceptedBy = acceptedBy;
+        this.dpaAcceptedAt = acceptedAt;
     }
 
     /** Never the slug (in URLs) or the email domain: a workspace can be re-described, not re-identified. */
@@ -200,6 +224,14 @@ public class Workspace extends BaseEntity {
         this.aiInferNationality = controls.inferNationality();
         this.aiDraftAssessments = controls.draftAssessments();
         this.aiEnrichAutomatically = controls.enrichAutomatically();
+    }
+
+    /** The one write of the recently approached window, so every change passes the audited path that calls it. */
+    public void changeRecentlyApproachedDays(int days) {
+        if (days < 0 || days > MAX_RECENTLY_APPROACHED_DAYS) {
+            throw new IllegalArgumentException("recentlyApproachedDays out of range");
+        }
+        this.recentlyApproachedDays = days;
     }
 
     /** The one write of the date and time settings, so every change passes the audited path that calls it. */

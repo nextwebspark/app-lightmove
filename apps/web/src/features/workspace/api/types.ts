@@ -23,6 +23,8 @@ export interface WorkspaceDetail {
   dateTime: WorkspaceDateTime;
   /** How long a deleted workspace is kept before everything is purged. */
   deletionGraceDays: number;
+  /** How many days back a teammate's approach warns before outreach; 0 is off. */
+  recentlyApproachedDays: number;
 }
 
 /** Settings → General's Date & time: each null where the admin chose nothing, beside what that reads as. */

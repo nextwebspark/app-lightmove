@@ -210,7 +210,7 @@ public interface CandidateRepository extends JpaRepository<Candidate, UUID>, Jpa
 
     /** {@link #findPositionsOfPerson} for a page of people at once, the person loaded with each row. */
     @Query("""
-            select c from Candidate c join fetch c.person p
+            select c from Candidate c join fetch c.person p join fetch c.status s join fetch s.stage
             where p.id in :personIds and p.workspaceId = :workspaceId
             order by c.createdAt
             """)

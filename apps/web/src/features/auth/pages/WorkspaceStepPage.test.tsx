@@ -13,6 +13,7 @@ vi.mock("../api/authApi", async (importOriginal) => ({
   createWorkspace: vi.fn(),
   updateWorkspace: vi.fn(),
   searchOnboardingCompanies: vi.fn(),
+  workspaceLegal: vi.fn(),
 }));
 
 const reload = vi.fn();
@@ -47,6 +48,58 @@ beforeEach(() => {
   currentUser = { workspace: null };
   vi.mocked(authApi.searchOnboardingCompanies).mockResolvedValue([alFuttaim]);
   vi.mocked(authApi.createWorkspace).mockResolvedValue({} as User);
+  vi.mocked(authApi.workspaceLegal).mockResolvedValue({ dpaVersion: null, dpaUrl: null });
+});
+
+describe("WorkspaceStepPage — the data processing agreement (#928)", () => {
+  it("asks a founder to accept the agreement the deployment names, and sends the tick", async () => {
+    vi.mocked(authApi.workspaceLegal).mockResolvedValue({ dpaVersion: "2026-11-01", dpaUrl: "https://uncava.com/dpa" });
+    vi.mocked(authApi.searchOnboardingCompanies).mockResolvedValue([]);
+    const user = userEvent.setup();
+    renderPage();
+
+    const agreement = await screen.findByRole("checkbox", { name: /Data Processing Agreement/ });
+    expect(screen.getByRole("link", { name: /Data Processing Agreement/ })).toHaveAttribute("href", "https://uncava.com/dpa");
+    await user.click(screen.getByRole("radio", { name: /In-house talent team/ }));
+    await user.type(screen.getByPlaceholderText("e.g. Meridian Search Partners"), "Nimbus Partners");
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+
+    expect(await screen.findByText("Tick the box to accept the Data Processing Agreement.")).toBeInTheDocument();
+    expect(authApi.createWorkspace).not.toHaveBeenCalled();
+
+    await user.click(agreement);
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+
+    await waitFor(() =>
+      expect(authApi.createWorkspace).toHaveBeenCalledWith(expect.objectContaining({ dpaAccepted: true })),
+    );
+  });
+
+  it("holds the founding submit when the agreement's details fail to load, and recovers on a retry", async () => {
+    vi.mocked(authApi.workspaceLegal)
+      .mockRejectedValueOnce(new TypeError("Failed to fetch"))
+      .mockResolvedValue({ dpaVersion: "2026-11-01", dpaUrl: "https://uncava.com/dpa" });
+    const user = userEvent.setup();
+    renderPage();
+
+    const retry = await screen.findByRole("button", { name: "Try again" });
+    expect(screen.getByRole("button", { name: "Continue" })).toBeDisabled();
+    expect(screen.queryByRole("checkbox", { name: /Data Processing Agreement/ })).not.toBeInTheDocument();
+
+    await user.click(retry);
+
+    expect(await screen.findByRole("checkbox", { name: /Data Processing Agreement/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Continue" })).toBeEnabled();
+    expect(screen.queryByRole("button", { name: "Try again" })).not.toBeInTheDocument();
+  });
+
+  it("asks nothing where the deployment names no agreement", async () => {
+    renderPage();
+
+    await waitFor(() => expect(authApi.workspaceLegal).toHaveBeenCalled());
+    expect(await screen.findByRole("button", { name: "Continue" })).toBeInTheDocument();
+    expect(screen.queryByRole("checkbox", { name: /Data Processing Agreement/ })).not.toBeInTheDocument();
+  });
 });
 
 describe("WorkspaceStepPage — the firm types its own name, and a market match is optional", () => {

@@ -35,7 +35,11 @@ Rows marked ☐ are open in #858; a PR that closes one ticks it and states the r
 | Signup full name | 1–160 | `@NotBlank @Size(160)`, trimmed | field |
 | Signup email | trimmed, email | normalised, `@Email @Size(255)`, work domain, MX | field |
 | Signup password | 8+, a digit, ≤ 72 bytes | same; bytes in `PasswordPolicy` | field |
-| Signup terms | — | `@AssertTrue` | banner (was swallowed) |
+| Signup terms | an unticked box, required | `@AssertTrue` | under the box |
+| Invite accept terms | an unticked box, required | `@NotNull @AssertTrue` | under the box |
+| Provider sign-in terms (`/signup/terms`) | an unticked box, required | `@NotNull @AssertTrue`; a spent, replaced or late hold `REGISTRATION_EXPIRED` | under the box, banner |
+| Updated terms sheet | an unticked box, required | the version shown must be the current one (`TERMS_VERSION_OUTDATED`) | under the box, banner |
+| Founding DPA | an unticked box, required only where the deployment names an agreement; never when editing | `dpaAccepted` true where `lightmove.legal.dpa-version` is set (`DPA_ACCEPTANCE_REQUIRED`) | under the box, banner |
 | ☐ Invite accept full name | 1–160, not trimmed | `@NotBlank @Size(160)` | banner |
 | ☐ Invite team rows | email per row, an address listed once, no cap | `List<@Valid InviteRequest>`, at most 50 a request; no role is MEMBER; a repeat is one invitation; every row checked before any is sent; seats (an invoiced workspace, `SEAT_LIMIT_REACHED`) before the hourly budget, so a batch refused for seats spends none; per hour, 100 addresses a workspace and 5 sends an address across workspaces (`RATE_LIMITED`) | row (client), banner, row unnamed (server) |
 | ☐ Invitation resend | — | the outstanding invitation only (`NOT_FOUND` once accepted or withdrawn, and the row re-reads); a lapsed one takes a seat again (`SEAT_LIMIT_REACHED`); the hourly budget; a refused email `INVITATION_EMAIL_NOT_SENT` | toast |
@@ -90,6 +94,7 @@ Rows marked ☐ are open in #858; a PR that closes one ticks it and states the r
 | A status's ⋯ → Mark out of process | disabled on its stage's default; asks first when anyone holds it or an automation points at it | never on a stage's default, nor a flagged status made default (`PIPELINE_DEFAULT_IN_PROCESS`) | toast |
 | Retiring a stage or status | asks first when anyone holds it or an automation points at it | a stage with live statuses needs `retireStatuses` (`PIPELINE_STAGE_NOT_EMPTY`); never the last live stage (`PIPELINE_STAGE_REQUIRED`), nor the last live status in process (`PIPELINE_STATUS_REQUIRED`) | toast |
 | Working hours (Meetings & email, Availability) | each day on or off, start and end from the half-hour picker (end may be 23:59), end after start, at least one day | each day once, on the half hour or ending 23:59, end after start, ≥ 1 day (`VALIDATION_FAILED` on `weeklyHours`) | inline + toast |
+| Recently approached window | whole number, 0 to 365 days | 0..365 (`VALIDATION_FAILED` on `days`) | inline + toast |
 | Daily email limit | whole number, 1 to the deployment's ceiling (workspace) or the workspace's (a consultant's) | 1..`max-daily-cap` for the workspace, 1..the workspace's for a consultant (`VALIDATION_FAILED` on `dailyEmailCap`) | inline + toast |
 | Own app client ID (Settings → Integrations) | 1–255, `[A-Za-z0-9._-]`; Google ends in `.apps.googleusercontent.com`, Microsoft a GUID | the same (`@Size(255) @Pattern`, then `WorkspaceIntegrationService`) | field |
 | Own app tenant (Microsoft) | required; a GUID or a domain with a dot — never `common`, `organizations` or `consumers` | the same | field |

@@ -118,7 +118,7 @@ post_json /invitations "$(jq -nc --arg e "$GHOST_EMAIL" '[{email:$e, role:"MEMBE
   -H "$(auth_header "$ADMIN_TOKEN")" >/dev/null
 post_json /onboarding/accept-invitation-signup \
   "$(jq -nc --arg t "$(token_for "$GHOST_EMAIL" accept-invite)" --arg p "$PASSWORD" \
-     '{token:$t, fullName:"Gil Ghost", password:$p}')" >/dev/null
+     '{token:$t, fullName:"Gil Ghost", password:$p, termsAccepted:true}')" >/dev/null
 GHOST_TOKEN=$(json '.accessToken')
 GHOST_MEMBER_ID=$(member_id_of "$GHOST_EMAIL")
 
@@ -178,7 +178,7 @@ post_json /invitations "$(jq -nc --arg e "$LEAD_EMAIL" '[{email:$e, role:"MEMBER
   -H "$(auth_header "$ADMIN_TOKEN")" >/dev/null
 post_json /onboarding/accept-invitation-signup \
   "$(jq -nc --arg t "$(token_for "$LEAD_EMAIL" accept-invite)" --arg p "$PASSWORD" \
-     '{token:$t, fullName:"Lee Lead", password:$p}')" >/dev/null
+     '{token:$t, fullName:"Lee Lead", password:$p, termsAccepted:true}')" >/dev/null
 LEAD_TOKEN=$(json '.accessToken')
 LEAD_MEMBER_ID=$(member_id_of "$LEAD_EMAIL")
 

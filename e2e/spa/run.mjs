@@ -69,6 +69,7 @@ async function signupThroughUi(page, address, name = "Spa Tester") {
   await page.getByPlaceholder("you@firm.com").fill(address);
   await page.getByPlaceholder("8+ characters").fill(PASSWORD);
   await page.getByPlaceholder("Re-enter your password").fill(PASSWORD);
+  await page.getByRole("checkbox", { name: /I agree to the Terms/ }).check();
   await page.getByRole("button", { name: "Continue", exact: true }).click();
 }
 
@@ -241,6 +242,7 @@ try {
   await mismatchPage.getByPlaceholder("you@firm.com").fill(email("mismatch"));
   await mismatchPage.getByPlaceholder("8+ characters").fill(PASSWORD);
   await mismatchPage.getByPlaceholder("Re-enter your password").fill("SomethingElse1");
+  await mismatchPage.getByRole("checkbox", { name: /I agree to the Terms/ }).check();
   await mismatchPage.getByRole("button", { name: "Continue", exact: true }).click();
   await mismatchPage.waitForTimeout(1500);
   check("S5.5", "a password mismatch is caught before the request leaves the browser",
@@ -252,6 +254,7 @@ try {
   await weakPage.getByPlaceholder("you@firm.com").fill(email("weak"));
   await weakPage.getByPlaceholder("8+ characters").fill("short");
   await weakPage.getByPlaceholder("Re-enter your password").fill("short");
+  await weakPage.getByRole("checkbox", { name: /I agree to the Terms/ }).check();
   await weakPage.getByRole("button", { name: "Continue", exact: true }).click();
   await weakPage.waitForTimeout(1500);
   check("S5.6", "a weak password is caught client-side too", `${WEB}/signup`, weakPage.url());

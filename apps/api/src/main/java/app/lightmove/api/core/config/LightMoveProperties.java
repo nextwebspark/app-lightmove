@@ -36,5 +36,11 @@ public record LightMoveProperties(
         RowLevelSecuritySettings rowLevelSecurity,
         AvatarSettings avatars,
         RetentionSettings retention,
-        DataProtectionSettings dataProtection
-) {}
+        DataProtectionSettings dataProtection,
+        LegalSettings legal
+) {
+
+    public LightMoveProperties {
+        legal = legal == null ? LegalSettings.none() : legal;
+    }
+}

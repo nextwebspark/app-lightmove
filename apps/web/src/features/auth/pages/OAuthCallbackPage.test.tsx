@@ -46,6 +46,8 @@ describe("OAuthCallbackPage", () => {
     locale: "en",
     platformActions: [],
     pendingInvitations: [],
+    termsUpdateRequired: false,
+    termsVersion: "2026-07-01",
   workspaces: [],
     workspace: null,
   };
@@ -118,6 +120,18 @@ describe("OAuthCallbackPage", () => {
 
     await waitFor(() =>
       expect(navigate).toHaveBeenCalledWith("/login/two-factor", { replace: true, state: undefined }),
+    );
+    expect(setAccessToken).not.toHaveBeenCalled();
+    expect(authApi.me).not.toHaveBeenCalled();
+  });
+
+  it("sends a first provider sign-in on to the terms step, adopting nothing: no account exists yet", async () => {
+    window.history.replaceState(null, "", "/auth/callback?challenge=terms");
+
+    renderPage();
+
+    await waitFor(() =>
+      expect(navigate).toHaveBeenCalledWith("/signup/terms", { replace: true, state: undefined }),
     );
     expect(setAccessToken).not.toHaveBeenCalled();
     expect(authApi.me).not.toHaveBeenCalled();
@@ -222,6 +236,26 @@ describe("OAuthCallbackPage", () => {
       await waitFor(() =>
         expect(postMessage).toHaveBeenCalledWith(
           expect.objectContaining({ outcome: { status: "secondFactor" } }),
+          window.location.origin,
+        ),
+      );
+      expect(navigate).not.toHaveBeenCalled();
+
+      vi.unstubAllGlobals();
+    });
+
+    it("reports a first sign-in waiting on the terms as its own outcome", async () => {
+      openAsPopup();
+      window.history.replaceState(null, "", "/auth/callback?challenge=terms");
+      const postMessage = vi.fn();
+      vi.stubGlobal("opener", { postMessage });
+      vi.spyOn(window, "close").mockImplementation(() => {});
+
+      renderPage();
+
+      await waitFor(() =>
+        expect(postMessage).toHaveBeenCalledWith(
+          expect.objectContaining({ outcome: { status: "termsRequired" } }),
           window.location.origin,
         ),
       );

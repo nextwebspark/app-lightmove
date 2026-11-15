@@ -4,6 +4,7 @@ import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.ratelimit.service.RateLimitGuard;
 import app.lightmove.api.core.security.avatar.UserAvatarService;
+import app.lightmove.api.core.security.dto.AcceptTermsRequest;
 import app.lightmove.api.core.security.dto.AuthResponse;
 import app.lightmove.api.core.security.dto.ChangePasswordRequest;
 import app.lightmove.api.core.security.dto.ForgotPasswordRequest;
@@ -29,6 +30,7 @@ import app.lightmove.api.core.security.model.SignupCommand;
 import app.lightmove.api.core.security.service.AuthenticationService;
 import app.lightmove.api.core.security.service.PasswordChangeService;
 import app.lightmove.api.core.security.service.PasswordResetService;
+import app.lightmove.api.core.security.service.TermsAcceptanceService;
 import app.lightmove.api.core.security.service.UserProfileService;
 import app.lightmove.api.core.security.service.VerificationService;
 import app.lightmove.api.core.security.token.RefreshCookieFactory;
@@ -72,6 +74,7 @@ public class AuthController {
     private final PasswordResetService passwordReset;
     private final PasswordChangeService passwordChange;
     private final UserProfileService userProfile;
+    private final TermsAcceptanceService termsAcceptance;
     private final UserAvatarService avatars;
     private final RefreshCookieFactory refreshCookie;
     private final RateLimitGuard rateLimit;
@@ -222,6 +225,15 @@ public class AuthController {
                         request.fullName(), request.title(), request.timezone(), request.dateFormat(),
                         request.timeFormat(), request.locale(), request.phone(), request.linkedinUrl()),
                 httpRequest);
+        return assembler.userIn(principal.userId(), principal.workspaceId());
+    }
+
+    /** The re-acceptance sheet's tick (#928): the version it showed must still be the current one. */
+    @PostMapping("/me/terms-acceptance")
+    public UserResponse acceptTerms(@AuthenticationPrincipal AuthPrincipal principal,
+                                    @Valid @RequestBody AcceptTermsRequest request,
+                                    HttpServletRequest httpRequest) {
+        termsAcceptance.accept(principal.userId(), request.version(), httpRequest);
         return assembler.userIn(principal.userId(), principal.workspaceId());
     }
 

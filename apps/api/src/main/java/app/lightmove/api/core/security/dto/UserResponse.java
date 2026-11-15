@@ -50,5 +50,11 @@ public record UserResponse(
         List<PendingInvitationSummary> pendingInvitations,
 
         /** What the user may do outside any workspace — empty for everyone but LightMove staff. */
-        List<PlatformAction> platformActions
+        List<PlatformAction> platformActions,
+
+        /** The terms and privacy policy changed since this person last accepted them: every screen waits for the tick. */
+        boolean termsUpdateRequired,
+
+        /** The version in force, which the re-acceptance sheet sends back so a tick names what was read. */
+        String termsVersion
 ) {}

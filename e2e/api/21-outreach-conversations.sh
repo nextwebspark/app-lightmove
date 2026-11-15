@@ -26,7 +26,7 @@ signup_verified() { # signup_verified EMAIL FULLNAME -> access token, verified, 
 accept_invite_signup() { # accept_invite_signup EMAIL FULLNAME
   post_json /onboarding/accept-invitation-signup \
     "$(jq -nc --arg t "$(token_for "$1" accept-invite)" --arg n "$2" --arg p "$PASSWORD" \
-       '{token:$t, fullName:$n, password:$p}')" >/dev/null
+       '{token:$t, fullName:$n, password:$p, termsAccepted:true}')" >/dev/null
 }
 
 # --- the cast -------------------------------------------------------------------

@@ -196,7 +196,8 @@ public class WorkspacePurge {
 
     /**
      * Ids stay — the audit trail and billing rows reference them — and every word that named the firm goes, but the
-     * name the certificate's email gives, kept beside its address only until that email is accepted.
+     * name the certificate's email gives, kept beside its address only until that email is accepted. The data
+     * processing agreement's acceptance stays too: it is the contract the firm's data was held under.
      */
     private void tombstone(UUID workspaceId, Instant purgedAt) {
         jdbc.update("""

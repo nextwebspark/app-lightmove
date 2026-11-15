@@ -16,7 +16,9 @@ workspace `CLIENT` role grants nothing; access is the project `CLIENT` seat, whi
 (read a mandate's content, never edit).
 
 **Built so far: auth, workspace management, projects, the RBAC layer, and the search layer.** Signup
-(4 steps), login, OAuth sign-in (Google and LinkedIn, run in a popup), invitations, the roster, **several
+(4 steps), login, OAuth sign-in (Google and LinkedIn, run in a popup; a first one creates the account only at the
+terms step, `/signup/terms`), the terms tick on every signup door with re-acceptance when they change and the DPA tick
+when founding a workspace (#928, `docs/gdpr/terms-acceptance-928.md`), invitations, the roster, **several
 workspaces per user** (V81: a staff member founds a further one from Settings → Workspaces through the
 wizard's organisation and invite steps in a modal, an invitation to a second workspace is accepted from
 the topbar menu or the emailed link, and the topbar menu switches — a session is in exactly one
@@ -229,7 +231,8 @@ access), **do not contact** (warns on every position and refuses a contact looku
 workspace's catalog (any staff member adds one, an admin renames, recolours or retires it in Settings →
 Candidate tags under `WORKSPACE_MANAGE`; a person holds the tag's id, so a rename reaches everyone, and a
 retired one stays where it is but is never put on anyone again). Each is a timeline line and an audit
-event, and none rides `CandidateResponse`. **Phase 4b-1**: a hand-typed add of someone the workspace holds by name alone at that employer is
+event, and none rides `CandidateResponse`. **Recently approached** (V222) warns before outreach that someone on the team already
+reached the person on any position, or that they are in process elsewhere (`docs/recently-approached.md`). **Phase 4b-1**: a hand-typed add of someone the workspace holds by name alone at that employer is
 asked first (`409 CANDIDATE_POSSIBLE_DUPLICATE` with `personIds`; the drawer resends with
 `existingPersonId` or `addAsNewPerson`), never on the plugin, import or run doors. A position has **no
 Candidates page of its own**: In universe lists its executives, Outreach works them, and the workspace

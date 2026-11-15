@@ -62,6 +62,8 @@ describe("TeamAccessPage", () => {
     locale: "en",
     platformActions: [],
     pendingInvitations: [],
+    termsUpdateRequired: false,
+    termsVersion: "2026-07-01",
   workspaces: [],
     workspace: {
       id: "w1",

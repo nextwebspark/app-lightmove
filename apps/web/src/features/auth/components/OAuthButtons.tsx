@@ -5,6 +5,7 @@ import { Button } from "../../../components/ui";
 import { GoogleMark } from "../../../components/ui/BrandMarks";
 import { useAuth } from "../AuthProvider";
 import * as authApi from "../api/authApi";
+import { PROVIDER_TERMS_PATH } from "../authPaths";
 import { messageForOAuthError } from "../oauthErrors";
 import { startOAuthSignIn } from "../oauthPopup";
 import { TWO_FACTOR_SIGN_IN_PATH } from "../pages/TwoFactorChallengePage";
@@ -18,6 +19,11 @@ const PROVIDER_MARKS: Record<string, { label: string; mark: (props: { size?: num
   google: { label: "Google", mark: GoogleMark },
   linkedin: { label: "LinkedIn", mark: LinkedInMark },
 };
+
+/** A provider's name as its button says it, for screens that name the sign-in after the fact. */
+export function providerLabel(id: string): string {
+  return PROVIDER_MARKS[id]?.label ?? titleCase(id);
+}
 
 export interface OAuthButtonsProps {
   /**
@@ -89,6 +95,11 @@ export function OAuthButtons({ onError, stayOnPage = false, returnTo: hostReturn
           // No session yet: the challenge cookie waits for the code, as after a password.
           const returnTo = hostReturnTo ?? takeReturnTo();
           navigate(TWO_FACTOR_SIGN_IN_PATH, { state: returnTo ? { from: returnTo } : undefined });
+        },
+        onTermsRequired: () => {
+          // No account yet: the terms step creates it, then lands where this sign-in was headed.
+          const returnTo = hostReturnTo ?? takeReturnTo();
+          navigate(PROVIDER_TERMS_PATH, { state: returnTo ? { from: returnTo } : undefined });
         },
         onError: (code) => {
           setPendingProviderId(null);

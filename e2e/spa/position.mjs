@@ -328,7 +328,7 @@ try {
     if (invited.status >= 300) throw new Error(`invite answered ${invited.status}`);
     const inviteToken = decodeURIComponent(linkFor(REP_EMAIL, "accept-invite").split("token=")[1]);
     const accepted = await api("/onboarding/accept-invitation-signup", {
-      method: "POST", body: { token: inviteToken, fullName: "Cleo Client", password: PASSWORD },
+      method: "POST", body: { token: inviteToken, fullName: "Cleo Client", password: PASSWORD, termsAccepted: true },
     });
     if (accepted.status >= 300) throw new Error(`accept answered ${accepted.status}`);
     const repToken = (await api("/auth/login", { method: "POST", body: { email: REP_EMAIL, password: PASSWORD } })).body.accessToken;

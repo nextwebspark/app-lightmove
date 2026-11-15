@@ -64,6 +64,8 @@ describe("ProjectsPage — pure client", () => {
     locale: "en",
     platformActions: [],
     pendingInvitations: [],
+    termsUpdateRequired: false,
+    termsVersion: "2026-07-01",
   workspaces: [],
     workspace: {
       id: "w1",
@@ -190,6 +192,8 @@ describe("ProjectsPage — staff, an empty workspace and My tasks", () => {
     locale: "en",
     platformActions: [],
     pendingInvitations: [],
+    termsUpdateRequired: false,
+    termsVersion: "2026-07-01",
     workspaces: [],
     workspace: {
       id: "w1",
@@ -291,6 +295,8 @@ describe("ProjectsPage — first use, no results, and a client with nothing shar
     locale: "en",
     platformActions: [],
     pendingInvitations: [],
+    termsUpdateRequired: false,
+    termsVersion: "2026-07-01",
     workspaces: [],
     workspace: {
       id: "w1",

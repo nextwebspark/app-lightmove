@@ -3,6 +3,7 @@ package app.lightmove.api.core.security.controller;
 import app.lightmove.api.common.time.model.DateTimePreferences;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
+import app.lightmove.api.core.security.constant.PrivacyPolicy;
 import app.lightmove.api.core.security.dto.AuthResponse;
 import app.lightmove.api.core.security.dto.DateTimeChoiceResponse;
 import app.lightmove.api.core.security.dto.PendingInvitationSummary;
@@ -91,7 +92,9 @@ public class AuthResponseAssembler {
                         .map(member -> toSummary(byId.get(member.getWorkspaceId()), member))
                         .toList(),
                 pendingInvitations(user, memberships),
-                platform.actionsOf(user.getId()));
+                platform.actionsOf(user.getId()),
+                user.owesTermsAcceptance(PrivacyPolicy.CURRENT_VERSION),
+                PrivacyPolicy.CURRENT_VERSION);
     }
 
     /** As a member of exactly this workspace, or none — the session's, or one just created or joined. */

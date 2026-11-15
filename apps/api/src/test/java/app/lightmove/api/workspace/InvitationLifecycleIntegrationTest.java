@@ -286,7 +286,7 @@ class InvitationLifecycleIntegrationTest extends FlowTestSupport {
         mvc.perform(post("/api/v1/onboarding/accept-invitation-signup")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"token":"%s","fullName":"Rana Client","password":"%s"}
+                                {"token":"%s","fullName":"Rana Client","password":"%s","termsAccepted":true}
                                 """.formatted(email.latestTokenFor(rana), PASSWORD)))
                 .andExpect(status().isCreated());
 

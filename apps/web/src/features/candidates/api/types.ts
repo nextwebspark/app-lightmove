@@ -334,6 +334,64 @@ export interface PersonPosition {
   positionArchived?: boolean;
 }
 
+/** How someone on the team reached a person; the server's `ApproachKind` names. */
+export type ApproachKind =
+  | "EMAILED"
+  | "REPLIED"
+  | "IN_SEQUENCE"
+  | "CALL_LOGGED"
+  | "LINKEDIN_LOGGED"
+  | "WHATSAPP_LOGGED"
+  | "MEETING_LOGGED"
+  | "EMAIL_LOGGED";
+
+/**
+ * One approach: who, how, when and for which position — never the words. On a position the caller does not work on
+ * as staff, `positionHidden` is set and its id and title never arrive.
+ */
+export interface ApproachTouch {
+  kind: ApproachKind;
+  byUserId: string | null;
+  byName: string | null;
+  at: string;
+  projectId: string | null;
+  positionTitle: string | null;
+  samePosition: boolean;
+  byYou: boolean;
+  positionHidden: boolean;
+}
+
+/**
+ * Another position mapping the person, and where they stand on it. On one the caller does not work on as staff
+ * (`visible` false) only the stage and whether they are in process arrive.
+ */
+export interface ApproachPosition {
+  projectId: string | null;
+  positionTitle: string | null;
+  statusLabel: string | null;
+  statusColour: string | null;
+  stageLabel: string;
+  inProcess: boolean;
+  placed: boolean;
+  addedByName: string | null;
+  statusChangedAt: string | null;
+  visible: boolean;
+}
+
+/**
+ * Recently approached: CAUTION is amber (a teammate reached them inside the window, or they are in process elsewhere),
+ * INFO a quiet line (an older approach, or out of process elsewhere). Neither blocks anything.
+ */
+export interface RecentApproach {
+  tier: "NONE" | "INFO" | "CAUTION";
+  windowDays: number;
+  /** Inside the window, a reply first, then newest first. */
+  touches: ApproachTouch[];
+  elsewhere: ApproachPosition[];
+  /** The newest approach before the window, only when none is inside it. */
+  lastApproach: ApproachTouch | null;
+}
+
 /** The kinds of line a person's history holds; the server's `PersonActivityKind` names. */
 export type PersonActivityKind =
   | "ADDED_TO_POOL"

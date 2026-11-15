@@ -9,6 +9,7 @@ import app.lightmove.api.core.security.rbac.WorkspaceAction;
 import app.lightmove.api.core.text.service.SuppliedText;
 import app.lightmove.api.workspace.dto.DeleteWorkspaceRequest;
 import app.lightmove.api.workspace.dto.InferredBackgroundResponse;
+import app.lightmove.api.workspace.dto.UpdateRecentlyApproachedRequest;
 import app.lightmove.api.workspace.dto.UpdateWorkspaceAiControlsRequest;
 import app.lightmove.api.workspace.dto.UpdateWorkspaceCalendarSyncRequest;
 import app.lightmove.api.workspace.dto.UpdateWorkspaceDateTimeRequest;
@@ -105,6 +106,15 @@ public class WorkspaceController {
                 principal.userId(), principal.requireWorkspaceId(), request.controls(), httpRequest));
     }
 
+    @PutMapping("/recently-approached")
+    @RequireWorkspacePermission(WorkspaceAction.WORKSPACE_MANAGE)
+    public WorkspaceResponse changeRecentlyApproached(@AuthenticationPrincipal AuthPrincipal principal,
+                                                      @Valid @RequestBody UpdateRecentlyApproachedRequest request,
+                                                      HttpServletRequest httpRequest) {
+        return toResponse(settings.changeRecentlyApproachedDays(
+                principal.userId(), principal.requireWorkspaceId(), request.days(), httpRequest));
+    }
+
     @GetMapping("/ai-controls/inferred-background")
     @RequireWorkspacePermission(WorkspaceAction.WORKSPACE_MANAGE)
     public InferredBackgroundResponse inferredBackground(@AuthenticationPrincipal AuthPrincipal principal) {
@@ -139,7 +149,7 @@ public class WorkspaceController {
                 ws.getDefaultCurrency(), ws.getPlan(),
                 detail.memberCount(), ws.getCreatedAt(), ws.getPersona(),
                 WorkspaceCompanyResponse.of(ws.getCompany()), dateTimeOf(detail),
-                properties.retention().deletedWorkspacesAfter().toDays());
+                properties.retention().deletedWorkspacesAfter().toDays(), ws.getRecentlyApproachedDays());
     }
 
     private static WorkspaceDateTimeResponse dateTimeOf(WorkspaceDetail detail) {
