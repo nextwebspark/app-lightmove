@@ -90,7 +90,10 @@ const fatima = {
   privacy: { consents: [], consentWarning: false },
   addedAt: "2026-07-01T10:00:00Z",
   source: "extension",
-  positions: [{ candidateId: "cand-1", projectId: "p1", positionTitle: "Chief Financial Officer" }],
+  positions: [
+    { candidateId: "cand-1", projectId: "p1", positionTitle: "Chief Financial Officer", workable: true },
+    { candidateId: "cand-2", projectId: "p2", positionTitle: "Group Treasurer", workable: false },
+  ],
 } as unknown as PersonRecord;
 
 beforeEach(() => {
@@ -197,6 +200,22 @@ describe("asking to share with the client", () => {
         nameClient: true,
       }),
     );
+  });
+
+  it("offers only positions the viewer works, and never offers to name the client before the position is read", async () => {
+    vi.mocked(shareConsentApi.getShareConsents).mockRejectedValue(new Error("refused"));
+    renderWith(
+      <RequestConsentDialog target={{ kind: "person", person: fatima }} firm={FIRM} onClose={vi.fn()} onSent={vi.fn()} />,
+    );
+    const dialog = screen.getByRole("dialog", { name: "Ask Fatima Al Mansoori for consent" });
+    await userEvent.click(within(dialog).getByRole("checkbox", { name: /Share their profile with a client/ }));
+
+    const picker = within(dialog).getByRole("combobox", { name: "Position" });
+    expect(within(picker).getAllByRole("option").map((option) => option.textContent)).toEqual([
+      "Chief Financial Officer",
+    ]);
+    await waitFor(() => expect(shareConsentApi.getShareConsents).toHaveBeenCalled());
+    expect(within(dialog).getByRole("checkbox", { name: /Name the client/ })).toBeDisabled();
   });
 });
 

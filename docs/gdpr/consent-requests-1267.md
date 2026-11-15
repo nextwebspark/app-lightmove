@@ -64,9 +64,9 @@ Each is a row of [governance-decisions.md](governance-decisions.md) (B7–B11) f
 
 | Route | Gate | Body → answer |
 |---|---|---|
-| `POST /api/v1/candidates/{personId}/consent-requests` | `CANDIDATE_POOL_MANAGE` | `{purposes: [keep_on_file \| marketing \| share_with_client], projectId?, nameClient?}` → the person record; a share needs `projectId`, a position they are on |
+| `POST /api/v1/candidates/{personId}/consent-requests` | `CANDIDATE_POOL_MANAGE` | `{purposes: [keep_on_file \| marketing \| share_with_client], projectId?, nameClient?}` → the person record; a share needs `projectId`, a position they are on and the caller holds `WORK_EXECUTE` on |
 | `POST /api/v1/candidates/bulk/consent-requests` | `CANDIDATE_POOL_MANAGE` | `{personIds, purposes}` → `{sent, skipped: [{personId, reason}]}` |
-| `POST /api/v1/candidates/{personId}/consents/recorded` | `CANDIDATE_POOL_MANAGE` | `{purpose, projectId?, answer: given \| declined \| withdrawn, answeredOn}` → the person record |
+| `POST /api/v1/candidates/{personId}/consents/recorded` | `CANDIDATE_POOL_MANAGE` | `{purpose, projectId?, answer: given \| declined \| withdrawn, answeredOn}` → the person record; a share also needs `WORK_EXECUTE` on `projectId` |
 | `POST /api/v1/privacy/links/{token}/consents` | the link | `{answers: [{consentId, answer}]}` → 204 |
 | `GET /api/v1/privacy/links/{token}` | the link | gains `purpose` and `consents` |
 | `GET /api/v1/projects/{projectId}/share-consents` | `WORK_EXECUTE` | → `{asksToShare, clientNamable, clientName, rows: [{candidateId, status, requestedAt, requestOpenUntil, answeredAt, clientNamed}]}` |
@@ -111,6 +111,9 @@ them; a change is made in both.
   (`SHARE_CLIENT_CONFIDENTIAL`). `client_named` keeps the choice; the page names the client only when it is set and the
   search is still not confidential (`ShareTarget.clientNamedOrNull`). The share email never claims nothing was shared:
   visibility starts on.
+- **Asking from the person's record still needs the position.** The person-level doors (`consent-requests`,
+  `consents/recorded`) ride the pool's `CANDIDATE_POOL_MANAGE`, so a share there also asks the named position's
+  `WORK_EXECUTE`, as the position's own door does; the drawer lists only the positions the viewer works.
 - **The visibility switch warns, never blocks.** In consent mode with share offered, turning a person visible on the
   Pipeline card or the Outreach pane's Client visible switch without a given share consent opens "No consent to share
   with {client} yet" (Ask first · Show anyway · Cancel). Show anyway shows them; the timeline line and the audit event

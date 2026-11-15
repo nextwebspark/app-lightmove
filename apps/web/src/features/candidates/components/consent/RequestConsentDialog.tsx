@@ -107,7 +107,7 @@ export function RequestConsentDialog({
   const blocked = single ? blockOf(single) : null;
 
   // Phase 3: one person can also be asked about sharing their profile for one of their positions.
-  const positions = single && firm.shareWithClient ? single.positions : [];
+  const positions = single && firm.shareWithClient ? single.positions.filter((position) => position.workable) : [];
   const [shareTicked, setShareTicked] = useState(false);
   const [shareProjectId, setShareProjectId] = useState(positions[0]?.projectId ?? "");
   const [nameClient, setNameClient] = useState(false);
@@ -125,7 +125,8 @@ export function RequestConsentDialog({
         now,
       )
     : null;
-  const clientNamable = shareTarget.data?.clientNamable ?? true;
+  // Unknown until the position is read: never offer to name a client that may be confidential.
+  const clientNamable = shareTarget.data?.clientNamable ?? false;
   const sharing = shareTicked && !!shareProjectId && !shareLock;
   const roleTitle = positions.find((position) => position.projectId === shareProjectId)?.positionTitle ?? "";
   const named = sharing && clientNamable && nameClient;
@@ -315,7 +316,7 @@ export function RequestConsentDialog({
                     >
                       <CheckBox checked={named} />
                       <span className="text-note text-u-text2">
-                        {clientNamable
+                        {!shareTarget.data || clientNamable
                           ? `Name the ${vocabulary.unitLower}${shareTarget.data?.clientName ? ` (${shareTarget.data.clientName})` : ""}`
                           : 'This position is confidential, so the email says "a confidential client".'}
                       </span>

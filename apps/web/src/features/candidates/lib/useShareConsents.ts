@@ -34,7 +34,7 @@ export function useShareConsents(projectId: string): ShareConsentState {
   };
   return {
     on,
-    clientNamable: consents.data?.clientNamable ?? true,
+    clientNamable: consents.data?.clientNamable ?? false,
     rowOf: (candidateId) => rows.get(candidateId),
     badgeOf,
     needsPrompt: (candidateId) => on && badgeOf(candidateId) !== "given",

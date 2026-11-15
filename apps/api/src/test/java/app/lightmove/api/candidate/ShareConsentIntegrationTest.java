@@ -200,6 +200,33 @@ class ShareConsentIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("from the person's record, a member with no seat on the position can neither ask to share nor record a share")
+    void personDoorNeedsTheSeat() throws Exception {
+        String address = "omar@" + domain;
+        inviteAndAccept(admin, "Omar Saleh", address, "MEMBER");
+        String seatless = login(address);
+
+        as(seatless, post("/api/v1/candidates/" + person + "/consent-requests")
+                .contentType(MediaType.APPLICATION_JSON).content("""
+                        {"purposes":["share_with_client"],"projectId":"%s","nameClient":true}""".formatted(position)))
+                .andExpect(status().isForbidden());
+        as(seatless, post("/api/v1/candidates/" + person + "/consents/recorded")
+                .contentType(MediaType.APPLICATION_JSON).content("""
+                        {"purpose":"share_with_client","projectId":"%s","answer":"given","answeredOn":"%s"}"""
+                        .formatted(position, java.time.LocalDate.now(java.time.ZoneOffset.UTC))))
+                .andExpect(status().isForbidden());
+        assertThat(db.queryForObject("select count(*) from app_lm_person_consent where person_id = ?::uuid",
+                Long.class, UUID.fromString(person))).isZero();
+        assertThat(email.sent()).noneMatch(message -> "fatima@example.com".equalsIgnoreCase(message.to()));
+
+        as(seatless, post("/api/v1/candidates/" + person + "/consents/recorded")
+                .contentType(MediaType.APPLICATION_JSON).content("""
+                        {"purpose":"keep_on_file","answer":"given","answeredOn":"%s"}"""
+                        .formatted(java.time.LocalDate.now(java.time.ZoneOffset.UTC))))
+                .andExpect(status().isOk());
+    }
+
+    @Test
     @DisplayName("the register lists every request, defuses formulas, carries no contact detail, and is audited")
     void register() throws Exception {
         String formula = body(call(post("/api/v1/projects/" + position + "/candidates"), """

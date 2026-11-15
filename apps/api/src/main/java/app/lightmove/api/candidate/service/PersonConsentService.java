@@ -36,6 +36,8 @@ import app.lightmove.api.core.email.model.EmailMessage;
 import app.lightmove.api.core.email.service.EmailTemplates;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
+import app.lightmove.api.core.security.rbac.ProjectAccess;
+import app.lightmove.api.core.security.rbac.ProjectAction;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Clock;
 import java.time.Duration;
@@ -85,6 +87,7 @@ public class PersonConsentService {
     private final PersonConsentStore consents;
     private final ShareTargets shareTargets;
     private final CandidateRepository candidates;
+    private final ProjectAccess projectAccess;
     private final EmailTemplates templates;
     private final ApplicationEventPublisher events;
     private final AuditService audit;
@@ -94,9 +97,9 @@ public class PersonConsentService {
     public PersonConsentService(PersonRepository people, PersonRecordService records, PersonActivityRecorder activity,
                                 CandidatePrivacySettingsService settings, SuppressionGate suppression,
                                 PrivacyEmailBudget budget, PrivacyLinkStore privacyLinks, PersonConsentStore consents,
-                                ShareTargets shareTargets, CandidateRepository candidates, EmailTemplates templates,
-                                ApplicationEventPublisher events, AuditService audit, Clock clock,
-                                LightMoveProperties properties) {
+                                ShareTargets shareTargets, CandidateRepository candidates, ProjectAccess projectAccess,
+                                EmailTemplates templates, ApplicationEventPublisher events, AuditService audit,
+                                Clock clock, LightMoveProperties properties) {
         this.people = people;
         this.records = records;
         this.activity = activity;
@@ -107,6 +110,7 @@ public class PersonConsentService {
         this.consents = consents;
         this.shareTargets = shareTargets;
         this.candidates = candidates;
+        this.projectAccess = projectAccess;
         this.templates = templates;
         this.events = events;
         this.audit = audit;
@@ -121,7 +125,7 @@ public class PersonConsentService {
         Set<ConsentPurpose> asked = purposesOf(wirePurposes, firm, true);
         Person person = people.requireInWorkspace(personId, workspaceId);
         ShareRequest share = asked.contains(ConsentPurpose.SHARE_WITH_CLIENT)
-                ? shareRequestOf(workspaceId, projectId, person, nameClient) : null;
+                ? shareFromPoolOf(userId, workspaceId, projectId, person, nameClient) : null;
         askOne(userId, workspaceId, person, asked, share, firm, httpRequest);
         return records.toRecord(userId, person);
     }
@@ -139,7 +143,7 @@ public class PersonConsentService {
         }
         Candidate candidate = candidates.requireInProject(candidateId, projectId);
         Person person = people.requireInWorkspace(candidate.getPerson().getId(), workspaceId);
-        ShareRequest share = shareRequestOf(workspaceId, projectId, person, nameClient);
+        ShareRequest share = shareRequestOf(shareTargets.require(workspaceId, projectId), nameClient);
         askOne(userId, workspaceId, person, EnumSet.of(ConsentPurpose.SHARE_WITH_CLIENT), share, firm, httpRequest);
         return shareRowOf(candidateId, now(), consents.consentsOf(person.getId()).stream()
                 .filter(consent -> isShareOn(consent, projectId)).findFirst().orElse(null));
@@ -207,14 +211,24 @@ public class PersonConsentService {
         queue(userId, workspaceId, Map.of(person, askable), share, Map.of(), firm, now, httpRequest);
     }
 
-    private ShareRequest shareRequestOf(UUID workspaceId, UUID projectId, Person person, Boolean nameClient) {
+    /**
+     * A share asked or recorded from the person's own record, whose door is the pool's: the position named in the
+     * body must be one the caller works, as the position's own door requires.
+     */
+    private ShareRequest shareFromPoolOf(UUID userId, UUID workspaceId, UUID projectId, Person person,
+                                         Boolean nameClient) {
         if (projectId == null) {
             throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "projectId", "Choose the position to share for");
         }
+        projectAccess.requireAction(userId, workspaceId, projectId, ProjectAction.WORK_EXECUTE);
         ShareTarget target = shareTargets.require(workspaceId, projectId);
         if (candidates.findByProjectIdAndPersonId(projectId, person.getId()).isEmpty()) {
             throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "projectId", "They are not on that position");
         }
+        return shareRequestOf(target, nameClient);
+    }
+
+    private static ShareRequest shareRequestOf(ShareTarget target, Boolean nameClient) {
         boolean named = Boolean.TRUE.equals(nameClient);
         if (named && target.confidential()) {
             throw ApiException.of(ErrorCode.SHARE_CLIENT_CONFIDENTIAL);
@@ -274,7 +288,8 @@ public class PersonConsentService {
         }
         Person person = people.requireInWorkspace(personId, workspaceId);
         UUID projectId = purpose == ConsentPurpose.SHARE_WITH_CLIENT
-                ? shareRequestOf(workspaceId, request.projectId(), person, false).target().projectId() : null;
+                ? shareFromPoolOf(userId, workspaceId, request.projectId(), person, false).target().projectId()
+                : null;
         Instant answeredAt = request.answeredOn().atTime(LocalTime.NOON).toInstant(ZoneOffset.UTC);
         Instant validUntil = answer == ConsentStatus.GIVEN && purpose == ConsentPurpose.KEEP_ON_FILE
                 ? answeredAt.atZone(ZoneOffset.UTC).plusMonths(firm.keepOnFileMonths()).toInstant() : null;
