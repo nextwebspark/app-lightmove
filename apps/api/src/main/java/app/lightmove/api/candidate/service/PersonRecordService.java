@@ -1,13 +1,19 @@
 package app.lightmove.api.candidate.service;
 
+import app.lightmove.api.candidate.constant.ConsentPurpose;
+import app.lightmove.api.candidate.constant.LawfulBasis;
+import java.time.Clock;
+import java.time.Instant;
 import app.lightmove.api.candidate.dto.DoNotContactResponse;
 import app.lightmove.api.candidate.dto.PersonPositionResponse;
 import app.lightmove.api.candidate.dto.PersonRecordResponse;
+import app.lightmove.api.candidate.dto.PersonConsentResponse;
 import app.lightmove.api.candidate.dto.PersonPrivacyResponse;
 import app.lightmove.api.candidate.dto.ProcessingRestrictionResponse;
 import app.lightmove.api.candidate.model.CandidatePrivacySettings;
 import app.lightmove.api.candidate.model.Candidate;
 import app.lightmove.api.candidate.model.Person;
+import app.lightmove.api.candidate.model.PersonConsent;
 import app.lightmove.api.candidate.model.PersonEmployer;
 import app.lightmove.api.candidate.model.StoredPhoto;
 import app.lightmove.api.candidate.repository.CandidateRepository;
@@ -54,6 +60,8 @@ public class PersonRecordService {
     private final WorkspaceAccess workspaceAccess;
     private final PersonEmployerResolver employers;
     private final CandidatePrivacySettingsService privacySettings;
+    private final PersonConsentStore consentStore;
+    private final Clock clock;
 
     /** The person a mandate's row maps, after checking the mandate is the caller's workspace's. */
     @Transactional(readOnly = true)
@@ -171,11 +179,28 @@ public class PersonRecordService {
     private PersonPrivacyResponse privacyOf(Person person, Map<UUID, User> named) {
         CandidatePrivacySettings firm = privacySettings.settingsOf(person.getWorkspaceId());
         User setter = person.getLawfulBasisSetBy() == null ? null : named.get(person.getLawfulBasisSetBy());
-        return new PersonPrivacyResponse(PersonPrivacyService.basisOf(person, firm).value(),
+        Instant now = clock.instant();
+        List<PersonConsent> held = consentStore.consentsOf(person.getId());
+        Map<UUID, User> askers = usersOf(held.stream().map(PersonConsent::requestedBy).toList());
+        LawfulBasis basis = PersonPrivacyService.basisOf(person, firm);
+        boolean consentInForce = held.stream().anyMatch(consent ->
+                consent.purpose() == ConsentPurpose.KEEP_ON_FILE && consent.isLiveAt(now));
+        return new PersonPrivacyResponse(basis.value(),
                 person.getLawfulBasis() == null, setter == null ? null : setter.getFullName(),
                 person.getLawfulBasisSetAt(), person.getPrivacyNotifiedAt(),
                 person.getPrivacyNoticeChannel() == null ? null : person.getPrivacyNoticeChannel().value(),
-                person.optedOutByEmailAt());
+                person.optedOutByEmailAt(),
+                held.stream().map(consent -> consentOf(consent, askers, now)).toList(),
+                basis == LawfulBasis.CONSENT && !consentInForce);
+    }
+
+    private static PersonConsentResponse consentOf(PersonConsent consent, Map<UUID, User> askers, Instant now) {
+        User asker = consent.requestedBy() == null ? null : askers.get(consent.requestedBy());
+        return new PersonConsentResponse(consent.id(), consent.purpose().value(), consent.projectId(),
+                consent.status().value(), consent.requestedAt(), asker == null ? null : asker.getFullName(),
+                consent.isOpenAt(now) ? consent.requestExpiresAt() : null, consent.answeredAt(),
+                consent.answeredVia() == null ? null : consent.answeredVia().value(), consent.validUntil(),
+                consent.clientNamed());
     }
 
     private Map<UUID, User> usersOf(Collection<UUID> ids) {

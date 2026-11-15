@@ -28,7 +28,9 @@ public enum NotificationKind implements ApiValueEnum {
     DELETION_REQUESTED("deletion_requested", NotificationPreferenceKind.PRIVACY_REQUEST, true),
     PERSON_OBJECTED("person_objected", NotificationPreferenceKind.PRIVACY_REQUEST, true),
     /** To the person's owner, else whoever sent the email they opted out of; their runs have already stopped. */
-    CANDIDATE_OPTED_OUT("candidate_opted_out", NotificationPreferenceKind.OUTREACH_BOUNCED, false);
+    CANDIDATE_OPTED_OUT("candidate_opted_out", NotificationPreferenceKind.OUTREACH_BOUNCED, false),
+    /** A person answered a consent request on their page (#1267): to whoever asked, else their owner, as a reply is. */
+    CONSENT_ANSWERED("consent_answered", NotificationPreferenceKind.OUTREACH_REPLIED, false);
 
     private final String value;
     private final NotificationPreferenceKind preference;

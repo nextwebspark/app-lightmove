@@ -22,7 +22,7 @@ class OutreachPrivacyServiceTest {
     @DisplayName("with data protection off an email goes as it did before #924: no footer, no link minted")
     void switchedOffAddsNothing() {
         LightMoveProperties properties = mock(LightMoveProperties.class);
-        when(properties.dataProtection()).thenReturn(new DataProtectionSettings(false, 500));
+        when(properties.dataProtection()).thenReturn(new DataProtectionSettings(false, 500, "0 20 3 * * *"));
         PrivacyLinkStore privacyLinks = mock(PrivacyLinkStore.class);
         PersonRepository people = mock(PersonRepository.class);
         OutreachPrivacyService privacy = new OutreachPrivacyService(properties, privacyLinks,

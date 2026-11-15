@@ -36,6 +36,13 @@ const READY: CandidatePrivacySettings = {
   noticeUrl: "https://meridian.example/privacy",
   defaultLawfulBasis: "legitimate_interest",
   readyForNotices: true,
+  privacyMode: "notices",
+  keepOnFile: true,
+  keepOnFileMonths: 24,
+  shareWithClient: true,
+  marketing: false,
+  renewalDaysBefore: 30,
+  readyForConsent: false,
 };
 
 const PERSON = {
@@ -57,6 +64,8 @@ const PERSON = {
     notifiedAt: null,
     noticeChannel: null,
     optedOutAt: null,
+    consents: [],
+    consentWarning: false,
   },
   addedAt: "2026-07-01T10:00:00Z",
   source: "extension",

@@ -43,6 +43,20 @@ public class PersonPoolQuery {
     private static final String NOT_NOTIFIED =
             "p.privacy_notified_at IS NULL AND p.created_at < now() - interval '30 days'";
 
+    /** Asked for consent, the request still open (#1267). */
+    private static final String CONSENT_ASKED = """
+            EXISTS (SELECT 1 FROM app_lm_person_consent k
+                    WHERE k.person_id = p.id AND k.status = 'REQUESTED' AND k.request_expires_at > now())""";
+
+    private static final String CONSENT_ENDING = """
+            EXISTS (SELECT 1 FROM app_lm_person_consent k
+                    WHERE k.person_id = p.id AND k.status = 'GIVEN'
+                      AND k.valid_until > now() AND k.valid_until <= now() + interval '30 days')""";
+
+    private static final String CONSENT_REFUSED = """
+            EXISTS (SELECT 1 FROM app_lm_person_consent k
+                    WHERE k.person_id = p.id AND k.status IN ('DECLINED', 'WITHDRAWN'))""";
+
     private final NamedParameterJdbcTemplate jdbc;
 
     public List<UUID> page(UUID workspaceId, UUID callerId, PoolCriteria criteria, int offset, int limit) {
@@ -75,10 +89,14 @@ public class PersonPoolQuery {
                 + " count(*) FILTER (WHERE " + IN_ACTIVE_POSITION + ") AS active,"
                 + " count(*) FILTER (WHERE " + IN_NO_POSITION + ") AS unplaced,"
                 + " count(*) FILTER (WHERE " + NOT_NOTIFIED + ") AS not_notified,"
+                + " count(*) FILTER (WHERE " + CONSENT_ASKED + ") AS consent_asked,"
+                + " count(*) FILTER (WHERE " + CONSENT_ENDING + ") AS consent_ending,"
+                + " count(*) FILTER (WHERE " + CONSENT_REFUSED + ") AS consent_refused,"
                 + " (SELECT count(*) FROM app_lm_person q WHERE q.workspace_id = :workspaceId) AS pool"
                 + " FROM app_lm_person p WHERE " + where;
         return jdbc.queryForObject(sql, params, (row, index) -> new PoolViewCounts(row.getLong("everyone"),
                 row.getLong("mine"), row.getLong("active"), row.getLong("unplaced"), row.getLong("not_notified"),
+                row.getLong("consent_asked"), row.getLong("consent_ending"), row.getLong("consent_refused"),
                 row.getLong("pool")));
     }
 
@@ -158,6 +176,9 @@ public class PersonPoolQuery {
                 case ACTIVE -> IN_ACTIVE_POSITION;
                 case UNPLACED -> IN_NO_POSITION;
                 case NOT_NOTIFIED -> NOT_NOTIFIED;
+                case CONSENT_ASKED -> CONSENT_ASKED;
+                case CONSENT_ENDING -> CONSENT_ENDING;
+                case CONSENT_REFUSED -> CONSENT_REFUSED;
                 case ALL -> "true";
             });
         }

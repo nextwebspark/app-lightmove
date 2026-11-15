@@ -100,6 +100,11 @@ public enum ProjectEventType implements AuditEventType {
     PERSON_OBJECTED,
     PERSON_PRIVACY_REQUESTED,
     PERSON_OPTED_OUT,
+    /** Consent asked for (#1267), refused by the mail provider, answered on the page, or recorded by a colleague. By id. */
+    PERSON_CONSENT_REQUESTED,
+    PERSON_CONSENT_REQUEST_FAILED,
+    PERSON_CONSENT_ANSWERED,
+    PERSON_CONSENT_RECORDED,
 
     /** The Pipeline page's three working facts: the team's manual order, the next action, client visibility. */
     CANDIDATE_PIPELINE_REORDERED,

@@ -100,6 +100,9 @@ export type ApiErrorCode =
   | "PRIVACY_NOTICE_RECENTLY_SENT"
   | "PRIVACY_NOTICE_DAILY_LIMIT"
   | "PRIVACY_LINK_EXPIRED"
+  | "CONSENT_REQUESTS_OFF"
+  | "CONSENT_ALREADY_GIVEN"
+  | "CONSENT_RECENTLY_REQUESTED"
   | "TASK_ASSIGNEE_NOT_ON_TEAM"
   | "TASK_NOT_YOURS"
   | "STRATEGY_SEARCH_NAME_TAKEN"
@@ -332,6 +335,9 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   PRIVACY_NOTICE_RECENTLY_SENT: "This person was sent a privacy notice in the last 14 days.",
   PRIVACY_NOTICE_DAILY_LIMIT: "Your workspace has sent today's privacy notices. Try again tomorrow.",
   PRIVACY_LINK_EXPIRED: "This link has expired.",
+  CONSENT_REQUESTS_OFF: "Consent requests are off. An admin can turn them on in Settings → Data & retention.",
+  CONSENT_ALREADY_GIVEN: "This person has already agreed to what you're asking.",
+  CONSENT_RECENTLY_REQUESTED: "This person was asked for consent in the last 14 days.",
   // Two uploads raise this — the spreadsheet import and the position description — so the wording
   // stays neutral. Naming one screen's file types here misdescribes the other's refusal, and each
   // dropzone already states what it takes.

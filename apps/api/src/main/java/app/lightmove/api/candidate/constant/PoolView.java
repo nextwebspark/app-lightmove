@@ -23,7 +23,16 @@ public enum PoolView implements ApiValueEnum {
     UNPLACED("unplaced"),
 
     /** Held over a month and never told the firm holds their data (#923, GDPR Art. 14). */
-    NOT_NOTIFIED("not_notified");
+    NOT_NOTIFIED("not_notified"),
+
+    /** Asked for consent, with the request still open and unanswered (#1267). */
+    CONSENT_ASKED("consent_asked"),
+
+    /** A consent given that ends within 30 days. */
+    CONSENT_ENDING("consent_ending"),
+
+    /** Declined, or withdrew, a consent. */
+    CONSENT_REFUSED("consent_refused");
 
     private final String value;
 }

@@ -1,5 +1,6 @@
 package app.lightmove.api.notification.service;
 
+import app.lightmove.api.candidate.model.ConsentAnswered;
 import app.lightmove.api.candidate.model.PersonNoteMentioned;
 import app.lightmove.api.candidate.model.PersonOptedOut;
 import app.lightmove.api.candidate.model.PersonPrivacyRequested;
@@ -148,6 +149,19 @@ public class NotificationRules {
             deliver(new NotificationDraft(optedOut.workspaceId(), optedOut.recipientUserId(),
                     NotificationKind.CANDIDATE_OPTED_OUT, null, null, optedOut.personId(), null, null, null,
                     NotificationKind.CANDIDATE_OPTED_OUT.value() + ":" + optedOut.personId(), name, null, 1, null));
+        });
+    }
+
+    /** To whoever asked, else the person's owner: an answer on the page reads like a reply. */
+    @Async
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void onConsentAnswered(ConsentAnswered answered) {
+        inItsWorkspace(answered.workspaceId(), () -> {
+            String name = people.personNamesOf(answered.workspaceId(), List.of(answered.personId()))
+                    .get(answered.personId());
+            deliver(new NotificationDraft(answered.workspaceId(), answered.recipientUserId(),
+                    NotificationKind.CONSENT_ANSWERED, null, null, answered.personId(), null, null, null,
+                    NotificationKind.CONSENT_ANSWERED.value() + ":" + answered.personId(), name, null, 1, null));
         });
     }
 

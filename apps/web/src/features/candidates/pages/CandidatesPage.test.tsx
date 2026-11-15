@@ -155,7 +155,16 @@ const rajesh: PoolRow = {
 const page = (people: PoolRow[]): PoolPage => ({
   people,
   totalCount: people.length,
-  viewCounts: { all: 2, mine: 0, active: 1, unplaced: 1, not_notified: 0 },
+  viewCounts: {
+    all: 2,
+    mine: 0,
+    active: 1,
+    unplaced: 1,
+    not_notified: 0,
+    consent_asked: 0,
+    consent_ending: 0,
+    consent_refused: 0,
+  },
   poolSize: 2,
   countries: ["United Arab Emirates"],
 });
@@ -198,6 +207,8 @@ const record: PersonRecord = {
     notifiedAt: null,
     noticeChannel: null,
     optedOutAt: null,
+    consents: [],
+    consentWarning: false,
   },
   tagIds: ["t1"],
   source: "manual",

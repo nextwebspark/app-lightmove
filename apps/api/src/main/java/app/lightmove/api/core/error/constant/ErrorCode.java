@@ -354,6 +354,11 @@ public enum ErrorCode {
             "Your workspace has sent today's privacy notices. Try again tomorrow"),
     /** A privacy page past its date: the page still names the firm to write to, and nothing is recorded. */
     PRIVACY_LINK_EXPIRED(HttpStatus.GONE, "This link has expired"),
+    /** The workspace sends privacy notices only; consent requests are an admin's switch (#1267). */
+    CONSENT_REQUESTS_OFF(HttpStatus.CONFLICT,
+            "Consent requests are off. An admin can turn them on in Settings → Data & retention"),
+    CONSENT_ALREADY_GIVEN(HttpStatus.CONFLICT, "This person has already agreed to what you're asking"),
+    CONSENT_RECENTLY_REQUESTED(HttpStatus.CONFLICT, "This person was asked for consent in the last 14 days"),
 
     /** An email to the person is on its way to the mail service; erasing them now would race it. Nothing changed. */
     PERSON_ERASE_SEND_IN_FLIGHT(HttpStatus.CONFLICT, "An email to this person is sending right now. Try again in a minute"),

@@ -89,10 +89,14 @@ public class CandidatePoolService {
             case ACTIVE -> counts.active();
             case UNPLACED -> counts.unplaced();
             case NOT_NOTIFIED -> counts.notNotified();
+            case CONSENT_ASKED -> counts.consentAsked();
+            case CONSENT_ENDING -> counts.consentEnding();
+            case CONSENT_REFUSED -> counts.consentRefused();
         };
         return new CandidatePoolResponse(rowsOf(workspaceId, ids), total,
                 new CandidatePoolViewCountsResponse(counts.all(), counts.mine(), counts.active(), counts.unplaced(),
-                        counts.notNotified()),
+                        counts.notNotified(), counts.consentAsked(), counts.consentEnding(),
+                        counts.consentRefused()),
                 counts.pool(), pool.countries(workspaceId));
     }
 

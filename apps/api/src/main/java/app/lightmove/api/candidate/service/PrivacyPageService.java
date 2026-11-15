@@ -1,5 +1,22 @@
 package app.lightmove.api.candidate.service;
 
+import app.lightmove.api.candidate.constant.ConsentEventAction;
+import app.lightmove.api.candidate.constant.ConsentEventVia;
+import app.lightmove.api.candidate.constant.ConsentPurpose;
+import app.lightmove.api.candidate.constant.ConsentStatus;
+import app.lightmove.api.candidate.constant.PrivacyLinkPurpose;
+import app.lightmove.api.candidate.dto.ConsentAnswerRequest;
+import app.lightmove.api.candidate.dto.PrivacyPageConsentResponse;
+import app.lightmove.api.candidate.model.ConsentAnswered;
+import app.lightmove.api.candidate.model.ConsentConfirmationQueued;
+import app.lightmove.api.candidate.model.MintedPrivacyLink;
+import app.lightmove.api.candidate.model.PersonConsent;
+import app.lightmove.api.core.config.LightMoveProperties;
+import app.lightmove.api.core.email.service.EmailTemplates;
+import java.time.ZoneOffset;
+import java.util.Map;
+import java.util.Objects;
+import java.util.stream.Collectors;
 import app.lightmove.api.candidate.constant.ContactKind;
 import app.lightmove.api.candidate.constant.DoNotContactReasons;
 import app.lightmove.api.candidate.constant.PersonActivityKind;
@@ -55,6 +72,7 @@ public class PrivacyPageService {
 
     /** A second click on the same request within a day tells nobody again. */
     private static final Duration REPEAT_WINDOW = Duration.ofDays(1);
+    private static final int MANAGE_LINK_MONTHS = 36;
 
     private final TenantResolvers resolvers;
     private final RateLimitGuard rateLimit;
@@ -67,12 +85,18 @@ public class PrivacyPageService {
     private final ApplicationEventPublisher events;
     private final Clock clock;
     private final TransactionTemplate transactions;
+    private final PersonConsentStore consents;
+    private final PrivacyLinkStore privacyLinks;
+    private final EmailTemplates templates;
+    private final String baseUrl;
 
     public PrivacyPageService(TenantResolvers resolvers, RateLimitGuard rateLimit, NamedParameterJdbcTemplate jdbc,
                               PersonRepository people, CandidatePrivacySettingsService settings,
                               SuppressionListService suppression, PersonActivityRecorder activity, AuditService audit,
                               ApplicationEventPublisher events, Clock clock,
-                              PlatformTransactionManager transactionManager) {
+                              PlatformTransactionManager transactionManager, PersonConsentStore consents,
+                              PrivacyLinkStore privacyLinks, EmailTemplates templates,
+                              LightMoveProperties properties) {
         this.resolvers = resolvers;
         this.rateLimit = rateLimit;
         this.jdbc = jdbc;
@@ -84,6 +108,10 @@ public class PrivacyPageService {
         this.events = events;
         this.clock = clock;
         this.transactions = new TransactionTemplate(transactionManager);
+        this.consents = consents;
+        this.privacyLinks = privacyLinks;
+        this.templates = templates;
+        this.baseUrl = properties.web().baseUrl();
     }
 
     public PrivacyPageResponse open(String token, HttpServletRequest request) {
@@ -93,14 +121,16 @@ public class PrivacyPageService {
             CandidatePrivacySettings firm = settings.settingsOf(link.workspaceId());
             if (link.isExpired(clock.instant())) {
                 return new PrivacyPageResponse(true, firm.controllerName(), firm.privacyContactEmail(),
-                        firm.noticeUrl(), null, null, null, List.of(), link.expiresAt());
+                        firm.noticeUrl(), null, null, null, List.of(), link.expiresAt(), link.purpose().value(),
+                        List.of());
             }
             jdbc.update("UPDATE app_lm_person_privacy_link SET last_opened_at = now() WHERE id = :id",
                     new MapSqlParameterSource("id", link.id()));
             Person person = people.requireInWorkspace(link.personId(), link.workspaceId());
             return new PrivacyPageResponse(false, firm.controllerName(), firm.privacyContactEmail(), firm.noticeUrl(),
                     PersonPrivacyService.basisOf(person, firm).value(), person.getSource().value(),
-                    person.getCreatedAt(), categoriesOf(person), link.expiresAt());
+                    person.getCreatedAt(), categoriesOf(person), link.expiresAt(), link.purpose().value(),
+                    consentsShownOn(link, person, firm));
         });
     }
 
@@ -132,6 +162,54 @@ public class PrivacyPageService {
                     .addValue("usedAt", Timestamp.from(clock.instant()))) > 0;
             stopContact(link, person, linkFirstUsed, OPT_OUT, request, new PersonOptedOut(link.workspaceId(),
                     person.getId(), person.getOwnerUserId() != null ? person.getOwnerUserId() : link.sentBy()));
+            return null;
+        });
+    }
+
+    /**
+     * The person's answers (#1267): given or declined on a consent request while it is open, withdrawn on a manage
+     * link. Each change is an event, a timeline line and an audit event with no actor; an answer already given is not
+     * given twice. Agreeing to anything earns a confirmation with the link to change their mind.
+     */
+    public void answer(String token, List<ConsentAnswerRequest> answers, HttpServletRequest request) {
+        String tokenHash = Tokens.hash(token);
+        rateLimit.checkPrivacyPageRequest(tokenHash, request);
+        inLinksWorkspace(tokenHash, link -> {
+            Person person = liveLinksPerson(link);
+            Instant now = clock.instant();
+            Map<UUID, PersonConsent> answerable = switch (link.purpose()) {
+                case CONSENT -> consents.askedOnLink(link.id()).stream()
+                        .collect(Collectors.toMap(PersonConsent::id, Function.identity()));
+                case MANAGE -> consents.consentsOf(person.getId()).stream()
+                        .filter(consent -> consent.isLiveAt(now))
+                        .collect(Collectors.toMap(PersonConsent::id, Function.identity()));
+                case NOTICE, OPT_OUT -> throw ApiException.of(ErrorCode.NOT_FOUND);
+            };
+            CandidatePrivacySettings firm = settings.settingsOf(link.workspaceId());
+            List<AnsweredConsent> recorded = new ArrayList<>();
+            UUID asker = null;
+            for (ConsentAnswerRequest answer : answers) {
+                PersonConsent consent = answerable.get(answer.consentId());
+                if (consent == null) {
+                    throw ApiException.of(ErrorCode.NOT_FOUND);
+                }
+                ConsentStatus status = answerOf(link.purpose(), answer.answer());
+                Instant validUntil = validUntilOf(consent, status, firm, now);
+                if (!recordAnswer(link, person, consent, status, validUntil, now, request)) {
+                    continue;
+                }
+                asker = asker != null ? asker : consent.requestedBy();
+                recorded.add(new AnsweredConsent(consent, status, validUntil));
+            }
+            boolean changed = !recorded.isEmpty();
+            UUID recipient = asker != null ? asker
+                    : person.getOwnerUserId() != null ? person.getOwnerUserId() : link.sentBy();
+            if (changed && recipient != null) {
+                events.publishEvent(new ConsentAnswered(link.workspaceId(), person.getId(), recipient));
+            }
+            if (changed) {
+                confirm(link, person, recorded, firm, now);
+            }
             return null;
         });
     }
@@ -179,17 +257,109 @@ public class PrivacyPageService {
         events.publishEvent(announcement);
     }
 
+    private boolean recordAnswer(PrivacyLink link, Person person, PersonConsent consent, ConsentStatus status,
+                                 Instant validUntil, Instant now, HttpServletRequest request) {
+        boolean renewalDeclined = status == ConsentStatus.DECLINED && consent.isLiveAt(now);
+        boolean changed = status == ConsentStatus.WITHDRAWN ? consents.withdraw(consent.id(), person.getId(), now)
+                : renewalDeclined ? consents.closeRenewal(consent.id(), link.id(), now)
+                : consents.answer(consent.id(), link.id(), status, now, validUntil);
+        if (!changed) {
+            return false;
+        }
+        consents.appendEvent(link.workspaceId(), person.getId(), consent.id(), ConsentEventAction.ANSWERED, status,
+                ConsentEventVia.PAGE, link.id(), null, consent.wordingVersion(), consent.wording(), now);
+        activity.record(person, consent.projectId(), null, PersonActivityKind.CONSENT_ANSWERED,
+                PersonActivityDetails.of("purpose", consent.purpose().value()).and("status", status.value())
+                        .and("via", "page"));
+        audit.event(ProjectEventType.PERSON_CONSENT_ANSWERED)
+                .workspace(link.workspaceId()).target(PERSON_TARGET, person.getId()).from(request)
+                .detail("purpose", consent.purpose().value())
+                .detail("status", status.value())
+                .record();
+        return true;
+    }
+
+    private static Instant validUntilOf(PersonConsent consent, ConsentStatus status, CandidatePrivacySettings firm,
+                                        Instant now) {
+        if (status != ConsentStatus.GIVEN || consent.purpose() != ConsentPurpose.KEEP_ON_FILE) {
+            return null;
+        }
+        if (consent.isLiveAt(now) && consent.validUntil() != null) {
+            return PersonConsentService.renewedUntil(consent, firm);
+        }
+        return now.atZone(ZoneOffset.UTC).plusMonths(firm.keepOnFileMonths()).toInstant();
+    }
+
+    private static ConsentStatus answerOf(PrivacyLinkPurpose linkPurpose, String wire) {
+        ConsentStatus status = ApiValueEnum.require(ConsentStatus.class, wire, "answer");
+        boolean allowed = linkPurpose == PrivacyLinkPurpose.MANAGE
+                ? status == ConsentStatus.WITHDRAWN
+                : status == ConsentStatus.GIVEN || status == ConsentStatus.DECLINED;
+        if (!allowed) {
+            throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "answer",
+                    linkPurpose == PrivacyLinkPurpose.MANAGE ? "Choose withdrawn" : "Choose given or declined");
+        }
+        return status;
+    }
+
+    /**
+     * The confirmation of what was just answered. While anything they agreed to is in force it carries a manage link,
+     * lasting as long as the longest of it.
+     */
+    private void confirm(PrivacyLink link, Person person, List<AnsweredConsent> recorded,
+                         CandidatePrivacySettings firm, Instant now) {
+        if (person.emailContacts().isEmpty()) {
+            return;
+        }
+        List<PersonConsent> live = consents.consentsOf(person.getId()).stream()
+                .filter(consent -> consent.isLiveAt(now)).toList();
+        String manageLink = null;
+        String manageUntil = null;
+        if (!live.isEmpty()) {
+            Instant lastsUntil = live.stream().map(PersonConsent::validUntil).filter(Objects::nonNull)
+                    .max(Instant::compareTo)
+                    .orElse(now.atZone(ZoneOffset.UTC).plusMonths(MANAGE_LINK_MONTHS).toInstant());
+            MintedPrivacyLink manage = privacyLinks.mint(link.workspaceId(), person.getId(),
+                    PrivacyLinkPurpose.MANAGE, null, now, Duration.between(now, lastsUntil));
+            manageLink = baseUrl + "/privacy/" + manage.token();
+            manageUntil = ConsentWording.dayOf(lastsUntil);
+        }
+        List<String> lines = recorded.stream().map(AnsweredConsent::line).toList();
+        events.publishEvent(new ConsentConfirmationQueued(link.workspaceId(), person.getId(),
+                templates.buildConsentConfirmationEmail(person.emailContacts().getFirst().getValue(),
+                        person.getFullName(), firm.controllerName(), firm.privacyContactEmail(),
+                        ConsentWording.dayOf(now), lines, manageLink, manageUntil, firm.noticeUrl())));
+    }
+
+    /** What the page lists: a request's own purposes, or a manage link's consents in force. Never a value held. */
+    private List<PrivacyPageConsentResponse> consentsShownOn(PrivacyLink link, Person person,
+                                                             CandidatePrivacySettings firm) {
+        Instant now = clock.instant();
+        List<PersonConsent> shown = switch (link.purpose()) {
+            case CONSENT -> consents.askedOnLink(link.id());
+            case MANAGE -> consents.consentsOf(person.getId()).stream().filter(consent -> consent.isLiveAt(now))
+                    .toList();
+            case NOTICE, OPT_OUT -> List.of();
+        };
+        return shown.stream().map(consent -> new PrivacyPageConsentResponse(consent.id(), consent.purpose().value(),
+                consent.status().value(), link.purpose() == PrivacyLinkPurpose.CONSENT
+                        && consent.isOpenAt(now) && link.id().equals(consent.requestLinkId()),
+                consent.wording(), consent.validUntil(), consent.answeredAt(),
+                consent.purpose() == ConsentPurpose.KEEP_ON_FILE ? firm.keepOnFileMonths() : null, null, null))
+                .toList();
+    }
+
     private <T> T inLinksWorkspace(String tokenHash, Function<PrivacyLink, T> work) {
         ResolvedRow resolved = resolvers.personPrivacyLink(tokenHash)
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
         return WorkspaceScope.call(resolved.workspaceId(), () -> transactions.execute(status -> {
             PrivacyLink link = jdbc.query("""
-                    SELECT id, workspace_id, person_id, sent_by, expires_at FROM app_lm_person_privacy_link
+                    SELECT id, workspace_id, person_id, sent_by, expires_at, purpose FROM app_lm_person_privacy_link
                     WHERE id = :id
                     """, new MapSqlParameterSource("id", resolved.id()), (row, index) -> new PrivacyLink(
                     row.getObject("id", UUID.class), row.getObject("workspace_id", UUID.class),
                     row.getObject("person_id", UUID.class), row.getObject("sent_by", UUID.class),
-                    row.getTimestamp("expires_at").toInstant()))
+                    row.getTimestamp("expires_at").toInstant(), PrivacyLinkPurpose.valueOf(row.getString("purpose"))))
                     .stream().findFirst().orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
             return work.apply(link);
         }));
@@ -267,7 +437,20 @@ public class PrivacyPageService {
                                ProjectEventType auditType) {
     }
 
-    private record PrivacyLink(UUID id, UUID workspaceId, UUID personId, UUID sentBy, Instant expiresAt) {
+    private record AnsweredConsent(PersonConsent consent, ConsentStatus status, Instant validUntil) {
+
+        String line() {
+            String label = ConsentWording.labelOf(consent.purpose(), null, null);
+            return label + ": " + switch (status) {
+                case GIVEN -> validUntil == null ? "Yes" : "Yes, until " + ConsentWording.dayOf(validUntil);
+                case DECLINED -> "No";
+                default -> "Withdrawn";
+            };
+        }
+    }
+
+    private record PrivacyLink(UUID id, UUID workspaceId, UUID personId, UUID sentBy, Instant expiresAt,
+                               PrivacyLinkPurpose purpose) {
 
         boolean isExpired(Instant now) {
             return !now.isBefore(expiresAt);

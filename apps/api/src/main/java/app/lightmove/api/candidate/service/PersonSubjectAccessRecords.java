@@ -40,7 +40,8 @@ class PersonSubjectAccessRecords implements SubjectAccessContributor {
         return Set.of("app_lm_person", "app_lm_person_photo", "app_lm_person_contact", "app_lm_person_tag",
                 "app_lm_person_note", "app_lm_person_document", "app_lm_person_document_version",
                 "app_lm_person_activity", "app_lm_project_candidate", "app_lm_candidate_contact",
-                "app_lm_candidate_photo", "app_lm_candidate_scorecard", "app_lm_person_privacy_link");
+                "app_lm_candidate_photo", "app_lm_candidate_scorecard", "app_lm_person_privacy_link",
+                "app_lm_person_consent", "app_lm_person_consent_event");
     }
 
     @Override
@@ -80,6 +81,12 @@ class PersonSubjectAccessRecords implements SubjectAccessContributor {
         sections.add(new SubjectAccessSection("privacyNotices", "Privacy notices and stop-email links sent to you", rows.rowsOf("""
                 SELECT * FROM app_lm_person_privacy_link WHERE workspace_id = :workspaceId AND person_id = :personId
                 ORDER BY created_at, id""", parameters, Set.of("workspace_id", "token_hash"))));
+        sections.add(new SubjectAccessSection("consents", "What you agreed to, and what you were asked", rows.rowsOf("""
+                SELECT * FROM app_lm_person_consent WHERE workspace_id = :workspaceId AND person_id = :personId
+                ORDER BY created_at, id""", parameters, Set.of("workspace_id"))));
+        sections.add(new SubjectAccessSection("consentHistory", "Every consent request and answer", rows.rowsOf("""
+                SELECT * FROM app_lm_person_consent_event WHERE workspace_id = :workspaceId AND person_id = :personId
+                ORDER BY occurred_at, id""", parameters, Set.of("workspace_id"))));
         List<Map<String, Object>> positions = rows.rowsOf("""
                 SELECT * FROM app_lm_project_candidate WHERE workspace_id = :workspaceId AND person_id = :personId
                 ORDER BY created_at, id""", parameters, Set.of("workspace_id", "version"));

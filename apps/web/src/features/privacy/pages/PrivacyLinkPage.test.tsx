@@ -30,6 +30,8 @@ const PAGE: PrivacyPage = {
   heldSince: "2026-04-14T10:12:00Z",
   categories: ["name_and_role", "career", "work_email", "linkedin"],
   expiresAt: "2026-10-22T10:00:00Z",
+  purpose: "notice",
+  consents: [],
 };
 
 function renderPage(path = "/privacy/the-token") {

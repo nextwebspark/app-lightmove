@@ -48,7 +48,12 @@ public class CandidateRetentionService {
               AND p.created_at < :cutoff
               AND (p.retention_kept_at IS NULL OR p.retention_kept_at < :cutoff)
               AND NOT EXISTS (
-                  SELECT 1 FROM app_lm_person_activity a WHERE a.person_id = p.id AND a.occurred_at >= :cutoff)
+                  SELECT 1 FROM app_lm_person_activity a WHERE a.person_id = p.id AND a.occurred_at >= :cutoff
+                     AND a.kind NOT IN ('CONSENT_REQUESTED', 'CONSENT_REQUEST_FAILED', 'CONSENT_ANSWERED',
+                                        'CONSENT_EXPIRED'))
+              AND NOT EXISTS (
+                  SELECT 1 FROM app_lm_person_consent k WHERE k.person_id = p.id AND k.purpose = 'KEEP_ON_FILE'
+                     AND k.status = 'GIVEN' AND k.valid_until > now())
               AND NOT EXISTS (
                   SELECT 1 FROM app_lm_project_candidate c JOIN app_lm_project pr ON pr.id = c.project_id
                   WHERE c.person_id = p.id AND pr.archived_at IS NULL)

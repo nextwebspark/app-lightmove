@@ -271,6 +271,30 @@ function phraseOf(
         text: "stopped emails from an outreach email",
         detail: "Every sequence stopped, do not contact set and added to the suppression list",
       };
+    case "CONSENT_REQUESTED":
+      return {
+        text:
+          String(details.renewal) === "true"
+            ? `asked${them || " them"} again to keep their details on file`
+            : `asked${them || " them"} for consent`,
+        detail: (details.purposes ?? "")
+          .split(",")
+          .filter(Boolean)
+          .map((purpose) => consentPurposePhrase(purpose))
+          .join(" · ") || null,
+      };
+    case "CONSENT_REQUEST_FAILED":
+      return {
+        text: `sent${them || " them"} a consent request that could not be delivered`,
+        detail: "Nothing they were asked about changed",
+      };
+    case "CONSENT_ANSWERED":
+      return {
+        text: consentAnswerPhrase(details.status, details.purpose, details.via === "by_hand"),
+        detail: details.via === "by_hand" ? "Recorded by hand" : "On their privacy page",
+      };
+    case "CONSENT_EXPIRED":
+      return { text: `${consentPurposePhrase(details.purpose)}: no answer, or the consent ended`, detail: "Nothing else changed" };
     case "PRIVACY_REQUEST_RECEIVED":
       return {
         text: details.kind === "deletion" ? "asked for their data to be deleted" : "asked for a copy of their data",
@@ -403,4 +427,23 @@ function vendorOf(value: string | undefined): string | null {
 /** A Companies stage as the sub-nav names it; an unknown token as written. */
 export function triageStageLabel(status: string | undefined): string {
   return TRIAGE_STAGES.find((stage) => stage.status === status)?.label ?? status ?? "another stage";
+}
+
+const CONSENT_PURPOSES: Record<string, string> = {
+  keep_on_file: "keeping their details on file",
+  share_with_client: "sharing their profile with a client",
+  marketing: "career and market updates",
+};
+
+/** A consent purpose token as a timeline line names it. */
+export function consentPurposePhrase(purpose: string | undefined): string {
+  const phrase = CONSENT_PURPOSES[purpose ?? ""] ?? "consent";
+  return phrase.charAt(0).toUpperCase() + phrase.slice(1);
+}
+
+/** "agreed to keeping their details on file", or "recorded that they declined …" when a colleague recorded it. */
+export function consentAnswerPhrase(status: string | undefined, purpose: string | undefined, byHand: boolean): string {
+  const what = CONSENT_PURPOSES[purpose ?? ""] ?? "a consent request";
+  const verb = status === "given" ? "agreed to" : status === "withdrawn" ? "withdrew consent to" : "declined";
+  return byHand ? `recorded that they ${verb} ${what}` : `${verb} ${what} on their privacy page`;
 }

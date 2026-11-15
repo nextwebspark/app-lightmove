@@ -51,6 +51,8 @@ const PERSON: PersonRecord = {
     notifiedAt: null,
     noticeChannel: null,
     optedOutAt: null,
+    consents: [],
+    consentWarning: false,
   },
   tagIds: [],
   source: "manual",

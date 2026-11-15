@@ -51,6 +51,12 @@ changes. Copy no mockup draws — toasts, errors, banners, empty states — foll
 | **Privacy footer** | the fixed lines every outreach email ends with: the firm, where the details came from, its privacy notice and Stop emails from us | unsubscribe footer, legal footer |
 | **Opted out** | a candidate used an email's Stop emails from us, or their mail app's Unsubscribe: every sequence stopped, do not contact set, and on the suppression list | unsubscribed |
 | **Privacy page** | the public page a privacy notice links to, where a candidate objects or asks for a copy or deletion | data portal, preference centre |
+| **Consent request** | the email Uncava sends in the firm's name asking a candidate to agree to each purpose on its own, from the Candidates drawer or a selection; they answer Yes or No on their privacy page, and no answer changes nothing | consent email, opt-in request, GDPR consent |
+| **Ask for consent** / **Record an answer** | sending a consent request, and recording an answer a candidate gave another way (a call, their own email) | request consent, log consent |
+| **Keep on file** | the purpose of keeping a candidate's details for future roles for 12, 24 or 36 months; while it is given, the candidate stays out of the retention review | retain, retention consent |
+| **Career and market updates** | the marketing purpose, recorded only: Uncava sends no updates | newsletter, marketing consent |
+| **Given** / **Declined** / **Withdrawn** / **Expired** | where a purpose stands: agreed, said no, took it back, or a request nobody answered in 30 days (or a consent past its date) | accepted, rejected, revoked, lapsed |
+| **Withdraw** | taking a consent back on the manage page a confirmation email links to, as easily as it was given | revoke, opt out |
 | **Export personal data** | an admin's one zip of everything held on a person, to answer their request for a copy of it (subject access), from the Candidates drawer's ⋯ | DSAR, SAR, subject access request export |
 | **Two-factor authentication** | a code from an authenticator app asked for after the password, turned on in Settings → Security | MFA, 2FA, TOTP, OTP |
 | **Authenticator app** | the phone app that shows the six-digit code | token, device |
