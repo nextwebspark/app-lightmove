@@ -14,7 +14,8 @@ export type NotificationKind =
   | "copy_requested"
   | "deletion_requested"
   | "person_objected"
-  | "candidate_opted_out";
+  | "candidate_opted_out"
+  | "consent_answered";
 
 export interface NotificationResponse {
   id: string;

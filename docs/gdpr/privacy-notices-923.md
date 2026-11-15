@@ -145,10 +145,11 @@ The person's new columns are exported with the rest of their record.
 
 - Whether pure mapping (filed, never contacted) claims Art. 14(5)(b), or a notice must go automatically within 30 days
   (`governance-decisions.md` B2). Nothing sends one automatically today.
-- Consent per purpose and share-with-client (#1267 phases 2 and 3).
+- Consent per purpose and share-with-client: built as #1267 phases 2 and 3, in
+  [consent-requests-1267.md](consent-requests-1267.md).
 - A dedicated sending subdomain for notices, so bulk cold notices never weigh on invitations' and resets' reputation.
   Today they go from `EMAIL_FROM`; the move is an ops change to Resend and `EMAIL_FROM` alone.
-- A consent basis with no consent recorded only reads as such; nothing is blocked on it.
+- A consent basis with no consent recorded only warns (#1267, `governance-decisions.md` B7); nothing is blocked on it.
 
 ## Testing locally
 

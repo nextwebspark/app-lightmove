@@ -1,9 +1,12 @@
 import { request, requestBlob } from "../../../lib/apiClient";
 import { HISTORY_LIMIT, type ActivityHistory } from "./personCrmApi";
 import type {
+  BulkConsentRequestResult,
   BulkPrivacyNoticeResult,
   CandidateTag,
   CandidateTagColour,
+  ConsentAnswer,
+  ConsentPurpose,
   LawfulBasis,
   MapToPositionResult,
   PersonErasurePreview,
@@ -24,6 +27,14 @@ import type {
  * feed in one invalidation.
  */
 export const POOL_KEY = ["candidate-pool"] as const;
+
+/** The privacy views' counts as the server names them. */
+interface CamelCasePrivacyCounts {
+  notNotified?: number;
+  consentAsked?: number;
+  consentEnding?: number;
+  consentRefused?: number;
+}
 export const POOL_PAGE_KEY = (filters: PoolFilters, page: number, size: number) =>
   [...POOL_KEY, "page", filters, page, size] as const;
 /** Outside {@link POOL_KEY}: a person's change never changes how many people there are. */
@@ -69,8 +80,17 @@ export function listPool(
   const params = poolQueryOf(filters);
   params.set("page", String(page));
   params.set("size", String(size));
-  return request<PoolPage & { viewCounts: { notNotified?: number } }>(`/candidates?${params}`, { signal }).then(
-    (page) => ({ ...page, viewCounts: { ...page.viewCounts, not_notified: page.viewCounts.notNotified ?? 0 } }),
+  return request<PoolPage & { viewCounts: CamelCasePrivacyCounts }>(`/candidates?${params}`, { signal }).then(
+    (page) => ({
+      ...page,
+      viewCounts: {
+        ...page.viewCounts,
+        not_notified: page.viewCounts.notNotified ?? 0,
+        consent_asked: page.viewCounts.consentAsked ?? 0,
+        consent_ending: page.viewCounts.consentEnding ?? 0,
+        consent_refused: page.viewCounts.consentRefused ?? 0,
+      },
+    }),
   );
 }
 
@@ -166,6 +186,27 @@ export function markNotified(personId: string, notifiedOn: string): Promise<Pers
     method: "POST",
     body: { notifiedOn },
   });
+}
+
+/** Asks the person by email about each purpose (#1267); they answer on the page it links to. */
+export function requestConsent(personId: string, purposes: ConsentPurpose[]): Promise<PersonRecord> {
+  return request<PersonRecord>(`/candidates/${personId}/consent-requests`, { method: "POST", body: { purposes } });
+}
+
+/** Asks everyone it can; who it could not ask comes back with why. */
+export function requestConsents(personIds: string[], purposes: ConsentPurpose[]): Promise<BulkConsentRequestResult> {
+  return request<BulkConsentRequestResult>("/candidates/bulk/consent-requests", {
+    method: "POST",
+    body: { personIds, purposes },
+  });
+}
+
+/** An answer they gave another way; `answeredOn` is a `YYYY-MM-DD` day, today or earlier. */
+export function recordConsent(
+  personId: string,
+  answer: { purpose: ConsentPurpose; answer: ConsentAnswer; answeredOn: string },
+): Promise<PersonRecord> {
+  return request<PersonRecord>(`/candidates/${personId}/consents/recorded`, { method: "POST", body: answer });
 }
 
 /** Sends everyone it can; who it could not reach comes back with why, never dropped silently. */

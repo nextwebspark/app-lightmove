@@ -1,5 +1,6 @@
 package app.lightmove.api.candidate.controller;
 
+import app.lightmove.api.candidate.dto.ConsentAnswersRequest;
 import app.lightmove.api.candidate.dto.PrivacyPageRequest;
 import app.lightmove.api.candidate.dto.PrivacyPageResponse;
 import app.lightmove.api.candidate.service.PrivacyPageService;
@@ -42,6 +43,13 @@ public class PrivacyPageController {
     @ResponseStatus(HttpStatus.OK)
     public void optOut(@PathVariable String token, HttpServletRequest request) {
         pages.optOut(token, request);
+    }
+
+    @PostMapping("/consents")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void answer(@PathVariable String token, @Valid @RequestBody ConsentAnswersRequest body,
+                       HttpServletRequest request) {
+        pages.answer(token, body.answers(), request);
     }
 
     @PostMapping("/requests")

@@ -1,18 +1,29 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
-import { Button, Field, Input, Select, useToast } from "../../../components/ui";
+import { Button, Field, Input, SegmentedControl, Select, Toggle, useToast } from "../../../components/ui";
 import { ApiRequestError } from "../../../lib/apiClient";
+import { cn } from "../../../lib/cn";
 import { messageFor } from "../../../lib/errorCodes";
 import * as candidatePrivacyApi from "../../candidates/api/candidatePrivacyApi";
 import type {
+  CandidatePrivacyMode,
   CandidatePrivacySettings,
   CandidatePrivacySettingsChange,
+  KeepOnFileMonths,
 } from "../../candidates/api/candidatePrivacyApi";
 import type { LawfulBasis } from "../../candidates/api/types";
 import { LAWFUL_BASES } from "../../candidates/lib/candidatePrivacy";
+import { useWorkspaceVocabulary } from "../../workspace/lib/vocabulary";
 
-type Errors = Partial<Record<"privacyContactEmail" | "noticeUrl", string>>;
+type Errors = Partial<Record<"privacyContactEmail" | "noticeUrl" | "renewalDaysBefore", string>>;
+
+const MODES = [
+  { value: "notices", label: "Notices" },
+  { value: "consent", label: "Notices and consent requests" },
+] as const;
+
+const KEEP_MONTHS: readonly KeepOnFileMonths[] = [12, 24, 36];
 
 const EMAIL = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 const HTTPS_LINK = /^https:\/\/\S+\.\S+/i;
@@ -23,7 +34,27 @@ function draftOf(saved: CandidatePrivacySettings): CandidatePrivacySettingsChang
     privacyContactEmail: saved.privacyContactEmail ?? "",
     noticeUrl: saved.noticeUrl ?? "",
     defaultLawfulBasis: saved.defaultLawfulBasis,
+    privacyMode: saved.privacyMode,
+    keepOnFile: saved.keepOnFile,
+    keepOnFileMonths: saved.keepOnFileMonths,
+    shareWithClient: saved.shareWithClient,
+    marketing: saved.marketing,
+    renewalDaysBefore: saved.renewalDaysBefore,
   };
+}
+
+function modeHintOf(locked: boolean, mode: CandidatePrivacyMode): string {
+  if (locked) return "Save your firm's name, privacy contact and notice link to choose a mode.";
+  return mode === "consent"
+    ? "Candidates are told you hold their details, and can be asked to agree to the uses below, one at a time."
+    : "Candidates are told you hold their details. Nobody is asked for consent.";
+}
+
+function renewalHintOf(days: number): string {
+  if (!Number.isInteger(days)) return "Enter 0 to 90 days. 0 never asks again.";
+  return days === 0
+    ? "Never asked again: consent simply ends on its date."
+    : `The candidate gets one email ${days} days before their consent ends. 0 never asks again.`;
 }
 
 function errorsOf(draft: CandidatePrivacySettingsChange): Errors {
@@ -34,16 +65,21 @@ function errorsOf(draft: CandidatePrivacySettingsChange): Errors {
   if (draft.noticeUrl.trim() && !HTTPS_LINK.test(draft.noticeUrl.trim())) {
     errors.noticeUrl = "Enter a link starting with https://";
   }
+  if (!Number.isInteger(draft.renewalDaysBefore) || draft.renewalDaysBefore < 0 || draft.renewalDaysBefore > 90) {
+    errors.renewalDaysBefore = "Enter 0 to 90 days";
+  }
   return errors;
 }
 
 /**
  * Settings → Data & retention → Candidate privacy (#923, `Settings.dc.html`, `data`): the firm as controller of the
  * people it holds. Every privacy notice and outreach email names it; no notice can go until the first three are set.
+ * Consent mode (#1267, `privacyMode`) adds the purposes a candidate can be asked about.
  */
 export function CandidatePrivacyCard({ saved }: { saved: CandidatePrivacySettings }) {
   const queryClient = useQueryClient();
   const toast = useToast();
+  const { unitLower } = useWorkspaceVocabulary();
   const [draft, setDraft] = useState(() => draftOf(saved));
   const [errors, setErrors] = useState<Errors>({});
 
@@ -59,6 +95,7 @@ export function CandidatePrivacyCard({ saved }: { saved: CandidatePrivacySetting
         setErrors({
           privacyContactEmail: error.fieldErrors.privacyContactEmail,
           noticeUrl: error.fieldErrors.noticeUrl,
+          renewalDaysBefore: error.fieldErrors.renewalDaysBefore,
         });
         return;
       }
@@ -67,10 +104,29 @@ export function CandidatePrivacyCard({ saved }: { saved: CandidatePrivacySetting
   });
 
   const unchanged = JSON.stringify(draft) === JSON.stringify(draftOf(saved));
-  const set = (key: keyof CandidatePrivacySettingsChange, value: string) => {
+  const set = <K extends keyof CandidatePrivacySettingsChange>(key: K, value: CandidatePrivacySettingsChange[K]) => {
     setDraft((current) => ({ ...current, [key]: value }));
     setErrors((current) => ({ ...current, [key]: undefined }));
   };
+  const modeLocked = !saved.readyForNotices;
+  const mode = modeLocked ? "notices" : draft.privacyMode;
+  const purposes = [
+    {
+      key: "keepOnFile",
+      label: "Keep my details on file for future roles",
+      description: "While it's given, the candidate is kept past your retention period.",
+    },
+    {
+      key: "shareWithClient",
+      label: "Share my profile with a client for a specific role",
+      description: `Asked for one position at a time. The email says "a confidential client" unless you name the ${unitLower}.`,
+    },
+    {
+      key: "marketing",
+      label: "Career and market updates",
+      description: "Recorded only. Uncava sends no updates: it tells you who agreed to yours.",
+    },
+  ] as const;
 
   const handleSave = () => {
     const found = errorsOf(draft);
@@ -137,13 +193,97 @@ export function CandidatePrivacyCard({ saved }: { saved: CandidatePrivacySetting
             ))}
           </Select>
         </Field>
+        <div className="mb-3.5">
+          <div className="mb-1.5 text-note font-medium text-u-text2">Mode</div>
+          <fieldset disabled={modeLocked} className={cn("m-0 border-0 p-0", modeLocked && "opacity-60")}>
+            <SegmentedControl
+              label="Mode"
+              variant="uncava"
+              options={MODES}
+              value={mode}
+              onChange={(next) => set("privacyMode", next)}
+            />
+          </fieldset>
+          <p className={cn("mt-1.5 font-mono text-meta", modeLocked ? "text-u-signal" : "text-u-text3")}>
+            {modeHintOf(modeLocked, mode)}
+          </p>
+        </div>
       </div>
+      {mode === "consent" && (
+        <div aria-label="Consent requests" role="group" className="mt-1 max-w-[620px] border-t border-u-border pt-4">
+          <div className="text-note font-semibold text-u-text">Consent requests</div>
+          <p className="mt-0.5 font-mono text-meta text-u-text3">
+            Each is asked on its own, with nothing ticked. No answer changes nothing.
+          </p>
+          <div className="mt-3 divide-y divide-u-border">
+            {purposes.map((purpose) => (
+              <div key={purpose.key} className="flex items-start justify-between gap-4 py-3">
+                <div className="min-w-0">
+                  <div className="text-note font-medium text-u-text">{purpose.label}</div>
+                  <p className="mt-0.5 text-note text-u-text3">{purpose.description}</p>
+                  {purpose.key === "keepOnFile" && (
+                    <label className="mt-2 flex items-center gap-2 text-note text-u-text2">
+                      <span>Valid for</span>
+                      <Select
+                        density="compact"
+                        className="w-auto"
+                        aria-label="Valid for"
+                        disabled={!draft.keepOnFile}
+                        value={draft.keepOnFileMonths}
+                        onChange={(event) => set("keepOnFileMonths", Number(event.target.value) as KeepOnFileMonths)}
+                      >
+                        {KEEP_MONTHS.map((months) => (
+                          <option key={months} value={months}>
+                            {months} months
+                          </option>
+                        ))}
+                      </Select>
+                    </label>
+                  )}
+                </div>
+                <Toggle
+                  label={purpose.label}
+                  checked={draft[purpose.key]}
+                  onChange={(checked) => set(purpose.key, checked)}
+                />
+              </div>
+            ))}
+          </div>
+          <div className="mt-1 border-t border-u-border pt-3">
+            <label className="flex flex-wrap items-center gap-2 text-note font-medium text-u-text">
+              Ask again
+              <Input
+                type="number"
+                min={0}
+                max={90}
+                aria-label="Days before consent ends"
+                className="w-16"
+                invalid={!!errors.renewalDaysBefore}
+                value={Number.isNaN(draft.renewalDaysBefore) ? "" : String(draft.renewalDaysBefore)}
+                onChange={(event) =>
+                  // An empty field is no number at all, never 0: Number("") would quietly mean "never ask again".
+                  set("renewalDaysBefore", event.target.value.trim() === "" ? Number.NaN : Number(event.target.value))
+                }
+              />
+              days before consent ends
+            </label>
+            <p
+              role={errors.renewalDaysBefore ? "alert" : undefined}
+              className={cn("mt-1.5 font-mono text-meta", errors.renewalDaysBefore ? "text-u-offlimits" : "text-u-text3")}
+            >
+              {errors.renewalDaysBefore ?? renewalHintOf(draft.renewalDaysBefore)}
+            </p>
+          </div>
+        </div>
+      )}
       <div className="mt-3.5 flex gap-2.5 rounded-u-chip border border-u-border bg-u-surface px-3 py-2.5 font-mono text-meta text-u-text2">
         <Icon d={ICONS.info} size={15} className="mt-px flex-none text-u-text3" />
         <span>
-          {saved.readyForNotices
-            ? `Privacy notices go from Uncava in ${saved.controllerName}'s name, and replies reach your privacy contact.`
-            : "Fill in your firm's name, a privacy contact and your notice link before anyone can send a privacy notice."}
+          {!saved.readyForNotices
+            ? "Fill in your firm's name, a privacy contact and your notice link before anyone can send a privacy notice."
+            : mode === "consent"
+              ? `Privacy notices and consent requests go from Uncava in ${saved.controllerName}'s name, and replies reach your privacy contact. Each answer is recorded on the candidate.`
+              : `Privacy notices go from Uncava in ${saved.controllerName}'s name, and replies reach your privacy contact.`}
         </span>
       </div>
       <div className="mt-4 flex justify-end">

@@ -326,7 +326,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, API + "/privacy/links/*").permitAll()
                         // An outreach email's stop link is posted by the person's mail app as well (RFC 8058).
                         .requestMatchers(HttpMethod.POST, API + "/privacy/links/*/objection",
-                                API + "/privacy/links/*/requests", API + "/privacy/links/*/opt-out").permitAll()
+                                API + "/privacy/links/*/requests", API + "/privacy/links/*/opt-out",
+                                API + "/privacy/links/*/consents").permitAll()
 
                         // A picture an email shows, fetched by the recipient's mail client: the random token is the credential.
                         .requestMatchers(HttpMethod.GET, API + "/email-images/*").permitAll()

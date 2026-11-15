@@ -56,6 +56,7 @@ const PERSON_KINDS: ReadonlySet<NotificationKind> = new Set([
   "deletion_requested",
   "person_objected",
   "candidate_opted_out",
+  "consent_answered",
 ]);
 
 export function notificationHref(notification: NotificationResponse): string {

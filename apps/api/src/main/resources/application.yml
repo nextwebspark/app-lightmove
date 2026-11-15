@@ -810,6 +810,8 @@ lightmove:
     enabled: ${DATA_PROTECTION_ENABLED:false}
     # Privacy notices (#923) one workspace may send a day through Uncava's own sender.
     privacy-notices-per-day: ${DATA_PROTECTION_PRIVACY_NOTICES_PER_DAY:500}
+    # The daily consent scan (#1267), UTC. Spelled out here: @Scheduled reads it from the environment.
+    consent-scan: ${DATA_PROTECTION_CONSENT_SCAN:0 20 3 * * *}
 
   # The data processing agreement a founder accepts for the firm when creating a workspace (#928). Both blank until
   # counsel publishes one: nothing is asked. Set together; a new version asks only workspaces created after it.

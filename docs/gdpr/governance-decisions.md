@@ -24,6 +24,11 @@ placeholders it names.
 | # | Decision | Facts | Fills | Status |
 |---|---|---|---|---|
 | B1 | Legitimate interests holds for mapping, sourcing, outreach and the cache | [lia.md](lia.md) | privacy policy lawful-basis table | open |
+| B7 | Does a consent basis with no consent recorded block AI, outreach and client visibility, or only warn? | warns only: the drawer says so and nothing is refused (#1267) | — | engineering default, counsel to confirm |
+| B8 | Is a request nobody answers ever consent? | never: it closes as expired after 30 days and changes nothing else (#1267) | — | engineering default, counsel to confirm |
+| B9 | Should a minimal proof of consent outlive the person's erasure? | no: consents and their history are deleted with the person; the audit trail keeps ids only (#1267) | retention schedule | engineering default, counsel to confirm |
+| B10 | Who sends a consent request? | Uncava's sender in the firm's name, the firm's privacy contact as reply-to, as privacy notices do (#923, #1267) | privacy policy | engineering default, counsel to confirm |
+| B11 | Does a share-with-client request name the client? | "a confidential client" unless staff choose to name it, never on a confidential position (#1267 phase 3) | — | engineering default, counsel to confirm |
 | B2 | Reliance on Art. 14(5)(b) (disproportionate effort) for executives never contacted | the notice is built (#923): an admin sets the firm's details, staff send a notice one by one or in bulk, and a Not notified view lists anyone held over a month and never told; nothing sends one automatically | privacy policy "Executives" | open |
 | B3 | Is outreach to executives direct marketing (Art. 21(2))? | sent one-to-one from the consultant's mailbox, in sequences; every email ends with the firm's footer and a link to stop emails, with one-click `List-Unsubscribe` except from Microsoft mailboxes (#924) | privacy policy "Your right to object" | open |
 | B4 | Is Stripe Uncava's processor or a controller? | Checkout collects card, address, tax id | sub-processor list | open |

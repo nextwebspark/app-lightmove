@@ -57,6 +57,11 @@ const NOTICE_BASES: Record<LawfulBasis, string> = {
   contract: "a contract with you",
 };
 
+/** Where their details came from, as every privacy email says it; bracketed when a selection has no one answer. */
+export function sourcePhraseOf(source: CandidateSource | null | undefined): string {
+  return source ? NOTICE_SOURCES[source] : "[where their details came from]";
+}
+
 /**
  * The notice email's two paragraphs exactly as `EmailTemplates.buildPrivacyNoticeEmail` writes them, so the preview
  * never promises what the email does not say. A bulk send has no one person's source or basis, so each is named in
@@ -67,7 +72,7 @@ export function noticePreviewParagraphs(
   source: CandidateSource | null | undefined,
   basis: LawfulBasis | null | undefined,
 ): [string, string] {
-  const from = source ? NOTICE_SOURCES[source] : "[where their details came from]";
+  const from = sourcePhraseOf(source);
   const why = basis ? NOTICE_BASES[basis] : "[their lawful basis]";
   return [
     `${firm} holds some of your professional details, such as your name, career history and work contact details, which came from ${from}. We hold them to consider you for senior roles, on the basis of ${why}.`,

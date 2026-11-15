@@ -394,6 +394,75 @@ public class EmailTemplates {
                         plain(noticeUrl), plain(replyTo))), firm, replyTo);
     }
 
+    /**
+     * A consent request (#1267) in the firm's name: who holds what and from where, then each purpose it asks about.
+     * The answers are given on the page, never in the email.
+     */
+    public EmailMessage buildConsentRequestEmail(String recipient, String recipientName, String firm, String replyTo,
+                                                 String sourcePhrase, List<String> asking, String pageLink,
+                                                 String noticeUrl, String linkUntil) {
+        List<EmailBlock> blocks = new ArrayList<>();
+        blocks.add(greetingOf(recipientName));
+        blocks.add(EmailParagraph.of("%s holds some of your professional details, which came from %s.",
+                plain(firm), plain(sourcePhrase)));
+        blocks.add(EmailParagraph.of("We'd like your permission to:"));
+        asking.forEach(ask -> blocks.add(EmailParagraph.of("• %s", plain(ask))));
+        blocks.add(EmailParagraph.of("Each is a separate choice, and you can say no to any of them. If you don't "
+                + "answer, nothing changes."));
+        blocks.add(new EmailAction("Choose your answers", pageLink));
+        blocks.add(consentCloseOf("This link works until %s.".formatted(linkUntil), noticeUrl, replyTo));
+        return renderer.renderOnBehalfOf(recipient, "%s would like your permission".formatted(firm),
+                new EmailContent("Your permission", blocks), firm, replyTo);
+    }
+
+    /** Before a keep-on-file consent ends: asked once whether to keep the details for another period. */
+    public EmailMessage buildConsentRenewalEmail(String recipient, String recipientName, String firm, String replyTo,
+                                                 String agreedOn, String endsOn, int months, String pageLink,
+                                                 String noticeUrl, String linkUntil) {
+        return renderer.renderOnBehalfOf(recipient, "Your consent to keep your details ends on %s".formatted(endsOn),
+                new EmailContent("Your permission", List.of(
+                        greetingOf(recipientName),
+                        EmailParagraph.of("On %s you agreed that %s could keep your details on file for future roles. "
+                                + "That consent ends on %s.", plain(agreedOn), plain(firm), plain(endsOn)),
+                        EmailParagraph.of("Would you like us to keep them for another %s months? If you don't answer, "
+                                + "your consent ends on that day and nothing else changes.", plain(String.valueOf(months))),
+                        new EmailAction("Choose your answer", pageLink),
+                        consentCloseOf("This link works until %s.".formatted(linkUntil), noticeUrl, replyTo))),
+                firm, replyTo);
+    }
+
+    /**
+     * What the person just answered, and the link to change their mind while anything they agreed to is in force.
+     * {@code manageLink} is null once nothing is.
+     */
+    public EmailMessage buildConsentConfirmationEmail(String recipient, String recipientName, String firm,
+                                                      String replyTo, String recordedOn, List<String> answerLines,
+                                                      String manageLink, String manageUntil, String noticeUrl) {
+        List<EmailBlock> blocks = new ArrayList<>();
+        blocks.add(greetingOf(recipientName));
+        blocks.add(EmailParagraph.of("Thank you. On %s %s recorded your answers:", plain(recordedOn), plain(firm)));
+        answerLines.forEach(line -> blocks.add(EmailParagraph.of("• %s", plain(line))));
+        blocks.add(EmailParagraph.of("You can change your mind at any time, and withdrawing is as easy as agreeing."));
+        if (manageLink != null) {
+            blocks.add(new EmailAction("Manage your consents", manageLink));
+            blocks.add(consentCloseOf("This link works until %s. Keep this email so you can use it."
+                    .formatted(manageUntil), noticeUrl, replyTo));
+        } else {
+            blocks.add(consentCloseOf("", noticeUrl, replyTo));
+        }
+        return renderer.renderOnBehalfOf(recipient, "Your answers to %s".formatted(firm),
+                new EmailContent("Your answers are saved", blocks), firm, replyTo);
+    }
+
+    private static EmailParagraph greetingOf(String recipientName) {
+        return EmailParagraph.of("Dear %s,", plain(firstName(recipientName)));
+    }
+
+    private static EmailNote consentCloseOf(String validity, String noticeUrl, String replyTo) {
+        return EmailNote.of((validity.isEmpty() ? "" : validity + " ") + "Our privacy notice at %s explains how we use "
+                + "your details. Questions go to %s, or reply to this email.", plain(noticeUrl), plain(replyTo));
+    }
+
     /** The privacy footer an outreach email ends with; added at send, so a consultant's body never holds it. */
     public String buildOutreachPrivacyFooterHtml(String statement, String noticeUrl, String stopEmailsUrl) {
         return "<p style=\"margin:16px 0 0;padding-top:10px;border-top:1px solid #e5e7eb;font-size:12px;"
