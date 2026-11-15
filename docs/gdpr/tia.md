@@ -12,7 +12,7 @@ US when a customer adds it. Onward transfers go to the providers below. The prov
 | Recipient | Data | Location (from code) | Mechanism ⚖️ | Notes |
 |---|---|---|---|---|
 | Google Cloud: Cloud Run, Cloud SQL, Cloud Storage | everything | `us-central1` | [EU-US DPF / SCCs module 2 and 3 / UK IDTA or addendum] | Google-managed keys; no CMEK |
-| Google Cloud: Vertex AI | dossiers, notes, CV text, transcripts (contacts redacted), briefs, assistant chats | **`global`**: Google may serve a request from any region | [as above] | #925 pins it; `application.yml` notes `us-central1` throttled the newer models |
+| Google Cloud: Vertex AI | dossiers, notes, CV text, transcripts (contacts redacted), briefs, assistant chats | **`global`**: Google may serve a request from any region | [as above] | kept at `global` for now: the Flash models are global-only ([residency-adr.md](residency-adr.md) §1) |
 | Google Cloud Logging | masked log lines; full request URLs | `global` bucket | [as above] | 30 days |
 | Nylas | mailboxes, emails, replies, calendars | US by default (`api.us.nylas.com`); EU available | [mechanism] | `NYLAS_BASE_URL` selects |
 | Recall.ai | call audio and video, transcription, calendar tokens | `us-east-1` by default; EU available | [mechanism] | `RECALL_BASE_URL` selects |
@@ -47,9 +47,10 @@ relevant given TLS throughout. Engineering facts that bear on it:
 
 ## 4. Options that would reduce the transfer
 
-- Pin Vertex AI to a named region (#925 first box) — one setting.
+- Pin Vertex AI to a named region: one setting, held back while the Flash models are global-only
+  ([residency-adr.md](residency-adr.md) §1, with the triggers to revisit).
 - Nylas and Recall EU endpoints for EU customers.
-- A regional stack (EU or GCC) per `data-protection-plan.md` §5 3.4 — an ADR for #925.
+- A regional stack (EU or GCC) per `data-protection-plan.md` §5 3.4: proposed in [residency-adr.md](residency-adr.md) §2.
 
 ## 5. Conclusion
 

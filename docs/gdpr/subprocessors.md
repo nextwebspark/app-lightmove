@@ -19,7 +19,7 @@ listed in [governance-decisions.md](governance-decisions.md); [tia.md](tia.md) a
 | Google Cloud | Cloud Run | every request and response | `.github/workflows/deploy.yml` (`REGION`) | `us-central1` | sub-processor and Uncava's processor |
 | Google Cloud | Cloud SQL `bright-gcc` | the whole database | `application.yml` datasource | `us-central1`, single zone | sub-processor and Uncava's processor |
 | Google Cloud | Cloud Storage `hak-talent-mapping-lightmove-documents` | CVs, documents, photos, email attachments, workspace export zips | `core/storage/service/GcsDocumentStore` | `us-central1` | sub-processor |
-| Google Cloud | Vertex AI (Gemini chat, `text-embedding-004`) | candidate dossiers, notes, CV text and call transcripts with contacts taken out (`ContactRedaction`); position briefs; assistant chats | `core/llm/**`, `CandidateAiEnricher`, `CandidateNationalityClassifier`, `CandidateScorecardDrafter`, `MeetingSummariser`, `AssistantService` | **`global`** (`GOOGLE_CLOUD_LOCATION` unset; #925 pins it) | sub-processor |
+| Google Cloud | Vertex AI (Gemini chat, `text-embedding-004`) | candidate dossiers, notes, CV text and call transcripts with contacts taken out (`ContactRedaction`); position briefs; assistant chats | `core/llm/**`, `CandidateAiEnricher`, `CandidateNationalityClassifier`, `CandidateScorecardDrafter`, `MeetingSummariser`, `AssistantService` | **`global`** (`GOOGLE_CLOUD_LOCATION` unset; kept until the triggers in [residency-adr.md](residency-adr.md) §1) | sub-processor |
 | Google Cloud | Secret Manager | keysets and provider secrets, no personal data | `deploy.yml` `--set-secrets` | project-level | — |
 | Google Cloud | Cloud Logging | masked application lines (`PersonalDataLogMasker`); Cloud Run's request log keeps full URLs, `?q=` searches included | `logback-spring.xml` | `_Default` bucket, `global`, 30 days | sub-processor and Uncava's processor |
 | Resend | account email | users' names and addresses (verification, reset, invitation, lockout, two-factor, billing, export and purge notices); notification emails name candidates (`NotificationEmails`) | `core/email/service/ResendEmailSender` | [Region] | sub-processor and Uncava's processor |
@@ -51,6 +51,25 @@ listed in [governance-decisions.md](governance-decisions.md); [tia.md](tia.md) a
 | Provider | What it receives | Where in code | Role |
 |---|---|---|---|
 | Google, LinkedIn | the user's name, email and picture, returned to Uncava at sign-in | `core/security/service/OAuth2LoginSuccessHandler` | the user's own provider |
+
+## Contracts and configuration
+
+What each provider is bound by, and the setting that decides where it runs. **DPA** and **Transfer mechanism** are ⚖️
+(governance decisions F1, F2) and the business's to fill; [residency-adr.md](residency-adr.md) holds the vendor DPA
+checklist and what a second region would change. A base URL with no setting is fixed in the client's `*Settings` record.
+
+| Provider | DPA signed | Transfer mechanism | Setting that decides region or endpoint |
+|---|---|---|---|
+| Google Cloud (Cloud Run, Cloud SQL, Storage, Logging) | [y/n] | [DPF / SCCs] | `deploy.yml` `REGION`; the datasource's instance name; `STORAGE_BUCKET`, created in `GCP_REGION` (`ops/gcp/bootstrap.sh`) |
+| Google Cloud Vertex AI | [y/n] | [DPF / SCCs] | `GOOGLE_CLOUD_LOCATION` (unset, so `global`; [residency-adr.md](residency-adr.md) §1), `LLM_CHAT_MODEL`, `ASSISTANT_MODEL` |
+| Resend | [y/n] | [DPF / SCCs] | `RESEND_API_KEY`; base URL in `ResendSettings` |
+| Stripe | [y/n] | [DPF / SCCs] | `STRIPE_SECRET_KEY` |
+| Mapbox | [y/n] | [DPF / SCCs] | `MAPBOX_PUBLIC_TOKEN`, `MAPBOX_GEOCODING_TOKEN`; base URL in `MapboxSettings` |
+| Bright Data | [y/n] | [DPF / SCCs] | `BRIGHTDATA_API_KEY`; base URL in `BrightDataSettings` |
+| HarvestAPI | [y/n] | [DPF / SCCs] | `HARVESTAPI_API_KEY`; base URL in `HarvestApiSettings` |
+| ContactOut | [y/n] | [DPF / SCCs] | `CONTACTOUT_API_KEY`; base URL in `ContactOutSettings` |
+| Nylas | [y/n] | [DPF / SCCs] | `NYLAS_BASE_URL` (US by default, `api.eu.nylas.com` for an EU application) |
+| Recall.ai | [y/n] | [DPF / SCCs] | `RECALL_BASE_URL` (`us-east-1` by default; `eu-central-1` is a separate account) |
 
 ## Recipients the customer chooses
 
