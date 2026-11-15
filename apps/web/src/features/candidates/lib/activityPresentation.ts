@@ -1,7 +1,15 @@
 import type { ReactNode } from "react";
 import { ICONS } from "../../../components/layout/Icon";
 import type { FieldChange, PersonActivityKind, PersonNoteKind, PersonTimelineEntry } from "../api/types";
-import { DOCUMENT_NOUNS, DOORS, NOTE_VERBS, statusLabel, triageStageLabel } from "./candidateActivity";
+import {
+  consentAnswerPhrase,
+  consentPurposePhrase,
+  DOCUMENT_NOUNS,
+  DOORS,
+  NOTE_VERBS,
+  statusLabel,
+  triageStageLabel,
+} from "./candidateActivity";
 import { formatFull, formatInstantTime, formatWeekdayDate, formatWeekdayDateTime } from "../../../lib/datetime";
 import { noteKindOf } from "./noteKinds";
 
@@ -75,6 +83,10 @@ const FAMILY_OF: Record<PersonActivityKind, ActivityFamily> = {
   PRIVACY_OBJECTED: "profile",
   PRIVACY_REQUEST_RECEIVED: "profile",
   PRIVACY_OPTED_OUT: "profile",
+  CONSENT_REQUESTED: "profile",
+  CONSENT_REQUEST_FAILED: "profile",
+  CONSENT_ANSWERED: "profile",
+  CONSENT_EXPIRED: "profile",
   DOCUMENT_ADDED: "documents",
   DOCUMENT_VERSION_ADDED: "documents",
   DOCUMENT_REMOVED: "documents",
@@ -192,6 +204,13 @@ export function iconOf(entry: PersonTimelineEntry): string | null {
     case "PRIVACY_OBJECTED":
     case "PRIVACY_OPTED_OUT":
       return ICONS.ban;
+    case "CONSENT_REQUESTED":
+      return ICONS.shield;
+    case "CONSENT_REQUEST_FAILED":
+    case "CONSENT_EXPIRED":
+      return ICONS.info;
+    case "CONSENT_ANSWERED":
+      return entry.details.status === "given" ? ICONS.check : ICONS.ban;
     case "DOCUMENT_ADDED":
     case "DOCUMENT_VERSION_ADDED":
       return ICONS.file;
@@ -246,7 +265,8 @@ export function actorOf(entry: PersonTimelineEntry): ActivityActor {
   if (
     entry.kind === "PRIVACY_OBJECTED" ||
     entry.kind === "PRIVACY_REQUEST_RECEIVED" ||
-    entry.kind === "PRIVACY_OPTED_OUT"
+    entry.kind === "PRIVACY_OPTED_OUT" ||
+    (entry.kind === "CONSENT_ANSWERED" && entry.details.via === "page")
   ) {
     return { kind: "executive" };
   }
@@ -360,6 +380,14 @@ export function verbOf(entry: PersonTimelineEntry): string {
       return "stopped emails from an outreach email";
     case "PRIVACY_REQUEST_RECEIVED":
       return details.kind === "deletion" ? "asked for their data to be deleted" : "asked for a copy of their data";
+    case "CONSENT_REQUESTED":
+      return String(details.renewal) === "true" ? "asked them again to keep their details on file" : "asked for consent";
+    case "CONSENT_REQUEST_FAILED":
+      return "sent a consent request that could not be delivered";
+    case "CONSENT_ANSWERED":
+      return consentAnswerPhrase(details.status, details.purpose, details.via === "by_hand");
+    case "CONSENT_EXPIRED":
+      return `${consentPurposePhrase(details.purpose)}: no answer, or the consent ended`;
     case "OUTREACH_ENROLLED":
       return "added them to a sequence";
     case "EMAIL_SENT":

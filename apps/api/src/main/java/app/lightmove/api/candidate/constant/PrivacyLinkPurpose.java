@@ -12,7 +12,9 @@ import lombok.experimental.Accessors;
 public enum PrivacyLinkPurpose implements ApiValueEnum {
 
     NOTICE("notice"),
-    OPT_OUT("opt_out");
+    OPT_OUT("opt_out"),
+    CONSENT("consent"),
+    MANAGE("manage");
 
     private final String value;
 }

@@ -1,5 +1,6 @@
 import type { DragEvent, ReactNode } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
+import { ActionMenu, MenuItem } from "../../../components/ui/ActionMenu";
 import { SelectionCheckbox } from "../../../components/ui/SelectionCheckbox";
 import { cn } from "../../../lib/cn";
 import { CandidateAvatar } from "../../candidates/components/CandidateAvatar";
@@ -8,6 +9,7 @@ import type { PipelineRow } from "../api/types";
 import { shortDate } from "../lib/pipelineView";
 import { VisibilityToggle } from "./PipelineControls";
 import { BoardNextAction } from "./PipelineNextAction";
+import { useWorkspaceVocabulary } from "../../workspace/lib/vocabulary";
 
 export interface CardDrag {
   draggable: boolean;
@@ -31,6 +33,8 @@ export function PipelineCard({
   onToggleSelected,
   onToggleVisible,
   onOpenNextAction,
+  shareBadge,
+  onAskShare,
 }: {
   projectId: string;
   row: PipelineRow;
@@ -44,7 +48,10 @@ export function PipelineCard({
   onToggleSelected: (candidateId: string) => void;
   onToggleVisible: (row: PipelineRow) => void;
   onOpenNextAction: (row: PipelineRow) => void;
+  shareBadge?: ReactNode;
+  onAskShare?: (row: PipelineRow) => void;
 }) {
+  const vocabulary = useWorkspaceVocabulary();
   return (
     <article
       aria-label={row.fullName}
@@ -77,20 +84,50 @@ export function PipelineCard({
           <span className="truncate text-meta text-u-text2">{row.title ?? "—"}</span>
           <span className="truncate text-meta text-u-text2">{row.companyName ?? "—"}</span>
         </span>
-        <button
-          type="button"
-          aria-label={`Open ${row.fullName}`}
-          title="Open record"
-          onClick={(event) => {
-            event.stopPropagation();
-            onOpen(row.candidateId);
-          }}
-          className="grid h-[18px] w-[22px] flex-none place-items-center rounded-u-control text-u-text2 hover:bg-u-border hover:text-u-text"
-        >
-          <Icon d={ICONS.more} size={14} />
-        </button>
+        {onAskShare ? (
+          <span className="flex" onClick={(event) => event.stopPropagation()}>
+            <ActionMenu label={`${row.fullName} options`} width={220} triggerClassName="h-[18px] w-[22px] size-auto">
+              {(close) => (
+                <>
+                  <MenuItem
+                    icon={ICONS.externalLink}
+                    onSelect={() => {
+                      close();
+                      onOpen(row.candidateId);
+                    }}
+                  >
+                    Open record
+                  </MenuItem>
+                  <MenuItem
+                    icon={ICONS.shield}
+                    onSelect={() => {
+                      close();
+                      onAskShare(row);
+                    }}
+                  >
+                    Ask to share with {vocabulary.unitLower}…
+                  </MenuItem>
+                </>
+              )}
+            </ActionMenu>
+          </span>
+        ) : (
+          <button
+            type="button"
+            aria-label={`Open ${row.fullName}`}
+            title="Open record"
+            onClick={(event) => {
+              event.stopPropagation();
+              onOpen(row.candidateId);
+            }}
+            className="grid h-[18px] w-[22px] flex-none place-items-center rounded-u-control text-u-text2 hover:bg-u-border hover:text-u-text"
+          >
+            <Icon d={ICONS.more} size={14} />
+          </button>
+        )}
       </span>
       <BoardNextAction row={row} onOpen={onOpenNextAction} />
+      {shareBadge && <span className="flex min-w-0">{shareBadge}</span>}
       <span className="flex items-center gap-2">
         <VisibilityToggle visible={row.clientVisible} name={row.fullName} onToggle={() => onToggleVisible(row)} />
         {actions}
@@ -108,6 +145,7 @@ export function OutOfProcessCard({
   actions,
   onOpen,
   onToggleVisible,
+  shareBadge,
 }: {
   projectId: string;
   row: PipelineRow;
@@ -116,6 +154,7 @@ export function OutOfProcessCard({
   actions: ReactNode;
   onOpen: (candidateId: string) => void;
   onToggleVisible: (row: PipelineRow) => void;
+  shareBadge?: ReactNode;
 }) {
   return (
     <article
@@ -143,6 +182,7 @@ export function OutOfProcessCard({
           </span>
         </span>
       </span>
+      {shareBadge && <span className="flex min-w-0">{shareBadge}</span>}
       <span className="flex items-center gap-2">
         <VisibilityToggle visible={row.clientVisible} name={row.fullName} onToggle={() => onToggleVisible(row)} />
         {actions}

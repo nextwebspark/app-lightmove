@@ -140,6 +140,11 @@ public class TenantResolvers {
                 Timestamp.from(after), Timestamp.from(until));
     }
 
+    /** A consent request past its date, a consent past its date, or one near enough to ask again (V223). */
+    public List<UUID> workspacesWithConsentsDue(Instant at) {
+        return workspaces("SELECT * FROM app_lm_workspaces_with_consents_due(?)", Timestamp.from(at));
+    }
+
     public List<UUID> workspacesWithNotificationEmailsDue(Instant at) {
         return workspaces("SELECT * FROM app_lm_workspaces_with_notification_emails_due(?)", Timestamp.from(at));
     }

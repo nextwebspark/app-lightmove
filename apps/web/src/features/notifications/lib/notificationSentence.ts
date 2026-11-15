@@ -132,6 +132,12 @@ export function sentenceOf(notification: NotificationResponse, now: Date = new D
         where: null,
         sub: { text: "Every sequence stopped and do not contact set", tone: "muted" },
       };
+    case "consent_answered":
+      return {
+        parts: [strong(person), plain(" answered your consent request")],
+        where: null,
+        sub: { text: "From their privacy page", tone: "muted" },
+      };
   }
 }
 

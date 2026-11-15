@@ -11,10 +11,16 @@ const QUICK_VIEWS: { value: PoolView; label: string }[] = [
   { value: "active", label: "In an active position" },
   { value: "unplaced", label: "Not in a position" },
   { value: "not_notified", label: "Not notified" },
+  { value: "consent_asked", label: "Asked, no answer" },
+  { value: "consent_ending", label: "Consent ending in 30 days" },
+  { value: "consent_refused", label: "Declined or withdrawn" },
 ];
 
 /** Held over a month and never told the firm holds their data (#923); only where the people controls are offered. */
 const PRIVACY_VIEWS: readonly PoolView[] = ["not_notified"];
+
+/** Where consent requests stand (#1267); only while the workspace asks for consent. */
+const CONSENT_VIEWS: readonly PoolView[] = ["consent_asked", "consent_ending", "consent_refused"];
 
 /**
  * The People view's strip, Strategy's toolbar: the view switch, the filter rail's toggle, the search,
@@ -37,6 +43,7 @@ export function PeopleToolbar({
   exporting,
   onExportView,
   showsPrivacyViews = false,
+  showsConsentViews = false,
 }: {
   toggle: ReactNode;
   filtersOpen: boolean;
@@ -53,6 +60,7 @@ export function PeopleToolbar({
   exporting: boolean;
   onExportView: () => void;
   showsPrivacyViews?: boolean;
+  showsConsentViews?: boolean;
 }) {
   return (
     <div className="flex min-h-[44px] flex-none flex-wrap items-center gap-x-3.5 gap-y-2 border-b border-u-border bg-u-raised px-3 py-2 sm:px-5 sm:py-1.5">
@@ -79,7 +87,11 @@ export function PeopleToolbar({
         />
       </label>
       <div className="flex flex-wrap gap-1.5" role="group" aria-label="Quick views">
-        {QUICK_VIEWS.filter((option) => showsPrivacyViews || !PRIVACY_VIEWS.includes(option.value)).map((option) => (
+        {QUICK_VIEWS.filter(
+          (option) =>
+            (showsPrivacyViews || !PRIVACY_VIEWS.includes(option.value)) &&
+            (showsConsentViews || !CONSENT_VIEWS.includes(option.value)),
+        ).map((option) => (
           <Chip
             key={option.value}
             size="sm"

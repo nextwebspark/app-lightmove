@@ -23,7 +23,6 @@ import app.lightmove.api.core.email.service.EmailTemplates;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import jakarta.servlet.http.HttpServletRequest;
-import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -40,8 +39,6 @@ import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
-import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -62,18 +59,17 @@ public class PersonPrivacyService {
     private final PersonActivityRecorder activity;
     private final CandidatePrivacySettingsService settings;
     private final SuppressionGate suppression;
-    private final NamedParameterJdbcTemplate jdbc;
+    private final PrivacyEmailBudget budget;
     private final PrivacyLinkStore privacyLinks;
     private final EmailTemplates templates;
     private final ApplicationEventPublisher events;
     private final AuditService audit;
     private final Clock clock;
     private final String baseUrl;
-    private final int noticesPerDay;
 
     public PersonPrivacyService(PersonRepository people, PersonRecordService records, PersonActivityRecorder activity,
                                 CandidatePrivacySettingsService settings, SuppressionGate suppression,
-                                NamedParameterJdbcTemplate jdbc, PrivacyLinkStore privacyLinks,
+                                PrivacyEmailBudget budget, PrivacyLinkStore privacyLinks,
                                 EmailTemplates templates,
                                 ApplicationEventPublisher events, AuditService audit, Clock clock,
                                 LightMoveProperties properties) {
@@ -82,14 +78,13 @@ public class PersonPrivacyService {
         this.activity = activity;
         this.settings = settings;
         this.suppression = suppression;
-        this.jdbc = jdbc;
+        this.budget = budget;
         this.privacyLinks = privacyLinks;
         this.templates = templates;
         this.events = events;
         this.audit = audit;
         this.clock = clock;
         this.baseUrl = properties.web().baseUrl();
-        this.noticesPerDay = properties.dataProtection().privacyNoticesPerDay();
     }
 
     @Transactional
@@ -132,11 +127,11 @@ public class PersonPrivacyService {
     public PersonRecordResponse sendNotice(UUID userId, UUID workspaceId, UUID personId,
                                            HttpServletRequest httpRequest) {
         CandidatePrivacySettings firm = requireReady(workspaceId);
-        holdDailyBudget(workspaceId);
+        budget.hold(workspaceId);
         Person person = people.requireInWorkspace(personId, workspaceId);
         PrivacyNoticeSkipReason skip = skipReasonOf(person,
                 suppression.suppressedPeopleOf(workspaceId, List.of(person)));
-        if (skip == null && sentToday(workspaceId) >= noticesPerDay) {
+        if (skip == null && budget.remainingToday(workspaceId) <= 0) {
             skip = PrivacyNoticeSkipReason.DAILY_CAP;
         }
         if (skip != null) {
@@ -151,12 +146,12 @@ public class PersonPrivacyService {
     public BulkPrivacyNoticeResponse sendNotices(UUID userId, UUID workspaceId, List<UUID> personIds,
                                                  HttpServletRequest httpRequest) {
         CandidatePrivacySettings firm = requireReady(workspaceId);
-        holdDailyBudget(workspaceId);
+        budget.hold(workspaceId);
         Set<UUID> asked = new LinkedHashSet<>(personIds);
         Map<UUID, Person> found = people.findByWorkspaceIdAndIdIn(workspaceId, asked).stream()
                 .collect(Collectors.toMap(Person::getId, Function.identity()));
         Set<UUID> suppressed = suppression.suppressedPeopleOf(workspaceId, found.values());
-        int capacity = noticesPerDay - sentToday(workspaceId);
+        int capacity = budget.remainingToday(workspaceId);
         List<Person> sending = new ArrayList<>();
         List<PrivacyNoticeSkipResponse> skipped = new ArrayList<>();
         for (UUID personId : asked) {
@@ -219,17 +214,9 @@ public class PersonPrivacyService {
     }
 
     private PrivacyNoticeSkipReason skipReasonOf(Person person, Set<UUID> suppressed) {
-        if (person.emailContacts().isEmpty()) {
-            return PrivacyNoticeSkipReason.NO_EMAIL;
-        }
-        if (person.isDoNotContact()) {
-            return PrivacyNoticeSkipReason.DO_NOT_CONTACT;
-        }
-        if (person.isProcessingRestricted()) {
-            return PrivacyNoticeSkipReason.PROCESSING_RESTRICTED;
-        }
-        if (suppressed.contains(person.getId())) {
-            return PrivacyNoticeSkipReason.SUPPRESSED;
+        PrivacyNoticeSkipReason unreachable = PrivacyEmailBudget.unreachableReasonOf(person, suppressed);
+        if (unreachable != null) {
+            return unreachable;
         }
         Instant told = person.getPrivacyNotifiedAt();
         if (told != null && told.isAfter(clock.instant().minus(RECENTLY))) {
@@ -255,26 +242,5 @@ public class PersonPrivacyService {
             throw ApiException.of(ErrorCode.CANDIDATE_PRIVACY_NOT_SET_UP);
         }
         return firm;
-    }
-
-    /**
-     * Held until the commit, so two sends at once cannot each read the same count and together pass the cap, nor both
-     * find the same person not yet told.
-     */
-    private void holdDailyBudget(UUID workspaceId) {
-        jdbc.queryForList("SELECT pg_advisory_xact_lock(hashtextextended(:key, 0))",
-                Map.of("key", "privacy-notice:" + workspaceId));
-    }
-
-    /** Notices this workspace sent since midnight UTC; the cap is a brake on Uncava's sender, not a calendar. */
-    private int sentToday(UUID workspaceId) {
-        Instant midnight = LocalDate.now(clock).atStartOfDay().toInstant(ZoneOffset.UTC);
-        Integer count = jdbc.queryForObject("""
-                SELECT count(*) FROM app_lm_person_privacy_link
-                WHERE workspace_id = :workspaceId AND purpose = :purpose AND created_at >= :since
-                """, new MapSqlParameterSource("workspaceId", workspaceId)
-                .addValue("purpose", PrivacyLinkPurpose.NOTICE.name())
-                .addValue("since", Timestamp.from(midnight)), Integer.class);
-        return count == null ? 0 : count;
     }
 }

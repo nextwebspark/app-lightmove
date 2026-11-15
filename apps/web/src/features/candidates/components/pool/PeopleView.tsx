@@ -29,12 +29,14 @@ import { PoolFilterRail } from "./PoolFilterRail";
 import { SetOwnerDialog } from "./SetOwnerDialog";
 import { TagPeopleDialog } from "./TagPeopleDialog";
 import { SendPrivacyNoticeDialog } from "./SendPrivacyNoticeDialog";
+import { RequestConsentDialog } from "../consent/RequestConsentDialog";
+import { useConsentMode } from "../../lib/useConsentMode";
 import { useDataProtection } from "../../lib/useDataProtection";
 
 const POOL_LAYOUT_COLUMNS = layoutColumnsOf(poolColumnsFor(new Map(), new Map()));
 const NOTHING_SELECTED: RowSelectionState = {};
 
-type BulkDialog = "position" | "tag" | "owner" | "notice" | null;
+type BulkDialog = "position" | "tag" | "owner" | "notice" | "consent" | null;
 
 /**
  * The People view of the Candidates page: everyone the workspace holds, searched, filtered and sorted
@@ -60,6 +62,7 @@ export function PeopleView({
   const lookups = usePoolLookups();
   const queryClient = useQueryClient();
   const { offered: dataProtection } = useDataProtection();
+  const consentMode = useConsentMode();
   const paging = useGridPaging(50);
   const [query, setQuery] = useState(filters.q);
   // Closed at every width, unlike Strategy's: most visits here are a search or a quick view.
@@ -138,6 +141,7 @@ export function PeopleView({
         exporting={exporting}
         onExportView={() => onExport([])}
         showsPrivacyViews={dataProtection}
+        showsConsentViews={consentMode.on}
       />
 
       <div className="flex min-h-0 flex-1">
@@ -234,6 +238,9 @@ export function PeopleView({
                     {dataProtection && (
                       <SelectionAction icon={ICONS.mail} label="Privacy notice" onClick={() => setDialog("notice")} />
                     )}
+                    {consentMode.on && (
+                      <SelectionAction icon={ICONS.shield} label="Ask for consent" onClick={() => setDialog("consent")} />
+                    )}
                     <SelectionAction
                       icon={ICONS.exportOut}
                       label={exporting ? "Exporting…" : "Export"}
@@ -286,6 +293,23 @@ export function PeopleView({
               fullName: rows.find((row) => row.personId === personId)?.fullName ?? "Someone",
             })),
           }}
+          onClose={() => setDialog(null)}
+          onSent={() => {
+            setRowSelection(NOTHING_SELECTED);
+            void queryClient.invalidateQueries({ queryKey: poolApi.POOL_KEY });
+          }}
+        />
+      )}
+      {dialog === "consent" && consentMode.firm && (
+        <RequestConsentDialog
+          target={{
+            kind: "selection",
+            people: selectedIds.map((personId) => ({
+              personId,
+              fullName: rows.find((row) => row.personId === personId)?.fullName ?? "Someone",
+            })),
+          }}
+          firm={consentMode.firm}
           onClose={() => setDialog(null)}
           onSent={() => {
             setRowSelection(NOTHING_SELECTED);

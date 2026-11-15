@@ -24,6 +24,12 @@ placeholders it names.
 | # | Decision | Facts | Fills | Status |
 |---|---|---|---|---|
 | B1 | Legitimate interests holds for mapping, sourcing, outreach and the cache | [lia.md](lia.md) | privacy policy lawful-basis table | open |
+| B7 | Does a consent basis with no consent recorded block AI, outreach and client visibility, or only warn? | warns only: the drawer says so and nothing is refused (#1267) | — | engineering default, counsel to confirm |
+| B8 | Is a request nobody answers ever consent? | never: it closes as expired after 30 days and changes nothing else (#1267) | — | engineering default, counsel to confirm |
+| B9 | Should a minimal proof of consent outlive the person's erasure? | no: consents and their history are deleted with the person; the audit trail keeps ids only (#1267) | retention schedule | engineering default, counsel to confirm |
+| B10 | Who sends a consent request? | Uncava's sender in the firm's name, the firm's privacy contact as reply-to, as privacy notices do (#923, #1267) | privacy policy | engineering default, counsel to confirm |
+| B11 | Does a share-with-client request name the client? | "a confidential client" unless staff choose to name it, never on a confidential position (#1267 phase 3) | — | engineering default, counsel to confirm |
+| B12 | Should a withdrawn or declined share consent hide the person from the client, or offer to? | it warns only: the card's badge and the bell say so, visibility stays as staff set it (#1267 phase 3) | — | open |
 | B2 | Reliance on Art. 14(5)(b) (disproportionate effort) for executives never contacted | the notice is built (#923): an admin sets the firm's details, staff send a notice one by one or in bulk, and a Not notified view lists anyone held over a month and never told; nothing sends one automatically | privacy policy "Executives" | open |
 | B3 | Is outreach to executives direct marketing (Art. 21(2))? | sent one-to-one from the consultant's mailbox, in sequences; every email ends with the firm's footer and a link to stop emails, with one-click `List-Unsubscribe` except from Microsoft mailboxes (#924) | privacy policy "Your right to object" | open |
 | B4 | Is Stripe Uncava's processor or a controller? | Checkout collects card, address, tax id | sub-processor list | open |
@@ -66,12 +72,12 @@ placeholders it names.
 | F1 | Transfer mechanism per recipient (DPF, SCCs module 2/3, UK IDTA or addendum) | [tia.md](tia.md) | `[mechanism to confirm]` on the DPA, privacy policy, sub-processor list | open |
 | F2 | Region of Resend, Stripe, Bright Data, HarvestAPI, ContactOut | not in code | `[Region]` on the sub-processor list | open |
 | F3 | Nylas and Recall: US or EU | code defaults to US; EU endpoints exist | sub-processor list | open |
-| F4 | Pin Vertex AI to a region | `global` today | privacy policy, sub-processor list, `[region to confirm]` | engineering (#925) |
+| F4 | Pin Vertex AI to a region | `global`: the Flash models are served there only | privacy policy, sub-processor list | decided by engineering: stays `global` until a trigger in [residency-adr.md](residency-adr.md) §1 (#925) |
 | F5 | Breach notice to customers | DPA: [24–48] hours | DPA, breach runbook | open |
 | F6 | Audits and inspections: notice and frequency | — | DPA | open |
 | F7 | How customers hear of sub-processor changes, and the notice period | DPA says [30] days | DPA, sub-processor list | open |
 | F8 | CMEK for enterprise customers | not adopted | — | open |
-| F9 | Where backups live | multi-region unless pinned | security-of-processing | open, with #925 |
+| F9 | Where backups live | multi-region unless pinned; a regional stack pins its own ([residency-adr.md](residency-adr.md) §2) | security-of-processing | open, with #925 |
 | F10 | Keep `?q=` searches out of Cloud Run's request log | exclusion filter or shorter bucket | — | open (#927) |
 
 ## G. Website and organisation (website #26, #27, #29, #30)

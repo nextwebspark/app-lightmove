@@ -89,7 +89,9 @@ its logic text, or listed as leaving nothing on a person.
 | `app_lm_candidate_contact` | Included | `earlierContacts` (V91's frozen copy) |
 | `app_lm_candidate_photo` | Included | `earlierPhotos`, and the file |
 | `app_lm_candidate_scorecard` | Included | `scorecards` |
-| `app_lm_person_privacy_link` | Included | `privacyNotices`: each notice (#923) and each outreach email's stop link (#924) — its purpose, when it was sent, by whom, until when, when it was last opened or used, and whether the provider refused it; never the link's hash |
+| `app_lm_person_privacy_link` | Included | `privacyNotices`: each notice (#923), each outreach email's stop link (#924), each consent request and link to change an answer (#1267) — its purpose, when it was sent, by whom, until when, when it was last opened or used, and whether the provider refused it; never the link's hash |
+| `app_lm_person_consent` | Included | `consents`: each purpose they were asked about (#1267) — where it stands, when asked and by whom, their answer and how it was given, until when, and the sentence they answered |
+| `app_lm_person_consent_event` | Included | `consentHistory`: every request, answer, answer recorded by a colleague and expiry, with the sentence shown each time |
 | `app_lm_outreach_enrollment` | Included | `outreachRuns` |
 | `app_lm_outreach_message` | Included | `emails`, both ways, with their words |
 | `app_lm_outreach_message_attachment` | Included | `emailAttachments`, named; the files are the person's documents or the consultant's own |

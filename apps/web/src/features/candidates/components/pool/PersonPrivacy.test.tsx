@@ -14,6 +14,8 @@ import { MarkNotifiedDialog } from "./MarkNotifiedDialog";
 import { PersonPrivacySection } from "./PersonPrivacySection";
 import { SendPrivacyNoticeDialog } from "./SendPrivacyNoticeDialog";
 
+// An agency workspace, so the client is called a client (useWorkspaceVocabulary).
+vi.mock("../../../auth/AuthProvider", () => ({ useAuth: () => ({ user: { workspace: { mode: "AGENCY" } } }) }));
 vi.mock("../../api/poolApi", async (importOriginal) => ({
   ...(await importOriginal<typeof poolApi>()),
   setLawfulBasis: vi.fn(),
@@ -36,6 +38,13 @@ const READY: CandidatePrivacySettings = {
   noticeUrl: "https://meridian.example/privacy",
   defaultLawfulBasis: "legitimate_interest",
   readyForNotices: true,
+  privacyMode: "notices",
+  keepOnFile: true,
+  keepOnFileMonths: 24,
+  shareWithClient: true,
+  marketing: false,
+  renewalDaysBefore: 30,
+  readyForConsent: false,
 };
 
 const PERSON = {
@@ -57,6 +66,8 @@ const PERSON = {
     notifiedAt: null,
     noticeChannel: null,
     optedOutAt: null,
+    consents: [],
+    consentWarning: false,
   },
   addedAt: "2026-07-01T10:00:00Z",
   source: "extension",

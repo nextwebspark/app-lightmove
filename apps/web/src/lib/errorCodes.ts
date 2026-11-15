@@ -100,6 +100,10 @@ export type ApiErrorCode =
   | "PRIVACY_NOTICE_RECENTLY_SENT"
   | "PRIVACY_NOTICE_DAILY_LIMIT"
   | "PRIVACY_LINK_EXPIRED"
+  | "CONSENT_REQUESTS_OFF"
+  | "CONSENT_ALREADY_GIVEN"
+  | "CONSENT_RECENTLY_REQUESTED"
+  | "SHARE_CLIENT_CONFIDENTIAL"
   | "TASK_ASSIGNEE_NOT_ON_TEAM"
   | "TASK_NOT_YOURS"
   | "STRATEGY_SEARCH_NAME_TAKEN"
@@ -330,8 +334,12 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
     "An admin needs to fill in your firm's privacy details in Settings → Data & retention before notices can go.",
   PRIVACY_NOTICE_NO_EMAIL: "There's no email address on file for this person.",
   PRIVACY_NOTICE_RECENTLY_SENT: "This person was sent a privacy notice in the last 14 days.",
-  PRIVACY_NOTICE_DAILY_LIMIT: "Your workspace has sent today's privacy notices. Try again tomorrow.",
+  PRIVACY_NOTICE_DAILY_LIMIT: "Your workspace has sent today's privacy emails. Try again tomorrow.",
   PRIVACY_LINK_EXPIRED: "This link has expired.",
+  CONSENT_REQUESTS_OFF: "Consent requests are off. An admin can turn them on in Settings → Data & retention.",
+  CONSENT_ALREADY_GIVEN: "This person has already agreed to what you're asking.",
+  CONSENT_RECENTLY_REQUESTED: "This person was asked for consent, or said no, in the last 14 days.",
+  SHARE_CLIENT_CONFIDENTIAL: "This position is confidential, so the email can't name the client.",
   // Two uploads raise this — the spreadsheet import and the position description — so the wording
   // stays neutral. Naming one screen's file types here misdescribes the other's refusal, and each
   // dropzone already states what it takes.

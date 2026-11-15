@@ -9,10 +9,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
+import app.lightmove.api.candidate.service.ConsentExpiryScanner;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationContext;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
@@ -21,6 +24,8 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
 @IntegrationTest
 @TestPropertySource(properties = "lightmove.data-protection.enabled=false")
 class DataProtectionSwitchedOffIntegrationTest extends FlowTestSupport {
+
+    @Autowired ApplicationContext context;
 
     @Test
     @DisplayName("the config says so, and the list, erasure, export, restriction and retention routes answer an admin 404")
@@ -32,6 +37,7 @@ class DataProtectionSwitchedOffIntegrationTest extends FlowTestSupport {
         String people = """
                 {"personIds":["%s"]}""".formatted(someone);
 
+        assertThat(context.getBeanNamesForType(ConsentExpiryScanner.class)).as("no consent scan runs").isEmpty();
         assertThat(body(mvc.perform(get("/api/v1/data-protection/config").header("Authorization", "Bearer " + admin))
                 .andExpect(status().isOk()).andReturn()).get("enabled").asBoolean()).isFalse();
 
@@ -63,7 +69,20 @@ class DataProtectionSwitchedOffIntegrationTest extends FlowTestSupport {
                 post("/api/v1/candidates/bulk/privacy-notice").content(people),
                 get("/api/v1/privacy/links/not-a-real-token"),
                 post("/api/v1/privacy/links/not-a-real-token/objection"),
-                post("/api/v1/privacy/links/not-a-real-token/opt-out"));
+                post("/api/v1/privacy/links/not-a-real-token/opt-out"),
+                post("/api/v1/privacy/links/not-a-real-token/consents").content("""
+                        {"answers":[{"consentId":"%s","answer":"given"}]}""".formatted(someone)),
+                post("/api/v1/candidates/" + someone + "/consent-requests").content("""
+                        {"purposes":["keep_on_file"]}"""),
+                post("/api/v1/candidates/bulk/consent-requests").content("""
+                        {"personIds":["%s"],"purposes":["keep_on_file"]}""".formatted(someone)),
+                post("/api/v1/candidates/" + someone + "/consents/recorded").content("""
+                        {"purpose":"keep_on_file","answer":"given","answeredOn":"2026-01-01"}"""),
+                get("/api/v1/projects/" + someone + "/share-consents"),
+                post("/api/v1/projects/" + someone + "/candidates/" + someone + "/share-consent-request")
+                        .content("{}"),
+                get("/api/v1/candidates/export/consent-register"),
+                get("/api/v1/projects/" + someone + "/export/consent-register"));
         for (MockHttpServletRequestBuilder route : routes) {
             assertThat(codeOf(mvc.perform(route.header("Authorization", "Bearer " + admin)
                             .contentType(MediaType.APPLICATION_JSON))

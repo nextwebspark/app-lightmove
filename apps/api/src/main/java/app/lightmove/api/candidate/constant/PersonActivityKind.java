@@ -122,7 +122,19 @@ public enum PersonActivityKind {
     /** The person asked for a copy of their data, or for its deletion, from the public privacy page. */
     PRIVACY_REQUEST_RECEIVED,
 
-    PRIVACY_OPTED_OUT;
+    PRIVACY_OPTED_OUT,
+
+    /** The person was asked for consent (#1267); {@code purposes} names what, {@code renewal} a renewal. */
+    CONSENT_REQUESTED,
+
+    /** The mail provider refused a consent request; the request is undone (#1267). */
+    CONSENT_REQUEST_FAILED,
+
+    /** An answer, from the person's page or recorded by a colleague; {@code purpose}, {@code status}, {@code via}. */
+    CONSENT_ANSWERED,
+
+    /** A request nobody answered closed, or a consent passed its date; nothing else changed. */
+    CONSENT_EXPIRED;
 
     /** Kinds still on old rows that no read shows. */
     public static final Set<PersonActivityKind> RETIRED = Set.of(NOTE_EDITED);
