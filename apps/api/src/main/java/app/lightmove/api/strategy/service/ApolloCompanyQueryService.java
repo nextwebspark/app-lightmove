@@ -445,13 +445,13 @@ public class ApolloCompanyQueryService {
         }
         // The range replaces the bands rather than intersecting them.
         String employeeClause = scope.employeeRange() != null
-                ? rangeClause("num_employees", scope.employeeRange(), "empRange", params)
+                ? publishedFigureRangeClause("num_employees", scope.employeeRange(), "empRange", params)
                 : bandClause(scope.employeeBands(), EmployeeBand.class, "num_employees", "emp", params);
         if (employeeClause != null) {
             clauses.add(employeeClause);
         }
         String revenueClause = scope.revenueRange() != null
-                ? rangeClause("annual_revenue", scope.revenueRange(), "revRange", params)
+                ? publishedFigureRangeClause("annual_revenue", scope.revenueRange(), "revRange", params)
                 : bandClause(scope.revenueBands(), RevenueBand.class, "annual_revenue", "rev", params);
         if (revenueClause != null) {
             clauses.add(revenueClause);
@@ -486,7 +486,22 @@ public class ApolloCompanyQueryService {
         return bounds.isEmpty() ? null : "(" + String.join(" AND ", bounds) + ")";
     }
 
-    /** An OR of closed ranges; Unknown joins as a null test, the only way to reach rows with no figure. */
+    /**
+     * A range asks for a figure, and 0 is Apollo's "unknown" rather than one, on headcount and revenue alike: without
+     * the {@code <> 0} a Custom Range from 0, or one with only a max, listed the companies no band reaches.
+     */
+    private static String publishedFigureRangeClause(String column, NumericRange range, String prefix,
+                                                     Map<String, Object> params) {
+        String bounds = rangeClause(column, range, prefix, params);
+        return bounds == null ? null : "(%s <> 0 AND %s)".formatted(column, bounds);
+    }
+
+    /** No figure, or Apollo's 0 for one: the sort sinks both ({@code NULLIF}), so the filter and the counts must agree. */
+    private static String unknownFigureTest(String column) {
+        return "(%s IS NULL OR %s = 0)".formatted(column, column);
+    }
+
+    /** An OR of closed ranges; Unknown joins as {@link #unknownFigureTest}, the only way to reach rows with no figure. */
     private static <B extends Enum<B> & CompanySizeBand> String bandClause(
             List<String> bandValues, Class<B> type, String column, String prefix, Map<String, Object> params) {
         List<String> ranges = new ArrayList<>();
@@ -497,7 +512,7 @@ public class ApolloCompanyQueryService {
                 continue;
             }
             if (band.isUnknown()) {
-                ranges.add(column + " IS NULL");
+                ranges.add(unknownFigureTest(column));
                 continue;
             }
             ranges.add(boundsClause(column, band.lowerBound(), band.upperBound(), prefix, index++, params));
@@ -517,13 +532,14 @@ public class ApolloCompanyQueryService {
         return "%s BETWEEN :%s AND :%s".formatted(column, lowParam, highParam);
     }
 
-    /** The Unknown band's null test goes first so it wins before any range is considered. */
+    /** The Unknown band's test goes first so it wins before any range is considered. */
     private static String bandCase(CompanySizeBand[] bands, String column, String prefix,
                                    Map<String, Object> params) {
         StringBuilder expression = new StringBuilder("CASE");
         for (CompanySizeBand band : bands) {
             if (band.isUnknown()) {
-                expression.append(" WHEN ").append(column).append(" IS NULL THEN :").append(prefix).append("Unknown");
+                expression.append(" WHEN ").append(unknownFigureTest(column))
+                        .append(" THEN :").append(prefix).append("Unknown");
                 params.put(prefix + "Unknown", band.value());
             }
         }

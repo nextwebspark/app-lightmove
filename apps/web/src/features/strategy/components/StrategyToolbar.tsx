@@ -1,26 +1,18 @@
 import type { ColumnVisibilityState } from "@tanstack/react-table";
 import type { ReactNode } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
-import type { NumericRange, SavedSearch, SearchVisibility, StrategyFilter } from "../api/types";
+import type { SavedSearch, SearchVisibility, StrategyFilter } from "../api/types";
 import { ColumnPicker, hideableColumnsOf } from "../../../components/ui/ColumnPicker";
 import { FilterRailToggle } from "../../../components/ui/FilterRail";
 import { TOOLBAR_COUNT, TOOLBAR_OUTLINE, TOOLBAR_ROW, ToolbarLabel, ToolbarSearch } from "../../../components/ui/Toolbar";
 import { cn } from "../../../lib/cn";
 import { SaveSearchMenu } from "./SaveSearchMenu";
 import { sameFilter } from "../lib/filterIdentity";
+import { appliedRange, savableFilter } from "../lib/filterRanges";
 import { companyColumns, DEFAULT_COLUMN_VISIBILITY } from "../lib/companyColumns";
 
 /** Derived once: the column definitions are a module constant, not per-render state. */
 const HIDEABLE_COMPANY_COLUMNS = hideableColumnsOf(companyColumns);
-
-/**
- * A range narrows the scope only once a bound is typed. Entering Custom Range emits an empty one —
- * that is a mode, not a constraint, and the server normalises it away — so counting it would put the
- * badge at 1 over an unfiltered table. Matches FilterSidebar's rangeTag, which shows no tag for it.
- */
-function constrains(range: NumericRange | null): boolean {
-  return range !== null && (range.min !== null || range.max !== null);
-}
 
 /**
  * How many accordions carry a selection — the count beside Show Filters.
@@ -33,8 +25,8 @@ function activeAxisCount(filter: StrategyFilter): number {
     filter.industries.length > 0 || filter.keywords.length > 0,
     filter.marketSegments.length > 0,
     filter.countries.length > 0,
-    filter.employeeBands.length > 0 || constrains(filter.employeeRange),
-    filter.revenueBands.length > 0 || constrains(filter.revenueRange),
+    filter.employeeBands.length > 0 || appliedRange(filter.employeeRange) !== null,
+    filter.revenueBands.length > 0 || appliedRange(filter.revenueRange) !== null,
   ].filter(Boolean).length;
 }
 
@@ -93,7 +85,8 @@ export function StrategyToolbar({
 
       <SaveSearchMenu
         searches={searches}
-        isActive={(search) => sameFilter(filter, search.filter)}
+        // Against what the server holds: an inverted range on screen is saved as none.
+        isActive={(search) => sameFilter(savableFilter(filter), search.filter)}
         viewerId={viewerId}
         onSave={onSaveSearch}
         onLoad={(search) => onLoadSearch(search.filter)}

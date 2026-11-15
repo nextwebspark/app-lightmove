@@ -12,6 +12,7 @@ import type { CompanyPage, Facets, SavedSearch, Strategy, StrategyFilter } from 
 import * as triageApi from "../../triage/api/triageApi";
 import { stubFullscreenApi } from "../../../test/fullscreen";
 import { NO_PEOPLE_FILTER } from "./PeopleStrategyEditor";
+import { isInverted } from "../lib/filterRanges";
 import { StrategyPage } from "./StrategyPage";
 
 vi.mock("../../triage/lib/triageStages", async (importOriginal) =>
@@ -637,6 +638,38 @@ describe("StrategyPage — the filter sidebar and its results", () => {
     expect(vi.mocked(strategyApi.putFilter).mock.calls.at(-1)![1].employeeBands).toEqual([]);
   });
 
+  it("never sends an inverted range, so a later chip still saves", async () => {
+    renderPage();
+    const filtersButton = await screen.findByRole("button", { name: /Show Filters|Hide Filters/ });
+    const filters = await screen.findByRole("region", { name: "Filters" });
+    await userEvent.click(within(filters).getByRole("button", { name: "# Employees" }));
+    await userEvent.click(within(filters).getByRole("radio", { name: "Custom Range" }));
+    await userEvent.type(within(filters).getByLabelText("Max"), "100");
+    await userEvent.type(within(filters).getByLabelText("Min"), "500");
+
+    // The server refuses min > max whole; sent, that refusal held back every chip clicked after it.
+    expect(within(filters).getByRole("alert")).toHaveTextContent(/minimum is above the maximum/);
+    const message = within(filters).getByRole("alert");
+    for (const bound of ["Min", "Max"]) {
+      expect(within(filters).getByLabelText(bound)).toHaveAttribute("aria-invalid", "true");
+      expect(within(filters).getByLabelText(bound)).toHaveAttribute("aria-describedby", message.id);
+    }
+    // One rule for the badge and the pill: neither may claim a range the server does not hold.
+    expect(within(filtersButton).getByText("0")).toBeInTheDocument();
+
+    await userEvent.click(within(filters).getByRole("button", { name: "Location" }));
+    expect(within(filters).queryByText("500-100")).not.toBeInTheDocument();
+    await userEvent.click(within(filters).getByRole("button", { name: /Qatar/ }));
+
+    await waitFor(
+      () => expect(vi.mocked(strategyApi.putFilter).mock.calls.at(-1)![1].countries).toEqual(["Qatar"]),
+      { timeout: 2000 },
+    );
+    const sentRanges = vi.mocked(strategyApi.putFilter).mock.calls.map(([, sent]) => sent.employeeRange);
+    expect(sentRanges.filter(isInverted)).toEqual([]);
+    expect(vi.mocked(strategyApi.putFilter).mock.calls.at(-1)![1].employeeRange).toBeNull();
+  });
+
   it("counts a custom range as an active axis, but not the mode switch on its own", async () => {
     renderPage();
     const filtersButton = await screen.findByRole("button", { name: /Show Filters|Hide Filters/ });
@@ -1109,6 +1142,18 @@ describe("StrategyPage — the filter sidebar and its results", () => {
 
     expect(within(screen.getByRole("table", { name: "Companies" })).getByText("Riyadh"))
       .toBeInTheDocument();
+  });
+
+  it("draws Apollo's 0 as no figure, the way the filter files it under Unknown", async () => {
+    vi.mocked(strategyApi.getCompanies).mockResolvedValue(
+      pageOf({ companies: [{ ...pageOf().companies[0]!, annualRevenue: 0, numEmployees: 0 }] }),
+    );
+    renderPage();
+    const table = await screen.findByRole("table", { name: "Companies" });
+    await within(table).findByText("ACWA Power");
+
+    expect(within(table).queryByText("$0")).not.toBeInTheDocument();
+    expect(within(table).queryByText("0")).not.toBeInTheDocument();
   });
 });
 

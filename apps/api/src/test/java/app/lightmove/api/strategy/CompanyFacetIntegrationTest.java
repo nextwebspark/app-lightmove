@@ -104,19 +104,22 @@ class CompanyFacetIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("the Unknown revenue band counts the companies that publish no figure")
+    @DisplayName("the Unknown revenue band counts the companies that publish no figure, or 0")
     void unknownRevenueBandIsCounted() throws Exception {
         String admin = adminOf("Facet Revenue Firm");
         universe.company("a1", "Published").revenue(2_000_000_000L).employees(10).insert();
         universe.company("a2", "Silent").revenue(null).employees(10).insert();
         universe.company("a3", "Also silent").revenue(null).employees(10).insert();
+        universe.company("a4", "Zero").revenue(0L).employees(10).insert();
+        universe.company("a5", "Small").revenue(500_000L).employees(10).insert();
 
         MvcResult result = mvc.perform(get("/api/v1/companies/facets")
                         .header("Authorization", "Bearer " + admin))
                 .andReturn();
 
         // Nine rows in ten carry no revenue; without this chip they are unreachable and uncounted.
-        assertThat(bandCount(result, "revenueBands", "unknown")).isEqualTo(2);
+        assertThat(bandCount(result, "revenueBands", "unknown")).isEqualTo(3);
+        assertThat(bandCount(result, "revenueBands", "under-1m")).isEqualTo(1);
         assertThat(bandCount(result, "revenueBands", "1b-5b")).isEqualTo(1);
     }
 
