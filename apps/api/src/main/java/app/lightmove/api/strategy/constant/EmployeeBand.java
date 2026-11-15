@@ -7,7 +7,7 @@ import lombok.experimental.Accessors;
 
 /**
  * Headcount bands as closed, abutting numeric bounds. A headcount of 0 — Apollo's "unknown", see
- * {@link CompanySortField} — falls in no band, and there is no Unknown band to reach it.
+ * {@link CompanySortField} — falls in no band, no Custom Range reaches it, and there is no Unknown band.
  */
 @Getter
 @Accessors(fluent = true)

@@ -260,6 +260,22 @@ class StrategyFlowIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("a headcount of 0 is Apollo's unknown, and no Custom Range reaches it")
+    void zeroHeadcountIsOutsideEveryEmployeeRange() throws Exception {
+        String admin = adminOf("Strategy Zero Headcount Firm");
+        String projectId = project(admin);
+        universe.company("a1", "Small").industry("retail").employees(40).insert();
+        universe.company("a2", "Zero").industry("retail").employees(0).insert();
+
+        assertCount(admin, projectId, """
+                {"industries":[],"keywords":[],"marketSegments":[],"countries":[],"employeeBands":[],
+                 "revenueBands":[],"employeeRange":{"min":0,"max":50}}""", 1);
+        assertCount(admin, projectId, """
+                {"industries":[],"keywords":[],"marketSegments":[],"countries":[],"employeeBands":[],
+                 "revenueBands":[],"employeeRange":{"min":null,"max":50}}""", 1);
+    }
+
+    @Test
     @DisplayName("the name query narrows the count as well as the page")
     void nameQueryNarrowsTheCount() throws Exception {
         String admin = adminOf("Strategy Query Firm");

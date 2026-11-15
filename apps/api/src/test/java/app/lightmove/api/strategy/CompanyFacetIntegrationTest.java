@@ -118,7 +118,6 @@ class CompanyFacetIntegrationTest extends FlowTestSupport {
                 .andReturn();
 
         // Nine rows in ten carry no revenue; without this chip they are unreachable and uncounted.
-        // A revenue of 0 is Apollo's unknown, so it is counted where the filter reaches it.
         assertThat(bandCount(result, "revenueBands", "unknown")).isEqualTo(3);
         assertThat(bandCount(result, "revenueBands", "under-1m")).isEqualTo(1);
         assertThat(bandCount(result, "revenueBands", "1b-5b")).isEqualTo(1);

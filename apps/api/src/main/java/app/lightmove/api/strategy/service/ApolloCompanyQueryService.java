@@ -445,13 +445,13 @@ public class ApolloCompanyQueryService {
         }
         // The range replaces the bands rather than intersecting them.
         String employeeClause = scope.employeeRange() != null
-                ? rangeClause("num_employees", scope.employeeRange(), "empRange", params)
+                ? publishedFigureRangeClause("num_employees", scope.employeeRange(), "empRange", params)
                 : bandClause(scope.employeeBands(), EmployeeBand.class, "num_employees", "emp", params);
         if (employeeClause != null) {
             clauses.add(employeeClause);
         }
         String revenueClause = scope.revenueRange() != null
-                ? publishedRevenueRangeClause(scope.revenueRange(), params)
+                ? publishedFigureRangeClause("annual_revenue", scope.revenueRange(), "revRange", params)
                 : bandClause(scope.revenueBands(), RevenueBand.class, "annual_revenue", "rev", params);
         if (revenueClause != null) {
             clauses.add(revenueClause);
@@ -487,12 +487,13 @@ public class ApolloCompanyQueryService {
     }
 
     /**
-     * A range asks for a figure, and a revenue of 0 is Apollo's "unknown" rather than one: without the
-     * {@code <> 0} a Custom Range from 0, or one with only a max, listed every company Unknown also lists.
+     * A range asks for a figure, and 0 is Apollo's "unknown" rather than one, on headcount and revenue alike: without
+     * the {@code <> 0} a Custom Range from 0, or one with only a max, listed the companies no band reaches.
      */
-    private static String publishedRevenueRangeClause(NumericRange range, Map<String, Object> params) {
-        String bounds = rangeClause("annual_revenue", range, "revRange", params);
-        return bounds == null ? null : "(annual_revenue <> 0 AND " + bounds + ")";
+    private static String publishedFigureRangeClause(String column, NumericRange range, String prefix,
+                                                     Map<String, Object> params) {
+        String bounds = rangeClause(column, range, prefix, params);
+        return bounds == null ? null : "(%s <> 0 AND %s)".formatted(column, bounds);
     }
 
     /** No figure, or Apollo's 0 for one: the sort sinks both ({@code NULLIF}), so the filter and the counts must agree. */
