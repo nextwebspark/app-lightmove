@@ -1,3 +1,5 @@
+// First, so no schema is parsed before zod is told to skip its eval probe.
+import "./lib/zodConfig";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
