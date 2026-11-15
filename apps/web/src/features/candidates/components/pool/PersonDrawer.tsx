@@ -38,6 +38,9 @@ import { useIsWorkspaceAdmin } from "../../../auth/useIsWorkspaceAdmin";
 import { ErasePersonDialog } from "./ErasePersonDialog";
 import { RestrictProcessingDialog } from "./RestrictProcessingDialog";
 import { SubjectAccessExportDialog } from "./SubjectAccessExportDialog";
+import { useConsentMode } from "../../lib/useConsentMode";
+import { RecordConsentDialog } from "../consent/RecordConsentDialog";
+import { RequestConsentDialog } from "../consent/RequestConsentDialog";
 import { MarkNotifiedDialog } from "./MarkNotifiedDialog";
 import { PersonPrivacySection } from "./PersonPrivacySection";
 import { SendPrivacyNoticeDialog } from "./SendPrivacyNoticeDialog";
@@ -130,6 +133,9 @@ function PersonDrawerBody({
   const [restricting, setRestricting] = useState(false);
   const [noticing, setNoticing] = useState(false);
   const [markingNotified, setMarkingNotified] = useState(false);
+  const [askingConsent, setAskingConsent] = useState(false);
+  const [recordingConsent, setRecordingConsent] = useState(false);
+  const consentMode = useConsentMode();
   const isAdmin = useIsWorkspaceAdmin();
   const { offered: dataProtection } = useDataProtection();
   const [nextAction, setNextAction] = useState<NextActionTarget | null>(null);
@@ -202,6 +208,28 @@ function PersonDrawerBody({
                   >
                     Mark as notified…
                   </MenuItem>
+                  {consentMode.on && (
+                    <>
+                      <MenuItem
+                        icon={ICONS.shield}
+                        onSelect={() => {
+                          close();
+                          setAskingConsent(true);
+                        }}
+                      >
+                        Ask for consent…
+                      </MenuItem>
+                      <MenuItem
+                        icon={ICONS.pencil}
+                        onSelect={() => {
+                          close();
+                          setRecordingConsent(true);
+                        }}
+                      >
+                        Record an answer…
+                      </MenuItem>
+                    </>
+                  )}
                   {(offersRestriction || offersExport || offersErasure) && <MenuSeparator />}
                   {!offersRestriction ? null : restriction ? (
                     <MenuItem
@@ -393,6 +421,9 @@ function PersonDrawerBody({
                 onChanged={changed}
                 onSendNotice={() => setNoticing(true)}
                 onMarkNotified={() => setMarkingNotified(true)}
+                consentFirm={consentMode.on ? consentMode.firm : undefined}
+                onAskConsent={() => setAskingConsent(true)}
+                onRecordConsent={() => setRecordingConsent(true)}
               />
             )}
             <PersonProfileTab
@@ -488,6 +519,25 @@ function PersonDrawerBody({
           target={{ kind: "person", person }}
           onClose={() => setNoticing(false)}
           onSent={(record) => record && changed(record)}
+        />
+      )}
+      {askingConsent && consentMode.firm && (
+        <RequestConsentDialog
+          target={{ kind: "person", person }}
+          firm={consentMode.firm}
+          onClose={() => setAskingConsent(false)}
+          onSent={(record) => record && changed(record)}
+        />
+      )}
+      {recordingConsent && consentMode.firm && (
+        <RecordConsentDialog
+          person={person}
+          keepOnFileMonths={consentMode.firm.keepOnFileMonths}
+          onClose={() => setRecordingConsent(false)}
+          onRecorded={(record) => {
+            changed(record);
+            setRecordingConsent(false);
+          }}
         />
       )}
       {markingNotified && (

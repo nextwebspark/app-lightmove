@@ -495,6 +495,14 @@ V222 adds `app_lm_workspace.recently_approached_days` (default 90, 0 to 365, 0 o
 `app_lm_outreach_message_person_idx` on `(workspace_id, person_id, occurred_at)` and
 `app_lm_outreach_enrollment_live_person_idx` on `(workspace_id, person_id)` for live runs, for Recently approached's
 read of every email to and from a person, and their sequences, across positions (`docs/recently-approached.md`).
+V223 adds #1267's consent requests (`docs/gdpr/consent-requests-1267.md`): `app_lm_workspace_candidate_privacy` gains
+`privacy_mode` (`NOTICES | CONSENT`), the purposes offered, `keep_on_file_months` (12, 24, 36) and `consent_renewal_days`
+(0 to 90); `app_lm_person_privacy_link.purpose` gains `CONSENT` and `MANAGE`; `app_lm_person_consent` holds where each
+purpose stands for a person (one row per person, purpose and position, `UNIQUE NULLS NOT DISTINCT`, a share's position
+required; `wording` is what was last answered, the open request's own words and terms wait in `request_*` until an
+answer copies them) and `app_lm_person_consent_event` its append-only history (a `BEFORE UPDATE` trigger refuses an update; deletes
+still cascade with the person and the workspace). Both forced RLS. `app_lm_workspaces_with_consents_due` is the daily
+scan's V191-style resolver; the activity and notification kind lists gain the consent kinds.
 V195 adds `app_lm_workspace_suppression` (`kind` `PROFILE_SLUG | EMAIL`, a keyed `value_hash` unique per workspace and
 kind, the `key_id` it was taken under, `reason` `ERASED | OBJECTED | MANUAL`, an admin's `note`), forced row-level security
 in the same migration.

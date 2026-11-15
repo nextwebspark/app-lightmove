@@ -8,6 +8,7 @@ import { useAuth } from "../../auth/AuthProvider";
 import { codeOf, messageFor } from "../../../lib/errorCodes";
 import * as privacyPageApi from "../api/privacyPageApi";
 import type { PrivacyPage } from "../api/privacyPageApi";
+import { ConsentRequest, ManageConsents } from "../components/ConsentAnswers";
 import {
   basisSentence,
   categoryLabel,
@@ -19,7 +20,11 @@ import {
   type PrivacyChoice,
 } from "../lib/privacyPageCopy";
 
-type Stage = { step: "notice" } | { step: "confirm"; choice: PrivacyChoice } | { step: "done"; choice: PrivacyChoice };
+type Stage =
+  | { step: "consent" }
+  | { step: "notice" }
+  | { step: "confirm"; choice: PrivacyChoice }
+  | { step: "done"; choice: PrivacyChoice };
 
 /**
  * The page a privacy notice links to (`/privacy/:token`, `Privacy.dc.html`, #923). Public, since the person it was
@@ -41,6 +46,16 @@ export default function PrivacyLinkPage() {
   });
 
   const firm = page.data?.controllerName ?? null;
+  const purpose = page.data?.purpose;
+  const kind = purpose === "consent" ? "Consent request" : purpose === "manage" ? "Your consents" : "Privacy notice";
+  const validity =
+    !page.data || page.data.expired || !page.data.expiresAt
+      ? ""
+      : purpose === "consent"
+        ? page.data.consents.some((consent) => consent.open)
+          ? ` This request is open until ${formatInstantDate(page.data.expiresAt)}.`
+          : ""
+        : ` This link works until ${formatInstantDate(page.data.expiresAt)}.`;
   return (
     <div className="min-h-screen bg-u-bg px-4 pb-8 pt-10 text-u-text">
       <div className="mx-auto w-full max-w-[600px]">
@@ -51,7 +66,7 @@ export default function PrivacyLinkPage() {
             </span>
             <div className="min-w-0">
               <div className="text-body font-semibold">{firm}</div>
-              <div className="font-mono text-meta text-u-text3">Privacy notice</div>
+              <div className="font-mono text-meta text-u-text3">{kind}</div>
             </div>
           </div>
         )}
@@ -60,8 +75,12 @@ export default function PrivacyLinkPage() {
             <Skeleton className="h-[360px] w-full" />
           ) : page.isError ? (
             <Unavailable />
+          ) : page.data.expired && page.data.purpose === "consent" ? (
+            <ConsentRequest token={token} page={page.data} />
           ) : page.data.expired ? (
             <Expired page={page.data} />
+          ) : page.data.purpose === "manage" ? (
+            <ManageConsents token={token} page={page.data} />
           ) : (
             <Notice token={token} page={page.data} />
           )}
@@ -69,9 +88,7 @@ export default function PrivacyLinkPage() {
         {firm && (
           <p className="mx-1 mt-4 font-mono text-meta text-u-text3">
             {firm} is responsible for your data. This page is provided by Uncava, the software they use.
-            {!page.data?.expired && page.data?.expiresAt
-              ? ` This link works until ${formatInstantDate(page.data.expiresAt)}.`
-              : ""}
+            {validity}
           </p>
         )}
       </div>
@@ -83,7 +100,11 @@ function Notice({ token, page }: { token: string; page: PrivacyPage }) {
   const firm = page.controllerName ?? "We";
   const [searchParams] = useSearchParams();
   const [stage, setStage] = useState<Stage>(() =>
-    searchParams.get("action") === "opt-out" ? { step: "confirm", choice: "optOut" } : { step: "notice" },
+    searchParams.get("action") === "opt-out"
+      ? { step: "confirm", choice: "optOut" }
+      : page.purpose === "consent"
+        ? { step: "consent" }
+        : { step: "notice" },
   );
   const [error, setError] = useState<string | null>(null);
   const sending = useMutation({
@@ -105,6 +126,10 @@ function Notice({ token, page }: { token: string; page: PrivacyPage }) {
           : messageFor(failure),
       ),
   });
+
+  if (stage.step === "consent") {
+    return <ConsentRequest token={token} page={page} onSeeChoices={() => setStage({ step: "notice" })} />;
+  }
 
   if (stage.step === "confirm") {
     const confirmation = confirmationOf(stage.choice, page.controllerName);

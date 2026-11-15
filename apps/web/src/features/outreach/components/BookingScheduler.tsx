@@ -19,6 +19,8 @@ export default function BookingScheduler({
       configurationId={configurationId}
       schedulerApiUrl={schedulerApiUrl}
       themeConfig={UNCAVA_THEME}
+      // On by default, it starts the widget's own error reporter, sending the visitor to a third party (#929).
+      enableUserFeedback={false}
     />
   );
 }

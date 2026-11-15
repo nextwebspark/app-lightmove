@@ -4,6 +4,10 @@ import { useSearchParams } from "react-router-dom";
 import { LinesSkeleton } from "../../../components/ui";
 import { messageFor } from "../../../lib/errorCodes";
 import { CandidateDrawerById } from "../../candidates/components/CandidateDrawerById";
+import { AskShareConsentDialog } from "../../candidates/components/consent/AskShareConsentDialog";
+import { ShareConsentBadge } from "../../candidates/components/consent/ShareConsentBadge";
+import { ShareConsentPromptDialog } from "../../candidates/components/consent/ShareConsentPromptDialog";
+import { useShareConsents } from "../../candidates/lib/useShareConsents";
 import { drawerSectionOf, POSITION_STAFF_TABS, type DrawerSection } from "../../candidates/lib/drawerTabs";
 import { EmailComposerDialog } from "../../outreach/components/EmailComposerDialog";
 import { NoteComposerModal } from "../../outreach/components/NoteComposerModal";
@@ -43,6 +47,9 @@ export function PipelineView({
   const [searchParams, setSearchParams] = useSearchParams();
   const [nextActionFor, setNextActionFor] = useState<NextActionTarget | null>(null);
   const [cardAction, setCardAction] = useState<{ kind: CardActionKind; row: PipelineRow } | null>(null);
+  const [sharePrompt, setSharePrompt] = useState<PipelineRow | null>(null);
+  const [askShare, setAskShare] = useState<PipelineRow | null>(null);
+  const share = useShareConsents(project.id);
   const mailbox = useMailbox();
 
   const openCandidateId = searchParams.get("candidate");
@@ -84,6 +91,13 @@ export function PipelineView({
     refreshPipeline();
   };
   const openContact = (row: PipelineRow) => setOpenCandidateId(row.candidateId, "contact");
+  const showToClient = (row: PipelineRow, clientVisible: boolean) =>
+    visibility.mutate({ candidateId: row.candidateId, clientVisible });
+  // Turning someone visible with no consent to share asks first (#1267); warn, never block.
+  const toggleVisible = (row: PipelineRow) => {
+    if (!row.clientVisible && share.needsPrompt(row.candidateId)) setSharePrompt(row);
+    else showToClient(row, !row.clientVisible);
+  };
 
   const openNextAction = (row: PipelineRow) =>
     setNextActionFor({
@@ -123,14 +137,55 @@ export function PipelineView({
             actionsUnavailable={actionsUnavailable}
             onOpen={(candidateId) => setOpenCandidateId(candidateId)}
             onMove={(placement) => boardMove.mutate(placement)}
-            onToggleVisible={(row) => visibility.mutate({ candidateId: row.candidateId, clientVisible: !row.clientVisible })}
+            onToggleVisible={toggleVisible}
             onOpenNextAction={openNextAction}
             onAction={(kind, row) => setCardAction({ kind, row })}
+            shareBadgeOf={
+              share.on
+                ? (row) => (
+                    <ShareConsentBadge
+                      state={share.badgeOf(row.candidateId)}
+                      row={share.rowOf(row.candidateId)}
+                      clientName={project.clientName}
+                    />
+                  )
+                : undefined
+            }
+            onAskShare={share.on ? setAskShare : undefined}
           />
         </>
       )}
 
       <NextActionModal target={nextActionFor} onClose={() => setNextActionFor(null)} />
+
+      {sharePrompt && (
+        <ShareConsentPromptDialog
+          fullName={sharePrompt.fullName}
+          clientName={project.clientName}
+          row={share.rowOf(sharePrompt.candidateId)}
+          onClose={() => setSharePrompt(null)}
+          onShowAnyway={() => {
+            showToClient(sharePrompt, true);
+            setSharePrompt(null);
+          }}
+          onAskFirst={() => {
+            setAskShare(sharePrompt);
+            setSharePrompt(null);
+          }}
+        />
+      )}
+      {askShare && (
+        <AskShareConsentDialog
+          projectId={project.id}
+          candidateId={askShare.candidateId}
+          fullName={askShare.fullName}
+          roleTitle={project.positionTitle}
+          clientName={project.clientName}
+          clientNamable={share.clientNamable}
+          row={share.rowOf(askShare.candidateId)}
+          onClose={() => setAskShare(null)}
+        />
+      )}
 
       <NoteComposerModal
         projectId={project.id}

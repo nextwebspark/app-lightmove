@@ -61,9 +61,6 @@ public class SecurityConfig {
             + "style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; "
             + "object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'";
 
-    /** Framing alone: the bundle's own sources (Mapbox, Nylas, the fonts) are not pinned here. */
-    private static final String SPA_CSP = "frame-ancestors 'none'";
-
     /** Resolves {@code '{value}'} in {@code @RequireProjectPermission}; static, as method security reads it while being built. */
     @Bean
     static AnnotationTemplateExpressionDefaults annotationTemplateExpressionDefaults() {
@@ -252,12 +249,12 @@ public class SecurityConfig {
      */
     @Bean
     @Order(3)
-    SecurityFilterChain spaChain(HttpSecurity http) throws Exception {
+    SecurityFilterChain spaChain(HttpSecurity http, LightMoveProperties properties) throws Exception {
+        String policy = SpaContentSecurityPolicy.of(properties.outreach().nylas().baseUrl());
         return http
                 .securityMatcher(request -> SpaRequestPaths.isSpaPath(request.getRequestURI()))
                 .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
-                // No page of the app is ever framed, and the MCP consent screen's Allow must not be clickjacked.
-                .headers(headers -> headers.contentSecurityPolicy(csp -> csp.policyDirectives(SPA_CSP)))
+                .headers(headers -> headers.contentSecurityPolicy(csp -> csp.policyDirectives(policy)))
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .build();
@@ -329,7 +326,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, API + "/privacy/links/*").permitAll()
                         // An outreach email's stop link is posted by the person's mail app as well (RFC 8058).
                         .requestMatchers(HttpMethod.POST, API + "/privacy/links/*/objection",
-                                API + "/privacy/links/*/requests", API + "/privacy/links/*/opt-out").permitAll()
+                                API + "/privacy/links/*/requests", API + "/privacy/links/*/opt-out",
+                                API + "/privacy/links/*/consents").permitAll()
 
                         // A picture an email shows, fetched by the recipient's mail client: the random token is the credential.
                         .requestMatchers(HttpMethod.GET, API + "/email-images/*").permitAll()

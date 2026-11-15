@@ -32,7 +32,34 @@ export interface PrivacyPage {
   heldSince: string | null;
   categories: PrivacyCategory[];
   expiresAt: string;
+  /** What the link was sent for: a notice, an email's stop link, a consent request or a manage link (#1267). */
+  purpose: PrivacyLinkPurpose;
+  /** A request's own purposes, or a manage link's consents in force; empty for a notice. */
+  consents: PrivacyPageConsent[];
 }
+
+export type PrivacyLinkPurpose = "notice" | "opt_out" | "consent" | "manage";
+export type PrivacyPageConsentPurpose = "keep_on_file" | "share_with_client" | "marketing";
+
+export interface PrivacyPageConsent {
+  id: string;
+  purpose: PrivacyPageConsentPurpose;
+  status: "requested" | "given" | "declined" | "withdrawn" | "expired";
+  /** Still takes an answer on this link; a given consent that is open is a renewal. */
+  open: boolean;
+  /** The sentence the person answers, kept with their answer. */
+  wording: string | null;
+  validUntil: string | null;
+  answeredAt: string | null;
+  /** How long a yes to keeping their details lasts; null for the other purposes. */
+  keepOnFileMonths: number | null;
+  /** What was answered on this request's link, so a reopened link shows it; null while unanswered. */
+  answer: "given" | "declined" | null;
+  roleTitle: string | null;
+  clientName: string | null;
+}
+
+export type ConsentPageAnswer = "given" | "declined" | "withdrawn";
 
 export type PrivacyRequestKind = "copy" | "deletion";
 
@@ -53,6 +80,15 @@ export function requestFromPrivacyPage(token: string, kind: PrivacyRequestKind):
   return request<void>(`/privacy/links/${encodeURIComponent(token)}/requests`, {
     method: "POST",
     body: { kind },
+    anonymous: true,
+  });
+}
+
+/** Yes or No to each purpose of a consent request, or Withdraw on a manage link. */
+export function answerConsents(token: string, answers: { consentId: string; answer: ConsentPageAnswer }[]): Promise<void> {
+  return request<void>(`/privacy/links/${encodeURIComponent(token)}/consents`, {
+    method: "POST",
+    body: { answers },
     anonymous: true,
   });
 }

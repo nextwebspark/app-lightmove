@@ -441,7 +441,11 @@ export type PersonActivityKind =
   | "PRIVACY_NOTICE_FAILED"
   | "PRIVACY_OBJECTED"
   | "PRIVACY_REQUEST_RECEIVED"
-  | "PRIVACY_OPTED_OUT";
+  | "PRIVACY_OPTED_OUT"
+  | "CONSENT_REQUESTED"
+  | "CONSENT_REQUEST_FAILED"
+  | "CONSENT_ANSWERED"
+  | "CONSENT_EXPIRED";
 
 /** The timeline's filter chips, as the server's `TimelineGroup` tokens. */
 export type TimelineGroup = "positions" | "notes" | "contacts" | "profile" | "tags" | "documents";
@@ -493,7 +497,15 @@ export interface CandidateTag {
   holders: number;
 }
 
-export type PoolView = "all" | "mine" | "active" | "unplaced" | "not_notified";
+export type PoolView =
+  | "all"
+  | "mine"
+  | "active"
+  | "unplaced"
+  | "not_notified"
+  | "consent_asked"
+  | "consent_ending"
+  | "consent_refused";
 export type TagMatch = "any" | "all" | "none";
 export type PoolSortField = "name" | "location" | "positions" | "activity";
 
@@ -543,7 +555,7 @@ export interface PoolRow {
 export interface PoolPage {
   people: PoolRow[];
   totalCount: number;
-  /** `not_notified`'s count is answered as `notNotified`; `poolApi` folds it into the view's key. */
+  /** The privacy views' counts are answered in camelCase (`notNotified`); `poolApi` folds them into the views' keys. */
   viewCounts: Record<PoolView, number>;
   poolSize: number;
   countries: string[];
@@ -593,6 +605,43 @@ export interface PersonPrivacy {
   noticeChannel: PrivacyNoticeChannel | null;
   /** When their own stop link set the do not contact that stands now; null otherwise. */
   optedOutAt: string | null;
+  /** One row per purpose asked about or answered (#1267); a purpose never asked has none. */
+  consents: PersonConsent[];
+  /** Their basis in force is Consent, but no consent to keep them on file is in force. Warns, never blocks. */
+  consentWarning: boolean;
+}
+
+export type ConsentPurpose = "keep_on_file" | "share_with_client" | "marketing";
+export type ConsentStatus = "requested" | "given" | "declined" | "withdrawn" | "expired";
+export type ConsentAnswer = "given" | "declined" | "withdrawn";
+
+/** Where one purpose stands for a person (#1267). `requestOpenUntil` is set while a request, or a renewal, waits. */
+export interface PersonConsent {
+  id: string;
+  purpose: ConsentPurpose;
+  projectId: string | null;
+  status: ConsentStatus;
+  requestedAt: string | null;
+  requestedByName: string | null;
+  requestOpenUntil: string | null;
+  answeredAt: string | null;
+  answeredVia: "page" | "by_hand" | null;
+  validUntil: string | null;
+  clientNamed: boolean;
+}
+
+export type ConsentRequestSkipReason =
+  | "no_email"
+  | "do_not_contact"
+  | "suppressed"
+  | "processing_restricted"
+  | "already_given"
+  | "recently_asked"
+  | "daily_cap";
+
+export interface BulkConsentRequestResult {
+  sent: number;
+  skipped: { personId: string; reason: ConsentRequestSkipReason }[];
 }
 
 /** A workspace person as the Candidates drawer reads them. Staff-only. */
