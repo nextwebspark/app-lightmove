@@ -16,6 +16,12 @@ import * as contactLookupApi from "../../contactlookup/api/contactLookupApi";
 import { ContactDetailsDialog } from "../../contactlookup/components/ContactDetailsDialog";
 import { ContactsReadDialog } from "../../contactlookup/components/ContactsReadDialog";
 import { ContactChannels } from "../../contactlookup/components/ContactPanel";
+import {
+  CopyPhoneButton,
+  PhoneNumberLink,
+  WhatsAppLink,
+  type PhoneReach,
+} from "../../contactlookup/components/PhoneActions";
 import type { CustomColumn, CustomFieldValues } from "../../customcolumns/api/types";
 import { CustomFieldsFieldset } from "../../customcolumns/components/CustomFieldsFieldset";
 import { CandidateOutreachButtons } from "../../outreach/components/CandidateOutreachButtons";
@@ -38,12 +44,13 @@ import * as poolApi from "../api/poolApi";
 import type { DocumentScope } from "../api/documentsApi";
 import type {
   Candidate,
+  CandidatePhone,
   PersonDocument,
   PersonDocumentVersion,
   PersonNoteKind,
   SaveCandidatePayload,
 } from "../api/types";
-import { replayOf, type ProfileFormSection } from "../lib/candidateForm";
+import { contactInputsOf, contactLineOf, replayOf, type ProfileFormSection } from "../lib/candidateForm";
 import type { ActivityExecutive } from "../lib/activityPresentation";
 import { candidateGenderLabel } from "../lib/candidateVocabulary";
 import { statusStyle } from "../lib/pipelineStatus";
@@ -322,6 +329,34 @@ export function CandidateProfile({
     onError: (error) => toast.error(messageFor(error)),
   });
   const nationalityReading = canWrite && !candidate.nationality ? background.nationalityReading : null;
+  // Keeps the calling code the server added to a locally written number; every other line is saved as it stands. The
+  // rewritten number is a new line to the server, filed last, so the first one stays first by being made the primary.
+  const saveInternational = useMutation({
+    mutationFn: (phone: CandidatePhone) =>
+      candidatesApi.replaceContacts(projectId, candidate.id, {
+        emails: contactInputsOf(candidate.contacts.emails.map(contactLineOf)),
+        phones: contactInputsOf(
+          candidate.contacts.phones.map((entry, index) =>
+            entry.number === phone.number && phone.international
+              ? { ...contactLineOf(entry), value: phone.international, primary: index === 0 || entry.primary === true }
+              : contactLineOf(entry),
+          ),
+        ),
+      }),
+    onSuccess: (saved) => {
+      toast("Number saved with its country code");
+      onSaved(saved);
+    },
+    onError: (error) => toast.error(messageFor(error)),
+  });
+  const phoneReach: PhoneReach = {
+    personName: candidate.fullName,
+    locationCountry: candidate.locationCountry,
+    actionable: canWrite && !doNotContact,
+    refusal: doNotContact ? "Do not contact is set" : undefined,
+    onSaveInternational: saveInternational.isPending ? undefined : (phone) => saveInternational.mutate(phone),
+  };
+  const primaryPhone = candidate.contacts.phones[0];
 
   const startEditing = (section: EditableSection) => {
     setEditing(section);
@@ -425,6 +460,15 @@ export function CandidateProfile({
           onShowContacts={() => setContactWindow("read")}
           onWriteEmail={emailWritable ? () => setContactWindow("email") : undefined}
           emailNote={doNotContact ? "Do not contact" : undefined}
+          phoneActions={
+            canWrite && primaryPhone ? (
+              <>
+                <PhoneNumberLink phone={primaryPhone} reach={phoneReach} className="transition hover:text-u-accent" />
+                <WhatsAppLink phone={primaryPhone} reach={phoneReach} size={12} />
+                {phoneReach.actionable && <CopyPhoneButton phone={primaryPhone} size={11} />}
+              </>
+            ) : undefined
+          }
           employer={{ name: candidate.companyName, logoUrl: candidate.companyLogoUrl, onOpen: onOpenCompany }}
           location={[candidate.locationCity, candidate.locationCountry].filter(Boolean).join(" · ")}
         >
@@ -445,6 +489,7 @@ export function CandidateProfile({
           <ContactsReadDialog
             fullName={candidate.fullName}
             contacts={candidate.contacts}
+            reach={canWrite ? phoneReach : undefined}
             onClose={() => setContactWindow(null)}
           />
         )}
@@ -818,7 +863,7 @@ export function CandidateProfile({
                     <Icon d={ICONS.pencil} size={13} />
                   </button>
                 </div>
-                <ContactChannels contacts={candidate.contacts} />
+                <ContactChannels contacts={candidate.contacts} reach={phoneReach} />
               </section>
               <NoteComposerModal
                 projectId={projectId}

@@ -49,6 +49,7 @@ public class CandidateOutreachService {
     private final PersonActivityRecorder activity;
     private final StatusAutomationService automations;
     private final PersonDocumentService documents;
+    private final CandidateResponseMapper responses;
 
     /** The named executives plus everyone mapped at the named companies, each once, in that order. */
     @Transactional(readOnly = true)
@@ -137,7 +138,7 @@ public class CandidateOutreachService {
     public Optional<CandidateContactsDto> contactsOf(UUID workspaceId, UUID projectId, UUID candidateId) {
         projects.requireInWorkspace(projectId, workspaceId);
         return candidates.findByIdAndProjectId(candidateId, projectId)
-                .map(candidate -> CandidateResponseMapper.contactsOf(candidate.getPerson()));
+                .map(candidate -> responses.contactsOf(candidate.getPerson()));
     }
 
     /** The status an email sent to them now would move them to, by the rule {@link #moveForwardTo} applies; none if they stay. */

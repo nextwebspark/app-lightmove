@@ -285,6 +285,20 @@ transaction, and every executive already mapped on any mandate comes out as a po
 5. The migration is tested on a Testcontainers database seeded at V90 with duplicates across mandates, and
    rehearsed on a copy of the shared dev database before it reaches anyone else.
 
+### Phones as the button (#1337)
+
+Each phone on `CandidatePhoneDto` carries, besides the number as written, `international` (spelled the international
+way, `+971 50 441 2087`), `countrySource` (`given`, `location`, `workspace`) and `lineType` (`mobile`, `landline`,
+`unknown`). `common/location` `PhoneNumbers` works them out on read with libphonenumber: a number written with `+` or
+`00` keeps its code; a local one takes the person's `location_country`, then the workspace's `company_country`, and
+only where it is a valid number there. Nothing is stored and no matching changes: phone is still never a key, and the
+written number stays the record until someone presses **Save as** (the contacts PUT, as any edit).
+
+The executive drawer's header phone, its Outreach tab's Contact lists, its read-only contact window and Outreach's
+Candidate details pane draw `PhoneActions`: the number dials (`tel:`), WhatsApp's mark opens `wa.me` in a new tab
+(none for a landline; disabled without a calling code), and Copy. An added calling code is named on a pill and in the
+link's title. Do not contact and a client seat leave the number as text.
+
 ### Tags (Phase 4, V98): "Open to work", "Open to relocate", …
 
 How the products do it: LinkedIn Recruiter exposes *Open to work* and *Open to relocate* as structured

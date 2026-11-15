@@ -1,18 +1,22 @@
 import { Button, Modal } from "../../../components/ui";
 import type { CandidateContacts } from "../../candidates/api/types";
 import { ContactChannels } from "./ContactPanel";
+import type { PhoneReach } from "./PhoneActions";
 
 /** Every email and phone on file, for a reader who changes none of them: the header's "+N" opens it. */
 export function ContactsReadDialog({
   fullName,
   contacts,
   note,
+  reach,
   onClose,
 }: {
   fullName: string;
   contacts: CandidateContacts;
   /** A line under the channels, such as why lookups are off. */
   note?: string | null;
+  /** Makes each phone the button, as on the drawer it opened from. */
+  reach?: PhoneReach;
   onClose: () => void;
 }) {
   return (
@@ -28,7 +32,7 @@ export function ContactsReadDialog({
         </Button>
       }
     >
-      <ContactChannels contacts={contacts} />
+      <ContactChannels contacts={contacts} reach={reach} />
       {note && <p className="mt-2 text-note text-u-offlimits">{note}</p>}
     </Modal>
   );

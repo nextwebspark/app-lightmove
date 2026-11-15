@@ -5,6 +5,12 @@ import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Toggle } from "../../../components/ui";
 import { cn } from "../../../lib/cn";
 import { PersonAvatar } from "../../candidates/components/pool/PersonAvatar";
+import {
+  CopyPhoneButton,
+  PhoneNumberLink,
+  WhatsAppLink,
+  type PhoneReach,
+} from "../../contactlookup/components/PhoneActions";
 import { pipelineColourClass, pipelineSwatchClass } from "../../candidates/lib/pipelineStatus";
 import { useClientVisibility } from "../../pipeline/lib/usePipelineWrites";
 import { CONVERSATION_KEY, type Conversation } from "../api/conversationApi";
@@ -30,6 +36,12 @@ export function CandidateDetailsPane({
   const { executive, contact, keyDates, currentRun } = conversation;
   const run = currentRun.run;
   const location = [contact.locationCity, contact.locationCountry].filter(Boolean).join(", ");
+  const phoneReach: PhoneReach = {
+    personName: executive.fullName,
+    locationCountry: contact.locationCountry,
+    actionable: !contact.doNotContact,
+    refusal: contact.doNotContact ? "Do not contact is set" : undefined,
+  };
   const clientVisible = clientVisibility.isPending
     ? (clientVisibility.variables?.clientVisible ?? executive.clientVisible)
     : executive.clientVisible;
@@ -100,8 +112,14 @@ export function CandidateDetailsPane({
             <span className="text-u-text3">Not found</span>
           ) : (
             contact.phones.map((phone) => (
-              <div key={phone.number} className="truncate font-mono">
-                {phone.number}
+              <div key={phone.number} className="flex min-w-0 items-center gap-0.5">
+                <PhoneNumberLink
+                  phone={phone}
+                  reach={phoneReach}
+                  className={cn("font-mono", phoneReach.actionable && "text-u-accent")}
+                />
+                <WhatsAppLink phone={phone} reach={phoneReach} size={12} />
+                {phoneReach.actionable && <CopyPhoneButton phone={phone} size={11} />}
               </div>
             ))
           )}

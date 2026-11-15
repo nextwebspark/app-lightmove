@@ -164,7 +164,18 @@ export interface CandidatePhone {
   foundAt: string;
   /** As on {@link CandidateEmail}. */
   primary?: boolean;
+  /**
+   * The number spelled the international way as the server reads it now (`+971 50 441 2087`): written with its country
+   * code, or given one from where the person or the firm is. Null where it cannot be read; the written `number` stays
+   * the record either way.
+   */
+  international?: string | null;
+  countrySource?: PhoneCountrySource | null;
+  lineType?: PhoneLineType | null;
 }
+
+export type PhoneCountrySource = "given" | "location" | "workspace";
+export type PhoneLineType = "mobile" | "landline" | "unknown";
 
 /** One email or phone as the Contact section or the Add form states it. */
 export interface ContactEntryInput {

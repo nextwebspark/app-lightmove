@@ -23,6 +23,15 @@ import {
   type ParsedContactSectionForm,
 } from "../../candidates/lib/candidateForm";
 import { useContactLookup } from "../lib/useContactLookup";
+import { dialHrefOf } from "../lib/phoneLinks";
+import {
+  AddedCodePill,
+  CopyPhoneButton,
+  PhoneNumberLink,
+  SaveInternationalButton,
+  WhatsAppLink,
+  type PhoneReach,
+} from "./PhoneActions";
 
 /**
  * The Contact section: one row per channel with its Find button. The pencil edits every line in place and Save writes
@@ -147,7 +156,8 @@ function ContactReadView({
 /**
  * Email and phone as read: every value on the ledger with its pills and a copy button, the primary first and
  * starred once a channel holds more than one. The position drawer hangs its Find buttons on the rows and offers
- * Make primary on the others; the workspace drawer reads them bare. The profile link is the header's.
+ * Make primary on the others; the workspace drawer reads them bare. The profile link is the header's. Given `reach`, a
+ * phone is the button (#1337): Call, WhatsApp and Copy, its added calling code named and offered to keep.
  */
 export function ContactChannels({
   contacts,
@@ -156,6 +166,7 @@ export function ContactChannels({
   phoneAction,
   phoneError,
   onMakePrimary,
+  reach,
 }: {
   contacts: CandidateContacts;
   emailAction?: ReactNode;
@@ -163,6 +174,7 @@ export function ContactChannels({
   phoneAction?: ReactNode;
   phoneError?: string | null;
   onMakePrimary?: (channel: "email" | "phone", value: string) => void;
+  reach?: PhoneReach;
 }) {
   const toast = useToast();
   const starOf = (channel: "email" | "phone", count: number, value: string, index: number) =>
@@ -211,6 +223,7 @@ export function ContactChannels({
               entry={entry}
               star={starOf("phone", contacts.phones.length, entry.number, index)}
               onCopy={() => copy("Phone", entry.number)}
+              reach={reach}
             />
           ))
         )}
@@ -337,16 +350,49 @@ function EmailLine({ entry, star, onCopy }: { entry: CandidateEmail; star: React
   );
 }
 
-function PhoneLine({ entry, star, onCopy }: { entry: CandidatePhone; star: ReactNode; onCopy: () => void }) {
+const PHONE_TEXT = "min-w-0 truncate font-mono text-[13px] text-u-text";
+
+function PhoneLine({
+  entry,
+  star,
+  onCopy,
+  reach,
+}: {
+  entry: CandidatePhone;
+  star: ReactNode;
+  onCopy: () => void;
+  reach?: PhoneReach;
+}) {
+  if (reach) {
+    return (
+      <li className="flex min-w-0 flex-wrap items-center gap-1.5">
+        {star}
+        <PhoneNumberLink
+          phone={entry}
+          reach={reach}
+          className={cn("font-mono text-body", reach.actionable ? "text-u-accent" : "text-u-text")}
+        />
+        <ContactPills entry={entry} />
+        <AddedCodePill phone={entry} reach={reach} />
+        <span className="ms-auto flex flex-none items-center gap-0.5">
+          <WhatsAppLink phone={entry} reach={reach} />
+          {reach.actionable && <CopyPhoneButton phone={entry} />}
+        </span>
+        <SaveInternationalButton phone={entry} reach={reach} />
+      </li>
+    );
+  }
+  const href = dialHrefOf(entry);
   return (
     <li className="flex min-w-0 items-center gap-1.5">
       {star}
-      <a
-        href={`tel:${entry.number.replace(/\s+/g, "")}`}
-        className="min-w-0 truncate font-mono text-[13px] text-u-text hover:underline"
-      >
-        {entry.number}
-      </a>
+      {href ? (
+        <a href={href} className={cn(PHONE_TEXT, "hover:underline")}>
+          {entry.number}
+        </a>
+      ) : (
+        <span className={PHONE_TEXT}>{entry.number}</span>
+      )}
       <ContactPills entry={entry} />
       <CopyButton what="phone" onCopy={onCopy} />
     </li>

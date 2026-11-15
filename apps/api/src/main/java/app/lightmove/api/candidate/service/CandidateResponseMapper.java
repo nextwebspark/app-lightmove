@@ -16,6 +16,10 @@ import app.lightmove.api.candidate.model.CandidateContact;
 import app.lightmove.api.candidate.model.CandidateStage;
 import app.lightmove.api.candidate.model.CandidateStatusDefinition;
 import app.lightmove.api.candidate.model.Person;
+import app.lightmove.api.common.location.model.InternationalPhone;
+import app.lightmove.api.common.location.service.PhoneNumbers;
+import app.lightmove.api.workspace.model.Workspace;
+import app.lightmove.api.workspace.repository.WorkspaceRepository;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -28,9 +32,11 @@ import org.springframework.stereotype.Component;
 class CandidateResponseMapper {
 
     private final PersonEmployerResolver employers;
+    private final WorkspaceRepository workspaces;
 
     CandidateResponse toDto(Candidate candidate) {
-        return toDto(candidate, employers.logoOfMapping(candidate.getPerson().getWorkspaceId(), candidate));
+        UUID workspaceId = candidate.getPerson().getWorkspaceId();
+        return toDto(candidate, employers.logoOfMapping(workspaceId, candidate), countryOf(workspaceId));
     }
 
     /** A page of one position's rows, their logos read in one query rather than one a row. */
@@ -38,12 +44,22 @@ class CandidateResponseMapper {
         if (rows.isEmpty()) {
             return List.of();
         }
-        Map<UUID, String> logos =
-                employers.logosOfMappings(rows.getFirst().getPerson().getWorkspaceId(), rows);
-        return rows.stream().map(row -> toDto(row, logos.get(row.getId()))).toList();
+        UUID workspaceId = rows.getFirst().getPerson().getWorkspaceId();
+        Map<UUID, String> logos = employers.logosOfMappings(workspaceId, rows);
+        String workspaceCountry = countryOf(workspaceId);
+        return rows.stream().map(row -> toDto(row, logos.get(row.getId()), workspaceCountry)).toList();
     }
 
-    private CandidateResponse toDto(Candidate candidate, String companyLogoUrl) {
+    /** Every email and phone on the person's ledger, a local number read against the firm's country as a last guess. */
+    CandidateContactsDto contactsOf(Person person) {
+        return contactsOf(person, countryOf(person.getWorkspaceId()));
+    }
+
+    private String countryOf(UUID workspaceId) {
+        return workspaces.findById(workspaceId).map(Workspace::getCompanyCountry).orElse(null);
+    }
+
+    private CandidateResponse toDto(Candidate candidate, String companyLogoUrl, String workspaceCountry) {
         Person person = candidate.getPerson();
         return new CandidateResponse(
                 candidate.getId(),
@@ -74,7 +90,7 @@ class CandidateResponseMapper {
                 candidate.getCustomFields().asMap(),
                 candidate.getCreatedAt(),
                 person.getProfile().enrichedAt(),
-                contactsOf(person),
+                contactsOf(person, workspaceCountry),
                 person.getId(),
                 person.isLinkedinUrlLocked(),
                 candidate.getStatus().getLabel(),
@@ -113,12 +129,12 @@ class CandidateResponseMapper {
                 .toList();
     }
 
-    static CandidateContactsDto contactsOf(Person person) {
+    private static CandidateContactsDto contactsOf(Person person, String workspaceCountry) {
         List<CandidateContact> emails = person.emailContacts();
         List<CandidateContact> phones = person.phoneContacts();
         return new CandidateContactsDto(
                 emails.stream().map(CandidateResponseMapper::emailOf).toList(),
-                phones.stream().map(CandidateResponseMapper::phoneOf).toList(),
+                phones.stream().map(phone -> phoneOf(phone, person.getLocationCountry(), workspaceCountry)).toList(),
                 person.getEmailsLookedUpAt(), person.getPhonesLookedUpAt(),
                 person.getContactsLookedUpVia());
     }
@@ -128,9 +144,14 @@ class CandidateResponseMapper {
                 contact.getSource().value(), contact.getFoundAt(), contact.isPrimary());
     }
 
-    private static CandidatePhoneDto phoneOf(CandidateContact contact) {
+    private static CandidatePhoneDto phoneOf(CandidateContact contact, String personCountry, String workspaceCountry) {
+        InternationalPhone international =
+                PhoneNumbers.internationalOf(contact.getValue(), personCountry, workspaceCountry).orElse(null);
         return new CandidatePhoneDto(contact.getValue(), kindOf(contact), contact.isVerified(), contact.getStatus(),
-                contact.getSource().value(), contact.getFoundAt(), contact.isPrimary());
+                contact.getSource().value(), contact.getFoundAt(), contact.isPrimary(),
+                international == null ? null : international.international(),
+                international == null ? null : international.countrySource().value(),
+                international == null ? null : international.lineType().value());
     }
 
     private static String kindOf(CandidateContact contact) {
