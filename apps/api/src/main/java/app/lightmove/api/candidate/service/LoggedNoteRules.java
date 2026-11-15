@@ -1,10 +1,12 @@
 package app.lightmove.api.candidate.service;
 
+import app.lightmove.api.candidate.constant.NoteOutcome;
 import app.lightmove.api.candidate.constant.PersonNoteKind;
 import app.lightmove.api.candidate.dto.WritePersonNoteRequest;
 import app.lightmove.api.candidate.model.LoggedMeeting;
 import app.lightmove.api.candidate.model.LoggedRecording;
 import app.lightmove.api.candidate.model.NoteOccurrence;
+import app.lightmove.api.common.constant.ApiValueEnum;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import java.time.Clock;
@@ -17,8 +19,8 @@ import org.springframework.stereotype.Component;
 /**
  * What a note may say about when it happened and what it was about: a plain note is its own event and says neither,
  * nothing is logged in the future, a meeting's notes may name the past Uncava meeting they are about — its calendar
- * meeting, or its Notetaker recording once the calendar has let the meeting go — and take its time, and an email is
- * never logged by hand.
+ * meeting, or its Notetaker recording once the calendar has let the meeting go — and take its time, an email is
+ * never logged by hand, and a call or WhatsApp message may say how it went instead of saying anything else.
  */
 @Component
 @RequiredArgsConstructor
@@ -40,6 +42,24 @@ public class LoggedNoteRules {
             throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "kind",
                     "An email is recorded when it is sent; log a call, a LinkedIn or a WhatsApp message instead");
         }
+    }
+
+    /**
+     * How the logged call or message went: the request's, else {@code current} while the kind still holds it (an
+     * empty token clears it). Without one, the note must say something.
+     */
+    public NoteOutcome outcomeOf(WritePersonNoteRequest request, PersonNoteKind kind, NoteOutcome current) {
+        NoteOutcome outcome = request.outcome() == null
+                ? (current != null && current.fits(kind) ? current : null)
+                : ApiValueEnum.parse(NoteOutcome.class, request.outcome(), null, "note outcome");
+        if (outcome != null && !outcome.fits(kind)) {
+            throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "outcome",
+                    "Only a call or a WhatsApp message says how it went, in its own words");
+        }
+        if (outcome == null && request.bodyText().isEmpty()) {
+            throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "body", "Write the note");
+        }
+        return outcome;
     }
 
     /** A new note's time, title and meeting, from what the request says; {@code projectId} the position it is about. */

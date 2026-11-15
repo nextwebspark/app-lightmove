@@ -57,7 +57,7 @@ public class PersonTimelineService {
             "text", "dueAt", "cleared", "visible", "taskId", "title", "taskKind", "assignee", "previousAssignee",
             "rule", "sequenceId", "sequence", "step", "reason", "startsAt", "viaLink", "manual", "withCompany",
             "fields", "call", "callAt", "recordingId", "reverted", "scope", "previousStartsAt", "messageId",
-            "automation");
+            "automation", "outcome");
     /**
      * Changes to the person rather than to a position's work, read on every position they are on: a position's
      * drawer reads what it shows (the profile, the contacts, the documents), so who changed it is that position's
@@ -212,7 +212,7 @@ public class PersonTimelineService {
 
     /**
      * A tag reads as it is spelled today, an owner by their name today, a document by its title while
-     * it exists and a note by its kind today; the line keeps only the ids, so a removed document leaves no
+     * it exists and a note by its kind and outcome today; the line keeps only the ids, so a removed document leaves no
      * name behind.
      */
     private static Map<String, String> detailsOf(PersonActivity line, Map<UUID, User> named,
@@ -238,6 +238,11 @@ public class PersonTimelineService {
         }
         if (liveNote != null) {
             shown.put("kind", liveNote.getKind().name());
+            if (liveNote.getOutcome() == null) {
+                shown.remove("outcome");
+            } else {
+                shown.put("outcome", liveNote.getOutcome().name());
+            }
         }
         return shown;
     }

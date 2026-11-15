@@ -545,6 +545,58 @@ class PersonNotesIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("a call logged by its outcome alone needs no words, and keeps it through an edit")
+    void aCallLoggedByItsOutcomeAlone() throws Exception {
+        firm("Call Outcome Firm");
+        String cfo = mandate("Chief Financial Officer");
+        String candidateId = add(cfo, FATIMA).get("id").asText();
+
+        JsonNode noAnswer = log(cfo, candidateId, """
+                {"kind":"call","body":"","outcome":"no_answer"}""");
+        assertThat(noAnswer.get("body").asText()).isEmpty();
+        assertThat(noAnswer.get("outcome").asText()).isEqualTo("no_answer");
+        String again = log(cfo, candidateId, """
+                {"kind":"call","outcome":"no_answer"}""").get("id").asText();
+        JsonNode line = timeline(cfo, candidateId, "notes").get("entries").get(0);
+        assertThat(line.get("details").get("outcome").asText()).isEqualTo("NO_ANSWER");
+
+        refuse(cfo, candidateId, """
+                {"kind":"call","body":"  "}""");
+        refuse(cfo, candidateId, """
+                {"kind":"whatsapp","body":"Sent the outline.","outcome":"voicemail"}""");
+        refuse(cfo, candidateId, """
+                {"kind":"general","outcome":"connected"}""");
+
+        mvc.perform(delete(notesUrl(cfo, candidateId) + "/" + again).header("Authorization", "Bearer " + admin))
+                .andExpect(status().isNoContent());
+        JsonNode restored = body(mvc.perform(post(notesUrl(cfo, candidateId) + "/" + again + "/restore")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andReturn());
+        assertThat(restored.get("id").asText()).isEqualTo(again);
+
+        String noAnswerUrl = notesUrl(cfo, candidateId) + "/" + noAnswer.get("id").asText();
+        JsonNode reworded = body(mvc.perform(put(noAnswerUrl)
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"body":"Rang twice, no voicemail box."}"""))
+                .andExpect(status().isOk())
+                .andReturn());
+        assertThat(reworded.get("outcome").asText()).isEqualTo("no_answer");
+        JsonNode plain = body(mvc.perform(put(noAnswerUrl)
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"kind":"general","body":"Just a note now."}"""))
+                .andExpect(status().isOk())
+                .andReturn());
+        assertThat(plain.get("outcome").isNull()).isTrue();
+        assertThat(db.queryForObject("select outcome from app_lm_person_note where id = ?::uuid", String.class,
+                noAnswer.get("id").asText())).isNull();
+    }
+
+    @Test
     @DisplayName("a removed note is restored by its author or an admin, as it was, with a line saying so")
     void aRemovedNoteIsRestored() throws Exception {
         firm("Restored Note Firm");
@@ -1025,6 +1077,24 @@ class PersonNotesIntegrationTest extends FlowTestSupport {
                         .content(json.writeValueAsString(java.util.Map.of("kind", kind, "body", text))))
                 .andExpect(status().isCreated())
                 .andReturn());
+    }
+
+    private JsonNode log(String projectId, String candidateId, String request) throws Exception {
+        return body(mvc.perform(post(notesUrl(projectId, candidateId))
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(request))
+                .andExpect(status().isCreated())
+                .andReturn());
+    }
+
+    private void refuse(String projectId, String candidateId, String request) throws Exception {
+        assertThat(codeOf(mvc.perform(post(notesUrl(projectId, candidateId))
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(request))
+                .andExpect(status().isBadRequest())
+                .andReturn())).isEqualTo("VALIDATION_FAILED");
     }
 
     private JsonNode writeForAllPositions(String token, String projectId, String candidateId, String kind,

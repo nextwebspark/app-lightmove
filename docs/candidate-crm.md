@@ -310,6 +310,16 @@ editor it opens Edit contact details. An added calling code is named on a pill a
 a reader who may not reach out on the position, and a client seat leave the number as text, its title saying why.
 The Recently approached warning before a call is deferred to the "log it" tray (#1337, PR 3).
 
+### Call and WhatsApp outcomes (#1337, V224)
+
+A logged call may say how it went in the sequence call step's own words (`NoteOutcome`: Connected, Left voicemail,
+No answer, Wrong number), and a WhatsApp log in two (Sent a message, They replied). The outcome is optional, but once
+one is chosen the note may be empty, so "No answer" logs in one tap (`LoggedNoteRules.outcomeOf`). An edit that sends no
+outcome keeps the one held while the kind still takes it, and an empty token clears it. It rides `PersonNoteResponse`
+(and so the Outreach timeline's note events), the `NOTE_*` timeline line's details as the live note's `outcome`, the AI
+material's note line, the workspace archive's note heading and the subject access export. Restoring an outcome-only log
+never answers with a look-alike: there are no words to match a twin by.
+
 ### Tags (Phase 4, V98): "Open to work", "Open to relocate", …
 
 How the products do it: LinkedIn Recruiter exposes *Open to work* and *Open to relocate* as structured

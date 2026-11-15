@@ -81,7 +81,7 @@ its logic text, or listed as leaving nothing on a person.
 | `app_lm_person_contact` | Included | `contacts`, each with its `source` |
 | `app_lm_person_tag` | Included | `tags`, by label |
 | `app_lm_person_photo` | Included | `photo`, and the file |
-| `app_lm_person_note` | Included | `notes`, deleted ones until purged |
+| `app_lm_person_note` | Included | `notes`, deleted ones until purged, each with its `outcome` (V224) |
 | `app_lm_person_document` | Included | `documents`, and the latest file of each |
 | `app_lm_person_document_version` | Included | `documentVersions` |
 | `app_lm_person_activity` | Included | `timeline` |

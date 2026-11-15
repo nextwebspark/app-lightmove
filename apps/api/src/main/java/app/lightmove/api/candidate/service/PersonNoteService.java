@@ -1,5 +1,6 @@
 package app.lightmove.api.candidate.service;
 
+import app.lightmove.api.candidate.constant.NoteOutcome;
 import app.lightmove.api.candidate.constant.PersonActivityKind;
 import app.lightmove.api.candidate.constant.PersonNoteKind;
 import app.lightmove.api.candidate.dto.PersonNoteResponse;
@@ -94,9 +95,10 @@ public class PersonNoteService {
                 throw ApiException.of(ErrorCode.NOT_FOUND);
             }
         }
+        NoteOutcome outcome = loggedNotes.outcomeOf(request, kind, null);
         NoteOccurrence occurrence = loggedNotes.occurrenceOf(request, kind, workspaceId, aboutProjectId, personId);
-        PersonNote note = save(person, aboutProjectId, kind, request.body().strip(), formatOf(request), userId,
-                occurrence);
+        PersonNote note = save(person, aboutProjectId, kind, request.bodyText(), formatOf(request), userId,
+                occurrence, outcome);
         mentions.keep(note, userId);
         audit.event(ProjectEventType.PERSON_NOTE_ADDED).actor(userId).workspace(workspaceId)
                 .target(PERSON_TARGET, personId).from(httpRequest)
@@ -114,10 +116,12 @@ public class PersonNoteService {
         loggedNotes.refuseLoggedEmail(kind, note.getKind());
         NoteOccurrence current = new NoteOccurrence(note.getOccurredAt(), note.getTitle(), note.getMeetingId(),
                 note.getRecordingId());
+        NoteOutcome outcome = loggedNotes.outcomeOf(request, kind, note.getOutcome());
         NoteOccurrence occurrence = loggedNotes.revisedOccurrence(current, request, kind, workspaceId,
                 note.getProjectId(), personId);
-        note.revise(kind, request.body().strip(), formatOf(request), userId);
+        note.revise(kind, request.bodyText(), formatOf(request), userId);
         note.placeAt(occurrence);
+        note.settle(outcome);
         mentions.keep(note, userId);
         audit.event(ProjectEventType.PERSON_NOTE_EDITED).actor(userId).workspace(workspaceId)
                 .target(PERSON_TARGET, personId).from(httpRequest)
@@ -144,7 +148,7 @@ public class PersonNoteService {
      * Takes a delete back while the note is still held. Its mentions were never dropped, so nobody is told twice.
      * A note already live answers as it is, so a second press of Undo, or two at once, records one restore; and
      * where a door has filed the same words again since under the same author, that copy answers and the deleted one is
-     * left to the purge.
+     * left to the purge. An outcome-only log has no words to match, so it is always restored itself.
      */
     @Transactional
     public PersonNoteResponse restore(UUID userId, UUID workspaceId, UUID personId, NoteViewpoint viewpoint,
@@ -160,8 +164,9 @@ public class PersonNoteService {
         if (!deleted.getAuthorUserId().equals(userId) && !mayEditAny(userId, workspaceId)) {
             throw ApiException.of(ErrorCode.PERSON_NOTE_NOT_YOURS);
         }
-        PersonNote twin = notes.findFirstByWorkspaceIdAndPersonIdAndProjectIdAndBodyAndAuthorUserId(workspaceId,
-                personId, deleted.getProjectId(), deleted.getBody(), deleted.getAuthorUserId()).orElse(null);
+        PersonNote twin = deleted.getBody().isBlank() ? null
+                : notes.findFirstByWorkspaceIdAndPersonIdAndProjectIdAndBodyAndAuthorUserId(workspaceId, personId,
+                        deleted.getProjectId(), deleted.getBody(), deleted.getAuthorUserId()).orElse(null);
         if (twin != null) {
             return asItStands(userId, workspaceId, twin);
         }
@@ -228,18 +233,19 @@ public class PersonNoteService {
 
     private PersonNote save(Person person, UUID projectId, PersonNoteKind kind, String body, NoteFormat format,
                             UUID author) {
-        return save(person, projectId, kind, body, format, author, NoteOccurrence.NONE);
+        return save(person, projectId, kind, body, format, author, NoteOccurrence.NONE, null);
     }
 
     private PersonNote save(Person person, UUID projectId, PersonNoteKind kind, String body, NoteFormat format,
-                            UUID author, NoteOccurrence occurrence) {
+                            UUID author, NoteOccurrence occurrence, NoteOutcome outcome) {
         String title = projectId == null ? null
                 : projects.findById(projectId).map(Project::getPositionTitle).orElse(null);
         PersonNote written = PersonNote.written(person, projectId, title, kind, body, format, author);
         written.placeAt(occurrence);
+        written.settle(outcome);
         PersonNote note = notes.save(written);
         activity.record(person, projectId, author, PersonActivityKind.NOTE_ADDED,
-                PersonActivityDetails.of("noteId", note.getId()).and("kind", kind));
+                PersonActivityDetails.of("noteId", note.getId()).and("kind", kind).and("outcome", outcome));
         return note;
     }
 
@@ -287,6 +293,7 @@ public class PersonNoteService {
                 note.getProjectId(), note.getProjectTitle(), note.getAuthorUserId(),
                 author == null ? null : author.getFullName(), author == null ? null : author.getAvatarUrl(),
                 note.getCreatedAt(), note.getEditedAt(), editor == null ? null : editor.getFullName(), editable,
-                note.happenedAt(), note.getTitle(), note.getMeetingId(), note.getRecordingId());
+                note.happenedAt(), note.getTitle(), note.getMeetingId(), note.getRecordingId(),
+                note.getOutcome() == null ? null : note.getOutcome().value());
     }
 }

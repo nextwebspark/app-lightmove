@@ -1,5 +1,6 @@
 package app.lightmove.api.candidate.model;
 
+import app.lightmove.api.candidate.constant.NoteOutcome;
 import app.lightmove.api.candidate.constant.PersonNoteKind;
 import app.lightmove.api.common.constant.NoteFormat;
 import app.lightmove.api.core.persistence.model.BaseEntity;
@@ -79,6 +80,10 @@ public class PersonNote extends BaseEntity {
     @Column(name = "recording_id")
     private UUID recordingId;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "outcome", length = 16)
+    private NoteOutcome outcome;
+
     @Column(name = "deleted_at")
     private Instant deletedAt;
 
@@ -118,6 +123,10 @@ public class PersonNote extends BaseEntity {
         this.bodyFormat = newFormat;
         this.editedAt = Instant.now();
         this.editedBy = editor;
+    }
+
+    public void settle(NoteOutcome how) {
+        this.outcome = how;
     }
 
     public void discard(UUID by, Instant at) {
