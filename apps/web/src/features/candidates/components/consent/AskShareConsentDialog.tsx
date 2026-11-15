@@ -18,10 +18,16 @@ const RECENTLY_DAYS = 14;
 function blockOf(firstName: string, row: ShareConsentRow | undefined): string | null {
   if (!row) return null;
   if (row.status === "given") return `${firstName} already agreed on ${formatInstantDate(row.answeredAt) ?? ""}.`;
-  const open = row.requestOpenUntil && Date.parse(row.requestOpenUntil) > Date.now();
-  if (open && row.requestedAt && Date.now() - Date.parse(row.requestedAt) < RECENTLY_DAYS * DAY_MS) {
-    const again = new Date(Date.parse(row.requestedAt) + RECENTLY_DAYS * DAY_MS).toISOString();
-    return `${firstName} was asked on ${formatInstantDate(row.requestedAt) ?? ""}. You can ask again from ${formatInstantDate(again) ?? ""}.`;
+  const recently = (instant: string | null) => !!instant && Date.now() - Date.parse(instant) < RECENTLY_DAYS * DAY_MS;
+  const againFrom = (instant: string) =>
+    formatInstantDate(new Date(Date.parse(instant) + RECENTLY_DAYS * DAY_MS).toISOString()) ?? "";
+  const refused = row.status === "declined" || row.status === "withdrawn";
+  if (refused && row.answeredAt && recently(row.answeredAt)) {
+    const said = row.status === "declined" ? "declined" : "withdrew";
+    return `${firstName} ${said} on ${formatInstantDate(row.answeredAt) ?? ""}. You can ask again from ${againFrom(row.answeredAt)}.`;
+  }
+  if (row.requestedAt && recently(row.requestedAt)) {
+    return `${firstName} was asked on ${formatInstantDate(row.requestedAt) ?? ""}. You can ask again from ${againFrom(row.requestedAt)}.`;
   }
   return null;
 }

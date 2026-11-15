@@ -31,7 +31,8 @@ class PersonConsentStore {
 
     private static final String COLUMNS = """
             id, person_id, purpose, project_id, status, requested_at, requested_by, request_link_id,
-            request_expires_at, answered_at, answered_via, valid_until, client_named, wording_version, wording""";
+            request_expires_at, answered_at, answered_via, valid_until, client_named, wording_version, wording,
+            request_wording_version, request_wording, request_client_named, request_months""";
 
     private final NamedParameterJdbcTemplate jdbc;
 
@@ -58,9 +59,12 @@ class PersonConsentStore {
                 .addValue("projectId", projectId)
                 .addValue("limit", limit);
         return jdbc.query("""
-                SELECT c.person_id, p.full_name AS person_name, c.purpose, pr.position_title, c.client_named, c.status,
-                       c.requested_at, u.full_name AS requested_by_name, c.answered_at, c.answered_via, c.valid_until,
-                       c.wording_version, c.wording
+                SELECT c.person_id, p.full_name AS person_name, c.purpose, pr.position_title,
+                       CASE WHEN c.answered_at IS NULL THEN c.request_client_named ELSE c.client_named END
+                           AS client_named,
+                       c.status, c.requested_at, u.full_name AS requested_by_name, c.answered_at, c.answered_via,
+                       c.valid_until, COALESCE(c.wording_version, c.request_wording_version) AS wording_version,
+                       COALESCE(c.wording, c.request_wording) AS wording
                 FROM app_lm_person_consent c
                 JOIN app_lm_person p ON p.id = c.person_id
                 LEFT JOIN app_lm_project pr ON pr.id = c.project_id
@@ -103,13 +107,28 @@ class PersonConsentStore {
                 + " ORDER BY purpose", new MapSqlParameterSource("linkId", linkId), this::consentOf);
     }
 
+    /** The answers the history records on the link, by consent: what a reopened request page says was answered. */
+    Map<UUID, ConsentStatus> answersOnLink(UUID linkId) {
+        Map<UUID, ConsentStatus> byConsent = new LinkedHashMap<>();
+        jdbc.query("""
+                SELECT consent_id, status FROM app_lm_person_consent_event
+                WHERE link_id = :linkId AND action = 'ANSWERED' ORDER BY occurred_at
+                """, new MapSqlParameterSource("linkId", linkId), row -> {
+                    byConsent.put(row.getObject("consent_id", UUID.class),
+                            ConsentStatus.valueOf(row.getString("status")));
+                });
+        return byConsent;
+    }
+
     /**
      * Opens a request on the purpose: a row nobody asked about yet is made, any other reopened as asked — except a
-     * given consent, which stays given while its renewal waits. Answers what to put back if the email is refused.
+     * given consent, which stays given while its renewal waits. The request's words and terms wait beside the answer
+     * already given, never over it, until an answer copies them across. Answers what to put back if the email is
+     * refused.
      */
     ConsentPriorState openRequest(UUID workspaceId, UUID personId, ConsentPurpose purpose, UUID projectId,
                                   UUID requestedBy, UUID linkId, Instant now, Instant expiresAt, boolean clientNamed,
-                                  String wordingVersion, String wording) {
+                                  String wordingVersion, String wording, Integer months) {
         MapSqlParameterSource parameters = new MapSqlParameterSource("workspaceId", workspaceId)
                 .addValue("personId", personId)
                 .addValue("purpose", purpose.name())
@@ -120,7 +139,8 @@ class PersonConsentStore {
                 .addValue("expiresAt", Timestamp.from(expiresAt))
                 .addValue("clientNamed", clientNamed)
                 .addValue("wordingVersion", wordingVersion)
-                .addValue("wording", wording);
+                .addValue("wording", wording)
+                .addValue("months", months);
         Optional<PersonConsent> held = jdbc.query("SELECT " + COLUMNS + " FROM app_lm_person_consent"
                         + " WHERE person_id = :personId AND purpose = :purpose"
                         + " AND project_id IS NOT DISTINCT FROM :projectId FOR UPDATE", parameters, this::consentOf)
@@ -133,24 +153,27 @@ class PersonConsentStore {
             status = ConsentStatus.REQUESTED;
             jdbc.update("""
                     INSERT INTO app_lm_person_consent (id, workspace_id, person_id, purpose, project_id, status,
-                        requested_at, requested_by, request_link_id, request_expires_at, client_named, wording_version,
-                        wording)
+                        requested_at, requested_by, request_link_id, request_expires_at, request_client_named,
+                        request_wording_version, request_wording, request_months)
                     VALUES (:id, :workspaceId, :personId, :purpose, :projectId, 'REQUESTED', :now, :requestedBy,
-                            :linkId, :expiresAt, :clientNamed, :wordingVersion, :wording)
+                            :linkId, :expiresAt, :clientNamed, :wordingVersion, :wording, :months)
                     """, parameters.addValue("id", consentId));
-            prior = new ConsentPriorState(consentId, true, null, null, null, null, null);
+            prior = new ConsentPriorState(consentId, true, null, null, null, null, null, null, null, false, null);
         } else {
             PersonConsent consent = held.get();
             consentId = consent.id();
             status = consent.status() == ConsentStatus.GIVEN ? ConsentStatus.GIVEN : ConsentStatus.REQUESTED;
             jdbc.update("""
                     UPDATE app_lm_person_consent SET status = :status, requested_at = :now, requested_by = :requestedBy,
-                        request_link_id = :linkId, request_expires_at = :expiresAt, client_named = :clientNamed,
-                        wording_version = :wordingVersion, wording = :wording
+                        request_link_id = :linkId, request_expires_at = :expiresAt,
+                        request_client_named = :clientNamed, request_wording_version = :wordingVersion,
+                        request_wording = :wording, request_months = :months
                     WHERE id = :id
                     """, parameters.addValue("id", consentId).addValue("status", status.name()));
             prior = new ConsentPriorState(consentId, false, consent.status(), consent.requestedAt(),
-                    consent.requestedBy(), consent.requestLinkId(), consent.requestExpiresAt());
+                    consent.requestedBy(), consent.requestLinkId(), consent.requestExpiresAt(),
+                    consent.requestWordingVersion(), consent.requestWording(), consent.requestClientNamed(),
+                    consent.requestMonths());
         }
         appendEvent(workspaceId, personId, consentId, ConsentEventAction.REQUESTED, status,
                 requestedBy == null ? ConsentEventVia.SYSTEM : ConsentEventVia.STAFF, linkId, requestedBy,
@@ -158,11 +181,15 @@ class PersonConsentStore {
         return prior;
     }
 
-    /** An answer on the page, while its request is still open; false when it was already answered or has closed. */
+    /**
+     * An answer on the page, while its request is still open: the words answered become the consent's own. False when
+     * it was already answered or has closed.
+     */
     boolean answer(UUID consentId, UUID linkId, ConsentStatus answer, Instant now, Instant validUntil) {
         return jdbc.update("""
                 UPDATE app_lm_person_consent SET status = :status, answered_at = :now, answered_via = 'PAGE',
-                    valid_until = :validUntil, request_expires_at = NULL
+                    valid_until = :validUntil, request_expires_at = NULL, wording = request_wording,
+                    wording_version = request_wording_version, client_named = request_client_named
                 WHERE id = :id AND request_link_id = :linkId AND request_expires_at > :now
                 """, new MapSqlParameterSource("id", consentId)
                 .addValue("linkId", linkId)
@@ -171,7 +198,7 @@ class PersonConsentStore {
                 .addValue("validUntil", validUntil == null ? null : Timestamp.from(validUntil))) > 0;
     }
 
-    /** A no to a renewal: the consent stands until its own date, and only the request closes. */
+    /** A no to a renewal: the consent stands until its own date, under its own words, and only the request closes. */
     boolean closeRenewal(UUID consentId, UUID linkId, Instant now) {
         return jdbc.update("""
                 UPDATE app_lm_person_consent SET request_expires_at = NULL
@@ -191,7 +218,11 @@ class PersonConsentStore {
                 .addValue("now", Timestamp.from(now))) > 0;
     }
 
-    /** An answer given another way, recorded by a colleague; closes any request still open on the purpose. */
+    /**
+     * An answer given another way, recorded by a colleague; closes any request still open on the purpose. It clears
+     * {@code requested_at} too: a day recorded by hand can fall before the request, and the renewal scan would then
+     * never see the answer as newer than the asking.
+     */
     UUID recordByHand(UUID workspaceId, UUID personId, ConsentPurpose purpose, UUID projectId, ConsentStatus answer,
                       Instant answeredAt, Instant validUntil) {
         return jdbc.queryForObject("""
@@ -200,7 +231,7 @@ class PersonConsentStore {
                 VALUES (:workspaceId, :personId, :purpose, :projectId, :status, :answeredAt, 'BY_HAND', :validUntil)
                 ON CONFLICT (person_id, purpose, project_id) DO UPDATE SET status = EXCLUDED.status,
                     answered_at = EXCLUDED.answered_at, answered_via = 'BY_HAND', valid_until = EXCLUDED.valid_until,
-                    request_expires_at = NULL
+                    request_expires_at = NULL, requested_at = NULL
                 RETURNING id
                 """, new MapSqlParameterSource("workspaceId", workspaceId)
                 .addValue("personId", personId)
@@ -211,27 +242,39 @@ class PersonConsentStore {
                 .addValue("validUntil", validUntil == null ? null : Timestamp.from(validUntil)), UUID.class);
     }
 
-    /** A refused request undone: the row it made is deleted, any other put back as it stood. */
-    void restore(ConsentPriorState prior) {
-        MapSqlParameterSource parameters = new MapSqlParameterSource("id", prior.consentId());
+    /**
+     * A refused request undone: the row it made is deleted, any other put back as it stood — but only while the row is
+     * still that request's. The send runs after the commit, so an answer recorded by hand or a newer request may have
+     * landed since, and stands.
+     */
+    void restore(ConsentPriorState prior, UUID refusedLinkId, Instant refusedRequestedAt) {
+        MapSqlParameterSource parameters = new MapSqlParameterSource("id", prior.consentId())
+                .addValue("refusedLinkId", refusedLinkId)
+                .addValue("refusedRequestedAt", Timestamp.from(refusedRequestedAt));
+        String stillThatRequest = " AND request_link_id = :refusedLinkId AND requested_at = :refusedRequestedAt";
         if (prior.created()) {
-            jdbc.update("DELETE FROM app_lm_person_consent WHERE id = :id", parameters);
+            jdbc.update("DELETE FROM app_lm_person_consent WHERE id = :id" + stillThatRequest, parameters);
             return;
         }
         jdbc.update("""
                 UPDATE app_lm_person_consent SET status = :status, requested_at = :requestedAt,
-                    requested_by = :requestedBy, request_link_id = :linkId, request_expires_at = :expiresAt
-                WHERE id = :id
-                """, parameters.addValue("status", prior.status().name())
+                    requested_by = :requestedBy, request_link_id = :linkId, request_expires_at = :expiresAt,
+                    request_wording_version = :wordingVersion, request_wording = :wording,
+                    request_client_named = :clientNamed, request_months = :months
+                WHERE id = :id""" + stillThatRequest, parameters.addValue("status", prior.status().name())
                 .addValue("requestedAt", timestampOf(prior.requestedAt()))
                 .addValue("requestedBy", prior.requestedBy())
                 .addValue("linkId", prior.requestLinkId())
-                .addValue("expiresAt", timestampOf(prior.requestExpiresAt())));
+                .addValue("expiresAt", timestampOf(prior.requestExpiresAt()))
+                .addValue("wordingVersion", prior.requestWordingVersion())
+                .addValue("wording", prior.requestWording())
+                .addValue("clientNamed", prior.requestClientNamed())
+                .addValue("months", prior.requestMonths()));
     }
 
     /**
      * Requests past their date close: an unanswered one becomes expired, an unanswered renewal leaves the consent as
-     * given. Answers the rows that became expired.
+     * given. Answers every row it closed.
      */
     List<PersonConsent> closeLapsedRequests(UUID workspaceId, Instant now, int limit) {
         return jdbc.query("""
@@ -243,9 +286,7 @@ class PersonConsentStore {
                                ORDER BY request_expires_at LIMIT :limit FOR UPDATE SKIP LOCKED)
                 RETURNING""" + " " + COLUMNS, new MapSqlParameterSource("workspaceId", workspaceId)
                 .addValue("now", Timestamp.from(now))
-                .addValue("limit", limit), this::consentOf).stream()
-                .filter(consent -> consent.status() == ConsentStatus.EXPIRED)
-                .toList();
+                .addValue("limit", limit), this::consentOf);
     }
 
     List<PersonConsent> expireLapsedConsents(UUID workspaceId, Instant now, int limit) {
@@ -259,18 +300,25 @@ class PersonConsentStore {
                 .addValue("limit", limit), this::consentOf);
     }
 
-    /** People whose keep-on-file consent ends within the window and who have not been asked since they gave it. */
-    List<UUID> peopleDueRenewal(UUID workspaceId, Instant now, Instant windowEnd, int limit) {
-        return jdbc.queryForList("""
-                SELECT person_id FROM app_lm_person_consent
+    /**
+     * Keep-on-file consents ending within the window whose holder has not been asked since giving them, a page at a
+     * time after {@code after} (null for the first page), so the people no email may reach never hold back the rest.
+     */
+    List<PersonConsent> dueRenewal(UUID workspaceId, Instant now, Instant windowEnd, PersonConsent after, int limit) {
+        return jdbc.query("SELECT " + COLUMNS + """
+                 FROM app_lm_person_consent
                  WHERE workspace_id = :workspaceId AND purpose = 'KEEP_ON_FILE' AND status = 'GIVEN'
                    AND valid_until > :now AND valid_until <= :windowEnd AND request_expires_at IS NULL
                    AND (requested_at IS NULL OR requested_at < answered_at)
-                 ORDER BY valid_until LIMIT :limit
+                   AND (CAST(:afterUntil AS timestamptz) IS NULL
+                        OR (valid_until, id) > (CAST(:afterUntil AS timestamptz), CAST(:afterId AS uuid)))
+                 ORDER BY valid_until, id LIMIT :limit
                 """, new MapSqlParameterSource("workspaceId", workspaceId)
                 .addValue("now", Timestamp.from(now))
                 .addValue("windowEnd", Timestamp.from(windowEnd))
-                .addValue("limit", limit), UUID.class);
+                .addValue("afterUntil", after == null ? null : Timestamp.from(after.validUntil()))
+                .addValue("afterId", after == null ? null : after.id())
+                .addValue("limit", limit), this::consentOf);
     }
 
     void appendEvent(UUID workspaceId, UUID personId, UUID consentId, ConsentEventAction action, ConsentStatus status,
@@ -302,7 +350,9 @@ class PersonConsentStore {
                 row.getObject("requested_by", UUID.class), row.getObject("request_link_id", UUID.class),
                 instantOf(row, "request_expires_at"), instantOf(row, "answered_at"),
                 via == null ? null : ConsentAnsweredVia.valueOf(via), instantOf(row, "valid_until"),
-                row.getBoolean("client_named"), row.getString("wording_version"), row.getString("wording"));
+                row.getBoolean("client_named"), row.getString("wording_version"), row.getString("wording"),
+                row.getString("request_wording_version"), row.getString("request_wording"),
+                row.getBoolean("request_client_named"), row.getObject("request_months", Integer.class));
     }
 
     private static Instant instantOf(ResultSet row, String column) throws SQLException {

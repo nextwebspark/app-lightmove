@@ -58,8 +58,29 @@ class SpaSecurityTest {
     void refusesFraming() throws Exception {
         mvc.perform(get("/oauth/consent").param("client_id", "anyone"))
                 .andExpect(status().isOk())
-                .andExpect(header().string("Content-Security-Policy", "frame-ancestors 'none'"))
+                .andExpect(header().string("Content-Security-Policy", containsString("frame-ancestors 'none'")))
                 .andExpect(header().string("X-Frame-Options", "DENY"));
+    }
+
+    /** #929: a third party the bundle reaches is one this policy names; anything else the browser refuses. */
+    @Test
+    @DisplayName("pins scripts to this origin and names every third party the bundle may reach")
+    void pinsTheBundlesSources() throws Exception {
+        String policy = mvc.perform(get("/index.html"))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getHeader("Content-Security-Policy");
+
+        assertThat(policy)
+                .contains("default-src 'self'", "script-src 'self';", "object-src 'none'", "base-uri 'self'",
+                        "font-src 'self' data:", "worker-src 'self' blob:")
+                .contains("connect-src 'self' https://api.mapbox.com https://events.mapbox.com")
+                // The scheduler's API host comes from its configured base URL, never a hard-coded region.
+                .contains("https://api.us.nylas.com;")
+                .doesNotContain("fonts.googleapis.com", "fonts.gstatic.com", "'unsafe-eval'");
+        assertThat(policy.substring(policy.indexOf("script-src"), policy.indexOf(';', policy.indexOf("script-src"))))
+                .isEqualTo("script-src 'self'");
     }
 
     // The SPA is served

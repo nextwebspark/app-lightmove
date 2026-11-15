@@ -72,12 +72,12 @@ placeholders it names.
 | F1 | Transfer mechanism per recipient (DPF, SCCs module 2/3, UK IDTA or addendum) | [tia.md](tia.md) | `[mechanism to confirm]` on the DPA, privacy policy, sub-processor list | open |
 | F2 | Region of Resend, Stripe, Bright Data, HarvestAPI, ContactOut | not in code | `[Region]` on the sub-processor list | open |
 | F3 | Nylas and Recall: US or EU | code defaults to US; EU endpoints exist | sub-processor list | open |
-| F4 | Pin Vertex AI to a region | `global` today | privacy policy, sub-processor list, `[region to confirm]` | engineering (#925) |
+| F4 | Pin Vertex AI to a region | `global`: the Flash models are served there only | privacy policy, sub-processor list | decided by engineering: stays `global` until a trigger in [residency-adr.md](residency-adr.md) §1 (#925) |
 | F5 | Breach notice to customers | DPA: [24–48] hours | DPA, breach runbook | open |
 | F6 | Audits and inspections: notice and frequency | — | DPA | open |
 | F7 | How customers hear of sub-processor changes, and the notice period | DPA says [30] days | DPA, sub-processor list | open |
 | F8 | CMEK for enterprise customers | not adopted | — | open |
-| F9 | Where backups live | multi-region unless pinned | security-of-processing | open, with #925 |
+| F9 | Where backups live | multi-region unless pinned; a regional stack pins its own ([residency-adr.md](residency-adr.md) §2) | security-of-processing | open, with #925 |
 | F10 | Keep `?q=` searches out of Cloud Run's request log | exclusion filter or shorter bucket | — | open (#927) |
 
 ## G. Website and organisation (website #26, #27, #29, #30)

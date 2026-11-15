@@ -27,6 +27,7 @@ const KEEP: PrivacyPageConsent = {
   validUntil: null,
   answeredAt: null,
   keepOnFileMonths: 24,
+  answer: null,
   roleTitle: null,
   clientName: null,
 };
@@ -135,12 +136,41 @@ describe("a consent request's page", () => {
     expect(screen.getByRole("button", { name: "Send my answer" })).toBeDisabled();
   });
 
-  it("says a request past its 30 days has closed and changed nothing", async () => {
+  it("shows the answers already given when the link is opened again, never that it closed", async () => {
+    vi.mocked(privacyPageApi.getPrivacyPage).mockResolvedValue({
+      ...PAGE,
+      consents: [
+        { ...KEEP, status: "given", open: false, answer: "given", validUntil: "2028-09-22T10:00:00Z" },
+        { ...UPDATES, status: "declined", open: false, answer: "declined" },
+      ],
+    });
+    renderPage();
+
+    expect(await screen.findByRole("heading", { name: "Thank you, your answers are saved" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "This request has closed" })).not.toBeInTheDocument();
+    const answers = within(screen.getByRole("list", { name: "Your answers" }));
+    expect(answers.getByText(`Yes, until ${formatInstantDate("2028-09-22T10:00:00Z")}`)).toBeInTheDocument();
+    expect(answers.getByText("No")).toBeInTheDocument();
+  });
+
+  it("says a renewal answered no runs to its own date", async () => {
+    vi.mocked(privacyPageApi.getPrivacyPage).mockResolvedValue({
+      ...PAGE,
+      consents: [{ ...KEEP, status: "given", open: false, answer: "declined", validUntil: "2026-10-14T10:00:00Z" }],
+    });
+    renderPage();
+
+    const answers = within(await screen.findByRole("list", { name: "Your answers" }));
+    expect(answers.getByText(`Not renewed, ends on ${formatInstantDate("2026-10-14T10:00:00Z")}`)).toBeInTheDocument();
+  });
+
+  it("says a request past its 30 days has closed, without claiming what was answered", async () => {
     vi.mocked(privacyPageApi.getPrivacyPage).mockResolvedValue({ ...PAGE, expired: true, consents: [] });
     renderPage();
 
     expect(await screen.findByRole("heading", { name: "This request has closed" })).toBeInTheDocument();
-    expect(screen.getByText(/Nothing changed: you didn't agree to anything/)).toBeInTheDocument();
+    expect(screen.getByText(/Anything you didn't answer changed nothing/)).toBeInTheDocument();
+    expect(screen.queryByText(/you didn't agree to anything/)).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "privacy@meridian.example" })).toBeInTheDocument();
   });
 });

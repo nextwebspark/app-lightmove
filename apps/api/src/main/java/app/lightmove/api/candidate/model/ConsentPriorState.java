@@ -9,4 +9,6 @@ import java.util.UUID;
  * {@code created} means the request made the row, and undoing it deletes it.
  */
 public record ConsentPriorState(UUID consentId, boolean created, ConsentStatus status, Instant requestedAt,
-                                UUID requestedBy, UUID requestLinkId, Instant requestExpiresAt) {}
+                                UUID requestedBy, UUID requestLinkId, Instant requestExpiresAt,
+                                String requestWordingVersion, String requestWording, boolean requestClientNamed,
+                                Integer requestMonths) {}

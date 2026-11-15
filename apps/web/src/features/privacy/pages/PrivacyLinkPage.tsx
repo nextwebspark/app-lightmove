@@ -76,7 +76,7 @@ export default function PrivacyLinkPage() {
           ) : page.isError ? (
             <Unavailable />
           ) : page.data.expired && page.data.purpose === "consent" ? (
-            <ConsentRequest token={token} page={page.data} onSeeChoices={() => undefined} />
+            <ConsentRequest token={token} page={page.data} />
           ) : page.data.expired ? (
             <Expired page={page.data} />
           ) : page.data.purpose === "manage" ? (

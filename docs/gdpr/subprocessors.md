@@ -19,13 +19,12 @@ listed in [governance-decisions.md](governance-decisions.md); [tia.md](tia.md) a
 | Google Cloud | Cloud Run | every request and response | `.github/workflows/deploy.yml` (`REGION`) | `us-central1` | sub-processor and Uncava's processor |
 | Google Cloud | Cloud SQL `bright-gcc` | the whole database | `application.yml` datasource | `us-central1`, single zone | sub-processor and Uncava's processor |
 | Google Cloud | Cloud Storage `hak-talent-mapping-lightmove-documents` | CVs, documents, photos, email attachments, workspace export zips | `core/storage/service/GcsDocumentStore` | `us-central1` | sub-processor |
-| Google Cloud | Vertex AI (Gemini chat, `text-embedding-004`) | candidate dossiers, notes, CV text and call transcripts with contacts taken out (`ContactRedaction`); position briefs; assistant chats | `core/llm/**`, `CandidateAiEnricher`, `CandidateNationalityClassifier`, `CandidateScorecardDrafter`, `MeetingSummariser`, `AssistantService` | **`global`** (`GOOGLE_CLOUD_LOCATION` unset; #925 pins it) | sub-processor |
+| Google Cloud | Vertex AI (Gemini chat, `text-embedding-004`) | candidate dossiers, notes, CV text and call transcripts with contacts taken out (`ContactRedaction`); position briefs; assistant chats | `core/llm/**`, `CandidateAiEnricher`, `CandidateNationalityClassifier`, `CandidateScorecardDrafter`, `MeetingSummariser`, `AssistantService` | **`global`** (`GOOGLE_CLOUD_LOCATION` unset; kept until the triggers in [residency-adr.md](residency-adr.md) §1) | sub-processor |
 | Google Cloud | Secret Manager | keysets and provider secrets, no personal data | `deploy.yml` `--set-secrets` | project-level | — |
 | Google Cloud | Cloud Logging | masked application lines (`PersonalDataLogMasker`); Cloud Run's request log keeps full URLs, `?q=` searches included | `logback-spring.xml` | `_Default` bucket, `global`, 30 days | sub-processor and Uncava's processor |
 | Resend | account email | users' names and addresses (verification, reset, invitation, lockout, two-factor, billing, export and purge notices); notification emails name candidates (`NotificationEmails`) | `core/email/service/ResendEmailSender` | [Region] | sub-processor and Uncava's processor |
 | Stripe | billing | workspace name and id; Checkout collects the payer's card, address and tax id | `billing/payment/service/StripePaymentGateway`, `StripeSeatSync` | [Region] | Uncava's processor ⚖️ (Stripe may act as controller for payments) |
-| Google Fonts | web fonts | each user's IP address and browser, from the SPA | `apps/web/src/styles/global.css:5` | global | Uncava's processor, until #929 self-hosts the fonts |
-| Mapbox | maps, geocoding | a company's city and country (server); the browser loads tiles, so the user's IP (client) | `geocoding/service/MapboxGeocoder`; `TalentMapGlobe.tsx`, `HubGlobe.tsx` | US | sub-processor |
+| Mapbox | maps, geocoding | a company's city and country (server); the browser loads styles and tiles and opens a billing session, so the user's IP (client). Performance metrics are off (`MAPBOX_PRIVACY_OPTIONS` in `lib/mapboxPrivacy.ts`, #929) | `geocoding/service/MapboxGeocoder`; `TalentMapGlobe.tsx`, `HubGlobe.tsx` | US | sub-processor |
 
 ## Company and executive data
 
@@ -40,7 +39,7 @@ listed in [governance-decisions.md](governance-decisions.md); [tia.md](tia.md) a
 
 | Provider | What it receives | Where in code | Region | Role |
 |---|---|---|---|---|
-| Nylas | the mailbox grant, emails sent, replies in threads Uncava sent, calendar events, the booking page | `outreach/service/NylasMailboxGateway` | `NYLAS_BASE_URL`, default US (`api.us.nylas.com`); EU available | sub-processor |
+| Nylas | the mailbox grant, emails sent, replies in threads Uncava sent, calendar events; on the booking page, the visitor's IP and the details they enter (its widget's error reporter is off, `enableUserFeedback={false}`, #929) | `outreach/service/NylasMailboxGateway` | `NYLAS_BASE_URL`, default US (`api.us.nylas.com`); EU available | sub-processor |
 | Recall.ai | calendar OAuth keys and a refresh token; each call's audio and video; Recall's transcription | `notetaker/service/RecallBotClient`, `outreach/service/RecallCalendarClient` | `RECALL_BASE_URL`, default `us-east-1`; EU available | sub-processor |
 | Google (Gmail, Calendar) | sends the consultant's emails; reads the text of replies in threads Uncava sent (`gmail.readonly`); calendar events, free/busy | `outreach/service/GoogleMailboxGateway` | Google | customer's own provider ⚖️ |
 | Microsoft (Outlook, Graph) | as Google (`Mail.ReadWrite`, `Calendars.ReadWrite`) | `outreach/service/MicrosoftMailboxGateway` | Microsoft | customer's own provider ⚖️ |
@@ -52,6 +51,25 @@ listed in [governance-decisions.md](governance-decisions.md); [tia.md](tia.md) a
 |---|---|---|---|
 | Google, LinkedIn | the user's name, email and picture, returned to Uncava at sign-in | `core/security/service/OAuth2LoginSuccessHandler` | the user's own provider |
 
+## Contracts and configuration
+
+What each provider is bound by, and the setting that decides where it runs. **DPA** and **Transfer mechanism** are ⚖️
+(governance decisions F1, F2) and the business's to fill; [residency-adr.md](residency-adr.md) holds the vendor DPA
+checklist and what a second region would change. A base URL with no setting is fixed in the client's `*Settings` record.
+
+| Provider | DPA signed | Transfer mechanism | Setting that decides region or endpoint |
+|---|---|---|---|
+| Google Cloud (Cloud Run, Cloud SQL, Storage, Logging) | [y/n] | [DPF / SCCs] | `deploy.yml` `REGION`; the datasource's instance name; `STORAGE_BUCKET`, created in `GCP_REGION` (`ops/gcp/bootstrap.sh`) |
+| Google Cloud Vertex AI | [y/n] | [DPF / SCCs] | `GOOGLE_CLOUD_LOCATION` (unset, so `global`; [residency-adr.md](residency-adr.md) §1), `LLM_CHAT_MODEL`, `ASSISTANT_MODEL` |
+| Resend | [y/n] | [DPF / SCCs] | `RESEND_API_KEY`; base URL in `ResendSettings` |
+| Stripe | [y/n] | [DPF / SCCs] | `STRIPE_SECRET_KEY` |
+| Mapbox | [y/n] | [DPF / SCCs] | `MAPBOX_PUBLIC_TOKEN`, `MAPBOX_GEOCODING_TOKEN`; base URL in `MapboxSettings` |
+| Bright Data | [y/n] | [DPF / SCCs] | `BRIGHTDATA_API_KEY`; base URL in `BrightDataSettings` |
+| HarvestAPI | [y/n] | [DPF / SCCs] | `HARVESTAPI_API_KEY`; base URL in `HarvestApiSettings` |
+| ContactOut | [y/n] | [DPF / SCCs] | `CONTACTOUT_API_KEY`; base URL in `ContactOutSettings` |
+| Nylas | [y/n] | [DPF / SCCs] | `NYLAS_BASE_URL` (US by default, `api.eu.nylas.com` for an EU application) |
+| Recall.ai | [y/n] | [DPF / SCCs] | `RECALL_BASE_URL` (`us-east-1` by default; `eu-central-1` is a separate account) |
+
 ## Recipients the customer chooses
 
 API keys (`/api/v1/public/**`) and AI apps connected over MCP (`/api/v1/mcp`, `MCP_ENABLED`) read what their scopes
@@ -60,4 +78,14 @@ and their owner's permissions allow. They are the customer's recipients, not Unc
 ## Not a recipient
 
 - **Cloudflare**: DNS only, proxy off. No personal data passes through it.
+- **Google Fonts**: the SPA's fonts are self-hosted (`@fontsource`, #929), so a page load reaches no font host.
 - **Firebase Hosting** serves the website (uncava.com), not the app; it is on the website's own list.
+
+## Holding the list to the code
+
+The SPA's Content-Security-Policy (`core/security/config/SpaContentSecurityPolicy`, #929) names every origin a page may
+reach: scripts from this origin only, `connect-src` to Mapbox and the configured Nylas host, images from any https host
+(company logos, profile photos). A new script, call or frame to another host is refused by the browser until that policy
+names it, which makes adding one a reviewed change to both the policy and this list. **Images are deliberately not held
+to the list**: `img-src https:` (with the inline styles the editor needs) means a page can still load a picture, or a
+CSS `url()`, from any https host, so an image recipient is caught by review, not by the browser.

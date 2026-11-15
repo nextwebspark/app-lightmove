@@ -21,6 +21,8 @@ ALTER TABLE app_lm_person_privacy_link
 
 -- Where each purpose stands for a person: no row is never asked. A share is one position's, the others the person's.
 -- request_expires_at is set while a request is open; on a GIVEN row it is a renewal waiting for an answer.
+-- wording is what the person last answered; the open request's own words and terms wait in request_* until an answer
+-- copies them across, so asking again never rewrites the proof of a consent already given.
 CREATE TABLE app_lm_person_consent (
     id                  uuid         PRIMARY KEY DEFAULT gen_random_uuid(),
     workspace_id        uuid         NOT NULL REFERENCES app_lm_workspace (id) ON DELETE CASCADE,
@@ -43,6 +45,10 @@ CREATE TABLE app_lm_person_consent (
     client_named        boolean      NOT NULL DEFAULT false,
     wording_version     varchar(32),
     wording             text,
+    request_wording_version varchar(32),
+    request_wording     text,
+    request_client_named boolean     NOT NULL DEFAULT false,
+    request_months      smallint,
     created_at          timestamptz  NOT NULL DEFAULT now(),
     updated_at          timestamptz  NOT NULL DEFAULT now(),
     CONSTRAINT app_lm_person_consent_share_position_chk

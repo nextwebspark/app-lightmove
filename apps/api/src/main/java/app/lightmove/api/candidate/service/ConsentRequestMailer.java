@@ -51,7 +51,7 @@ public class ConsentRequestMailer {
     }
 
     private void recordRefused(ConsentRequestsQueued queued, QueuedConsentRequest request) {
-        request.priorStates().forEach(consents::restore);
+        request.priorStates().forEach(prior -> consents.restore(prior, request.linkId(), request.sentAt()));
         refusals.withdraw(queued.workspaceId(), request.linkId(), request.personId(), request.sentAt(),
                         request.previouslyNotifiedAt(), request.previousChannel())
                 .ifPresent(person -> activity.record(person, null, queued.senderUserId(),

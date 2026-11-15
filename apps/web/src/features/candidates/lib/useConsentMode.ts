@@ -4,7 +4,10 @@ import type { CandidatePrivacySettings } from "../api/candidatePrivacyApi";
 import { useDataProtection } from "./useDataProtection";
 
 export interface ConsentMode {
-  /** The people controls are offered and the workspace asks for consent (#1267); false while either read is pending. */
+  /**
+   * The people controls are offered, the workspace asks for consent (#1267) and has a purpose to ask about here; false
+   * while either read is pending. A share is asked from its position, so it alone offers nothing on these screens.
+   */
   on: boolean;
   firm: CandidatePrivacySettings | undefined;
 }
@@ -17,5 +20,13 @@ export function useConsentMode(): ConsentMode {
     enabled: offered,
   });
   const firm = settings.data;
-  return { on: offered && firm?.privacyMode === "consent" && firm.readyForNotices, firm };
+  return {
+    on:
+      offered &&
+      firm?.privacyMode === "consent" &&
+      firm.readyForNotices &&
+      firm.readyForConsent &&
+      (firm.keepOnFile || firm.marketing),
+    firm,
+  };
 }

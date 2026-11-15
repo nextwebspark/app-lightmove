@@ -2,16 +2,14 @@ package app.lightmove.api.candidate.service;
 
 import app.lightmove.api.candidate.constant.ConsentPurpose;
 import app.lightmove.api.candidate.constant.LawfulBasis;
-import java.time.Clock;
-import java.time.Instant;
 import app.lightmove.api.candidate.dto.DoNotContactResponse;
-import app.lightmove.api.candidate.dto.PersonPositionResponse;
-import app.lightmove.api.candidate.dto.PersonRecordResponse;
 import app.lightmove.api.candidate.dto.PersonConsentResponse;
+import app.lightmove.api.candidate.dto.PersonPositionResponse;
 import app.lightmove.api.candidate.dto.PersonPrivacyResponse;
+import app.lightmove.api.candidate.dto.PersonRecordResponse;
 import app.lightmove.api.candidate.dto.ProcessingRestrictionResponse;
-import app.lightmove.api.candidate.model.CandidatePrivacySettings;
 import app.lightmove.api.candidate.model.Candidate;
+import app.lightmove.api.candidate.model.CandidatePrivacySettings;
 import app.lightmove.api.candidate.model.Person;
 import app.lightmove.api.candidate.model.PersonConsent;
 import app.lightmove.api.candidate.model.PersonEmployer;
@@ -29,6 +27,8 @@ import app.lightmove.api.core.security.rbac.WorkspaceAction;
 import app.lightmove.api.core.security.repository.UserRepository;
 import app.lightmove.api.project.model.Project;
 import app.lightmove.api.project.repository.ProjectRepository;
+import java.time.Clock;
+import java.time.Instant;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
@@ -200,7 +200,7 @@ public class PersonRecordService {
                 consent.status().value(), consent.requestedAt(), asker == null ? null : asker.getFullName(),
                 consent.isOpenAt(now) ? consent.requestExpiresAt() : null, consent.answeredAt(),
                 consent.answeredVia() == null ? null : consent.answeredVia().value(), consent.validUntil(),
-                consent.clientNamed());
+                consent.clientNamedAt(now));
     }
 
     private Map<UUID, User> usersOf(Collection<UUID> ids) {
