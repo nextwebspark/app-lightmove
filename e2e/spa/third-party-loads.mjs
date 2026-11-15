@@ -54,16 +54,25 @@ const api = async (path, { method = "GET", body, token } = {}) => {
 
 // --- the seed -------------------------------------------------------------------
 
+// A refused step would otherwise surface lines later as a TypeError on its null body.
+const seeded = (step, response) => {
+  if (response.status >= 400) {
+    fail("TP0", `the seed: ${step}`, `HTTP ${response.status} ${JSON.stringify(response.body)?.slice(0, 200)}`);
+    process.exit(1);
+  }
+  return response.body;
+};
+
 const EMAIL = `lm-e2e-csp-${STAMP}@nextwebspark.com`;
-await api("/auth/signup", { method: "POST", body: { fullName: "Cass Policy", email: EMAIL, password: PASSWORD, termsAccepted: true } });
-await api("/auth/verify", { method: "POST", body: { token: tokenFor(EMAIL, "verify") } });
-let token = (await api("/auth/login", { method: "POST", body: { email: EMAIL, password: PASSWORD } })).body.accessToken;
-await api("/onboarding/workspace", { method: "POST", token, body: { mode: "COMPANY", name: `CSP SPA ${STAMP}` } });
-token = (await api("/auth/login", { method: "POST", body: { email: EMAIL, password: PASSWORD } })).body.accessToken;
-const clientId = (await api("/clients", { method: "POST", token, body: { customName: `Policy Holding ${STAMP}`, customDomain: `policyholding${STAMP}.example` } })).body.id;
-const PROJECT = (await api("/projects", { method: "POST", token, body: { clientId, positionTitle: "Chief Financial Officer" } })).body.id;
-const AURORA = (await api(`/projects/${PROJECT}/triage/capture`, { method: "POST", token, body: { companyName: "Aurora Holdings", status: "inUniverse", industry: "Financial Services", companyCountry: "United Arab Emirates", companyCity: "Dubai", source: "manual" } })).body.id;
-await api(`/projects/${PROJECT}/candidates`, { method: "POST", token, body: { triageCompanyId: AURORA, fullName: "Fatima Al Mansoori", title: "Group CFO", locationCountry: "United Arab Emirates", locationCity: "Dubai", source: "manual" } });
+seeded("sign up", await api("/auth/signup", { method: "POST", body: { fullName: "Cass Policy", email: EMAIL, password: PASSWORD, termsAccepted: true } }));
+seeded("verify", await api("/auth/verify", { method: "POST", body: { token: tokenFor(EMAIL, "verify") } }));
+let token = seeded("sign in", await api("/auth/login", { method: "POST", body: { email: EMAIL, password: PASSWORD } })).accessToken;
+seeded("found the workspace", await api("/onboarding/workspace", { method: "POST", token, body: { mode: "COMPANY", name: `CSP SPA ${STAMP}` } }));
+token = seeded("sign in to the workspace", await api("/auth/login", { method: "POST", body: { email: EMAIL, password: PASSWORD } })).accessToken;
+const clientId = seeded("add a business unit", await api("/clients", { method: "POST", token, body: { customName: `Policy Holding ${STAMP}`, customDomain: `policyholding${STAMP}.example` } })).id;
+const PROJECT = seeded("open a position", await api("/projects", { method: "POST", token, body: { clientId, positionTitle: "Chief Financial Officer" } })).id;
+const AURORA = seeded("capture a company", await api(`/projects/${PROJECT}/triage/capture`, { method: "POST", token, body: { companyName: "Aurora Holdings", status: "inUniverse", industry: "Financial Services", companyCountry: "United Arab Emirates", companyCity: "Dubai", source: "manual" } })).id;
+seeded("map an executive", await api(`/projects/${PROJECT}/candidates`, { method: "POST", token, body: { triageCompanyId: AURORA, fullName: "Fatima Al Mansoori", title: "Group CFO", locationCountry: "United Arab Emirates", locationCity: "Dubai", source: "manual" } }));
 // The report's globe draws only once a country is placed, and placing one is Mapbox's geocoder, so it needs the token.
 const mapConfigured = Boolean((await api("/talent-map/config", { token })).body?.publicToken);
 
@@ -130,11 +139,11 @@ const geistLoaded = await page.evaluate(async () => {
   await document.fonts.ready;
   return [...document.fonts].some((face) => face.family.replaceAll('"', "") === "Geist Variable" && face.status === "loaded");
 });
-geistLoaded ? pass("TP12", "Geist loads from this origin") : fail("TP12", "Geist loads from this origin", "no loaded Geist Variable face");
+geistLoaded ? pass("TP11", "Geist loads from this origin") : fail("TP11", "Geist loads from this origin", "no loaded Geist Variable face");
 
 forbidden.length === 0
-  ? pass("TP11", "no page reached a font host or an error reporter")
-  : fail("TP11", "no page reached a font host or an error reporter", [...new Set(forbidden)].join(" "));
+  ? pass("TP12", "no page reached a font host or an error reporter")
+  : fail("TP12", "no page reached a font host or an error reporter", [...new Set(forbidden)].join(" "));
 
 await browser.close();
 console.log(`\n${passed} passed, ${failed} failed`);

@@ -82,7 +82,7 @@ export function CaptureSettingsScreen({ user, projects, onBack, onSignOut }: Cap
 
         <SectionLabel className="mb-2 mt-[18px]">Privacy</SectionLabel>
         <p className="text-[10.5px] leading-[1.5] text-u-text3">
-          Capture reads the name and address of the LinkedIn page you save, and sends them only to your workspace.{" "}
+          Capture reads only the name and link of the LinkedIn page you save, and sends them, with any note or tags you add, only to your workspace.{" "}
           <button
             type="button"
             onClick={() => void chrome.tabs.create({ url: CAPTURE_PRIVACY_URL })}

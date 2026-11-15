@@ -61,7 +61,6 @@ public class SecurityConfig {
             + "style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; "
             + "object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'";
 
-
     /** Resolves {@code '{value}'} in {@code @RequireProjectPermission}; static, as method security reads it while being built. */
     @Bean
     static AnnotationTemplateExpressionDefaults annotationTemplateExpressionDefaults() {
@@ -251,7 +250,7 @@ public class SecurityConfig {
     @Bean
     @Order(3)
     SecurityFilterChain spaChain(HttpSecurity http, LightMoveProperties properties) throws Exception {
-        String policy = SpaContentSecurityPolicy.of(properties);
+        String policy = SpaContentSecurityPolicy.of(properties.outreach().nylas().baseUrl());
         return http
                 .securityMatcher(request -> SpaRequestPaths.isSpaPath(request.getRequestURI()))
                 .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())

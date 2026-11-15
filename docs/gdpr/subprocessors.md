@@ -24,7 +24,7 @@ listed in [governance-decisions.md](governance-decisions.md); [tia.md](tia.md) a
 | Google Cloud | Cloud Logging | masked application lines (`PersonalDataLogMasker`); Cloud Run's request log keeps full URLs, `?q=` searches included | `logback-spring.xml` | `_Default` bucket, `global`, 30 days | sub-processor and Uncava's processor |
 | Resend | account email | users' names and addresses (verification, reset, invitation, lockout, two-factor, billing, export and purge notices); notification emails name candidates (`NotificationEmails`) | `core/email/service/ResendEmailSender` | [Region] | sub-processor and Uncava's processor |
 | Stripe | billing | workspace name and id; Checkout collects the payer's card, address and tax id | `billing/payment/service/StripePaymentGateway`, `StripeSeatSync` | [Region] | Uncava's processor ⚖️ (Stripe may act as controller for payments) |
-| Mapbox | maps, geocoding | a company's city and country (server); the browser loads styles and tiles and opens a billing session, so the user's IP (client). Performance metrics are off (`performanceMetricsCollection: false`, #929) | `geocoding/service/MapboxGeocoder`; `TalentMapGlobe.tsx`, `HubGlobe.tsx` | US | sub-processor |
+| Mapbox | maps, geocoding | a company's city and country (server); the browser loads styles and tiles and opens a billing session, so the user's IP (client). Performance metrics are off (`MAPBOX_PRIVACY_OPTIONS` in `lib/mapboxPrivacy.ts`, #929) | `geocoding/service/MapboxGeocoder`; `TalentMapGlobe.tsx`, `HubGlobe.tsx` | US | sub-processor |
 
 ## Company and executive data
 
@@ -85,5 +85,7 @@ and their owner's permissions allow. They are the customer's recipients, not Unc
 
 The SPA's Content-Security-Policy (`core/security/config/SpaContentSecurityPolicy`, #929) names every origin a page may
 reach: scripts from this origin only, `connect-src` to Mapbox and the configured Nylas host, images from any https host
-(company logos, profile photos). A new browser-side recipient is refused by the browser until that policy names it,
-which makes adding one a reviewed change to both the policy and this list.
+(company logos, profile photos). A new script, call or frame to another host is refused by the browser until that policy
+names it, which makes adding one a reviewed change to both the policy and this list. **Images are deliberately not held
+to the list**: `img-src https:` (with the inline styles the editor needs) means a page can still load a picture, or a
+CSS `url()`, from any https host, so an image recipient is caught by review, not by the browser.

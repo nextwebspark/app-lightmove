@@ -5,6 +5,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "re
 import { createPortal } from "react-dom";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { boundsOf, type PinCollection } from "../lib/talentMapFeatures";
+import { MAPBOX_PRIVACY_OPTIONS } from "../../../lib/mapboxPrivacy";
 
 const SOURCE = "talent-map";
 const LIGHT_STYLE = "mapbox://styles/mapbox/light-v11";
@@ -120,8 +121,7 @@ export default function TalentMapGlobe({
         center: GULF,
         zoom: INITIAL_ZOOM,
         attributionControl: true,
-        // Mapbox otherwise reports each viewer's device and timings to events.mapbox.com (#929).
-        performanceMetricsCollection: false,
+        ...MAPBOX_PRIVACY_OPTIONS,
       });
     } catch {
       onUnsupported();

@@ -3,6 +3,7 @@ import "mapbox-gl/dist/mapbox-gl.css";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { PlacedHub } from "../api/types";
 import { RAMP_BG, RAMP_GROUND_LABEL_FROM, rampStop } from "../lib/ramp";
+import { MAPBOX_PRIVACY_OPTIONS } from "../../../lib/mapboxPrivacy";
 
 const SOURCE = "report-hubs";
 const LIGHT_STYLE = "mapbox://styles/mapbox/light-v11";
@@ -71,8 +72,7 @@ export default function HubGlobe({
         center: [48, 25],
         zoom: 2,
         attributionControl: true,
-        // Mapbox otherwise reports each viewer's device and timings to events.mapbox.com (#929).
-        performanceMetricsCollection: false,
+        ...MAPBOX_PRIVACY_OPTIONS,
       });
     } catch {
       latest.current.onUnsupported();
