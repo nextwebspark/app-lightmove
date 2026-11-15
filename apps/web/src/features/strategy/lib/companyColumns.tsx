@@ -122,14 +122,15 @@ export const companyColumns = helper.columns([
     id: "revenue",
     header: "Revenue",
     meta: { share: 11, min: 82 },
-    cell: (info) => <DataGridCell value={formatMoney(info.getValue())} />,
+    // 0 is Apollo's "unknown": the filter files it under Unknown and the sort sinks it, so the cell says so too.
+    cell: (info) => <DataGridCell value={formatMoney(unknownWhenZero(info.getValue()))} />,
   }),
 
   helper.accessor("numEmployees", {
     id: "employees",
     header: "Employees",
     meta: { share: 9, min: 74 },
-    cell: (info) => <DataGridCell value={info.getValue()?.toLocaleString() ?? null} />,
+    cell: (info) => <DataGridCell value={unknownWhenZero(info.getValue())?.toLocaleString() ?? null} />,
   }),
 
   helper.accessor("foundedYear", {
@@ -295,3 +296,7 @@ export const COLUMN_PINNING: ColumnPinningState = {
   start: ["name"],
   end: [],
 };
+
+function unknownWhenZero(figure: number | null): number | null {
+  return figure === 0 ? null : figure;
+}

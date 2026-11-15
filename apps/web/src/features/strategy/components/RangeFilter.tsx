@@ -1,3 +1,4 @@
+import { useId } from "react";
 import type { FacetCount, NumericRange } from "../api/types";
 import { cn } from "../../../lib/cn";
 import { FacetsUnavailable } from "./FacetsUnavailable";
@@ -31,6 +32,8 @@ export function RangeFilter({
   footnote?: React.ReactNode;
 }) {
   const isCustom = range !== null;
+  const isRangeInverted = isInverted(range);
+  const invertedMessageId = useId();
 
   return (
     <div className="flex flex-col gap-3">
@@ -56,19 +59,19 @@ export function RangeFilter({
             <BoundInput
               placeholder={minPlaceholder}
               value={range.min}
-              invalid={isInverted(range)}
+              describedBy={isRangeInverted ? invertedMessageId : undefined}
               onChange={(min) => onRangeChange({ ...range, min })}
             />
             <span className="font-sans text-[12px] font-medium text-u-text3">to</span>
             <BoundInput
               placeholder={maxPlaceholder}
               value={range.max}
-              invalid={isInverted(range)}
+              describedBy={isRangeInverted ? invertedMessageId : undefined}
               onChange={(max) => onRangeChange({ ...range, max })}
             />
           </div>
-          {isInverted(range) && (
-            <p role="alert" className="font-sans text-meta text-u-signal">
+          {isRangeInverted && (
+            <p id={invertedMessageId} role="alert" className="font-sans text-meta text-u-signal">
               The minimum is above the maximum, so this range is not applied.
             </p>
           )}
@@ -146,19 +149,22 @@ const MAX_BOUND_DIGITS = 15;
 function BoundInput({
   placeholder,
   value,
-  invalid,
+  describedBy,
   onChange,
 }: {
   placeholder: string;
   value: number | null;
-  invalid: boolean;
+  /** The message saying why this bound is refused, which marks it invalid too. */
+  describedBy: string | undefined;
   onChange: (value: number | null) => void;
 }) {
+  const invalid = describedBy !== undefined;
   return (
     <input
       inputMode="numeric"
       aria-label={placeholder}
       aria-invalid={invalid || undefined}
+      aria-describedby={describedBy}
       placeholder={placeholder}
       value={value ?? ""}
       onChange={(event) => {

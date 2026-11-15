@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { StrategyFilter } from "../api/types";
-import { isInverted, savableFilter } from "./filterRanges";
+import { appliedRange, isInverted, savableFilter } from "./filterRanges";
 
 const FILTER: StrategyFilter = {
   industries: ["retail"],
@@ -21,6 +21,17 @@ describe("isInverted", () => {
     expect(isInverted({ min: 500, max: null })).toBe(false);
     expect(isInverted({ min: null, max: 100 })).toBe(false);
     expect(isInverted(null)).toBe(false);
+  });
+});
+
+describe("appliedRange", () => {
+  it("is the range only when it narrows the scope", () => {
+    expect(appliedRange({ min: 10, max: 50 })).toEqual({ min: 10, max: 50 });
+    expect(appliedRange({ min: 10, max: null })).toEqual({ min: 10, max: null });
+    expect(appliedRange({ min: null, max: 50 })).toEqual({ min: null, max: 50 });
+    expect(appliedRange({ min: null, max: null })).toBeNull();
+    expect(appliedRange({ min: 50, max: 10 })).toBeNull();
+    expect(appliedRange(null)).toBeNull();
   });
 });
 
