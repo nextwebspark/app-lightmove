@@ -452,6 +452,30 @@ public class Person extends BaseEntity {
         choosePrimary(channel, primary == null ? null : CandidateContact.keyOf(channel, primary));
     }
 
+    /**
+     * Save as (#1337): one held number respelled the international way, keeping its door, its finding time and its
+     * place, since adding a calling code corrects nothing a person or a provider said. Where that spelling is already
+     * held, the local row folds into it. False when the number is no longer held.
+     */
+    public boolean respellPhone(String number, String international) {
+        String key = CandidateContact.keyOf(ContactChannel.PHONE, number);
+        CandidateContact held = contactOf(ContactChannel.PHONE, key);
+        if (held == null) {
+            return false;
+        }
+        String internationalKey = CandidateContact.keyOf(ContactChannel.PHONE, international);
+        CandidateContact twin = contactOf(ContactChannel.PHONE, internationalKey);
+        if (twin == null || twin == held) {
+            held.respell(international);
+            return true;
+        }
+        contacts.remove(held);
+        if (held.isPrimary()) {
+            choosePrimary(ContactChannel.PHONE, internationalKey);
+        }
+        return true;
+    }
+
     private void choosePrimary(ContactChannel channel, String key) {
         contactsOf(channel).forEach(contact -> contact.markPrimary(contact.matches(key)));
     }

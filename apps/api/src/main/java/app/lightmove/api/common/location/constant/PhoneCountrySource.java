@@ -1,6 +1,7 @@
 package app.lightmove.api.common.location.constant;
 
 import app.lightmove.api.common.constant.ApiValueEnum;
+import com.fasterxml.jackson.annotation.JsonValue;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.Accessors;
@@ -15,5 +16,6 @@ public enum PhoneCountrySource implements ApiValueEnum {
     LOCATION("location"),
     WORKSPACE("workspace");
 
+    @JsonValue
     private final String value;
 }

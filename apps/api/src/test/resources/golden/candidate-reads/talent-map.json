@@ -28,7 +28,9 @@
       } ],
       "emailsLookedUpAt" : null,
       "phones" : [ {
+        "callingCode" : "+966",
         "countrySource" : "given",
+        "e164" : "+966501112222",
         "foundAt" : "<instant>",
         "international" : "+966 50 111 2222",
         "kind" : null,

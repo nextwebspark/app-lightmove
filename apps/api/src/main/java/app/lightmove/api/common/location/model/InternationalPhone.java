@@ -4,7 +4,8 @@ import app.lightmove.api.common.location.constant.PhoneCountrySource;
 import app.lightmove.api.common.location.constant.PhoneLineType;
 
 /**
- * A written number read as an international one, spelled the international way ({@code +971 50 441 2087}: the
- * calling code, then the national groups), where its country code came from, and what kind of line it rings.
+ * A written number read as an international one: spelled for reading ({@code +971 50 441 2087}), for dialling
+ * ({@code +971504412087}), its calling code ({@code +971}), where that code came from, and what kind of line it rings.
  */
-public record InternationalPhone(String international, PhoneCountrySource countrySource, PhoneLineType lineType) {}
+public record InternationalPhone(String international, String e164, String callingCode,
+                                 PhoneCountrySource countrySource, PhoneLineType lineType) {}

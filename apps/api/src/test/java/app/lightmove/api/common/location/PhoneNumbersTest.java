@@ -14,11 +14,13 @@ class PhoneNumbersTest {
     @Test
     @DisplayName("a number written with its country code keeps it, spelled the international way however it was written")
     void givenCountryCodeIsKept() {
-        InternationalPhone expected = new InternationalPhone("+971 50 441 2087", PhoneCountrySource.GIVEN, PhoneLineType.MOBILE);
+        InternationalPhone expected = new InternationalPhone("+971 50 441 2087", "+971504412087", "+971",
+                PhoneCountrySource.GIVEN, PhoneLineType.MOBILE);
         assertThat(PhoneNumbers.internationalOf("+971 50 441 2087", "Saudi Arabia", null)).contains(expected);
         assertThat(PhoneNumbers.internationalOf("00971504412087", null, null)).contains(expected);
         assertThat(PhoneNumbers.internationalOf("+966 (55) 290-1146", null, null))
-                .contains(new InternationalPhone("+966 55 290 1146", PhoneCountrySource.GIVEN, PhoneLineType.MOBILE));
+                .contains(new InternationalPhone("+966 55 290 1146", "+966552901146", "+966",
+                        PhoneCountrySource.GIVEN, PhoneLineType.MOBILE));
         assertThat(PhoneNumbers.internationalOf("+974 5512 8870 ext 12", null, null))
                 .map(InternationalPhone::international).contains("+974 5512 8870");
     }
@@ -27,7 +29,8 @@ class PhoneNumbersTest {
     @DisplayName("a local number takes the person's country, in any spelling the catalog knows")
     void localNumberTakesThePersonsCountry() {
         assertThat(PhoneNumbers.internationalOf("050 441 2087", "United Arab Emirates", "Qatar"))
-                .contains(new InternationalPhone("+971 50 441 2087", PhoneCountrySource.LOCATION, PhoneLineType.MOBILE));
+                .contains(new InternationalPhone("+971 50 441 2087", "+971504412087", "+971",
+                        PhoneCountrySource.LOCATION, PhoneLineType.MOBILE));
         assertThat(PhoneNumbers.internationalOf("055 290 1146", "KSA", null))
                 .map(InternationalPhone::international).contains("+966 55 290 1146");
         assertThat(PhoneNumbers.internationalOf("5512 8870", "Qatar", null))
@@ -35,10 +38,16 @@ class PhoneNumbersTest {
     }
 
     @Test
-    @DisplayName("a landline says so, so it is never offered WhatsApp")
-    void landlineIsNamed() {
+    @DisplayName("a landline and a service number say so, so neither is offered WhatsApp; a US number may be either")
+    void landlineAndServiceNumbersAreNamed() {
         assertThat(PhoneNumbers.internationalOf("04 330 0000", "UAE", null))
                 .map(InternationalPhone::lineType).contains(PhoneLineType.LANDLINE);
+        assertThat(PhoneNumbers.internationalOf("800 4321", "UAE", null))
+                .map(InternationalPhone::lineType).contains(PhoneLineType.SERVICE);
+        assertThat(PhoneNumbers.internationalOf("+1 800 555 0199", null, null))
+                .map(InternationalPhone::lineType).contains(PhoneLineType.SERVICE);
+        assertThat(PhoneNumbers.internationalOf("+1 415 555 2671", null, null))
+                .map(InternationalPhone::lineType).contains(PhoneLineType.UNKNOWN);
     }
 
     @Test
@@ -46,7 +55,8 @@ class PhoneNumbersTest {
     void invalidHintFallsThrough() {
         assertThat(PhoneNumbers.internationalOf("07400 123456", "United Arab Emirates", null)).isEmpty();
         assertThat(PhoneNumbers.internationalOf("07400 123456", "United Arab Emirates", "United Kingdom"))
-                .contains(new InternationalPhone("+44 7400 123456", PhoneCountrySource.WORKSPACE, PhoneLineType.MOBILE));
+                .contains(new InternationalPhone("+44 7400 123456", "+447400123456", "+44",
+                        PhoneCountrySource.WORKSPACE, PhoneLineType.MOBILE));
         assertThat(PhoneNumbers.internationalOf("050 441 2087", null, "United Arab Emirates"))
                 .map(InternationalPhone::countrySource).contains(PhoneCountrySource.WORKSPACE);
     }

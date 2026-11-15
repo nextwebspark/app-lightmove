@@ -311,7 +311,8 @@ class CompaniesCsvWriterTest {
 
         PersonBuilder withPhones(String... numbers) {
             List<CandidatePhoneDto> phones = Arrays.stream(numbers)
-                    .map(number -> new CandidatePhoneDto(number, null, false, null, "manual", null, false, null, null, null))
+                    .map(number -> new CandidatePhoneDto(number, null, false, null, "manual", null, false,
+                            null, null, null, null, null))
                     .toList();
             return with(response.companyName(), response.status(), response.locationCountry(),
                     response.locationCity(), response.customFields(),
