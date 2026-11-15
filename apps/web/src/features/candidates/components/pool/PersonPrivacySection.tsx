@@ -9,6 +9,7 @@ import * as poolApi from "../../api/poolApi";
 import type { LawfulBasis, PersonConsent, PersonRecord } from "../../api/types";
 import { LAWFUL_BASES, lawfulBasisLabel, noticeChannelLabel } from "../../lib/candidatePrivacy";
 import { type ConsentTone, consentRowOf, PERSONAL_PURPOSES, type PersonalPurpose } from "../../lib/consentPreview";
+import { useWorkspaceVocabulary } from "../../../workspace/lib/vocabulary";
 
 const DEFAULT = "default";
 
@@ -26,6 +27,25 @@ function rowPurposesOf(firm: CandidatePrivacySettings, consents: PersonConsent[]
   return PERSONAL_PURPOSES.filter(
     (purpose) => offered[purpose] || consents.some((consent) => consent.purpose === purpose),
   );
+}
+
+/**
+ * The share-with-client rows (#1267 phase 3): a position this person was asked about, or one they are on while the
+ * workspace asks for consent to share.
+ */
+function shareRowsOf(
+  firm: CandidatePrivacySettings,
+  person: PersonRecord,
+): { projectId: string; title: string; consent: PersonConsent | null }[] {
+  const titles = new Map(person.positions.map((position) => [position.projectId, position.positionTitle ?? "Position"]));
+  const asked = person.privacy.consents.filter((consent) => consent.purpose === "share_with_client" && consent.projectId);
+  const projectIds = new Set(asked.map((consent) => consent.projectId as string));
+  if (firm.shareWithClient) person.positions.forEach((position) => projectIds.add(position.projectId));
+  return [...projectIds].map((projectId) => ({
+    projectId,
+    title: titles.get(projectId) ?? "Position",
+    consent: asked.find((consent) => consent.projectId === projectId) ?? null,
+  }));
 }
 
 /**
@@ -51,6 +71,7 @@ export function PersonPrivacySection({
   onAskConsent?: () => void;
   onRecordConsent?: () => void;
 }) {
+  const vocabulary = useWorkspaceVocabulary();
   const toast = useToast();
   const privacy = person.privacy;
   const recording = useMutation({
@@ -142,6 +163,22 @@ export function PersonPrivacySection({
                   <li key={purpose} className="flex items-start gap-2.5 py-1.5">
                     <span className="min-w-0 flex-1">
                       <span className="block text-note font-medium text-u-text">{row.label}</span>
+                      <span className="mt-0.5 block font-mono text-meta text-u-text3">{row.line}</span>
+                    </span>
+                    <span className={cn("type-tag flex-none rounded px-1.5 py-0.5", PILL_TONES[row.tone])}>
+                      {row.pill}
+                    </span>
+                  </li>
+                );
+              })}
+              {shareRowsOf(consentFirm, person).map(({ projectId, title, consent }) => {
+                const row = consentRowOf("share_with_client", consent, (instant) => formatInstantDate(instant) ?? "");
+                return (
+                  <li key={projectId} className="flex items-start gap-2.5 py-1.5">
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-note font-medium text-u-text">
+                        Share with {vocabulary.unitLower}: {title}
+                      </span>
                       <span className="mt-0.5 block font-mono text-meta text-u-text3">{row.line}</span>
                     </span>
                     <span className={cn("type-tag flex-none rounded px-1.5 py-0.5", PILL_TONES[row.tone])}>

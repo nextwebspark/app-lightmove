@@ -6,6 +6,7 @@ import app.lightmove.api.candidate.constant.ConsentEventVia;
 import app.lightmove.api.candidate.constant.ConsentPurpose;
 import app.lightmove.api.candidate.constant.ConsentStatus;
 import app.lightmove.api.candidate.model.ConsentPriorState;
+import app.lightmove.api.candidate.model.ConsentRegisterRow;
 import app.lightmove.api.candidate.model.PersonConsent;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -49,6 +50,57 @@ class PersonConsentStore {
         jdbc.query("SELECT " + COLUMNS + " FROM app_lm_person_consent WHERE person_id IN (:personIds)",
                 new MapSqlParameterSource("personIds", personIds), this::consentOf)
                 .forEach(consent -> byPerson.get(consent.personId()).add(consent));
+        return byPerson;
+    }
+
+    /** The register's lines, at most {@code limit}; a position narrows it to the shares asked for there. */
+    List<ConsentRegisterRow> registerOf(UUID workspaceId, UUID projectId, int limit) {
+        MapSqlParameterSource parameters = new MapSqlParameterSource("workspaceId", workspaceId)
+                .addValue("projectId", projectId)
+                .addValue("limit", limit);
+        return jdbc.query("""
+                SELECT c.person_id, p.full_name AS person_name, c.purpose, pr.position_title,
+                       CASE WHEN c.answered_at IS NULL THEN c.request_client_named ELSE c.client_named END
+                           AS client_named,
+                       c.status, c.requested_at, u.full_name AS requested_by_name, c.answered_at, c.answered_via,
+                       c.valid_until, COALESCE(c.wording_version, c.request_wording_version) AS wording_version,
+                       COALESCE(c.wording, c.request_wording) AS wording
+                FROM app_lm_person_consent c
+                JOIN app_lm_person p ON p.id = c.person_id
+                LEFT JOIN app_lm_project pr ON pr.id = c.project_id
+                LEFT JOIN app_lm_user u ON u.id = c.requested_by
+                WHERE c.workspace_id = :workspaceId
+                  AND (CAST(:projectId AS uuid) IS NULL OR c.project_id = :projectId)
+                ORDER BY p.full_name, p.id, c.purpose, pr.position_title
+                LIMIT :limit
+                """, parameters, (row, index) -> {
+            String via = row.getString("answered_via");
+            return new ConsentRegisterRow(row.getObject("person_id", UUID.class), row.getString("person_name"),
+                    ConsentPurpose.valueOf(row.getString("purpose")), row.getString("position_title"),
+                    row.getBoolean("client_named"), ConsentStatus.valueOf(row.getString("status")),
+                    instantOf(row, "requested_at"), row.getString("requested_by_name"), instantOf(row, "answered_at"),
+                    via == null ? null : ConsentAnsweredVia.valueOf(via), instantOf(row, "valid_until"),
+                    row.getString("wording_version"), row.getString("wording"));
+        });
+    }
+
+    /** Every share-with-client consent on a position, whatever it stands at. */
+    List<PersonConsent> sharesOn(UUID workspaceId, UUID projectId) {
+        return jdbc.query("SELECT " + COLUMNS + " FROM app_lm_person_consent WHERE workspace_id = :workspaceId"
+                + " AND project_id = :projectId AND purpose = 'SHARE_WITH_CLIENT' ORDER BY created_at",
+                new MapSqlParameterSource("workspaceId", workspaceId).addValue("projectId", projectId),
+                this::consentOf);
+    }
+
+    /** Who is on a position: their person id to their candidate row there. */
+    Map<UUID, UUID> candidatesOnPosition(UUID workspaceId, UUID projectId) {
+        Map<UUID, UUID> byPerson = new LinkedHashMap<>();
+        jdbc.query("SELECT person_id, id FROM app_lm_project_candidate"
+                        + " WHERE workspace_id = :workspaceId AND project_id = :projectId",
+                new MapSqlParameterSource("workspaceId", workspaceId).addValue("projectId", projectId),
+                row -> {
+                    byPerson.put(row.getObject("person_id", UUID.class), row.getObject("id", UUID.class));
+                });
         return byPerson;
     }
 

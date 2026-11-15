@@ -14,6 +14,8 @@ import { MarkNotifiedDialog } from "./MarkNotifiedDialog";
 import { PersonPrivacySection } from "./PersonPrivacySection";
 import { SendPrivacyNoticeDialog } from "./SendPrivacyNoticeDialog";
 
+// An agency workspace, so the client is called a client (useWorkspaceVocabulary).
+vi.mock("../../../auth/AuthProvider", () => ({ useAuth: () => ({ user: { workspace: { mode: "AGENCY" } } }) }));
 vi.mock("../../api/poolApi", async (importOriginal) => ({
   ...(await importOriginal<typeof poolApi>()),
   setLawfulBasis: vi.fn(),

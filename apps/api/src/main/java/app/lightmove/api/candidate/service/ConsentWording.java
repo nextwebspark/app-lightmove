@@ -1,6 +1,7 @@
 package app.lightmove.api.candidate.service;
 
 import app.lightmove.api.candidate.constant.ConsentPurpose;
+import app.lightmove.api.core.email.render.IndefiniteArticle;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
@@ -27,8 +28,8 @@ public final class ConsentWording {
         return switch (purpose) {
             case KEEP_ON_FILE -> "We would keep your details for %d months, so we can think of you when a suitable role "
                     .formatted(keepOnFileMonths) + "comes up.";
-            case SHARE_WITH_CLIENT -> "We would like to send your profile to %s for a %s role."
-                    .formatted(clientOf(clientName), roleTitle);
+            case SHARE_WITH_CLIENT -> "We would like to send your profile to %s for %s role."
+                    .formatted(clientOf(clientName), IndefiniteArticle.before(roleTitle));
             case MARKETING -> "Occasional emails from us about roles and the market. You can stop them at any time.";
         };
     }
@@ -43,7 +44,8 @@ public final class ConsentWording {
     public static String askingOf(ConsentPurpose purpose, int keepOnFileMonths, String clientName, String roleTitle) {
         return switch (purpose) {
             case KEEP_ON_FILE -> "keep your details on file for future roles, for %d months".formatted(keepOnFileMonths);
-            case SHARE_WITH_CLIENT -> "share your profile with %s for a %s role".formatted(clientOf(clientName), roleTitle);
+            case SHARE_WITH_CLIENT -> "share your profile with %s for %s role".formatted(clientOf(clientName),
+                    IndefiniteArticle.before(roleTitle));
             case MARKETING -> "send you career and market updates";
         };
     }
@@ -52,7 +54,8 @@ public final class ConsentWording {
     public static String labelOf(ConsentPurpose purpose, String clientName, String roleTitle) {
         return switch (purpose) {
             case KEEP_ON_FILE -> "Keep your details on file for future roles";
-            case SHARE_WITH_CLIENT -> "Share your profile with %s for a %s role".formatted(clientOf(clientName), roleTitle);
+            case SHARE_WITH_CLIENT -> "Share your profile with %s for %s role".formatted(clientOf(clientName),
+                    IndefiniteArticle.before(roleTitle));
             case MARKETING -> "Career and market updates";
         };
     }

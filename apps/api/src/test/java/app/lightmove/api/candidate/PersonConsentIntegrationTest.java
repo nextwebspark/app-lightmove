@@ -97,7 +97,7 @@ class PersonConsentIntegrationTest extends FlowTestSupport {
                 .isEqualTo("CONSENT_REQUESTS_OFF");
         call(put("/api/v1/workspace/candidate-privacy"), CONSENT_MODE).andExpect(status().isOk());
         assertThat(body(ask(person, "share_with_client").andExpect(status().isBadRequest()).andReturn())
-                .get("fieldErrors").has("purposes")).isTrue();
+                .get("fieldErrors").has("projectId")).as("a share names its position").isTrue();
 
         JsonNode record = body(ask(person, "keep_on_file", "marketing").andExpect(status().isOk()).andReturn());
         assertThat(record.at("/privacy/noticeChannel").asText()).isEqualTo("privacy_email");

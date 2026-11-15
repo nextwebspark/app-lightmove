@@ -124,17 +124,57 @@ export interface ConsentRequestPreview {
   closing: string;
 }
 
-/** `EmailTemplates.buildConsentRequestEmail`'s subject and paragraphs, in order. */
+/** A share asked about with the request: the role, and the client by name only when the firm names it. */
+export interface SharePreview {
+  roleTitle: string;
+  clientName: string | null;
+}
+
+const VOWEL_SOUNDING_LETTERS = "AEFHILMNORSX";
+const CONSONANT_SOUNDING_STARTS = ["eu", "one", "uni", "use", "usu", "ewe"];
+
+/** `IndefiniteArticle.before`: "a" or "an" by how the title sounds — "an Operations Director", "a Unit Head". */
+export function withArticle(noun: string): string {
+  const trimmed = noun.trim();
+  const firstWord = trimmed.split(/[\s/-]/, 1)[0] ?? "";
+  const isAcronym = firstWord.length > 1 && /^[\p{Lu}\d]+$/u.test(firstWord);
+  const lower = firstWord.toLowerCase();
+  const vowelSound = !firstWord
+    ? false
+    : isAcronym
+      ? VOWEL_SOUNDING_LETTERS.includes(firstWord[0])
+      : !CONSONANT_SOUNDING_STARTS.some((start) => lower.startsWith(start)) && "aeiou".includes(lower[0]);
+  return `${vowelSound ? "an" : "a"} ${trimmed}`;
+}
+
+/** `ConsentWording.askingOf` for a share: "a confidential client" unless the client is named. */
+export function shareAskingOf(share: SharePreview): string {
+  return `share your profile with ${share.clientName ?? "a confidential client"} for ${withArticle(share.roleTitle)} role`;
+}
+
+/**
+ * `EmailTemplates.buildConsentRequestEmail`'s subject and paragraphs, in order; a share asked on its own is
+ * `buildShareConsentRequestEmail`'s.
+ */
 export function consentRequestPreview(
   firm: string,
   sourcePhrase: string,
   purposes: readonly PersonalPurpose[],
   months: number,
+  share: SharePreview | null = null,
 ): ConsentRequestPreview {
+  if (share && purposes.length === 0) {
+    return {
+      subject: `May we share your profile for ${withArticle(share.roleTitle)} role?`,
+      intro: `${firm} is searching for ${withArticle(share.roleTitle)} for ${share.clientName ?? "a confidential client"}. We hold some of your professional details, which came from ${sourcePhrase}.`,
+      asking: [],
+      closing: `We think your experience fits, and we'd like your permission to share your profile with ${share.clientName ?? "the client"}. It's your choice. If you don't answer, nothing changes.`,
+    };
+  }
   return {
     subject: `${firm} would like your permission`,
     intro: `${firm} holds some of your professional details, which came from ${sourcePhrase}.`,
-    asking: purposes.map((purpose) => askingOf(purpose, months)),
+    asking: [...purposes.map((purpose) => askingOf(purpose, months)), ...(share ? [shareAskingOf(share)] : [])],
     closing: "Each is a separate choice, and you can say no to any of them. If you don't answer, nothing changes.",
   };
 }

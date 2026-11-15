@@ -43,6 +43,11 @@ public record PersonConsent(
                 || (refused && answeredAt != null && answeredAt.isAfter(since));
     }
 
+    /** Whether a share names the client: as an open or unanswered request asks it, otherwise as it was answered. */
+    public boolean clientNamedAt(Instant now) {
+        return isOpenAt(now) || answeredAt == null ? requestClientNamed : clientNamed;
+    }
+
     /** Given and not past its date; a consent with no date lasts until withdrawn. */
     public boolean isLiveAt(Instant now) {
         return status == ConsentStatus.GIVEN && (validUntil == null || validUntil.isAfter(now));

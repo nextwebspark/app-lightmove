@@ -103,6 +103,7 @@ export type ApiErrorCode =
   | "CONSENT_REQUESTS_OFF"
   | "CONSENT_ALREADY_GIVEN"
   | "CONSENT_RECENTLY_REQUESTED"
+  | "SHARE_CLIENT_CONFIDENTIAL"
   | "TASK_ASSIGNEE_NOT_ON_TEAM"
   | "TASK_NOT_YOURS"
   | "STRATEGY_SEARCH_NAME_TAKEN"
@@ -338,6 +339,7 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   CONSENT_REQUESTS_OFF: "Consent requests are off. An admin can turn them on in Settings → Data & retention.",
   CONSENT_ALREADY_GIVEN: "This person has already agreed to what you're asking.",
   CONSENT_RECENTLY_REQUESTED: "This person was asked for consent, or said no, in the last 14 days.",
+  SHARE_CLIENT_CONFIDENTIAL: "This position is confidential, so the email can't name the client.",
   // Two uploads raise this — the spreadsheet import and the position description — so the wording
   // stays neutral. Naming one screen's file types here misdescribes the other's refusal, and each
   // dropzone already states what it takes.

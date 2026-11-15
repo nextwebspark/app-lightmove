@@ -187,6 +187,7 @@ public class AuditLogPhrasing {
         on(ProjectEventType.PERSON_CONSENT_REQUEST_FAILED, line -> "A candidate's consent request could not be sent");
         on(ProjectEventType.PERSON_CONSENT_ANSWERED, line -> "A candidate answered a consent request");
         on(ProjectEventType.PERSON_CONSENT_RECORDED, line -> "Recorded a candidate's consent answer");
+        on(ProjectEventType.CONSENT_REGISTER_EXPORTED, line -> "Downloaded the consent register");
         on(ProjectEventType.PERSON_PRIVACY_REQUESTED, line -> line.is("kind", "deletion")
                 ? "A candidate asked for their data to be deleted" : "A candidate asked for a copy of their data");
         on(ProjectEventType.CANDIDATE_PIPELINE_REORDERED, line -> "Reordered the pipeline");

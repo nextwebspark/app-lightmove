@@ -359,6 +359,7 @@ public enum ErrorCode {
             "Consent requests are off. An admin can turn them on in Settings → Data & retention"),
     CONSENT_ALREADY_GIVEN(HttpStatus.CONFLICT, "This person has already agreed to what you're asking"),
     CONSENT_RECENTLY_REQUESTED(HttpStatus.CONFLICT, "This person was asked for consent in the last 14 days"),
+    SHARE_CLIENT_CONFIDENTIAL(HttpStatus.CONFLICT, "This position is confidential, so the email can't name the client"),
 
     /** An email to the person is on its way to the mail service; erasing them now would race it. Nothing changed. */
     PERSON_ERASE_SEND_IN_FLIGHT(HttpStatus.CONFLICT, "An email to this person is sending right now. Try again in a minute"),

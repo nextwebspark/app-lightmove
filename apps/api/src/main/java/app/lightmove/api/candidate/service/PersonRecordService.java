@@ -200,7 +200,7 @@ public class PersonRecordService {
                 consent.status().value(), consent.requestedAt(), asker == null ? null : asker.getFullName(),
                 consent.isOpenAt(now) ? consent.requestExpiresAt() : null, consent.answeredAt(),
                 consent.answeredVia() == null ? null : consent.answeredVia().value(), consent.validUntil(),
-                consent.clientNamed());
+                consent.clientNamedAt(now));
     }
 
     private Map<UUID, User> usersOf(Collection<UUID> ids) {

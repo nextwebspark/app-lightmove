@@ -6,6 +6,7 @@ import { ApiRequestError } from "../../../lib/apiClient";
 import { cn } from "../../../lib/cn";
 import { messageFor } from "../../../lib/errorCodes";
 import * as candidatePrivacyApi from "../../candidates/api/candidatePrivacyApi";
+import * as shareConsentApi from "../../candidates/api/shareConsentApi";
 import type {
   CandidatePrivacyMode,
   CandidatePrivacySettings,
@@ -83,6 +84,11 @@ export function CandidatePrivacyCard({ saved }: { saved: CandidatePrivacySetting
   const [draft, setDraft] = useState(() => draftOf(saved));
   const [errors, setErrors] = useState<Errors>({});
 
+  const register = useMutation({
+    mutationFn: () => shareConsentApi.saveConsentRegister(),
+    onSuccess: () => toast.success("Downloading the consent register as a CSV — recorded in the audit log"),
+    onError: (error) => toast.error(messageFor(error)),
+  });
   const save = useMutation({
     mutationFn: () => candidatePrivacyApi.putCandidatePrivacy(draft),
     onSuccess: (next) => {
@@ -274,6 +280,21 @@ export function CandidatePrivacyCard({ saved }: { saved: CandidatePrivacySetting
               {errors.renewalDaysBefore ?? renewalHintOf(draft.renewalDaysBefore)}
             </p>
           </div>
+          {saved.privacyMode === "consent" && (
+            <div className="mt-3.5 flex flex-wrap items-center gap-3">
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                loading={register.isPending}
+                onClick={() => register.mutate()}
+              >
+                <Icon d={ICONS.download} size={13} />
+                Download consent register
+              </Button>
+              <span className="font-mono text-meta text-u-text3">Every request and answer, as a CSV.</span>
+            </div>
+          )}
         </div>
       )}
       <div className="mt-3.5 flex gap-2.5 rounded-u-chip border border-u-border bg-u-surface px-3 py-2.5 font-mono text-meta text-u-text2">

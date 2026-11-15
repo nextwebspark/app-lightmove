@@ -1,6 +1,8 @@
 // Consent requests (#1267 phase 2) in a real browser against a real API: an admin turns on consent mode, a colleague
 // asks a candidate from the Candidates drawer, the email's link opens the public page with no session, the candidate
-// agrees to be kept on file, the drawer says so, and the confirmation's manage link withdraws it.
+// agrees to be kept on file, the drawer says so, and the confirmation's manage link withdraws it. Phase 3: turning
+// them visible on the Pipeline asks first, Ask first emails a share request, a yes on their page marks the card
+// Consent given, and the position's consent register carries it.
 //
 // Needs `npm run dev` (or its two halves) with DATA_PROTECTION_ENABLED=true; mail prints to the API console.
 //
@@ -99,6 +101,8 @@ const filed = await api(`/projects/${position}/candidates`, {
 });
 if (filed.status !== 201) throw new Error(`seeding answered ${filed.status}: ${JSON.stringify(filed.body)}`);
 const PERSON = filed.body.personId;
+const CANDIDATE = filed.body.id;
+const CLIENT = `Consent Unit ${STAMP}`;
 
 const browser = await chromium.launch(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {});
 const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
@@ -204,6 +208,63 @@ try {
     await page.getByText("Noor Haddad").first().waitFor({ timeout: 10000 });
     await shot(page, "quick-view-refused");
     pass("CR4.2", "Noor is listed under Declined or withdrawn");
+  });
+
+  console.log("\n\x1b[1;36m== CR5  Share with the client (phase 3)\x1b[0m");
+  const shareBefore = linkFor(NOOR, PRIVACY_LINK);
+  await step("CR5.1", "turning Noor visible asks first; Ask first sends a share request in the confidential wording", async () => {
+    await api(`/projects/${position}/candidates/${CANDIDATE}/client-visibility`, {
+      method: "PUT", token, body: { clientVisible: false },
+    });
+    await page.goto(`${WEB}/projects/${position}/companies/universe?view=pipeline`);
+    const card = page.getByRole("article", { name: "Noor Haddad" });
+    await card.getByText("No consent to share").waitFor({ timeout: 15000 });
+    await shot(page, "pipeline-badge-none");
+    await card.getByRole("switch", { name: "Visible to client: Noor Haddad" }).click();
+    const prompt = page.getByRole("dialog", { name: `No consent to share with ${CLIENT} yet` });
+    await prompt.waitFor({ timeout: 10000 });
+    await page.waitForTimeout(400);
+    await shot(page, "share-prompt");
+    await prompt.getByRole("button", { name: "Ask first" }).click();
+    const ask = page.getByRole("dialog", { name: "Ask to share Noor Haddad's profile" });
+    await ask.waitFor({ timeout: 10000 });
+    await page.waitForTimeout(400);
+    await shot(page, "share-ask");
+    await ask.getByRole("button", { name: "Send request" }).click();
+    await card.getByText("Consent asked").waitFor({ timeout: 10000 });
+    const row = (await api(`/projects/${position}/share-consents`, { token })).body.rows[0];
+    check("CR5.1", "the share is asked, the client not named, Noor still internal", "requested|false",
+      `${row?.status}|${row?.clientNamed}`);
+  });
+
+  await step("CR5.2", "Noor agrees on their page, and the card says Consent given", async () => {
+    const shareLink = await nextLinkFor(NOOR, PRIVACY_LINK, shareBefore);
+    if (!shareLink) throw new Error("no share request reached the person");
+    await outside.goto(shareLink.replace("http://localhost:5173", WEB));
+    const block = outside.getByRole("group", { name: "Share your profile with a client" });
+    await block.waitFor({ timeout: 15000 });
+    await outside.getByText("We would like to send your profile to a confidential client for a Chief Financial Officer role.").waitFor();
+    await shot(outside, "public-share");
+    await block.getByRole("button", { name: "Yes" }).click();
+    await outside.getByRole("button", { name: /^Send my answer/ }).click();
+    await outside.getByRole("heading", { name: "Thank you, your answers are saved" }).waitFor({ timeout: 10000 });
+    await page.reload();
+    const card = page.getByRole("article", { name: "Noor Haddad" });
+    await card.getByText("Consent given").waitFor({ timeout: 15000 });
+    await shot(page, "pipeline-badge-given");
+    await card.getByRole("switch", { name: "Visible to client: Noor Haddad" }).click();
+    await page.waitForTimeout(800);
+    check("CR5.2", "with consent given the switch shows them without asking", 0,
+      await page.getByRole("dialog", { name: /No consent to share/ }).count());
+  });
+
+  await step("CR5.3", "the position's consent register carries the share, and no address", async () => {
+    const response = await fetch(`${API}/projects/${position}/export/consent-register`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const csv = await response.text();
+    check("CR5.3", "the register lists Noor's given share and no email", "true|true|false",
+      `${csv.includes("Noor Haddad")}|${csv.includes("Share with client") && csv.includes("Given")}|${csv.includes(NOOR)}`);
   });
 } finally {
   await browser.close();

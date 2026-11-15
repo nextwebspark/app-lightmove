@@ -13,6 +13,7 @@ import app.lightmove.api.candidate.model.PipelineCatalog;
 import app.lightmove.api.candidate.repository.CandidateRepository;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
+import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.security.rbac.ProjectAudience;
@@ -65,6 +66,8 @@ public class PositionPipelineService {
     private final NextActionLookup nextActions;
     private final AuditService audit;
     private final CandidateSearchService searches;
+    private final PersonConsentService consents;
+    private final LightMoveProperties properties;
 
     @Transactional(readOnly = true)
     public PositionPipelineResponse pipelineOf(UUID workspaceId, UUID projectId, String query, String stageKey) {
@@ -145,12 +148,17 @@ public class PositionPipelineService {
         projects.requireInWorkspace(projectId, workspaceId);
         Candidate candidate = candidates.requireInProject(candidateId, projectId);
         if (candidate.showToClient(visible)) {
+            // Warn, never block (#1267): shown to the client without their consent to share is recorded as such.
+            Boolean withoutShareConsent = visible && properties.dataProtection().enabled()
+                    && consents.showsWithoutShareConsent(workspaceId, projectId, candidate.getPerson().getId())
+                    ? Boolean.TRUE : null;
             activity.record(candidate, userId, PersonActivityKind.CLIENT_VISIBILITY_CHANGED,
-                    PersonActivityDetails.of("visible", visible));
+                    PersonActivityDetails.of("visible", visible).and("withoutShareConsent", withoutShareConsent));
             audit.projectEvent(ProjectEventType.CANDIDATE_CLIENT_VISIBILITY_CHANGED, userId, workspaceId, projectId,
                             httpRequest)
                     .detail("candidateId", candidateId.toString())
                     .detail("visible", visible)
+                    .detailIfPresent("withoutShareConsent", withoutShareConsent)
                     .record();
         }
         return toRow(candidate, nextActionsOf(projectId, List.of(candidate)));

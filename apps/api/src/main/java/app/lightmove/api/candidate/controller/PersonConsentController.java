@@ -37,7 +37,7 @@ public class PersonConsentController {
                                         @Valid @RequestBody ConsentRequestRequest request,
                                         HttpServletRequest httpRequest) {
         return consents.request(principal.userId(), principal.requireWorkspaceId(), personId, request.purposes(),
-                httpRequest);
+                request.projectId(), request.nameClient(), httpRequest);
     }
 
     @PostMapping("/bulk/consent-requests")

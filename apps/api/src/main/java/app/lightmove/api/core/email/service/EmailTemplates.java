@@ -12,6 +12,7 @@ import app.lightmove.api.core.email.render.EmailContent;
 import app.lightmove.api.core.email.render.EmailNote;
 import app.lightmove.api.core.email.render.EmailParagraph;
 import app.lightmove.api.core.email.render.EmailRenderer;
+import app.lightmove.api.core.email.render.IndefiniteArticle;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -413,6 +414,32 @@ public class EmailTemplates {
         blocks.add(consentCloseOf("This link works until %s.".formatted(linkUntil), noticeUrl, replyTo));
         return renderer.renderOnBehalfOf(recipient, "%s would like your permission".formatted(firm),
                 new EmailContent("Your permission", blocks), firm, replyTo);
+    }
+
+    /**
+     * Phase 3: whether the firm may share the person's profile with its client for one role. A confidential search, or
+     * a firm that chose not to, says "a confidential client"; it never claims nothing has been shared.
+     */
+    public EmailMessage buildShareConsentRequestEmail(String recipient, String recipientName, String firm,
+                                                      String replyTo, String sourcePhrase, String roleTitle,
+                                                      String clientName, String pageLink, String noticeUrl,
+                                                      String linkUntil) {
+        String searchFor = clientName == null ? "a confidential client" : clientName;
+        String shareWith = clientName == null ? "the client" : clientName;
+        return renderer.renderOnBehalfOf(recipient,
+                "May we share your profile for %s role?".formatted(IndefiniteArticle.before(roleTitle)),
+                new EmailContent("Your permission", List.of(
+                        greetingOf(recipientName),
+                        EmailParagraph.of("%s is searching for %s for %s. We hold some of your professional "
+                                + "details, which came from %s.", plain(firm),
+                                plain(IndefiniteArticle.before(roleTitle)), plain(searchFor),
+                                plain(sourcePhrase)),
+                        EmailParagraph.of("We think your experience fits, and we'd like your permission to share your "
+                                + "profile with %s. It's your choice. If you don't answer, nothing changes.",
+                                plain(shareWith)),
+                        new EmailAction("Choose your answer", pageLink),
+                        consentCloseOf("This link works until %s.".formatted(linkUntil), noticeUrl, replyTo))),
+                firm, replyTo);
     }
 
     /** Before a keep-on-file consent ends: asked once whether to keep the details for another period. */
