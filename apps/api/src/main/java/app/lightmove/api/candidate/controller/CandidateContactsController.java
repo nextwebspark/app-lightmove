@@ -1,6 +1,7 @@
 package app.lightmove.api.candidate.controller;
 
 import app.lightmove.api.candidate.dto.CandidateResponse;
+import app.lightmove.api.candidate.dto.SavePhoneInternationalRequest;
 import app.lightmove.api.candidate.dto.UpdateCandidateContactsRequest;
 import app.lightmove.api.candidate.service.CandidateService;
 import app.lightmove.api.core.security.model.AuthPrincipal;
@@ -12,6 +13,7 @@ import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -38,5 +40,16 @@ public class CandidateContactsController {
                                      HttpServletRequest httpRequest) {
         return candidates.replaceContacts(principal.userId(),
                 principal.requireWorkspaceId(), projectId, candidateId, request, httpRequest);
+    }
+
+    @PostMapping("/phones/international")
+    @RequireProjectPermission(ProjectAction.WORK_EXECUTE)
+    public CandidateResponse savePhoneInternational(@AuthenticationPrincipal AuthPrincipal principal,
+                                                    @PathVariable UUID projectId,
+                                                    @PathVariable UUID candidateId,
+                                                    @Valid @RequestBody SavePhoneInternationalRequest request,
+                                                    HttpServletRequest httpRequest) {
+        return candidates.savePhoneInternational(principal.userId(), principal.requireWorkspaceId(), projectId,
+                candidateId, request.number(), httpRequest);
     }
 }

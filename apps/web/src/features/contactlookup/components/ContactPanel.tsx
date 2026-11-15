@@ -6,7 +6,6 @@ import { Button, FormError, useToast } from "../../../components/ui";
 import { DetailPill } from "../../../components/ui/DetailList";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { cn } from "../../../lib/cn";
-import { copyText } from "../../../lib/clipboard";
 import { messageFor } from "../../../lib/errorCodes";
 import { creditsLabel, shownPricesOf } from "../../billing/lib/billingView";
 import { useBillingRead } from "../../billing/lib/useBilling";
@@ -23,6 +22,16 @@ import {
   type ParsedContactSectionForm,
 } from "../../candidates/lib/candidateForm";
 import { useContactLookup } from "../lib/useContactLookup";
+import { dialHrefOf } from "../lib/phoneLinks";
+import { CopyContactButton } from "./CopyContactButton";
+import { isReachable } from "../lib/phoneReach";
+import {
+  AddedCodePill,
+  PhoneNumberLink,
+  SaveInternationalButton,
+  WhatsAppLink,
+  type PhoneReach,
+} from "./PhoneActions";
 
 /**
  * The Contact section: one row per channel with its Find button. The pencil edits every line in place and Save writes
@@ -147,7 +156,8 @@ function ContactReadView({
 /**
  * Email and phone as read: every value on the ledger with its pills and a copy button, the primary first and
  * starred once a channel holds more than one. The position drawer hangs its Find buttons on the rows and offers
- * Make primary on the others; the workspace drawer reads them bare. The profile link is the header's.
+ * Make primary on the others; the workspace drawer reads them bare. The profile link is the header's. Given `reach`, a
+ * phone is the button (#1337): Call, WhatsApp and Copy, its added calling code named and offered to keep.
  */
 export function ContactChannels({
   contacts,
@@ -156,6 +166,7 @@ export function ContactChannels({
   phoneAction,
   phoneError,
   onMakePrimary,
+  reach,
 }: {
   contacts: CandidateContacts;
   emailAction?: ReactNode;
@@ -163,8 +174,8 @@ export function ContactChannels({
   phoneAction?: ReactNode;
   phoneError?: string | null;
   onMakePrimary?: (channel: "email" | "phone", value: string) => void;
+  reach?: PhoneReach;
 }) {
-  const toast = useToast();
   const starOf = (channel: "email" | "phone", count: number, value: string, index: number) =>
     count > 1 ? (
       <PrimaryStar
@@ -190,7 +201,6 @@ export function ContactChannels({
               key={entry.address}
               entry={entry}
               star={starOf("email", contacts.emails.length, entry.address, index)}
-              onCopy={() => copy("Email", entry.address)}
             />
           ))
         )}
@@ -210,7 +220,7 @@ export function ContactChannels({
               key={entry.number}
               entry={entry}
               star={starOf("phone", contacts.phones.length, entry.number, index)}
-              onCopy={() => copy("Phone", entry.number)}
+              reach={reach}
             />
           ))
         )}
@@ -218,10 +228,6 @@ export function ContactChannels({
 
     </div>
   );
-
-  async function copy(what: string, value: string) {
-    toast((await copyText(value)) ? `${what} copied` : "Couldn't copy");
-  }
 }
 
 /**
@@ -321,7 +327,7 @@ function ContactChannel({
   );
 }
 
-function EmailLine({ entry, star, onCopy }: { entry: CandidateEmail; star: ReactNode; onCopy: () => void }) {
+function EmailLine({ entry, star }: { entry: CandidateEmail; star: ReactNode }) {
   return (
     <li className="flex min-w-0 items-center gap-1.5">
       {star}
@@ -332,23 +338,54 @@ function EmailLine({ entry, star, onCopy }: { entry: CandidateEmail; star: React
         {entry.address}
       </a>
       <ContactPills entry={entry} />
-      <CopyButton what="email" onCopy={onCopy} />
+      <CopyContactButton what="Email" value={entry.address} className="ms-auto" />
     </li>
   );
 }
 
-function PhoneLine({ entry, star, onCopy }: { entry: CandidatePhone; star: ReactNode; onCopy: () => void }) {
+const PHONE_TEXT = "min-w-0 truncate font-mono text-[13px] text-u-text";
+
+function PhoneLine({
+  entry,
+  star,
+  reach,
+}: {
+  entry: CandidatePhone;
+  star: ReactNode;
+  reach?: PhoneReach;
+}) {
+  if (reach) {
+    return (
+      <li className="flex min-w-0 flex-wrap items-center gap-1.5">
+        {star}
+        <PhoneNumberLink
+          phone={entry}
+          reach={reach}
+          className={cn("font-mono text-body", isReachable(reach) ? "text-u-accent" : "text-u-text")}
+        />
+        <ContactPills entry={entry} />
+        <AddedCodePill phone={entry} reach={reach} />
+        <span className="ms-auto flex flex-none items-center gap-0.5">
+          <WhatsAppLink phone={entry} reach={reach} />
+          {isReachable(reach) && <CopyContactButton what="Phone" value={entry.number} />}
+        </span>
+        <SaveInternationalButton phone={entry} reach={reach} />
+      </li>
+    );
+  }
+  const href = dialHrefOf(entry);
   return (
     <li className="flex min-w-0 items-center gap-1.5">
       {star}
-      <a
-        href={`tel:${entry.number.replace(/\s+/g, "")}`}
-        className="min-w-0 truncate font-mono text-[13px] text-u-text hover:underline"
-      >
-        {entry.number}
-      </a>
+      {href ? (
+        <a href={href} className={cn(PHONE_TEXT, "hover:underline")}>
+          {entry.number}
+        </a>
+      ) : (
+        <span className={PHONE_TEXT}>{entry.number}</span>
+      )}
       <ContactPills entry={entry} />
-      <CopyButton what="phone" onCopy={onCopy} />
+      <CopyContactButton what="Phone" value={entry.number} className="ms-auto" />
     </li>
   );
 }
@@ -369,20 +406,6 @@ function ContactPills({ entry }: { entry: CandidateEmail | CandidatePhone }) {
       )}
       {entry.verified && <DetailPill label="Verified" className="bg-u-direct-tint text-u-direct" />}
     </>
-  );
-}
-
-function CopyButton({ what, onCopy }: { what: string; onCopy: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onCopy}
-      aria-label={`Copy ${what}`}
-      title="Copy"
-      className="ms-auto flex flex-none rounded-md p-1 text-u-text3 transition hover:bg-u-raised hover:text-u-text"
-    >
-      <Icon d={ICONS.copy} size={13} />
-    </button>
   );
 }
 

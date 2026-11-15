@@ -8,6 +8,13 @@ import { cn } from "../../../lib/cn";
 import * as shareConsentApi from "../../candidates/api/shareConsentApi";
 import { ShareConsentPromptDialog } from "../../candidates/components/consent/ShareConsentPromptDialog";
 import { PersonAvatar } from "../../candidates/components/pool/PersonAvatar";
+import { CopyContactButton } from "../../contactlookup/components/CopyContactButton";
+import { isReachable } from "../../contactlookup/lib/phoneReach";
+import {
+  PhoneNumberLink,
+  WhatsAppLink,
+  type PhoneReach,
+} from "../../contactlookup/components/PhoneActions";
 import { useShareConsents } from "../../candidates/lib/useShareConsents";
 import { useWorkspaceVocabulary } from "../../workspace/lib/vocabulary";
 import { messageFor } from "../../../lib/errorCodes";
@@ -68,6 +75,12 @@ export function CandidateDetailsPane({
     );
   const run = currentRun.run;
   const location = [contact.locationCity, contact.locationCountry].filter(Boolean).join(", ");
+  const phoneReach: PhoneReach = {
+    personName: executive.fullName,
+    locationCountry: contact.locationCountry,
+    mayReachOut: true,
+    doNotContact: contact.doNotContact,
+  };
   const clientVisible = clientVisibility.isPending
     ? (clientVisibility.variables?.clientVisible ?? executive.clientVisible)
     : executive.clientVisible;
@@ -142,8 +155,14 @@ export function CandidateDetailsPane({
             <span className="text-u-text3">Not found</span>
           ) : (
             contact.phones.map((phone) => (
-              <div key={phone.number} className="truncate font-mono">
-                {phone.number}
+              <div key={phone.number} className="flex min-w-0 items-center gap-0.5">
+                <PhoneNumberLink
+                  phone={phone}
+                  reach={phoneReach}
+                  className={cn("font-mono", isReachable(phoneReach) && "text-u-accent")}
+                />
+                <WhatsAppLink phone={phone} reach={phoneReach} size={12} />
+                {isReachable(phoneReach) && <CopyContactButton what="Phone" value={phone.number} size={11} />}
               </div>
             ))
           )}

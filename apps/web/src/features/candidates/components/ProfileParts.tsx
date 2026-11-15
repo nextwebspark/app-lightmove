@@ -53,6 +53,7 @@ export function PersonHeaderLayout({
   onShowContacts,
   onWriteEmail,
   emailNote,
+  phoneActions,
   employer,
   location,
   children,
@@ -71,6 +72,8 @@ export function PersonHeaderLayout({
   /** Writes to the primary email in Uncava's composer; absent leaves the address as text, `emailNote` saying why. */
   onWriteEmail?: () => void;
   emailNote?: string;
+  /** The primary phone as the button, with WhatsApp and Copy (#1337); absent leaves it as text. */
+  phoneActions?: ReactNode;
   employer: HeaderEmployer;
   location: string;
   children: ReactNode;
@@ -95,6 +98,7 @@ export function PersonHeaderLayout({
             onShowContacts={onShowContacts}
             onWriteEmail={onWriteEmail}
             emailNote={emailNote}
+            phoneActions={phoneActions}
           />
         </div>
         {children}
@@ -105,8 +109,8 @@ export function PersonHeaderLayout({
 
 /**
  * The primary email and phone — the server lists each channel's first — then "+N" for the rest and the pencil.
- * The email writes in Uncava's own composer where `onWriteEmail` is given; a phone is only read. A channel with
- * nothing on record offers to add one to whoever may edit.
+ * The email writes in Uncava's own composer where `onWriteEmail` is given; the phone is the drawer's `phoneActions`
+ * where it hands them, else read as text. A channel with nothing on record offers to add one to whoever may edit.
  */
 function HeaderContacts({
   contacts,
@@ -114,12 +118,14 @@ function HeaderContacts({
   onShowContacts,
   onWriteEmail,
   emailNote,
+  phoneActions,
 }: {
   contacts: CandidateContacts;
   onEditContacts?: () => void;
   onShowContacts?: () => void;
   onWriteEmail?: () => void;
   emailNote?: string;
+  phoneActions?: ReactNode;
 }) {
   const email = contacts.emails[0]?.address;
   const phone = contacts.phones[0]?.number;
@@ -151,7 +157,7 @@ function HeaderContacts({
       )}
       {phone ? (
         <HeaderContactValue icon={ICONS.phone}>
-          <span className="min-w-0 truncate">{phone}</span>
+          {phoneActions ?? <span className="min-w-0 truncate">{phone}</span>}
         </HeaderContactValue>
       ) : (
         onEditContacts && <AddContactLink label="Add phone" onClick={onEditContacts} />

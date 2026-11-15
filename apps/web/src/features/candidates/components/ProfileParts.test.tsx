@@ -80,6 +80,13 @@ describe("PersonHeaderLayout", () => {
     expect(onEditContacts).toHaveBeenCalledTimes(2);
   });
 
+  it("draws the phone the drawer hands it in place of the text", () => {
+    renderHeader(several, { phoneActions: <a href="tel:+971501234567">Call +971 50 123 4567</a> });
+
+    expect(screen.getByRole("link", { name: "Call +971 50 123 4567" })).toHaveAttribute("href", "tel:+971501234567");
+    expect(screen.queryByText("+971 50 123 4567")).not.toBeInTheDocument();
+  });
+
   it("offers to add a channel with nothing on record, to whoever may edit", async () => {
     const onEditContacts = vi.fn();
     const { unmount } = renderHeader(contacts([], ["+971 50 123 4567"]), { onEditContacts });

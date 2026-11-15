@@ -59,6 +59,7 @@ public class PersonRecordService {
     private final ProjectAccess projectAccess;
     private final WorkspaceAccess workspaceAccess;
     private final PersonEmployerResolver employers;
+    private final CandidateResponseMapper responses;
     private final CandidatePrivacySettingsService privacySettings;
     private final PersonConsentStore consentStore;
     private final Clock clock;
@@ -104,7 +105,7 @@ public class PersonRecordService {
                 person.getNationality(), person.getGender() == null ? null : person.getGender().value(),
                 person.getYearsExperience(), person.getSummary(),
                 CandidateResponseMapper.compensationOf(person), CandidateResponseMapper.careerOf(person),
-                CandidateResponseMapper.contactsOf(person),
+                responses.contactsOf(person),
                 positionsOf(userId, person.getWorkspaceId(), mapped, null, named),
                 person.getOwnerUserId(), doNotContactOf(person, named),
                 processingRestrictionOf(userId, person, named), privacyOf(person, named),

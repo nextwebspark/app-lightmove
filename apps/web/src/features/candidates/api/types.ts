@@ -164,7 +164,16 @@ export interface CandidatePhone {
   foundAt: string;
   /** As on {@link CandidateEmail}. */
   primary?: boolean;
+  /** The server's international reading (docs/candidate-crm.md); null where the number cannot be read as one. */
+  international?: string | null;
+  e164?: string | null;
+  callingCode?: string | null;
+  countrySource?: PhoneCountrySource | null;
+  lineType?: PhoneLineType | null;
 }
+
+export type PhoneCountrySource = "given" | "location" | "workspace";
+export type PhoneLineType = "mobile" | "landline" | "service" | "unknown";
 
 /** One email or phone as the Contact section or the Add form states it. */
 export interface ContactEntryInput {

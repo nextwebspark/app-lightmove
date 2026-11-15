@@ -33,6 +33,7 @@
 		     already brings; later releases move http-client to 2.x underneath the connector. -->
 		<google-cloud-storage.version>2.55.0</google-cloud-storage.version>
 		<tink.version>1.18.0</tink.version>
+		<libphonenumber.version>9.0.42</libphonenumber.version>
 		<!-- Pins the Stripe API version too (2026-09-30.endive): the webhook endpoint must be created on it. -->
 		<stripe-java.version>34.0.0</stripe-java.version>
 		<springdoc.version>3.1.1</springdoc.version>
@@ -127,6 +128,12 @@
 			<groupId>com.google.crypto.tink</groupId>
 			<artifactId>tink</artifactId>
 			<version>${tink.version}</version>
+		</dependency>
+		<!-- A phone's international form, country and line type (common/location PhoneNumbers). -->
+		<dependency>
+			<groupId>com.googlecode.libphonenumber</groupId>
+			<artifactId>libphonenumber</artifactId>
+			<version>${libphonenumber.version}</version>
 		</dependency>
 		<!-- Billing's payments (billing/payment): subscriptions, credit packs, the portal and webhooks. -->
 		<dependency>

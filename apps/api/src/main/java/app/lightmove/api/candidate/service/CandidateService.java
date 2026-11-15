@@ -46,6 +46,8 @@ import app.lightmove.api.candidate.repository.CandidateRepository;
 import app.lightmove.api.candidate.repository.PersonPhotoRepository;
 import app.lightmove.api.candidate.repository.PersonRepository;
 import app.lightmove.api.common.constant.ApiValueEnum;
+import app.lightmove.api.common.location.model.InternationalPhone;
+import app.lightmove.api.common.location.service.PhoneNumbers;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.config.CompanyListSettings;
@@ -70,6 +72,7 @@ import app.lightmove.api.triagecompany.model.FiledCompany;
 import app.lightmove.api.triagecompany.service.TriageCompanyService;
 import app.lightmove.api.workspace.model.WorkspaceAiControls;
 import app.lightmove.api.workspace.service.WorkspaceAiControlsReader;
+import app.lightmove.api.workspace.service.WorkspaceSettingsService;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -130,6 +133,7 @@ public class CandidateService {
     private final CandidateRemoval removal;
     private final SuppressionGate suppression;
     private final WorkspaceAiControlsReader aiControls;
+    private final WorkspaceSettingsService workspaceSettings;
 
     public CandidateService(CandidateRepository candidates, PersonRepository people, PersonMatcher matcher,
                             PersonActivityRecorder activity, PersonNoteService personNotes,
@@ -141,7 +145,8 @@ public class CandidateService {
                             CandidatePipelineCatalog pipeline, PersonEmployerResolver employerResolver,
                             UserRepository users, CandidateSearchService searches,
                             CandidateRemoval removal, SuppressionGate suppression,
-                            WorkspaceAiControlsReader aiControls, LightMoveProperties properties) {
+                            WorkspaceAiControlsReader aiControls, WorkspaceSettingsService workspaceSettings,
+                            LightMoveProperties properties) {
         this.candidates = candidates;
         this.people = people;
         this.matcher = matcher;
@@ -164,6 +169,7 @@ public class CandidateService {
         this.removal = removal;
         this.suppression = suppression;
         this.aiControls = aiControls;
+        this.workspaceSettings = workspaceSettings;
     }
 
     /**
@@ -753,6 +759,36 @@ public class CandidateService {
                 requests.primaryOf(ContactChannel.PHONE, request.phones()));
         activity.record(candidate, userId, PersonActivityKind.CONTACTS_EDITED,
                 PersonActivityDetails.of("emails", emails.size()).and("phones", phones.size()));
+        stream.publish(projectId, ProjectStreamKind.CANDIDATE_ENRICHED);
+
+        audit.projectEvent(ProjectEventType.CANDIDATE_UPDATED, userId, workspaceId, projectId, httpRequest)
+                .detail("candidateId", candidateId.toString())
+                .detail("section", "contacts")
+                .record();
+        return responses.toDto(candidate);
+    }
+
+    /**
+     * Save as (#1337): a locally written number kept with the calling code read for it here, never one the browser
+     * sends, so the row stays the provider's or the importer's with its finding time and its place in the list.
+     */
+    @Transactional
+    public CandidateResponse savePhoneInternational(UUID userId, UUID workspaceId, UUID projectId, UUID candidateId,
+                                                    String number, HttpServletRequest httpRequest) {
+        projects.requireInWorkspace(projectId, workspaceId);
+        Candidate candidate = candidates.requireInProject(candidateId, projectId);
+        Person person = candidate.getPerson();
+        String international = PhoneNumbers
+                .internationalOf(number, person.getLocationCountry(), workspaceSettings.companyCountryOf(workspaceId))
+                .map(InternationalPhone::international)
+                .orElseThrow(() -> ApiException.userFacing(ErrorCode.VALIDATION_FAILED,
+                        "That number has no country code to add"));
+        if (!person.respellPhone(number, international)) {
+            throw ApiException.userFacing(ErrorCode.VALIDATION_FAILED, "That number is no longer on the record");
+        }
+        activity.record(candidate, userId, PersonActivityKind.CONTACTS_EDITED,
+                PersonActivityDetails.of("emails", person.emailContacts().size())
+                        .and("phones", person.phoneContacts().size()));
         stream.publish(projectId, ProjectStreamKind.CANDIDATE_ENRICHED);
 
         audit.projectEvent(ProjectEventType.CANDIDATE_UPDATED, userId, workspaceId, projectId, httpRequest)

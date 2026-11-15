@@ -243,6 +243,47 @@ class CandidateContactsIntegrationTest extends FlowTestSupport {
         assertThat(lookupStampsOf(candidate)).isZero();
     }
 
+    @Test
+    @DisplayName("Save as keeps a found number's door, finding time and place, with the code read on the server")
+    void saveAsKeepsTheNumbersProvenance() throws Exception {
+        String projectId = mandate("Save As Firm");
+        String candidateId = executive(projectId, """
+                {"fullName":"Sample Person","locationCountry":"United Arab Emirates","phone":"050 441 8836"}""");
+        contacts(projectId, candidateId, """
+                {"emails":[],"phones":[{"value":"050 441 8836"},{"value":"07400 123456"}]}""", status().isOk());
+        db.update("""
+                update app_lm_person_contact set source = 'CONTACTOUT', found_at = timestamptz '2026-01-02 03:04:05Z'
+                where value_key = '0504418836'
+                  and person_id = (select person_id from app_lm_project_candidate where id = ?::uuid)""", candidateId);
+
+        JsonNode phones = body(mvc.perform(post(contactsUrl(projectId, candidateId) + "/phones/international")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"number":"050 441 8836"}"""))
+                .andExpect(status().isOk())
+                .andReturn()).get("contacts").get("phones");
+
+        assertThat(phones).hasSize(2);
+        assertThat(phones.get(0).get("number").asText()).isEqualTo("07400 123456");
+        JsonNode saved = phones.get(1);
+        assertThat(saved.get("number").asText()).isEqualTo("+971 50 441 8836");
+        assertThat(saved.get("e164").asText()).isEqualTo("+971504418836");
+        assertThat(saved.get("countrySource").asText()).isEqualTo("given");
+        assertThat(saved.get("source").asText()).isEqualTo("contactout");
+        assertThat(saved.get("foundAt").asText()).isEqualTo("2026-01-02T03:04:05Z");
+        assertThat(saved.get("primary").asBoolean()).isFalse();
+
+        assertThat(codeOf(mvc.perform(post(contactsUrl(projectId, candidateId) + "/phones/international")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"number":"07400 123456"}"""))
+                .andExpect(status().isBadRequest())
+                .andReturn()))
+                .isEqualTo("VALIDATION_FAILED");
+    }
+
     private int lookupStampsOf(String candidateId) {
         return db.queryForObject("""
                 select (emails_looked_up_at is not null)::int + (phones_looked_up_at is not null)::int

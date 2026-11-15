@@ -127,6 +127,11 @@ public class CandidateContact {
         verified = entry.verified();
     }
 
+    void respell(String spelled) {
+        this.value = spelled.trim();
+        this.valueKey = keyOf(channel, spelled);
+    }
+
     void markPrimary(boolean chosen) {
         this.primary = chosen;
     }
