@@ -39,6 +39,7 @@ spa/companies.mjs         the Companies grid and its two drawers
 spa/import-export.mjs     the import dialog and the Export download
 spa/reports.mjs           the Reports chapters, the team panel and the position drawer
 spa/responsive.mjs        every screen at phone/tablet/desktop width, API stubbed
+spa/third-party-loads.mjs the SPA's CSP over a built bundle the API serves (not in run-all.sh; see its header)
 results/current/          per-run logs, cookie jars, cases.tsv  (gitignored)
 spa/screenshots/          browser screenshots                    (gitignored)
 ```

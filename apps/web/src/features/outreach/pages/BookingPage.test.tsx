@@ -49,6 +49,8 @@ describe("BookingPage", () => {
     expect(await screen.findByRole("heading", { name: "Book a call with Yara Haddad" })).toBeInTheDocument();
     expect(await screen.findByTestId("scheduler")).toHaveTextContent("page-1 @ https://api.us.nylas.com");
     expect(bookingApi.getBookingPage).toHaveBeenCalledWith("yara-haddad", expect.anything());
+    expect(screen.getByText(/Our scheduling provider handles the times shown/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Privacy" })).toHaveAttribute("href", "https://uncava.com/privacy");
   });
 
   it("offers a direct mailbox's free times on Uncava's own page and books the one picked", async () => {
@@ -72,6 +74,7 @@ describe("BookingPage", () => {
 
     expect(await screen.findByRole("heading", { name: "Book a call with Yara Haddad" })).toBeInTheDocument();
     expect(screen.queryByTestId("scheduler")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Our scheduling provider/)).not.toBeInTheDocument();
     await userEvent.click(await screen.findByRole("button", { name: "10:30" }));
     await userEvent.type(screen.getByRole("textbox", { name: "Your email" }), "priya@target.example");
     await userEvent.click(screen.getByRole("button", { name: "Book 10:30" }));

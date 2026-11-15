@@ -61,8 +61,6 @@ public class SecurityConfig {
             + "style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; "
             + "object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'";
 
-    /** Framing alone: the bundle's own sources (Mapbox, Nylas, the fonts) are not pinned here. */
-    private static final String SPA_CSP = "frame-ancestors 'none'";
 
     /** Resolves {@code '{value}'} in {@code @RequireProjectPermission}; static, as method security reads it while being built. */
     @Bean
@@ -252,12 +250,12 @@ public class SecurityConfig {
      */
     @Bean
     @Order(3)
-    SecurityFilterChain spaChain(HttpSecurity http) throws Exception {
+    SecurityFilterChain spaChain(HttpSecurity http, LightMoveProperties properties) throws Exception {
+        String policy = SpaContentSecurityPolicy.of(properties);
         return http
                 .securityMatcher(request -> SpaRequestPaths.isSpaPath(request.getRequestURI()))
                 .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
-                // No page of the app is ever framed, and the MCP consent screen's Allow must not be clickjacked.
-                .headers(headers -> headers.contentSecurityPolicy(csp -> csp.policyDirectives(SPA_CSP)))
+                .headers(headers -> headers.contentSecurityPolicy(csp -> csp.policyDirectives(policy)))
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .build();

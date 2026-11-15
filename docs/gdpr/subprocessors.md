@@ -24,8 +24,7 @@ listed in [governance-decisions.md](governance-decisions.md); [tia.md](tia.md) a
 | Google Cloud | Cloud Logging | masked application lines (`PersonalDataLogMasker`); Cloud Run's request log keeps full URLs, `?q=` searches included | `logback-spring.xml` | `_Default` bucket, `global`, 30 days | sub-processor and Uncava's processor |
 | Resend | account email | users' names and addresses (verification, reset, invitation, lockout, two-factor, billing, export and purge notices); notification emails name candidates (`NotificationEmails`) | `core/email/service/ResendEmailSender` | [Region] | sub-processor and Uncava's processor |
 | Stripe | billing | workspace name and id; Checkout collects the payer's card, address and tax id | `billing/payment/service/StripePaymentGateway`, `StripeSeatSync` | [Region] | Uncava's processor ⚖️ (Stripe may act as controller for payments) |
-| Google Fonts | web fonts | each user's IP address and browser, from the SPA | `apps/web/src/styles/global.css:5` | global | Uncava's processor, until #929 self-hosts the fonts |
-| Mapbox | maps, geocoding | a company's city and country (server); the browser loads tiles, so the user's IP (client) | `geocoding/service/MapboxGeocoder`; `TalentMapGlobe.tsx`, `HubGlobe.tsx` | US | sub-processor |
+| Mapbox | maps, geocoding | a company's city and country (server); the browser loads styles and tiles and opens a billing session, so the user's IP (client). Performance metrics are off (`performanceMetricsCollection: false`, #929) | `geocoding/service/MapboxGeocoder`; `TalentMapGlobe.tsx`, `HubGlobe.tsx` | US | sub-processor |
 
 ## Company and executive data
 
@@ -40,7 +39,7 @@ listed in [governance-decisions.md](governance-decisions.md); [tia.md](tia.md) a
 
 | Provider | What it receives | Where in code | Region | Role |
 |---|---|---|---|---|
-| Nylas | the mailbox grant, emails sent, replies in threads Uncava sent, calendar events, the booking page | `outreach/service/NylasMailboxGateway` | `NYLAS_BASE_URL`, default US (`api.us.nylas.com`); EU available | sub-processor |
+| Nylas | the mailbox grant, emails sent, replies in threads Uncava sent, calendar events; on the booking page, the visitor's IP and the details they enter (its widget's error reporter is off, `enableUserFeedback={false}`, #929) | `outreach/service/NylasMailboxGateway` | `NYLAS_BASE_URL`, default US (`api.us.nylas.com`); EU available | sub-processor |
 | Recall.ai | calendar OAuth keys and a refresh token; each call's audio and video; Recall's transcription | `notetaker/service/RecallBotClient`, `outreach/service/RecallCalendarClient` | `RECALL_BASE_URL`, default `us-east-1`; EU available | sub-processor |
 | Google (Gmail, Calendar) | sends the consultant's emails; reads the text of replies in threads Uncava sent (`gmail.readonly`); calendar events, free/busy | `outreach/service/GoogleMailboxGateway` | Google | customer's own provider ⚖️ |
 | Microsoft (Outlook, Graph) | as Google (`Mail.ReadWrite`, `Calendars.ReadWrite`) | `outreach/service/MicrosoftMailboxGateway` | Microsoft | customer's own provider ⚖️ |
@@ -60,4 +59,12 @@ and their owner's permissions allow. They are the customer's recipients, not Unc
 ## Not a recipient
 
 - **Cloudflare**: DNS only, proxy off. No personal data passes through it.
+- **Google Fonts**: the SPA's fonts are self-hosted (`@fontsource`, #929), so a page load reaches no font host.
 - **Firebase Hosting** serves the website (uncava.com), not the app; it is on the website's own list.
+
+## Holding the list to the code
+
+The SPA's Content-Security-Policy (`core/security/config/SpaContentSecurityPolicy`, #929) names every origin a page may
+reach: scripts from this origin only, `connect-src` to Mapbox and the configured Nylas host, images from any https host
+(company logos, profile photos). A new browser-side recipient is refused by the browser until that policy names it,
+which makes adding one a reviewed change to both the policy and this list.

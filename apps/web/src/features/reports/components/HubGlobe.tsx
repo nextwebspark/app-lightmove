@@ -71,6 +71,8 @@ export default function HubGlobe({
         center: [48, 25],
         zoom: 2,
         attributionControl: true,
+        // Mapbox otherwise reports each viewer's device and timings to events.mapbox.com (#929).
+        performanceMetricsCollection: false,
       });
     } catch {
       latest.current.onUnsupported();

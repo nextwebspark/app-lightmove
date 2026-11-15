@@ -20,7 +20,6 @@ US when a customer adds it. Onward transfers go to the providers below. The prov
 | Stripe | billing data | [Region] | [mechanism] | |
 | Bright Data, HarvestAPI, ContactOut | LinkedIn URLs and slugs, search criteria | [Region] | [mechanism] | sources as well as recipients |
 | Mapbox | company city and country; users' IP from tiles | US | [mechanism] | |
-| Google Fonts | users' IP | global | [mechanism] | ends with #929 |
 
 ## 2. Laws and practices of the destination ⚖️
 

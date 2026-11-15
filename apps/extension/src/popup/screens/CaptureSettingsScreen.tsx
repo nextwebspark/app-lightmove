@@ -7,6 +7,7 @@ import { useCaptureSettings } from "../hooks/useCaptureSettings";
 import type { ProjectSelection } from "../hooks/useProjectSelection";
 import { Icon } from "../components/Icon";
 import { ICONS } from "../lib/icons";
+import { CAPTURE_PRIVACY_URL } from "../../captureLinks";
 
 interface CaptureSettingsScreenProps {
   user: WorkspaceUser | null;
@@ -77,6 +78,18 @@ export function CaptureSettingsScreen({ user, projects, onBack, onSignOut }: Cap
         <p className="mt-2 text-[10.5px] leading-[1.5] text-u-text3">
           Signing out here ends only the extension's session. Your browser stays signed in, and the
           session appears in Settings → Active sessions until you end it from either side.
+        </p>
+
+        <SectionLabel className="mb-2 mt-[18px]">Privacy</SectionLabel>
+        <p className="text-[10.5px] leading-[1.5] text-u-text3">
+          Capture reads the name and address of the LinkedIn page you save, and sends them only to your workspace.{" "}
+          <button
+            type="button"
+            onClick={() => void chrome.tabs.create({ url: CAPTURE_PRIVACY_URL })}
+            className="text-u-accent hover:underline"
+          >
+            How we handle it
+          </button>
         </p>
       </div>
     </div>
