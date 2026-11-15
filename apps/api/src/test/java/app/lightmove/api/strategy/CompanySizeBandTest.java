@@ -38,13 +38,15 @@ class CompanySizeBandTest {
     }
 
     @Test
-    @DisplayName("the revenue bands tile the range, with Unknown standing outside it")
+    @DisplayName("the revenue bands tile the range from 1, with Unknown standing outside it")
     void revenueBandsTileTheRange() {
         RevenueBand[] numeric = Arrays.stream(RevenueBand.values())
                 .filter(band -> !band.isUnknown())
                 .toArray(RevenueBand[]::new);
 
-        assertThat(numeric[0].lowerBound()).isZero();
+        assertThat(numeric[0].lowerBound())
+                .as("a revenue of 0 is Apollo's unknown, so it belongs to Unknown and not to < $1M")
+                .isEqualTo(1);
         assertThat(numeric[numeric.length - 1].upperBound()).isNull();
 
         for (int index = 0; index < numeric.length - 1; index++) {
