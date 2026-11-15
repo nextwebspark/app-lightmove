@@ -22,6 +22,7 @@ and wait on the decisions in [governance-decisions.md](governance-decisions.md).
 | File | What |
 |---|---|
 | [use-cases.md](use-cases.md) | Who does what: suppression, erasure, restriction, export, retention |
+| [ui-changes.md](ui-changes.md) | Every screen the GDPR work changed, with the click path to reach it |
 | [retention-schedule.md](retention-schedule.md) | Every personal-data table's period and job. **Read by `RetentionScheduleCoverageTest`** |
 | [subject-access-export.md](subject-access-export.md) | What a person's export contains. **Read by `SubjectAccessCoverageTest`** |
 | [security-of-processing.md](security-of-processing.md) | Backups, recovery, encryption and logs (Art. 32) |
