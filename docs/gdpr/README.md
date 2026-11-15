@@ -12,6 +12,7 @@ and wait on the decisions in [governance-decisions.md](governance-decisions.md).
 | [dpia.md](dpia.md) | DPIA for the candidate database, with the profiling chapter for #922 |
 | [tia.md](tia.md) | Transfer impact assessment for the US transfers |
 | [subprocessors.md](subprocessors.md) | Every outside service that receives personal data; the website's list follows it |
+| [residency-adr.md](residency-adr.md) | Where data is processed: Vertex AI's location, a stack per region, the vendor DPAs (#925) |
 | [breach-runbook.md](breach-runbook.md) | Detecting, assessing and notifying a personal data breach; the breach register |
 | [subject-requests-procedure.md](subject-requests-procedure.md) | Requests that reach Uncava rather than a firm (website #28) |
 | [governance-decisions.md](governance-decisions.md) | Every open decision for counsel and the business |

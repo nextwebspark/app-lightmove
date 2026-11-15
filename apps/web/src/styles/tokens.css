@@ -17,8 +17,8 @@
 @theme {
   /* The mockups dropped the monospace face: --mono now resolves to Geist too. The token stays so
      existing font-mono call sites keep matching the mockups without a rename. */
-  --font-sans: "Geist", "Inter", system-ui, sans-serif;
-  --font-mono: "Geist", "Inter", system-ui, sans-serif;
+  --font-sans: "Geist Variable", system-ui, sans-serif;
+  --font-mono: "Geist Variable", system-ui, sans-serif;
   /* The wordmark's face, and nothing else's. */
   --font-brand: "Montserrat", sans-serif;
 
@@ -132,7 +132,7 @@
   --color-u-grid-line: rgba(3, 7, 18, 0.07);
 
   /* Uncava keeps a real monospace for numerals, which `--font-mono` above no longer is. */
-  --font-u-num: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  --font-u-num: "JetBrains Mono Variable", ui-monospace, SFMono-Regular, monospace;
 
   /* Uncava's elevation ladder: e1 lifts a card off the page, e3 a panel off the screen. */
   --shadow-u-e1: 0 1px 2px rgba(3, 7, 18, 0.06);

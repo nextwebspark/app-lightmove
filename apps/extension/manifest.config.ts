@@ -1,4 +1,5 @@
 import packageJson from "./package.json" with { type: "json" };
+import { CAPTURE_PRIVACY_URL } from "./src/captureLinks";
 
 /**
  * The single source of the extension's manifest, emitted by the build so the entry points it names and
@@ -32,6 +33,8 @@ export function buildManifest(workspaceOrigin: string) {
     version: packageVersion,
     description: "Capture a company or an executive from the page you are on into an Uncava mandate.",
     key: PINNED_PUBLIC_KEY,
+    // The store listing and chrome://extensions link here: what Capture reads and where it goes (#929).
+    homepage_url: CAPTURE_PRIVACY_URL,
 
     // Every permission below is here for one named feature. An unexplained permission is a review
     // failure and a Web Store rejection.

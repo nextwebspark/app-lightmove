@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { lazy, Suspense } from "react";
 import { useParams } from "react-router-dom";
 import { Logo, Skeleton } from "../../../components/ui";
+import { PRIVACY_URL } from "../../../lib/links";
 import * as bookingApi from "../api/bookingApi";
 import { DirectBookingForm } from "../components/DirectBookingForm";
 
@@ -40,12 +41,20 @@ export default function BookingPage() {
               {page.data.kind === "DIRECT" ? (
                 <DirectBookingForm slug={slug} consultantName={page.data.consultantName} />
               ) : (
-                <Suspense fallback={<Skeleton className="h-[420px] w-full" />}>
-                  <BookingScheduler
-                    configurationId={page.data.configurationId ?? ""}
-                    schedulerApiUrl={page.data.schedulerApiUrl ?? ""}
-                  />
-                </Suspense>
+                <>
+                  <Suspense fallback={<Skeleton className="h-[420px] w-full" />}>
+                    <BookingScheduler
+                      configurationId={page.data.configurationId ?? ""}
+                      schedulerApiUrl={page.data.schedulerApiUrl ?? ""}
+                    />
+                  </Suspense>
+                  <p className="mt-3 text-center text-meta text-u-text3">
+                    Our scheduling provider handles the times shown and the details you enter.{" "}
+                    <a href={PRIVACY_URL} target="_blank" rel="noreferrer" className="underline">
+                      Privacy
+                    </a>
+                  </p>
+                </>
               )}
             </div>
           </>
