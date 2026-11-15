@@ -17,6 +17,9 @@ import { FULLSCREEN_PANEL, useFullscreen } from "../../../lib/useFullscreen";
 import { sortableFieldsOf, useGridSort, type GridSort } from "../../../lib/useGridSort";
 import { useAuth } from "../../auth/AuthProvider";
 import * as candidatesApi from "../../candidates/api/candidatesApi";
+import * as shareConsentApi from "../../candidates/api/shareConsentApi";
+import { useShareConsents } from "../../candidates/lib/useShareConsents";
+import { useWorkspaceVocabulary } from "../../workspace/lib/vocabulary";
 import { useExecutivesAtCompany } from "../../candidates/lib/useExecutivesAtCompany";
 import type { Candidate, CandidatesPage } from "../../candidates/api/types";
 import {
@@ -676,6 +679,14 @@ function TriageStage() {
     onSettled: (_data, _error, { company }) => clearBusy(company.id),
   });
 
+  const shareConsents = useShareConsents(project.id);
+  const vocabulary = useWorkspaceVocabulary();
+  const consentRegister = useMutation({
+    mutationFn: () => shareConsentApi.saveConsentRegister(project.id),
+    onSuccess: () =>
+      toast.success(`Downloading the consent register for ${project.positionTitle} as a CSV — recorded in the audit log`),
+    onError: (error) => toast.error(messageFor(error)),
+  });
   const exportCsv = useMutation({
     // The debounced terms, not the keystrokes: the file is what the grid is showing, and for 300ms
     // after a keypress those are two different things.
@@ -848,6 +859,18 @@ function TriageStage() {
           hint: debouncedSearch.trim() ? "This stage, as searched" : "Every row of this stage",
           onSelect: () => exportCsv.mutate(),
         },
+        ...(canWrite && shareConsents.on
+          ? [
+              {
+                key: "consentRegister",
+                label: "Consent register",
+                icon: ICONS.shield,
+                disabled: consentRegister.isPending,
+                hint: `Who agreed to be shared with the ${vocabulary.unitLower} · CSV`,
+                onSelect: () => consentRegister.mutate(),
+              },
+            ]
+          : []),
       ],
     });
     return sections;

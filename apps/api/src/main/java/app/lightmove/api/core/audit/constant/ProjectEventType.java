@@ -135,6 +135,7 @@ public enum ProjectEventType implements AuditEventType {
 
     COMPANIES_EXPORTED,
     CANDIDATES_EXPORTED,
+    CONSENT_REGISTER_EXPORTED,
 
     /** Rows read through an API key: data leaving the product, recorded as an export is. */
     PUBLIC_API_READ,

@@ -28,6 +28,17 @@ const viewer: { id: string; fullName: string; avatarUrl: null; workspace: { role
   workspace: { roles: ["ADMIN"] },
 };
 vi.mock("../../auth/AuthProvider", () => ({ useAuth: () => ({ user: viewer }) }));
+// The workspace's consent to share (#1267 phase 3): off unless a test turns it on.
+const share = { on: false, given: new Set<string>() };
+vi.mock("../../candidates/lib/useShareConsents", () => ({
+  useShareConsents: () => ({
+    on: share.on,
+    clientNamable: true,
+    rowOf: () => undefined,
+    badgeOf: (candidateId: string) => (share.given.has(candidateId) ? "given" : "none"),
+    needsPrompt: (candidateId: string) => share.on && !share.given.has(candidateId),
+  }),
+}));
 vi.mock("../api/pipelineApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api/pipelineApi")>()),
   getPipeline: vi.fn(),
@@ -271,6 +282,63 @@ describe("PipelineView", () => {
     });
     vi.mocked(poolApi.getPerson).mockResolvedValue(aPersonRecord());
     localStorage.clear();
+    share.on = false;
+    share.given = new Set();
+  });
+
+  describe("consent to share with the client (#1267)", () => {
+    it("asks before showing someone with no consent, and Show anyway shows them", async () => {
+      share.on = true;
+      vi.mocked(pipelineApi.setClientVisibility).mockResolvedValue({ ...rows[4], clientVisible: true });
+      renderView();
+      await screen.findByRole("article", { name: "Elias Nader" });
+
+      await userEvent.click(within(card("Elias Nader")).getByRole("switch", { name: "Visible to client: Elias Nader" }));
+      const prompt = await screen.findByRole("dialog", { name: "No consent to share with Meridian Energy Group yet" });
+      expect(prompt).toHaveTextContent("Elias Nader hasn't agreed to their profile being shared with Meridian Energy Group");
+      expect(pipelineApi.setClientVisibility).not.toHaveBeenCalled();
+
+      await userEvent.click(within(prompt).getByRole("button", { name: "Show anyway" }));
+      await waitFor(() => expect(pipelineApi.setClientVisibility).toHaveBeenCalledWith("p1", "e", true));
+    });
+
+    it("never asks when hiding someone, when consent is given, or when the workspace does not ask", async () => {
+      vi.mocked(pipelineApi.setClientVisibility).mockResolvedValue({ ...rows[0], clientVisible: false });
+      share.on = true;
+      share.given = new Set(["e"]);
+      renderView();
+      await screen.findByRole("article", { name: "Amal Haddad" });
+
+      await userEvent.click(within(card("Amal Haddad")).getByRole("switch", { name: "Visible to client: Amal Haddad" }));
+      await userEvent.click(within(card("Elias Nader")).getByRole("switch", { name: "Visible to client: Elias Nader" }));
+      expect(screen.queryByRole("dialog", { name: /No consent to share/ })).not.toBeInTheDocument();
+      await waitFor(() => expect(pipelineApi.setClientVisibility).toHaveBeenCalledTimes(2));
+      expect(within(card("Elias Nader")).getByText("Consent given")).toBeInTheDocument();
+      expect(within(card("Bilal Saeed")).getByText("No consent to share")).toBeInTheDocument();
+    });
+
+    it("draws no badge and no prompt in a workspace that does not ask", async () => {
+      vi.mocked(pipelineApi.setClientVisibility).mockResolvedValue({ ...rows[4], clientVisible: true });
+      renderView();
+      await screen.findByRole("article", { name: "Elias Nader" });
+
+      expect(screen.queryByText("No consent to share")).not.toBeInTheDocument();
+      await userEvent.click(within(card("Elias Nader")).getByRole("switch", { name: "Visible to client: Elias Nader" }));
+      await waitFor(() => expect(pipelineApi.setClientVisibility).toHaveBeenCalledWith("p1", "e", true));
+      expect(screen.queryByRole("dialog", { name: /No consent to share/ })).not.toBeInTheDocument();
+    });
+
+    it("offers Ask to share with client from the card's menu", async () => {
+      share.on = true;
+      renderView();
+      await screen.findByRole("article", { name: "Amal Haddad" });
+
+      await userEvent.click(within(card("Amal Haddad")).getByRole("button", { name: "Amal Haddad options" }));
+      await userEvent.click(await screen.findByRole("menuitem", { name: "Ask to share with business unit…" }));
+      expect(await screen.findByRole("dialog", { name: "Ask to share Amal Haddad's profile" })).toHaveTextContent(
+        "for the Chief Financial Officer role",
+      );
+    });
   });
 
   it("reads the position's pipeline narrowed by the toolbar's search", async () => {

@@ -1,4 +1,4 @@
-import { useRef, useState, type DragEvent } from "react";
+import { useRef, useState, type DragEvent, type ReactNode } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { cn } from "../../../lib/cn";
 import type { CandidatePipelineStage } from "../../candidates/api/types";
@@ -45,6 +45,8 @@ export function PipelineBoard({
   onToggleVisible,
   onOpenNextAction,
   onAction,
+  shareBadgeOf,
+  onAskShare,
 }: {
   projectId: string;
   rows: readonly PipelineRow[];
@@ -58,6 +60,10 @@ export function PipelineBoard({
   onToggleVisible: (row: PipelineRow) => void;
   onOpenNextAction: (row: PipelineRow) => void;
   onAction: (kind: CardActionKind, row: PipelineRow) => void;
+  /** The card's share-with-client consent badge (#1267), when the workspace asks for it. */
+  shareBadgeOf?: (row: PipelineRow) => ReactNode;
+  /** The card menu's Ask to share with the client, when the workspace asks for it. */
+  onAskShare?: (row: PipelineRow) => void;
 }) {
   const gridRef = useRef<HTMLDivElement>(null);
   const band = useBandHeight(gridRef);
@@ -245,6 +251,8 @@ export function PipelineBoard({
                     onToggleSelected={onToggleSelected}
                     onToggleVisible={onToggleVisible}
                     onOpenNextAction={onOpenNextAction}
+                    shareBadge={shareBadgeOf?.(row)}
+                    onAskShare={onAskShare}
                   />
                 ))}
                 {cards.length === 0 && (
@@ -308,6 +316,7 @@ export function PipelineBoard({
                     actions={actionsOf(row)}
                     onOpen={onOpen}
                     onToggleVisible={onToggleVisible}
+                    shareBadge={shareBadgeOf?.(row)}
                   />
                 ))}
                 {cell.rows.length === 0 && !chooser && (

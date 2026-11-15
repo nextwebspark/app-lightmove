@@ -123,17 +123,40 @@ export interface ConsentRequestPreview {
   closing: string;
 }
 
-/** `EmailTemplates.buildConsentRequestEmail`'s subject and paragraphs, in order. */
+/** A share asked about with the request: the role, and the client by name only when the firm names it. */
+export interface SharePreview {
+  roleTitle: string;
+  clientName: string | null;
+}
+
+/** `ConsentWording.askingOf` for a share: "a confidential client" unless the client is named. */
+export function shareAskingOf(share: SharePreview): string {
+  return `share your profile with ${share.clientName ?? "a confidential client"} for a ${share.roleTitle} role`;
+}
+
+/**
+ * `EmailTemplates.buildConsentRequestEmail`'s subject and paragraphs, in order; a share asked on its own is
+ * `buildShareConsentRequestEmail`'s.
+ */
 export function consentRequestPreview(
   firm: string,
   sourcePhrase: string,
   purposes: readonly PersonalPurpose[],
   months: number,
+  share: SharePreview | null = null,
 ): ConsentRequestPreview {
+  if (share && purposes.length === 0) {
+    return {
+      subject: `May we share your profile for a ${share.roleTitle} role?`,
+      intro: `${firm} is searching for a ${share.roleTitle} for ${share.clientName ?? "a confidential client"}. We hold some of your professional details, which came from ${sourcePhrase}.`,
+      asking: [],
+      closing: `We think your experience fits, and we'd like your permission to share your profile with ${share.clientName ?? "the client"}. It's your choice. If you don't answer, nothing changes.`,
+    };
+  }
   return {
     subject: `${firm} would like your permission`,
     intro: `${firm} is an executive search firm. We hold some of your professional details, which came from ${sourcePhrase}.`,
-    asking: purposes.map((purpose) => askingOf(purpose, months)),
+    asking: [...purposes.map((purpose) => askingOf(purpose, months)), ...(share ? [shareAskingOf(share)] : [])],
     closing: "Each is a separate choice, and you can say no to any of them. If you don't answer, nothing changes.",
   };
 }

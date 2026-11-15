@@ -1,4 +1,4 @@
-# GDPR: consent requests per purpose (#1267 phase 2)
+# GDPR: consent requests per purpose (#1267 phases 2 and 3)
 
 Part of epic #917, step 7, after [privacy-notices-923.md](privacy-notices-923.md) (phase 1). A firm in consent mode asks a
 person, per purpose, whether it may keep their details on file, send them market updates, or (phase 3) share their
@@ -59,11 +59,15 @@ Each is a row of [governance-decisions.md](governance-decisions.md) (B7–B11) f
 
 | Route | Gate | Body → answer |
 |---|---|---|
-| `POST /api/v1/candidates/{personId}/consent-requests` | `CANDIDATE_POOL_MANAGE` | `{purposes: [keep_on_file \| marketing]}` → the person record |
+| `POST /api/v1/candidates/{personId}/consent-requests` | `CANDIDATE_POOL_MANAGE` | `{purposes: [keep_on_file \| marketing \| share_with_client], projectId?, nameClient?}` → the person record; a share needs `projectId`, a position they are on |
 | `POST /api/v1/candidates/bulk/consent-requests` | `CANDIDATE_POOL_MANAGE` | `{personIds, purposes}` → `{sent, skipped: [{personId, reason}]}` |
 | `POST /api/v1/candidates/{personId}/consents/recorded` | `CANDIDATE_POOL_MANAGE` | `{purpose, projectId?, answer: given \| declined \| withdrawn, answeredOn}` → the person record |
 | `POST /api/v1/privacy/links/{token}/consents` | the link | `{answers: [{consentId, answer}]}` → 204 |
 | `GET /api/v1/privacy/links/{token}` | the link | gains `purpose` and `consents` |
+| `GET /api/v1/projects/{projectId}/share-consents` | `WORK_EXECUTE` | → `{asksToShare, clientNamable, clientName, rows: [{candidateId, status, requestedAt, requestOpenUntil, answeredAt, clientNamed}]}` |
+| `POST /api/v1/projects/{projectId}/candidates/{candidateId}/share-consent-request` | `WORK_EXECUTE` | `{nameClient?}` → the row; naming the client of a confidential position `SHARE_CLIENT_CONFIDENTIAL` |
+| `GET /api/v1/candidates/export/consent-register` | `CANDIDATE_POOL_MANAGE` | `?position=` narrows to that position's shares → CSV, audited `CONSENT_REGISTER_EXPORTED` |
+| `GET /api/v1/projects/{projectId}/export/consent-register` | `WORK_EXECUTE` | → the position's shares as CSV, audited |
 | `PUT /api/v1/workspace/candidate-privacy` | `WORKSPACE_MANAGE` | gains `privacyMode`, `keepOnFile`, `keepOnFileMonths`, `shareWithClient`, `marketing`, `renewalDaysBefore` (each optional; left out keeps what is held) |
 
 ## Words
@@ -90,11 +94,37 @@ them; a change is made in both.
   lists what is in force, each withdrawn after one confirmation.
 - The bell names `consent_answered` as "answered your consent request".
 
+## Phase 3: share with client
+
+- **What is asked.** Whether the firm may share the person's profile with the position's client, for that one
+  position (`SHARE_WITH_CLIENT`, a row per person and position). From the Pipeline card's ⋯ (Ask to share with
+  client…), from the client-visibility prompt's Ask first, or ticked beside the other purposes in the drawer's Ask for
+  consent. Never in a bulk request: a share names one position.
+- **Naming the client.** The email, the page and the confirmation say "a confidential client" unless staff tick Name
+  the client; a position whose brief is marked confidential (`app_lm_position.confidential`) refuses it
+  (`SHARE_CLIENT_CONFIDENTIAL`). `client_named` keeps the choice; the page names the client only when it is set and the
+  search is still not confidential (`ShareTarget.clientNamedOrNull`). The share email never claims nothing was shared:
+  visibility starts on.
+- **The visibility switch warns, never blocks.** In consent mode with share offered, turning a person visible on the
+  Pipeline card or the Outreach pane's Client visible switch without a given share consent opens "No consent to share
+  with {client} yet" (Ask first · Show anyway · Cancel). Show anyway shows them; the timeline line and the audit event
+  then carry `withoutShareConsent: true`. Hiding someone never asks. The Outreach pane's Ask first sends at once in the
+  confidential wording; naming the client is the Pipeline card's dialog.
+- **Badges.** Each Pipeline card says No consent to share · Consent asked · Consent given. Visibility defaults to on, so
+  in a workspace that asks, most cards carry the first until people are asked.
+- **The consent register.** Every request and answer as a CSV (name, person id, purpose, position, client named,
+  status, asked on and by, answered on and how, valid until, wording version, wording), never a contact detail, formula
+  cells defused, refused past `lightmove.export.max-candidates` lines. From Settings (the whole workspace) and the
+  position's Advanced menu (that position's shares).
+- **The drawer** lists a share row per position the person was asked about, or is on while share is offered.
+
 ## Left open
 
 - The emails' footer is the shared on-behalf footer ("Sent by {firm} with Uncava"), not the mockup's "{firm} is
   responsible for your data. Sent by Uncava, the software they use." — changing it changes the privacy notice too.
 - The bulk dialog cannot say who will be skipped before it sends (the mockup's "{n} will be asked · {n} skipped");
   it says who was, after.
-- Share with client, its prompt on the client-visibility switch, and the consent register export: phase 3.
+- A withdrawn or declined share leaves the person visible to the client; the bell and badge say so, but nothing offers
+  Hide from client (governance decision B12).
+- The Ask dialog does not pre-tick the share purpose, as the mockup does: sharing is a separate act for one position.
 - Marketing consent is recorded only; nothing sends marketing.

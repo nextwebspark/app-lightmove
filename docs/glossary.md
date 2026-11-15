@@ -56,6 +56,9 @@ changes. Copy no mockup draws — toasts, errors, banners, empty states — foll
 | **Keep on file** | the purpose of keeping a candidate's details for future roles for 12, 24 or 36 months; while it is given, the candidate stays out of the retention review | retain, retention consent |
 | **Career and market updates** | the marketing purpose, recorded only: Uncava sends no updates | newsletter, marketing consent |
 | **Given** / **Declined** / **Withdrawn** / **Expired** | where a purpose stands: agreed, said no, took it back, or a request nobody answered in 30 days (or a consent past its date) | accepted, rejected, revoked, lapsed |
+| **Consent register** | the CSV of every consent request and answer, from Settings or a position's menu; never a contact detail | consent log, GDPR export |
+| **Ask to share with {unit}** / **Name the {unit}** | asking someone on a position whether their profile may go to its business unit or client (`useWorkspaceVocabulary().unitLower` on staff screens; the candidate's email and page always say "client"); the email says "a confidential client" unless Name the client is ticked, which a confidential position never allows | share consent, disclosure request |
+| **No consent to share** / **Consent asked** / **Consent given** | a Pipeline card's badge for that consent; turning visibility on without it asks first, and never refuses | unconsented, pending |
 | **Withdraw** | taking a consent back on the manage page a confirmation email links to, as easily as it was given | revoke, opt out |
 | **Export personal data** | an admin's one zip of everything held on a person, to answer their request for a copy of it (subject access), from the Candidates drawer's ⋯ | DSAR, SAR, subject access request export |
 | **Two-factor authentication** | a code from an authenticator app asked for after the password, turned on in Settings → Security | MFA, 2FA, TOTP, OTP |

@@ -16,11 +16,17 @@ import app.lightmove.api.candidate.dto.PersonRecordResponse;
 import app.lightmove.api.candidate.dto.RecordConsentRequest;
 import app.lightmove.api.candidate.model.CandidatePrivacySettings;
 import app.lightmove.api.candidate.model.ConsentPriorState;
+import app.lightmove.api.candidate.model.ConsentRegisterRow;
 import app.lightmove.api.candidate.model.ConsentRequestsQueued;
 import app.lightmove.api.candidate.model.MintedPrivacyLink;
 import app.lightmove.api.candidate.model.Person;
 import app.lightmove.api.candidate.model.PersonConsent;
 import app.lightmove.api.candidate.model.QueuedConsentRequest;
+import app.lightmove.api.candidate.model.ShareTarget;
+import app.lightmove.api.candidate.dto.ShareConsentRowResponse;
+import app.lightmove.api.candidate.dto.ShareConsentsResponse;
+import app.lightmove.api.candidate.model.Candidate;
+import app.lightmove.api.candidate.repository.CandidateRepository;
 import app.lightmove.api.candidate.repository.PersonRepository;
 import app.lightmove.api.common.constant.ApiValueEnum;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
@@ -44,6 +50,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
@@ -75,6 +82,8 @@ public class PersonConsentService {
     private final PrivacyEmailBudget budget;
     private final PrivacyLinkStore privacyLinks;
     private final PersonConsentStore consents;
+    private final ShareTargets shareTargets;
+    private final CandidateRepository candidates;
     private final EmailTemplates templates;
     private final ApplicationEventPublisher events;
     private final AuditService audit;
@@ -84,8 +93,9 @@ public class PersonConsentService {
     public PersonConsentService(PersonRepository people, PersonRecordService records, PersonActivityRecorder activity,
                                 CandidatePrivacySettingsService settings, SuppressionGate suppression,
                                 PrivacyEmailBudget budget, PrivacyLinkStore privacyLinks, PersonConsentStore consents,
-                                EmailTemplates templates, ApplicationEventPublisher events, AuditService audit,
-                                Clock clock, LightMoveProperties properties) {
+                                ShareTargets shareTargets, CandidateRepository candidates, EmailTemplates templates,
+                                ApplicationEventPublisher events, AuditService audit, Clock clock,
+                                LightMoveProperties properties) {
         this.people = people;
         this.records = records;
         this.activity = activity;
@@ -94,6 +104,8 @@ public class PersonConsentService {
         this.budget = budget;
         this.privacyLinks = privacyLinks;
         this.consents = consents;
+        this.shareTargets = shareTargets;
+        this.candidates = candidates;
         this.templates = templates;
         this.events = events;
         this.audit = audit;
@@ -103,24 +115,109 @@ public class PersonConsentService {
 
     @Transactional
     public PersonRecordResponse request(UUID userId, UUID workspaceId, UUID personId, List<String> wirePurposes,
-                                        HttpServletRequest httpRequest) {
+                                        UUID projectId, Boolean nameClient, HttpServletRequest httpRequest) {
         CandidatePrivacySettings firm = requireConsentMode(workspaceId);
-        Set<ConsentPurpose> asked = personalPurposesOf(wirePurposes, firm);
-        budget.hold(workspaceId);
+        Set<ConsentPurpose> asked = purposesOf(wirePurposes, firm, true);
         Person person = people.requireInWorkspace(personId, workspaceId);
+        ShareRequest share = asked.contains(ConsentPurpose.SHARE_WITH_CLIENT)
+                ? shareRequestOf(workspaceId, projectId, person, nameClient) : null;
+        askOne(userId, workspaceId, person, asked, share, firm, httpRequest);
+        return records.toRecord(userId, person);
+    }
+
+    /**
+     * Phase 3: asks the person on this position whether the firm may share their profile with its client. The email
+     * says "a confidential client" unless the firm names the client, which a confidential search never allows.
+     */
+    @Transactional
+    public ShareConsentRowResponse requestShare(UUID userId, UUID workspaceId, UUID projectId, UUID candidateId,
+                                                Boolean nameClient, HttpServletRequest httpRequest) {
+        CandidatePrivacySettings firm = requireConsentMode(workspaceId);
+        if (!firm.offeredPurposes().contains(ConsentPurpose.SHARE_WITH_CLIENT)) {
+            throw ApiException.of(ErrorCode.CONSENT_REQUESTS_OFF);
+        }
+        Candidate candidate = candidates.requireInProject(candidateId, projectId);
+        Person person = people.requireInWorkspace(candidate.getPerson().getId(), workspaceId);
+        ShareRequest share = shareRequestOf(workspaceId, projectId, person, nameClient);
+        askOne(userId, workspaceId, person, EnumSet.of(ConsentPurpose.SHARE_WITH_CLIENT), share, firm, httpRequest);
+        return shareRowOf(candidateId, consents.consentsOf(person.getId()).stream()
+                .filter(consent -> isShareOn(consent, projectId)).findFirst().orElse(null));
+    }
+
+    /** The position's share consents, one row per person on it who was ever asked, keyed by their candidate row. */
+    @Transactional(readOnly = true)
+    public ShareConsentsResponse shareConsentsOf(UUID workspaceId, UUID projectId) {
+        CandidatePrivacySettings firm = settings.settingsOf(workspaceId);
+        ShareTarget target = shareTargets.require(workspaceId, projectId);
+        Map<UUID, UUID> candidateByPerson = consents.candidatesOnPosition(projectId);
+        List<ShareConsentRowResponse> rows = consents.sharesOn(projectId).stream()
+                .filter(consent -> candidateByPerson.containsKey(consent.personId()))
+                .map(consent -> shareRowOf(candidateByPerson.get(consent.personId()), consent))
+                .toList();
+        boolean asking = firm.isReadyForConsent()
+                && firm.offeredPurposes().contains(ConsentPurpose.SHARE_WITH_CLIENT);
+        return new ShareConsentsResponse(asking, !target.confidential(), target.clientName(), rows);
+    }
+
+    /**
+     * The consent register: every request and answer in the workspace, or the shares asked for on one position.
+     * Past {@code cap} lines it is refused rather than cut short: half a register still looks whole.
+     */
+    @Transactional(readOnly = true)
+    public List<ConsentRegisterRow> registerOf(UUID workspaceId, UUID projectId, int cap) {
+        if (projectId != null) {
+            shareTargets.require(workspaceId, projectId);
+        }
+        List<ConsentRegisterRow> rows = consents.registerOf(workspaceId, projectId, cap + 1);
+        if (rows.size() > cap) {
+            throw ApiException.userFacing(ErrorCode.VALIDATION_FAILED,
+                    "That is more consents than one file may carry. Download it for one position instead.");
+        }
+        return rows;
+    }
+
+    /** Whether turning on client visibility for this person should warn: consent mode, and no live share consent. */
+    @Transactional(readOnly = true)
+    public boolean showsWithoutShareConsent(UUID workspaceId, UUID projectId, UUID personId) {
+        CandidatePrivacySettings firm = settings.settingsOf(workspaceId);
+        if (!firm.isReadyForConsent() || !firm.offeredPurposes().contains(ConsentPurpose.SHARE_WITH_CLIENT)) {
+            return false;
+        }
+        Instant now = clock.instant();
+        return consents.consentsOf(personId).stream()
+                .noneMatch(consent -> isShareOn(consent, projectId) && consent.isLiveAt(now));
+    }
+
+    private void askOne(UUID userId, UUID workspaceId, Person person, Set<ConsentPurpose> asked, ShareRequest share,
+                        CandidatePrivacySettings firm, HttpServletRequest httpRequest) {
+        budget.hold(workspaceId);
         Instant now = now();
         Set<ConsentPurpose> askable = EnumSet.noneOf(ConsentPurpose.class);
         ConsentRequestSkipReason skip = skipReasonOf(person,
-                suppression.suppressedPeopleOf(workspaceId, List.of(person)), consents.consentsOf(personId), asked,
-                firm, now, askable);
+                suppression.suppressedPeopleOf(workspaceId, List.of(person)), consents.consentsOf(person.getId()),
+                asked, share, firm, now, askable);
         if (skip == null && budget.remainingToday(workspaceId) <= 0) {
             skip = ConsentRequestSkipReason.DAILY_CAP;
         }
         if (skip != null) {
             throw refusalOf(skip);
         }
-        queue(userId, workspaceId, Map.of(person, askable), firm, false, now, httpRequest);
-        return records.toRecord(userId, person);
+        queue(userId, workspaceId, Map.of(person, askable), share, firm, false, now, httpRequest);
+    }
+
+    private ShareRequest shareRequestOf(UUID workspaceId, UUID projectId, Person person, Boolean nameClient) {
+        if (projectId == null) {
+            throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "projectId", "Choose the position to share for");
+        }
+        ShareTarget target = shareTargets.require(workspaceId, projectId);
+        if (candidates.findByProjectIdAndPersonId(projectId, person.getId()).isEmpty()) {
+            throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "projectId", "They are not on that position");
+        }
+        boolean named = Boolean.TRUE.equals(nameClient);
+        if (named && target.confidential()) {
+            throw ApiException.of(ErrorCode.SHARE_CLIENT_CONFIDENTIAL);
+        }
+        return new ShareRequest(target, named);
     }
 
     /** Everyone it can, in the order asked; who is skipped is answered with why, never dropped silently. */
@@ -128,7 +225,7 @@ public class PersonConsentService {
     public BulkConsentRequestResponse requestEach(UUID userId, UUID workspaceId, List<UUID> personIds,
                                                   List<String> wirePurposes, HttpServletRequest httpRequest) {
         CandidatePrivacySettings firm = requireConsentMode(workspaceId);
-        Set<ConsentPurpose> asked = personalPurposesOf(wirePurposes, firm);
+        Set<ConsentPurpose> asked = purposesOf(wirePurposes, firm, false);
         budget.hold(workspaceId);
         Set<UUID> ordered = new LinkedHashSet<>(personIds);
         Map<UUID, Person> found = people.findByWorkspaceIdAndIdIn(workspaceId, ordered).stream()
@@ -145,8 +242,8 @@ public class PersonConsentService {
                 throw ApiException.of(ErrorCode.NOT_FOUND);
             }
             Set<ConsentPurpose> askable = EnumSet.noneOf(ConsentPurpose.class);
-            ConsentRequestSkipReason skip = skipReasonOf(person, suppressed, held.get(personId), asked, firm, now,
-                    askable);
+            ConsentRequestSkipReason skip = skipReasonOf(person, suppressed, held.get(personId), asked, null, firm,
+                    now, askable);
             if (skip == null && asking.size() >= capacity) {
                 skip = ConsentRequestSkipReason.DAILY_CAP;
             }
@@ -156,7 +253,7 @@ public class PersonConsentService {
             }
             asking.put(person, askable);
         }
-        queue(userId, workspaceId, asking, firm, false, now, httpRequest);
+        queue(userId, workspaceId, asking, null, firm, false, now, httpRequest);
         return new BulkConsentRequestResponse(asking.size(), skipped);
     }
 
@@ -166,10 +263,6 @@ public class PersonConsentService {
                                              RecordConsentRequest request, HttpServletRequest httpRequest) {
         CandidatePrivacySettings firm = settings.settingsOf(workspaceId);
         ConsentPurpose purpose = ApiValueEnum.require(ConsentPurpose.class, request.purpose(), "purpose");
-        if (purpose == ConsentPurpose.SHARE_WITH_CLIENT) {
-            throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "purpose",
-                    "Record a share from the position it is for");
-        }
         ConsentStatus answer = ApiValueEnum.require(ConsentStatus.class, request.answer(), "answer");
         if (!ANSWERS_BY_HAND.contains(answer)) {
             throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "answer", "Choose given, declined or withdrawn");
@@ -178,19 +271,23 @@ public class PersonConsentService {
             throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "answeredOn", "Choose today or an earlier day");
         }
         Person person = people.requireInWorkspace(personId, workspaceId);
+        UUID projectId = purpose == ConsentPurpose.SHARE_WITH_CLIENT
+                ? shareRequestOf(workspaceId, request.projectId(), person, false).target().projectId() : null;
         Instant answeredAt = request.answeredOn().atTime(LocalTime.NOON).toInstant(ZoneOffset.UTC);
         Instant validUntil = answer == ConsentStatus.GIVEN && purpose == ConsentPurpose.KEEP_ON_FILE
                 ? answeredAt.atZone(ZoneOffset.UTC).plusMonths(firm.keepOnFileMonths()).toInstant() : null;
-        UUID consentId = consents.recordByHand(workspaceId, personId, purpose, null, answer, answeredAt, validUntil);
+        UUID consentId = consents.recordByHand(workspaceId, personId, purpose, projectId, answer, answeredAt,
+                validUntil);
         consents.appendEvent(workspaceId, personId, consentId, ConsentEventAction.RECORDED, answer,
                 ConsentEventVia.BY_HAND, null, userId, null, null, now());
-        activity.record(person, null, userId, PersonActivityKind.CONSENT_ANSWERED,
+        activity.record(person, projectId, userId, PersonActivityKind.CONSENT_ANSWERED,
                 PersonActivityDetails.of("purpose", purpose.value()).and("status", answer.value())
                         .and("via", "by_hand"));
         audit.event(ProjectEventType.PERSON_CONSENT_RECORDED)
                 .actor(userId).workspace(workspaceId).target(PERSON_TARGET, personId).from(httpRequest)
                 .detail("purpose", purpose.value())
                 .detail("status", answer.value())
+                .detailIfPresent("projectId", projectId == null ? null : projectId.toString())
                 .record();
         return records.toRecord(userId, person);
     }
@@ -246,7 +343,7 @@ public class PersonConsentService {
                 asking.put(person, EnumSet.of(ConsentPurpose.KEEP_ON_FILE));
             }
         }
-        queue(null, workspaceId, asking, firm, true, now.truncatedTo(ChronoUnit.MICROS), null);
+        queue(null, workspaceId, asking, null, firm, true, now.truncatedTo(ChronoUnit.MICROS), null);
         return asking.size();
     }
 
@@ -254,7 +351,7 @@ public class PersonConsentService {
      * Records every request as sent and hands the emails to the mailer for after the commit: a rolled-back request
      * must not reach anyone, and a refused one is undone there.
      */
-    private void queue(UUID senderId, UUID workspaceId, Map<Person, Set<ConsentPurpose>> asking,
+    private void queue(UUID senderId, UUID workspaceId, Map<Person, Set<ConsentPurpose>> asking, ShareRequest share,
                        CandidatePrivacySettings firm, boolean renewal, Instant now, HttpServletRequest httpRequest) {
         if (asking.isEmpty()) {
             return;
@@ -270,27 +367,41 @@ public class PersonConsentService {
             List<String> asks = new ArrayList<>();
             PersonConsent renewing = renewal ? keptOnFile(person.getId()) : null;
             for (ConsentPurpose purpose : purposes) {
+                boolean shared = purpose == ConsentPurpose.SHARE_WITH_CLIENT;
+                String clientName = shared ? share.clientNameOrNull() : null;
+                String roleTitle = shared ? share.target().roleTitle() : null;
                 String sentence = renewing != null
                         ? ConsentWording.renewalSentenceOf(renewing.answeredAt(), renewedUntil(renewing, firm))
-                        : ConsentWording.sentenceOf(purpose, firm.keepOnFileMonths(), null, null);
-                asks.add(ConsentWording.askingOf(purpose, firm.keepOnFileMonths(), null, null));
-                priors.add(consents.openRequest(workspaceId, person.getId(), purpose, null, senderId, link.id(), now,
-                        expiresAt, false, ConsentWording.VERSION, sentence));
+                        : ConsentWording.sentenceOf(purpose, firm.keepOnFileMonths(), clientName, roleTitle);
+                asks.add(ConsentWording.askingOf(purpose, firm.keepOnFileMonths(), clientName, roleTitle));
+                priors.add(consents.openRequest(workspaceId, person.getId(), purpose,
+                        shared ? share.target().projectId() : null, senderId, link.id(), now, expiresAt,
+                        shared && share.named(), ConsentWording.VERSION, sentence));
             }
             Instant previouslyNotifiedAt = person.getPrivacyNotifiedAt();
             PrivacyNoticeChannel previousChannel = person.getPrivacyNoticeChannel();
             person.recordNotified(now, PrivacyNoticeChannel.PRIVACY_EMAIL);
             String purposeTokens = purposes.stream().map(ConsentPurpose::value).collect(Collectors.joining(","));
-            activity.record(person, null, senderId, PersonActivityKind.CONSENT_REQUESTED,
+            UUID sharedProjectId = share != null && purposes.contains(ConsentPurpose.SHARE_WITH_CLIENT)
+                    ? share.target().projectId() : null;
+            activity.record(person, sharedProjectId, senderId, PersonActivityKind.CONSENT_REQUESTED,
                     PersonActivityDetails.of("purposes", purposeTokens).and("renewal", renewal ? true : null));
             audit.event(ProjectEventType.PERSON_CONSENT_REQUESTED)
                     .actor(senderId).workspace(workspaceId).target(PERSON_TARGET, person.getId()).from(httpRequest)
                     .detail("purposes", purposeTokens)
                     .detail("renewal", renewal)
+                    .detailIfPresent("projectId", sharedProjectId == null ? null : sharedProjectId.toString())
+                    .detailIfPresent("clientIdentified", sharedProjectId == null ? null : share.named())
                     .record();
             String recipient = person.emailContacts().getFirst().getValue();
             String pageLink = baseUrl + "/privacy/" + link.token();
-            EmailMessage email = renewing != null
+            boolean shareOnly = purposes.equals(EnumSet.of(ConsentPurpose.SHARE_WITH_CLIENT));
+            EmailMessage email = shareOnly
+                    ? templates.buildShareConsentRequestEmail(recipient, person.getFullName(), firm.controllerName(),
+                            firm.privacyContactEmail(), PrivacyNoticeWording.sourceOf(person.getSource()),
+                            share.target().roleTitle(), share.clientNameOrNull(), pageLink, firm.noticeUrl(),
+                            ConsentWording.dayOf(expiresAt))
+                    : renewing != null
                     ? templates.buildConsentRenewalEmail(recipient, person.getFullName(), firm.controllerName(),
                             firm.privacyContactEmail(), ConsentWording.dayOf(renewing.answeredAt()),
                             ConsentWording.dayOf(renewing.validUntil()), firm.keepOnFileMonths(), pageLink,
@@ -322,8 +433,9 @@ public class PersonConsentService {
      * asked within the last 14 days. Answers why nothing is, or null.
      */
     private ConsentRequestSkipReason skipReasonOf(Person person, Set<UUID> suppressed, List<PersonConsent> held,
-                                                  Set<ConsentPurpose> asked, CandidatePrivacySettings firm,
-                                                  Instant now, Set<ConsentPurpose> askable) {
+                                                  Set<ConsentPurpose> asked, ShareRequest share,
+                                                  CandidatePrivacySettings firm, Instant now,
+                                                  Set<ConsentPurpose> askable) {
         PrivacyNoticeSkipReason unreachable = PrivacyEmailBudget.unreachableReasonOf(person, suppressed);
         if (unreachable != null) {
             return ConsentRequestSkipReason.valueOf(unreachable.name());
@@ -331,8 +443,10 @@ public class PersonConsentService {
         Instant renewalWindowEnd = now.plus(Duration.ofDays(firm.renewalDaysBefore()));
         boolean anyRecentlyAsked = false;
         for (ConsentPurpose purpose : asked) {
+            UUID projectId = purpose == ConsentPurpose.SHARE_WITH_CLIENT ? share.target().projectId() : null;
             PersonConsent consent = held.stream()
-                    .filter(candidate -> candidate.purpose() == purpose && candidate.projectId() == null)
+                    .filter(candidate -> candidate.purpose() == purpose
+                            && Objects.equals(candidate.projectId(), projectId))
                     .findFirst().orElse(null);
             if (consent != null && consent.isLiveAt(now)
                     && (consent.validUntil() == null || consent.validUntil().isAfter(renewalWindowEnd))) {
@@ -351,12 +465,13 @@ public class PersonConsentService {
         return anyRecentlyAsked ? ConsentRequestSkipReason.RECENTLY_ASKED : ConsentRequestSkipReason.ALREADY_GIVEN;
     }
 
-    /** The purposes a person is asked about here: offered by the firm, and never a share, which is a position's. */
-    private static Set<ConsentPurpose> personalPurposesOf(List<String> wirePurposes, CandidatePrivacySettings firm) {
+    /** The purposes asked about: offered by the firm; a share names one position, so never in a bulk request. */
+    private static Set<ConsentPurpose> purposesOf(List<String> wirePurposes, CandidatePrivacySettings firm,
+                                                  boolean shareAllowed) {
         Set<ConsentPurpose> purposes = EnumSet.noneOf(ConsentPurpose.class);
         for (String wire : wirePurposes) {
             ConsentPurpose purpose = ApiValueEnum.require(ConsentPurpose.class, wire, "purpose");
-            if (purpose == ConsentPurpose.SHARE_WITH_CLIENT) {
+            if (purpose == ConsentPurpose.SHARE_WITH_CLIENT && !shareAllowed) {
                 throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "purposes",
                         "Ask to share with a client from the position");
             }
@@ -390,6 +505,26 @@ public class PersonConsentService {
             case RECENTLY_ASKED -> ErrorCode.CONSENT_RECENTLY_REQUESTED;
             case DAILY_CAP -> ErrorCode.PRIVACY_NOTICE_DAILY_LIMIT;
         });
+    }
+
+    private static boolean isShareOn(PersonConsent consent, UUID projectId) {
+        return consent.purpose() == ConsentPurpose.SHARE_WITH_CLIENT && projectId.equals(consent.projectId());
+    }
+
+    private static ShareConsentRowResponse shareRowOf(UUID candidateId, PersonConsent consent) {
+        if (consent == null) {
+            return new ShareConsentRowResponse(candidateId, null, null, null, null, false);
+        }
+        return new ShareConsentRowResponse(candidateId, consent.status().value(), consent.requestedAt(),
+                consent.requestExpiresAt(), consent.answeredAt(), consent.clientNamed());
+    }
+
+    /** A share asked about: the position it is for, and whether the email names the client. */
+    private record ShareRequest(ShareTarget target, boolean named) {
+
+        String clientNameOrNull() {
+            return target.clientNamedOrNull(named);
+        }
     }
 
     /** Microseconds, as the columns keep them, so a refused send can tell its own telling from a later one. */

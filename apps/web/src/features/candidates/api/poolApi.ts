@@ -189,8 +189,15 @@ export function markNotified(personId: string, notifiedOn: string): Promise<Pers
 }
 
 /** Asks the person by email about each purpose (#1267); they answer on the page it links to. */
-export function requestConsent(personId: string, purposes: ConsentPurpose[]): Promise<PersonRecord> {
-  return request<PersonRecord>(`/candidates/${personId}/consent-requests`, { method: "POST", body: { purposes } });
+export function requestConsent(
+  personId: string,
+  purposes: ConsentPurpose[],
+  share?: { projectId: string; nameClient: boolean },
+): Promise<PersonRecord> {
+  return request<PersonRecord>(`/candidates/${personId}/consent-requests`, {
+    method: "POST",
+    body: share ? { purposes, projectId: share.projectId, nameClient: share.nameClient } : { purposes },
+  });
 }
 
 /** Asks everyone it can; who it could not ask comes back with why. */

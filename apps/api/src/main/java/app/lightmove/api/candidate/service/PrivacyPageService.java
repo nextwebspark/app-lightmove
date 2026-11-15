@@ -11,6 +11,7 @@ import app.lightmove.api.candidate.model.ConsentAnswered;
 import app.lightmove.api.candidate.model.ConsentConfirmationQueued;
 import app.lightmove.api.candidate.model.MintedPrivacyLink;
 import app.lightmove.api.candidate.model.PersonConsent;
+import app.lightmove.api.candidate.model.ShareTarget;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.email.service.EmailTemplates;
 import java.time.ZoneOffset;
@@ -88,6 +89,7 @@ public class PrivacyPageService {
     private final PersonConsentStore consents;
     private final PrivacyLinkStore privacyLinks;
     private final EmailTemplates templates;
+    private final ShareTargets shareTargets;
     private final String baseUrl;
 
     public PrivacyPageService(TenantResolvers resolvers, RateLimitGuard rateLimit, NamedParameterJdbcTemplate jdbc,
@@ -95,7 +97,7 @@ public class PrivacyPageService {
                               SuppressionListService suppression, PersonActivityRecorder activity, AuditService audit,
                               ApplicationEventPublisher events, Clock clock,
                               PlatformTransactionManager transactionManager, PersonConsentStore consents,
-                              PrivacyLinkStore privacyLinks, EmailTemplates templates,
+                              PrivacyLinkStore privacyLinks, EmailTemplates templates, ShareTargets shareTargets,
                               LightMoveProperties properties) {
         this.resolvers = resolvers;
         this.rateLimit = rateLimit;
@@ -111,6 +113,7 @@ public class PrivacyPageService {
         this.consents = consents;
         this.privacyLinks = privacyLinks;
         this.templates = templates;
+        this.shareTargets = shareTargets;
         this.baseUrl = properties.web().baseUrl();
     }
 
@@ -324,7 +327,9 @@ public class PrivacyPageService {
             manageLink = baseUrl + "/privacy/" + manage.token();
             manageUntil = ConsentWording.dayOf(lastsUntil);
         }
-        List<String> lines = recorded.stream().map(AnsweredConsent::line).toList();
+        Map<UUID, ShareTarget> targets = shareTargets.each(recorded.stream()
+                .map(answered -> answered.consent().projectId()).filter(Objects::nonNull).collect(Collectors.toSet()));
+        List<String> lines = recorded.stream().map(answered -> answered.line(targets)).toList();
         events.publishEvent(new ConsentConfirmationQueued(link.workspaceId(), person.getId(),
                 templates.buildConsentConfirmationEmail(person.emailContacts().getFirst().getValue(),
                         person.getFullName(), firm.controllerName(), firm.privacyContactEmail(),
@@ -341,12 +346,18 @@ public class PrivacyPageService {
                     .toList();
             case NOTICE, OPT_OUT -> List.of();
         };
-        return shown.stream().map(consent -> new PrivacyPageConsentResponse(consent.id(), consent.purpose().value(),
-                consent.status().value(), link.purpose() == PrivacyLinkPurpose.CONSENT
-                        && consent.isOpenAt(now) && link.id().equals(consent.requestLinkId()),
-                consent.wording(), consent.validUntil(), consent.answeredAt(),
-                consent.purpose() == ConsentPurpose.KEEP_ON_FILE ? firm.keepOnFileMonths() : null, null, null))
-                .toList();
+        Map<UUID, ShareTarget> targets = shareTargets.each(shown.stream().map(PersonConsent::projectId)
+                .filter(Objects::nonNull).collect(Collectors.toSet()));
+        return shown.stream().map(consent -> {
+            ShareTarget target = consent.projectId() == null ? null : targets.get(consent.projectId());
+            return new PrivacyPageConsentResponse(consent.id(), consent.purpose().value(),
+                    consent.status().value(), link.purpose() == PrivacyLinkPurpose.CONSENT
+                            && consent.isOpenAt(now) && link.id().equals(consent.requestLinkId()),
+                    consent.wording(), consent.validUntil(), consent.answeredAt(),
+                    consent.purpose() == ConsentPurpose.KEEP_ON_FILE ? firm.keepOnFileMonths() : null,
+                    target == null ? null : target.roleTitle(),
+                    target == null ? null : target.clientNamedOrNull(consent.clientNamed()));
+        }).toList();
     }
 
     private <T> T inLinksWorkspace(String tokenHash, Function<PrivacyLink, T> work) {
@@ -439,8 +450,11 @@ public class PrivacyPageService {
 
     private record AnsweredConsent(PersonConsent consent, ConsentStatus status, Instant validUntil) {
 
-        String line() {
-            String label = ConsentWording.labelOf(consent.purpose(), null, null);
+        String line(Map<UUID, ShareTarget> targets) {
+            ShareTarget target = consent.projectId() == null ? null : targets.get(consent.projectId());
+            String label = ConsentWording.labelOf(consent.purpose(),
+                    target == null ? null : target.clientNamedOrNull(consent.clientNamed()),
+                    target == null ? null : target.roleTitle());
             return label + ": " + switch (status) {
                 case GIVEN -> validUntil == null ? "Yes" : "Yes, until " + ConsentWording.dayOf(validUntil);
                 case DECLINED -> "No";

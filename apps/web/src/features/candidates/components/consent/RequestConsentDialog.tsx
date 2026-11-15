@@ -1,7 +1,7 @@
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { Icon, ICONS } from "../../../../components/layout/Icon";
-import { Button, FormError, useToast } from "../../../../components/ui";
+import { Button, FormError, Select, useToast } from "../../../../components/ui";
 import { CheckBox } from "../../../../components/ui/FilterCheckRow";
 import { Modal } from "../../../../components/ui/Modal";
 import { cn } from "../../../../lib/cn";
@@ -9,6 +9,7 @@ import { formatInstantDate } from "../../../../lib/datetime";
 import { messageFor } from "../../../../lib/errorCodes";
 import type { CandidatePrivacySettings } from "../../api/candidatePrivacyApi";
 import * as poolApi from "../../api/poolApi";
+import * as shareConsentApi from "../../api/shareConsentApi";
 import type { BulkConsentRequestResult, PersonConsent, PersonRecord } from "../../api/types";
 import { sourcePhraseOf } from "../../lib/candidatePrivacy";
 import {
@@ -18,6 +19,7 @@ import {
   PERSONAL_PURPOSES,
   type PersonalPurpose,
 } from "../../lib/consentPreview";
+import { useWorkspaceVocabulary } from "../../../workspace/lib/vocabulary";
 
 const DAY_MS = 86_400_000;
 const RECENTLY_DAYS = 14;
@@ -71,6 +73,7 @@ export function RequestConsentDialog({
   onClose: () => void;
   onSent: (record: PersonRecord | null) => void;
 }) {
+  const vocabulary = useWorkspaceVocabulary();
   const toast = useToast();
   const [now] = useState(() => Date.now());
   const single = target.kind === "person" ? target.person : null;
@@ -98,9 +101,44 @@ export function RequestConsentDialog({
   const asking = offered.filter((purpose) => ticked.has(purpose) && !locks.get(purpose));
   const blocked = single ? blockOf(single) : null;
 
+  // Phase 3: one person can also be asked about sharing their profile for one of their positions.
+  const positions = single && firm.shareWithClient ? single.positions : [];
+  const [shareTicked, setShareTicked] = useState(false);
+  const [shareProjectId, setShareProjectId] = useState(positions[0]?.projectId ?? "");
+  const [nameClient, setNameClient] = useState(false);
+  const shareTarget = useQuery({
+    queryKey: shareConsentApi.SHARE_CONSENTS_KEY(shareProjectId),
+    queryFn: ({ signal }) => shareConsentApi.getShareConsents(shareProjectId, signal),
+    enabled: shareTicked && !!shareProjectId,
+  });
+  const shareLock = single
+    ? lockOf(
+        single.privacy.consents.find(
+          (consent) => consent.purpose === "share_with_client" && consent.projectId === shareProjectId,
+        ),
+        firm.renewalDaysBefore,
+        now,
+      )
+    : null;
+  const clientNamable = shareTarget.data?.clientNamable ?? true;
+  const sharing = shareTicked && !!shareProjectId && !shareLock;
+  const roleTitle = positions.find((position) => position.projectId === shareProjectId)?.positionTitle ?? "";
+  const named = sharing && clientNamable && nameClient;
+  const sharePreview = sharing
+    ? { roleTitle, clientName: named ? (shareTarget.data?.clientName ?? null) : null }
+    : null;
+
   const sending = useMutation({
     mutationFn: async () => {
-      if (single) return { record: await poolApi.requestConsent(single.personId, asking), bulk: null };
+      if (single) {
+        const record = sharing
+          ? await poolApi.requestConsent(single.personId, [...asking, "share_with_client"], {
+              projectId: shareProjectId,
+              nameClient: named,
+            })
+          : await poolApi.requestConsent(single.personId, asking);
+        return { record, bulk: null };
+      }
       return {
         record: null,
         bulk: await poolApi.requestConsents(
@@ -164,8 +202,9 @@ export function RequestConsentDialog({
     sourcePhraseOf(single?.source),
     asking,
     firm.keepOnFileMonths,
+    sharePreview,
   );
-  const noneToSend = asking.length === 0 || !!blocked;
+  const noneToSend = (asking.length === 0 && !sharing) || !!blocked;
   const toggle = (purpose: PersonalPurpose) =>
     setTicked((current) => {
       const next = new Set(current);
@@ -226,6 +265,60 @@ export function RequestConsentDialog({
                 </button>
               );
             })}
+            {positions.length > 0 && (
+              <div className="rounded-u-chip border border-u-border bg-u-raised px-3 py-2.5">
+                <button
+                  type="button"
+                  role="checkbox"
+                  aria-checked={sharing}
+                  disabled={!!shareLock}
+                  onClick={() => setShareTicked((current) => !current)}
+                  className={cn("flex w-full items-start gap-2.5 text-left", shareLock ? "cursor-not-allowed opacity-55" : "")}
+                >
+                  <CheckBox checked={sharing} />
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-note font-medium text-u-text">Share their profile with a {vocabulary.unitLower}</span>
+                    <span className="mt-0.5 block font-mono text-meta text-u-text3">
+                      {shareLock ??
+                        (named
+                          ? `For one position. The email names ${shareTarget.data?.clientName ?? "the client"}`
+                          : 'For one position. The email says "a confidential client"')}
+                    </span>
+                  </span>
+                </button>
+                {shareTicked && (
+                  <div className="mt-2 flex flex-col gap-2 ps-7">
+                    <Select
+                      aria-label="Position"
+                      density="compact"
+                      value={shareProjectId}
+                      onChange={(event) => setShareProjectId(event.target.value)}
+                    >
+                      {positions.map((position) => (
+                        <option key={position.projectId} value={position.projectId}>
+                          {position.positionTitle ?? "Position"}
+                        </option>
+                      ))}
+                    </Select>
+                    <button
+                      type="button"
+                      role="checkbox"
+                      aria-checked={named}
+                      disabled={!clientNamable}
+                      onClick={() => setNameClient((current) => !current)}
+                      className={cn("flex items-start gap-2 text-left", !clientNamable && "cursor-not-allowed opacity-55")}
+                    >
+                      <CheckBox checked={named} />
+                      <span className="text-note text-u-text2">
+                        {clientNamable
+                          ? `Name the ${vocabulary.unitLower}${shareTarget.data?.clientName ? ` (${shareTarget.data.clientName})` : ""}`
+                          : 'This position is confidential, so the email says "a confidential client".'}
+                      </span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
         <div aria-label="Consent request preview" className="rounded-u-card border border-u-border bg-u-raised px-3.5 py-3">
@@ -233,16 +326,22 @@ export function RequestConsentDialog({
             From: {firm.controllerName} via Uncava · Reply-to: {firm.privacyContactEmail}
           </div>
           <div className="mt-1 text-note font-semibold text-u-text">{preview.subject}</div>
-          <p className="mt-2 text-note text-u-text2">
-            {preview.intro} We&apos;d like your permission to:
-          </p>
-          <ul className="mt-1.5 list-disc ps-5 text-note text-u-text2">
-            {preview.asking.length > 0 ? (
-              preview.asking.map((ask) => <li key={ask}>{ask}</li>)
-            ) : (
-              <li>(tick at least one)</li>
-            )}
-          </ul>
+          {preview.asking.length === 0 && sharePreview ? (
+            <p className="mt-2 text-note text-u-text2">{preview.intro}</p>
+          ) : (
+            <>
+              <p className="mt-2 text-note text-u-text2">
+                {preview.intro} We&apos;d like your permission to:
+              </p>
+              <ul className="mt-1.5 list-disc ps-5 text-note text-u-text2">
+                {preview.asking.length > 0 ? (
+                  preview.asking.map((ask) => <li key={ask}>{ask}</li>)
+                ) : (
+                  <li>(tick at least one)</li>
+                )}
+              </ul>
+            </>
+          )}
           <p className="mt-1.5 text-note text-u-text2">{preview.closing}</p>
           <div className="mt-2.5 flex flex-wrap items-center gap-2">
             <span className="rounded-u-chip bg-u-accent-solid px-2.5 py-1.5 text-note font-semibold text-white">

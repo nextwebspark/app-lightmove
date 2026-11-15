@@ -1,10 +1,16 @@
-import { useQueryClient } from "@tanstack/react-query";
-import type { ReactNode } from "react";
-import { Link } from "react-router-dom";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useState, type ReactNode } from "react";
+import { Link, useOutletContext } from "react-router-dom";
+import type { ProjectOutletContext } from "../../../components/layout/ProjectLayout";
 import { Icon, ICONS } from "../../../components/layout/Icon";
-import { Toggle } from "../../../components/ui";
+import { Toggle, useToast } from "../../../components/ui";
 import { cn } from "../../../lib/cn";
+import * as shareConsentApi from "../../candidates/api/shareConsentApi";
+import { ShareConsentPromptDialog } from "../../candidates/components/consent/ShareConsentPromptDialog";
 import { PersonAvatar } from "../../candidates/components/pool/PersonAvatar";
+import { useShareConsents } from "../../candidates/lib/useShareConsents";
+import { useWorkspaceVocabulary } from "../../workspace/lib/vocabulary";
+import { messageFor } from "../../../lib/errorCodes";
 import { pipelineColourClass, pipelineSwatchClass } from "../../candidates/lib/pipelineStatus";
 import { useClientVisibility } from "../../pipeline/lib/usePipelineWrites";
 import { CONVERSATION_KEY, type Conversation } from "../api/conversationApi";
@@ -26,8 +32,40 @@ export function CandidateDetailsPane({
   onOpenRecord: (tab: "activity" | null) => void;
 }) {
   const queryClient = useQueryClient();
+  const toast = useToast();
   const clientVisibility = useClientVisibility(projectId);
+  const share = useShareConsents(projectId);
+  const outlet = useOutletContext<ProjectOutletContext | undefined>();
+  const vocabulary = useWorkspaceVocabulary();
+  const clientName = outlet?.project.clientName ?? `the ${vocabulary.unitLower}`;
+  const [sharePrompt, setSharePrompt] = useState(false);
   const { executive, contact, keyDates, currentRun } = conversation;
+  // Ask first from here goes straight away, in the confidential wording; naming the client is the Pipeline card's.
+  const askShare = useMutation({
+    mutationFn: () => shareConsentApi.requestShareConsent(projectId, executive.candidateId, false),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: shareConsentApi.SHARE_CONSENTS_KEY(projectId) });
+      toast.success(`Request sent to ${executive.fullName.split(" ")[0]}.`);
+      setSharePrompt(false);
+    },
+    onError: (failure) => {
+      toast.error(messageFor(failure));
+      setSharePrompt(false);
+    },
+  });
+  const showToClient = (checked: boolean) =>
+    clientVisibility.mutate(
+      { candidateId: executive.candidateId, clientVisible: checked },
+      {
+        // Written into the read at once, so the switch holds its new place until the refetch confirms it.
+        onSuccess: (saved) =>
+          queryClient.setQueryData<Conversation>(CONVERSATION_KEY(projectId, executive.candidateId), (held) =>
+            held ? { ...held, executive: { ...held.executive, clientVisible: saved.clientVisible } } : held,
+          ),
+        onSettled: () =>
+          void queryClient.invalidateQueries({ queryKey: CONVERSATION_KEY(projectId, executive.candidateId) }),
+      },
+    );
   const run = currentRun.run;
   const location = [contact.locationCity, contact.locationCountry].filter(Boolean).join(", ");
   const clientVisible = clientVisibility.isPending
@@ -61,26 +99,30 @@ export function CandidateDetailsPane({
               checked={clientVisible}
               label="Client visible"
               disabled={clientVisibility.isPending}
-              onChange={(checked) =>
-                clientVisibility.mutate(
-                  { candidateId: executive.candidateId, clientVisible: checked },
-                  {
-                    // Written into the read at once, so the switch holds its new place until the refetch confirms it.
-                    onSuccess: (saved) =>
-                      queryClient.setQueryData<Conversation>(CONVERSATION_KEY(projectId, executive.candidateId), (held) =>
-                        held ? { ...held, executive: { ...held.executive, clientVisible: saved.clientVisible } } : held,
-                      ),
-                    onSettled: () =>
-                      void queryClient.invalidateQueries({ queryKey: CONVERSATION_KEY(projectId, executive.candidateId) }),
-                  },
-                )
-              }
+              onChange={(checked) => {
+                if (checked && share.needsPrompt(executive.candidateId)) setSharePrompt(true);
+                else showToClient(checked);
+              }}
             />
           </span>
         </div>
         <p className="mt-1 text-meta text-u-text3">
           Client-visible profile only. Emails and private notes remain internal.
         </p>
+        {sharePrompt && (
+          <ShareConsentPromptDialog
+            fullName={executive.fullName}
+            clientName={clientName}
+            row={share.rowOf(executive.candidateId)}
+            busy={askShare.isPending}
+            onClose={() => setSharePrompt(false)}
+            onShowAnyway={() => {
+              setSharePrompt(false);
+              showToClient(true);
+            }}
+            onAskFirst={() => askShare.mutate()}
+          />
+        )}
       </div>
 
       <DetailBlock title="Contact details">

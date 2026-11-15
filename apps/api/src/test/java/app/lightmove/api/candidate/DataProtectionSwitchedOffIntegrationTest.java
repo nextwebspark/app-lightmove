@@ -77,7 +77,12 @@ class DataProtectionSwitchedOffIntegrationTest extends FlowTestSupport {
                 post("/api/v1/candidates/bulk/consent-requests").content("""
                         {"personIds":["%s"],"purposes":["keep_on_file"]}""".formatted(someone)),
                 post("/api/v1/candidates/" + someone + "/consents/recorded").content("""
-                        {"purpose":"keep_on_file","answer":"given","answeredOn":"2026-01-01"}"""));
+                        {"purpose":"keep_on_file","answer":"given","answeredOn":"2026-01-01"}"""),
+                get("/api/v1/projects/" + someone + "/share-consents"),
+                post("/api/v1/projects/" + someone + "/candidates/" + someone + "/share-consent-request")
+                        .content("{}"),
+                get("/api/v1/candidates/export/consent-register"),
+                get("/api/v1/projects/" + someone + "/export/consent-register"));
         for (MockHttpServletRequestBuilder route : routes) {
             assertThat(codeOf(mvc.perform(route.header("Authorization", "Bearer " + admin)
                             .contentType(MediaType.APPLICATION_JSON))

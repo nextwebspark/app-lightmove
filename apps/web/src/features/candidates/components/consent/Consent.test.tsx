@@ -13,6 +13,8 @@ import { PersonPrivacySection } from "../pool/PersonPrivacySection";
 import { RecordConsentDialog } from "./RecordConsentDialog";
 import { RequestConsentDialog } from "./RequestConsentDialog";
 
+// An agency workspace, so the client is called a client (useWorkspaceVocabulary).
+vi.mock("../../../auth/AuthProvider", () => ({ useAuth: () => ({ user: { workspace: { mode: "AGENCY" } } }) }));
 vi.mock("../../api/poolApi", async (importOriginal) => ({
   ...(await importOriginal<typeof poolApi>()),
   requestConsent: vi.fn(),
@@ -83,6 +85,7 @@ function personWith(consents: PersonConsent[], extra: Partial<PersonRecord["priv
     },
     addedAt: "2026-07-01T10:00:00Z",
     source: "extension",
+    positions: [],
   } as unknown as PersonRecord;
 }
 
