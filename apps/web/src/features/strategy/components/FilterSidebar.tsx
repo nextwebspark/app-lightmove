@@ -10,6 +10,7 @@ import { IndustryFilter } from "./IndustryFilter";
 import { KeywordFilter } from "./KeywordFilter";
 import { OffLimitsFilter } from "./OffLimitsFilter";
 import { RangeFilter } from "./RangeFilter";
+import { appliedRange } from "../lib/filterRanges";
 
 /** Which accordion keys exist, in the order the rail renders them. */
 type AccordionKey = "location" | "employees" | "revenue" | "industry" | "segments" | "offlimits";
@@ -85,14 +86,14 @@ export function FilterSidebar({
     }));
   };
 
-  /** A custom range summarises as one pill, since its two numbers are one decision. */
-  const rangeTag = (range: NumericRange | null): SelectedTag[] => {
+  /** A custom range summarises as one pill, since its two numbers are one decision; one that narrows nothing has none. */
+  const rangeTag = (typed: NumericRange | null): SelectedTag[] => {
     const tag = (label: string) => [{ value: RANGE_TAG, label }];
+    const range = appliedRange(typed);
     if (!range) return [];
     if (range.min !== null && range.max !== null) return tag(`${range.min}-${range.max}`);
     if (range.min !== null) return tag(`${range.min}+`);
-    if (range.max !== null) return tag(`≤${range.max}`);
-    return [];
+    return tag(`≤${range.max}`);
   };
 
   // One panel, so one pill row. A keyword is prefixed because an industry and a keyword can be the

@@ -35,6 +35,7 @@ import { EMPTY_GRID_LAYOUT, layoutColumnsOf, useGridLayout } from "../../../lib/
 import { useGridSort } from "../../../lib/useGridSort";
 import { COMPANY_SORT_FIELDS } from "../lib/companyColumns";
 import { FilterSidebar } from "../components/FilterSidebar";
+import { savableFilter } from "../lib/filterRanges";
 import { PaginationBar } from "../../../components/ui/PaginationBar";
 import { SelectionAction, SelectionActionBar } from "../../../components/ui/SelectionActionBar";
 import { StrategyToolbar } from "../components/StrategyToolbar";
@@ -195,7 +196,7 @@ function StrategyEditor({ toggle }: { toggle: ReactNode }) {
 
   const applyFilter = (next: StrategyFilter) => {
     setFilter(next);
-    autosave.schedule(next);
+    autosave.schedule(savableFilter(next));
     resetScope();
   };
 
