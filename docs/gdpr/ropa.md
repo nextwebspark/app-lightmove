@@ -68,5 +68,5 @@ version, the time and who (`dpa_version`, `dpa_accepted_at`, `dpa_accepted_by`, 
 
 **Measures not yet in place** (also in [dpia.md](dpia.md) §5): automated backups and point-in-time recovery are off;
 humans can be granted direct access to every tenant (`ops/cloudsql/grant-db-user.sh`, gap G1); no Data Access audit
-logs on Cloud SQL, GCS or Secret Manager; no alert on any audit event; Vertex AI not pinned to a region; the
+logs on Cloud SQL, GCS or Secret Manager; no alert on any audit event; Vertex AI at `global` ([residency-adr.md](residency-adr.md) §1); the
 `DATA_PROTECTION_ENABLED`, `SUPPRESSION_LIST_ENABLED` and `RETENTION_ENABLED` controls are off in production.
