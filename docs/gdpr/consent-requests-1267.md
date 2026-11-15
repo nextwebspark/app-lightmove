@@ -111,6 +111,9 @@ them; a change is made in both.
   (`SHARE_CLIENT_CONFIDENTIAL`). `client_named` keeps the choice; the page names the client only when it is set and the
   search is still not confidential (`ShareTarget.clientNamedOrNull`). The share email never claims nothing was shared:
   visibility starts on.
+- **The role takes its own article.** The mockups write "for a {role} role"; the email, the page's sentence and the
+  SPA's preview pick "a" or "an" by how the title sounds (`IndefiniteArticle`, mirrored by `consentPreview.withArticle`),
+  so an Operations Director is never "a Operations Director".
 - **Asking from the person's record still needs the position.** The person-level doors (`consent-requests`,
   `consents/recorded`) ride the pool's `CANDIDATE_POOL_MANAGE`, so a share there also asks the named position's
   `WORK_EXECUTE`, as the position's own door does; the drawer lists only the positions the viewer works.

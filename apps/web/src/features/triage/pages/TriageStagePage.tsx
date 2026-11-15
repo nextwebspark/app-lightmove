@@ -18,7 +18,7 @@ import { sortableFieldsOf, useGridSort, type GridSort } from "../../../lib/useGr
 import { useAuth } from "../../auth/AuthProvider";
 import * as candidatesApi from "../../candidates/api/candidatesApi";
 import * as shareConsentApi from "../../candidates/api/shareConsentApi";
-import { useShareConsents } from "../../candidates/lib/useShareConsents";
+import { useConsentMode } from "../../candidates/lib/useConsentMode";
 import { useWorkspaceVocabulary } from "../../workspace/lib/vocabulary";
 import { useExecutivesAtCompany } from "../../candidates/lib/useExecutivesAtCompany";
 import type { Candidate, CandidatesPage } from "../../candidates/api/types";
@@ -679,7 +679,8 @@ function TriageStage() {
     onSettled: (_data, _error, { company }) => clearBusy(company.id),
   });
 
-  const shareConsents = useShareConsents(project.id);
+  const consentMode = useConsentMode();
+  const asksToShare = consentMode.on && !!consentMode.firm?.shareWithClient;
   const vocabulary = useWorkspaceVocabulary();
   const consentRegister = useMutation({
     mutationFn: () => shareConsentApi.saveConsentRegister(project.id),
@@ -859,7 +860,7 @@ function TriageStage() {
           hint: debouncedSearch.trim() ? "This stage, as searched" : "Every row of this stage",
           onSelect: () => exportCsv.mutate(),
         },
-        ...(canWrite && shareConsents.on
+        ...(canWrite && asksToShare
           ? [
               {
                 key: "consentRegister",

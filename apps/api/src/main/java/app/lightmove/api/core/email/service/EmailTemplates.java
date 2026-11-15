@@ -12,6 +12,7 @@ import app.lightmove.api.core.email.render.EmailContent;
 import app.lightmove.api.core.email.render.EmailNote;
 import app.lightmove.api.core.email.render.EmailParagraph;
 import app.lightmove.api.core.email.render.EmailRenderer;
+import app.lightmove.api.core.email.render.IndefiniteArticle;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -426,11 +427,12 @@ public class EmailTemplates {
         String searchFor = clientName == null ? "a confidential client" : clientName;
         String shareWith = clientName == null ? "the client" : clientName;
         return renderer.renderOnBehalfOf(recipient,
-                "May we share your profile for a %s role?".formatted(roleTitle),
+                "May we share your profile for %s role?".formatted(IndefiniteArticle.before(roleTitle)),
                 new EmailContent("Your permission", List.of(
                         greetingOf(recipientName),
-                        EmailParagraph.of("%s is searching for a %s for %s. We hold some of your professional "
-                                + "details, which came from %s.", plain(firm), plain(roleTitle), plain(searchFor),
+                        EmailParagraph.of("%s is searching for %s for %s. We hold some of your professional "
+                                + "details, which came from %s.", plain(firm),
+                                plain(IndefiniteArticle.before(roleTitle)), plain(searchFor),
                                 plain(sourcePhrase)),
                         EmailParagraph.of("We think your experience fits, and we'd like your permission to share your "
                                 + "profile with %s. It's your choice. If you don't answer, nothing changes.",

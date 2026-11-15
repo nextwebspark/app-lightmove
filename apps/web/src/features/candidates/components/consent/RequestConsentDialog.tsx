@@ -19,10 +19,8 @@ import {
   PERSONAL_PURPOSES,
   type PersonalPurpose,
 } from "../../lib/consentPreview";
+import { DAY_MS, recentAnswerOrAskOf } from "../../lib/consentRecency";
 import { useWorkspaceVocabulary } from "../../../workspace/lib/vocabulary";
-
-const DAY_MS = 86_400_000;
-const RECENTLY_DAYS = 14;
 
 /** One person from the drawer, or the Candidates selection. */
 export type ConsentRequestTarget =
@@ -42,17 +40,10 @@ function lockOf(consent: PersonConsent | undefined, renewalDaysBefore: number, n
       return `Already given, until ${day(consent.validUntil)}`;
     }
   }
-  const recently = (instant: string | null) => !!instant && now - Date.parse(instant) < RECENTLY_DAYS * DAY_MS;
-  const againFrom = (instant: string) => day(new Date(Date.parse(instant) + RECENTLY_DAYS * DAY_MS).toISOString());
-  const refused = consent.status === "declined" || consent.status === "withdrawn";
-  if (refused && consent.answeredAt && recently(consent.answeredAt)) {
-    const said = consent.status === "declined" ? "Declined" : "Withdrawn";
-    return `${said} on ${day(consent.answeredAt)}. You can ask again from ${againFrom(consent.answeredAt)}`;
-  }
-  if (consent.requestedAt && recently(consent.requestedAt)) {
-    return `Asked on ${day(consent.requestedAt)}. You can ask again from ${againFrom(consent.requestedAt)}`;
-  }
-  return null;
+  const held = recentAnswerOrAskOf(consent, now);
+  if (!held) return null;
+  const did = held.kind === "asked" ? "Asked" : held.kind === "declined" ? "Declined" : "Withdrawn";
+  return `${did} on ${held.on}. You can ask again from ${held.againFrom}`;
 }
 
 /** Why the one person cannot be asked at all, before the server is; the rest the server answers. */

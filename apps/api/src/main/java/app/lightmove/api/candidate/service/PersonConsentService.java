@@ -14,6 +14,9 @@ import app.lightmove.api.candidate.dto.BulkConsentRequestResponse;
 import app.lightmove.api.candidate.dto.ConsentRequestSkipResponse;
 import app.lightmove.api.candidate.dto.PersonRecordResponse;
 import app.lightmove.api.candidate.dto.RecordConsentRequest;
+import app.lightmove.api.candidate.dto.ShareConsentRowResponse;
+import app.lightmove.api.candidate.dto.ShareConsentsResponse;
+import app.lightmove.api.candidate.model.Candidate;
 import app.lightmove.api.candidate.model.CandidatePrivacySettings;
 import app.lightmove.api.candidate.model.ConsentPriorState;
 import app.lightmove.api.candidate.model.ConsentRegisterRow;
@@ -23,9 +26,6 @@ import app.lightmove.api.candidate.model.Person;
 import app.lightmove.api.candidate.model.PersonConsent;
 import app.lightmove.api.candidate.model.QueuedConsentRequest;
 import app.lightmove.api.candidate.model.ShareTarget;
-import app.lightmove.api.candidate.dto.ShareConsentRowResponse;
-import app.lightmove.api.candidate.dto.ShareConsentsResponse;
-import app.lightmove.api.candidate.model.Candidate;
 import app.lightmove.api.candidate.repository.CandidateRepository;
 import app.lightmove.api.candidate.repository.PersonRepository;
 import app.lightmove.api.common.constant.ApiValueEnum;
@@ -154,9 +154,9 @@ public class PersonConsentService {
     public ShareConsentsResponse shareConsentsOf(UUID workspaceId, UUID projectId) {
         CandidatePrivacySettings firm = settings.settingsOf(workspaceId);
         ShareTarget target = shareTargets.require(workspaceId, projectId);
-        Map<UUID, UUID> candidateByPerson = consents.candidatesOnPosition(projectId);
+        Map<UUID, UUID> candidateByPerson = consents.candidatesOnPosition(workspaceId, projectId);
         Instant now = clock.instant();
-        List<ShareConsentRowResponse> rows = consents.sharesOn(projectId).stream()
+        List<ShareConsentRowResponse> rows = consents.sharesOn(workspaceId, projectId).stream()
                 .filter(consent -> candidateByPerson.containsKey(consent.personId()))
                 .map(consent -> shareRowOf(candidateByPerson.get(consent.personId()), now, consent))
                 .toList();
@@ -562,7 +562,8 @@ public class PersonConsentService {
             return new ShareConsentRowResponse(candidateId, null, null, null, null, false);
         }
         return new ShareConsentRowResponse(candidateId, consent.status().value(), consent.requestedAt(),
-                consent.requestExpiresAt(), consent.answeredAt(), consent.clientNamedAt(now));
+                consent.isOpenAt(now) ? consent.requestExpiresAt() : null, consent.answeredAt(),
+                consent.clientNamedAt(now));
     }
 
     /** A share asked about: the position it is for, and whether the email names the client. */

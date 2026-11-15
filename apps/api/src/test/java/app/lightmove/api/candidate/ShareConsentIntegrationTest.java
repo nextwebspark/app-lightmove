@@ -227,6 +227,26 @@ class ShareConsentIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("a role title that starts with a vowel sound reads 'an' in the email and on the page")
+    void articleFollowsTheTitle() throws Exception {
+        String operations = body(call(post("/api/v1/projects"), """
+                {"clientId":"%s","positionTitle":"Operations Director"}""".formatted(clientOf(position)))
+                .andExpect(status().isCreated()).andReturn()).get("id").asText();
+        String filed = body(call(post("/api/v1/projects/" + operations + "/candidates"), """
+                {"fullName":"Fatima Al Mansoori","linkedinUrl":"https://www.linkedin.com/in/fatima-am/"}""")
+                .andExpect(status().isCreated()).andReturn()).get("id").asText();
+        call(post("/api/v1/projects/" + operations + "/candidates/" + filed + "/share-consent-request"), "{}")
+                .andExpect(status().isOk());
+
+        EmailMessage request = emailTo("fatima@example.com");
+        assertThat(request.subject()).isEqualTo("May we share your profile for an Operations Director role?");
+        assertThat(request.textBody()).contains("is searching for an Operations Director for a confidential client");
+        JsonNode page = body(mvc.perform(get("/api/v1/privacy/links/" + tokenOf(request))).andReturn());
+        assertThat(page.at("/consents/0/wording").asText())
+                .isEqualTo("We would like to send your profile to a confidential client for an Operations Director role.");
+    }
+
+    @Test
     @DisplayName("the register lists every request, defuses formulas, carries no contact detail, and is audited")
     void register() throws Exception {
         String formula = body(call(post("/api/v1/projects/" + position + "/candidates"), """

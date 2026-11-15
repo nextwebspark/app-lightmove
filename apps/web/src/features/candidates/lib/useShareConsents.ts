@@ -29,7 +29,7 @@ export function useShareConsents(projectId: string): ShareConsentState {
   const badgeOf = (candidateId: string): ShareConsentBadgeState => {
     const row = rows.get(candidateId);
     if (row?.status === "given") return "given";
-    if (row?.requestOpenUntil && Date.parse(row.requestOpenUntil) > Date.now()) return "asked";
+    if (row?.requestOpenUntil) return "asked";
     return "none";
   };
   return {

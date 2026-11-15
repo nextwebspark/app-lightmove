@@ -9,27 +9,17 @@ import { formatInstantDate } from "../../../../lib/datetime";
 import { messageFor } from "../../../../lib/errorCodes";
 import * as shareConsentApi from "../../api/shareConsentApi";
 import type { ShareConsentRow } from "../../api/shareConsentApi";
+import { recentAnswerOrAskOf } from "../../lib/consentRecency";
 import { useWorkspaceVocabulary } from "../../../workspace/lib/vocabulary";
-
-const DAY_MS = 86_400_000;
-const RECENTLY_DAYS = 14;
 
 /** Why this person cannot be asked again now, as the dialog says it; null when they can. */
 function blockOf(firstName: string, row: ShareConsentRow | undefined): string | null {
   if (!row) return null;
   if (row.status === "given") return `${firstName} already agreed on ${formatInstantDate(row.answeredAt) ?? ""}.`;
-  const recently = (instant: string | null) => !!instant && Date.now() - Date.parse(instant) < RECENTLY_DAYS * DAY_MS;
-  const againFrom = (instant: string) =>
-    formatInstantDate(new Date(Date.parse(instant) + RECENTLY_DAYS * DAY_MS).toISOString()) ?? "";
-  const refused = row.status === "declined" || row.status === "withdrawn";
-  if (refused && row.answeredAt && recently(row.answeredAt)) {
-    const said = row.status === "declined" ? "declined" : "withdrew";
-    return `${firstName} ${said} on ${formatInstantDate(row.answeredAt) ?? ""}. You can ask again from ${againFrom(row.answeredAt)}.`;
-  }
-  if (row.requestedAt && recently(row.requestedAt)) {
-    return `${firstName} was asked on ${formatInstantDate(row.requestedAt) ?? ""}. You can ask again from ${againFrom(row.requestedAt)}.`;
-  }
-  return null;
+  const held = recentAnswerOrAskOf(row, Date.now());
+  if (!held) return null;
+  const did = held.kind === "asked" ? "was asked" : held.kind === "declined" ? "declined" : "withdrew";
+  return `${firstName} ${did} on ${held.on}. You can ask again from ${held.againFrom}.`;
 }
 
 /**

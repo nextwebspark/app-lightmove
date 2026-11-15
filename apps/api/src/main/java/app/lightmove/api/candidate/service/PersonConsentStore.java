@@ -85,17 +85,19 @@ class PersonConsentStore {
     }
 
     /** Every share-with-client consent on a position, whatever it stands at. */
-    List<PersonConsent> sharesOn(UUID projectId) {
-        return jdbc.query("SELECT " + COLUMNS + " FROM app_lm_person_consent WHERE project_id = :projectId"
-                + " AND purpose = 'SHARE_WITH_CLIENT' ORDER BY created_at",
-                new MapSqlParameterSource("projectId", projectId), this::consentOf);
+    List<PersonConsent> sharesOn(UUID workspaceId, UUID projectId) {
+        return jdbc.query("SELECT " + COLUMNS + " FROM app_lm_person_consent WHERE workspace_id = :workspaceId"
+                + " AND project_id = :projectId AND purpose = 'SHARE_WITH_CLIENT' ORDER BY created_at",
+                new MapSqlParameterSource("workspaceId", workspaceId).addValue("projectId", projectId),
+                this::consentOf);
     }
 
     /** Who is on a position: their person id to their candidate row there. */
-    Map<UUID, UUID> candidatesOnPosition(UUID projectId) {
+    Map<UUID, UUID> candidatesOnPosition(UUID workspaceId, UUID projectId) {
         Map<UUID, UUID> byPerson = new LinkedHashMap<>();
-        jdbc.query("SELECT person_id, id FROM app_lm_project_candidate WHERE project_id = :projectId",
-                new MapSqlParameterSource("projectId", projectId),
+        jdbc.query("SELECT person_id, id FROM app_lm_project_candidate"
+                        + " WHERE workspace_id = :workspaceId AND project_id = :projectId",
+                new MapSqlParameterSource("workspaceId", workspaceId).addValue("projectId", projectId),
                 row -> {
                     byPerson.put(row.getObject("person_id", UUID.class), row.getObject("id", UUID.class));
                 });

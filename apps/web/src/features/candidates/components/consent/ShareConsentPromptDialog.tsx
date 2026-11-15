@@ -26,7 +26,7 @@ export function ShareConsentPromptDialog({
   onClose: () => void;
 }) {
   const vocabulary = useWorkspaceVocabulary();
-  const asked = row?.requestOpenUntil && Date.parse(row.requestOpenUntil) > Date.now();
+  const asked = !!row?.requestOpenUntil;
   return (
     <Modal
       open
