@@ -111,9 +111,6 @@ export function ImportSpreadsheetDialog({
   // A new column left nameless was dropped by the server without a word, losing that column's values.
   const hasUnnamedNewColumn = mappings.some(isUnnamedNewColumn);
 
-  // A new column left nameless was dropped by the server without a word, losing that column's values.
-  const hasUnnamedNewColumn = mappings.some(isUnnamedNewColumn);
-
   const reset = () => {
     setStep("choose");
     setFile(null);
