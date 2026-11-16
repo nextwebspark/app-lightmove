@@ -66,6 +66,93 @@ class CandidatePoolCrmIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("every column filters the pool, its values any-of, and a researched employer is searched as it is drawn")
+    void everyColumnFiltersThePool() throws Exception {
+        firm("Pool Columns Firm");
+        String cfo = mandate("Chief Financial Officer");
+        String fatima = add(cfo, """
+                {"fullName":"Fatima Al Mazrouei","title":"Group CFO","employerName":"Aldar Properties",
+                 "seniority":"C-Suite","yearsExperience":18,"locationCountry":"United Arab Emirates",
+                 "linkedinUrl":"https://www.linkedin.com/in/fatima-al-mazrouei",
+                 "emails":[{"value":"fatima@aldar.example"}]}""").get("personId").asText();
+        String rajesh = add(cfo, """
+                {"fullName":"Rajesh Menon","title":"Finance Director","yearsExperience":7,
+                 "locationCountry":"Korea, Republic of","phone":"+971500000001"}""").get("personId").asText();
+        add(cfo, """
+                {"fullName":"Omar Haddad","title":"Controller"}""");
+        db.update("""
+                update app_lm_person set profile = jsonb_set(profile, '{career}',
+                    '[{"title":"Finance Director"},{"company":"Mubadala","title":"Finance Director"}]'::jsonb)
+                where id = ?::uuid""", rajesh);
+        db.update("update app_lm_person set created_at = now() - interval '200 days' where id = ?::uuid", rajesh);
+
+        assertThat(rowNamed(pool(Map.of()), "Rajesh Menon").get("companyName").asText()).isEqualTo("Mubadala");
+        assertThat(namesOf(pool(Map.of("company", "mubadala")))).containsExactly("Rajesh Menon");
+        assertThat(namesOf(pool(Map.of("q", "mubadala")))).containsExactly("Rajesh Menon");
+        assertThat(namesOf(pool(Map.of("name", "fati")))).containsExactly("Fatima Al Mazrouei");
+        assertThat(namesOf(pool(Map.of("title", "controller")))).containsExactly("Omar Haddad");
+
+        assertThat(namesOf(pool(Map.of("country", "Korea, Republic of")))).containsExactly("Rajesh Menon");
+        assertThat(namesOf(pool(Map.of("country", List.of("korea, republic of", "United Arab Emirates")))))
+                .containsExactlyInAnyOrder("Fatima Al Mazrouei", "Rajesh Menon");
+        assertThat(namesOf(pool(Map.of("experience", List.of("5to10", "unknown")))))
+                .containsExactlyInAnyOrder("Rajesh Menon", "Omar Haddad");
+        assertThat(namesOf(pool(Map.of("experience", "15to20")))).containsExactly("Fatima Al Mazrouei");
+        assertThat(namesOf(pool(Map.of("seniority", List.of("C-Suite"))))).containsExactly("Fatima Al Mazrouei");
+        assertThat(namesOf(pool(Map.of("seniority", List.of("none")))))
+                .containsExactlyInAnyOrder("Rajesh Menon", "Omar Haddad");
+        assertThat(namesOf(pool(Map.of("linkedin", "yes")))).containsExactly("Fatima Al Mazrouei");
+        assertThat(namesOf(pool(Map.of("contact", "none")))).containsExactly("Omar Haddad");
+        assertThat(namesOf(pool(Map.of("contact", List.of("email", "phone")))))
+                .containsExactlyInAnyOrder("Fatima Al Mazrouei", "Rajesh Menon");
+        assertThat(namesOf(pool(Map.of("source", "manual")))).hasSize(3);
+        assertThat(namesOf(pool(Map.of("added", "older")))).containsExactly("Rajesh Menon");
+        assertThat(namesOf(pool(Map.of("added", "week"))))
+                .containsExactlyInAnyOrder("Fatima Al Mazrouei", "Omar Haddad");
+        assertThat(namesOf(pool(Map.of("activity", "week")))).hasSize(3);
+        assertThat(namesOf(pool(Map.of("activity", "never")))).isEmpty();
+        assertThat(namesOf(pool(Map.of("owner", List.of("nobody", adminId))))).hasSize(3);
+        db.update("""
+                update app_lm_project_candidate set status_id = (
+                    select s.id from app_lm_workspace_candidate_status s
+                    join app_lm_project p on p.workspace_id = s.workspace_id
+                    where p.id = ?::uuid and s.key = 'interested')
+                where person_id = ?::uuid""", cfo, fatima);
+        assertThat(namesOf(pool(Map.of("pipelineStage", "interested")))).containsExactly("Fatima Al Mazrouei");
+        assertThat(namesOf(pool(Map.of("status", "identified"))))
+                .containsExactlyInAnyOrder("Rajesh Menon", "Omar Haddad");
+        // One Status filter: a status or a stage, never a status that must also sit in the stage.
+        assertThat(namesOf(pool(Map.of("position", List.of(cfo), "status", List.of("identified"),
+                "pipelineStage", List.of("interested"))))).hasSize(3);
+
+        mvc.perform(put("/api/v1/candidates/" + fatima + "/do-not-contact")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"doNotContact":true}"""))
+                .andExpect(status().isOk());
+        assertThat(namesOf(pool(Map.of("doNotContact", "yes")))).containsExactly("Fatima Al Mazrouei");
+        assertThat(namesOf(pool(Map.of("doNotContact", "no")))).hasSize(2);
+
+        JsonNode fatimaRow = rowNamed(pool(Map.of()), "Fatima Al Mazrouei");
+        assertThat(fatimaRow.get("seniority").asText()).isEqualTo("C-Suite");
+        assertThat(fatimaRow.get("source").asText()).isEqualTo("manual");
+        assertThat(fatimaRow.get("createdAt").asText()).isNotBlank();
+        assertThat(namesOf(pool(Map.of("sort", "company", "direction", "asc"))))
+                .containsExactly("Fatima Al Mazrouei", "Rajesh Menon", "Omar Haddad");
+        assertThat(namesOf(pool(Map.of("sort", "experience", "direction", "desc"))))
+                .containsExactly("Fatima Al Mazrouei", "Rajesh Menon", "Omar Haddad");
+        assertThat(namesOf(pool(Map.of("sort", "added", "direction", "asc"))).getFirst()).isEqualTo("Rajesh Menon");
+
+        mvc.perform(get("/api/v1/candidates").param("experience", "lots").header("Authorization", "Bearer " + admin))
+                .andExpect(status().isBadRequest());
+        mvc.perform(get("/api/v1/candidates").param("added", "never").header("Authorization", "Bearer " + admin))
+                .andExpect(status().isBadRequest());
+        mvc.perform(get("/api/v1/candidates").param("position", "nope").header("Authorization", "Bearer " + admin))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     @DisplayName("tags are seeded, created by anyone, matched any/all/none, and a retired one is never put on anyone")
     void tagsFilterThePool() throws Exception {
         firm("Pool Tags Firm");

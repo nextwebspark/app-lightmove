@@ -57,15 +57,31 @@ export interface ActivityFilters {
 
 function poolQueryOf(filters: PoolFilters): URLSearchParams {
   const params = new URLSearchParams();
-  if (filters.q.trim()) params.set("q", filters.q.trim());
+  const text: [string, string][] = [
+    ["q", filters.q],
+    ["name", filters.name],
+    ["title", filters.title],
+    ["company", filters.company],
+  ];
+  for (const [key, value] of text) if (value.trim()) params.set(key, value.trim());
   if (filters.view !== "all") params.set("view", filters.view);
-  for (const tagId of filters.tagIds) params.append("tag", tagId);
-  if (filters.tagIds.length > 0) params.set("tagMatch", filters.tagMatch);
-  if (filters.position) params.set("position", filters.position);
-  if (filters.status) params.set("status", filters.status);
-  if (filters.pipelineStage) params.set("pipelineStage", filters.pipelineStage);
-  if (filters.owner) params.set("owner", filters.owner);
-  if (filters.country) params.set("country", filters.country);
+  const lists: [string, readonly string[]][] = [
+    ["tag", filters.tagIds],
+    ["position", filters.positions],
+    ["status", filters.statuses],
+    ["pipelineStage", filters.pipelineStages],
+    ["owner", filters.owners],
+    ["country", filters.countries],
+    ["linkedin", filters.linkedin],
+    ["contact", filters.contacts],
+    ["experience", filters.experience],
+    ["activity", filters.activity],
+    ["seniority", filters.seniorities],
+    ["source", filters.sources],
+    ["added", filters.added],
+    ["doNotContact", filters.doNotContact],
+  ];
+  for (const [key, values] of lists) for (const value of values) params.append(key, value);
   params.set("sort", filters.sort);
   params.set("direction", filters.direction);
   return params;

@@ -517,22 +517,46 @@ export type PoolView =
   | "consent_asked"
   | "consent_ending"
   | "consent_refused";
-export type TagMatch = "any" | "all" | "none";
-export type PoolSortField = "name" | "location" | "positions" | "activity";
+export type PoolSortField =
+  | "name"
+  | "title"
+  | "company"
+  | "location"
+  | "experience"
+  | "seniority"
+  | "added"
+  | "positions"
+  | "activity";
+export type PoolPresence = "yes" | "no";
+export type PoolContactFilter = "email" | "phone" | "none";
+export type PoolExperienceBand = "lt5" | "5to10" | "10to15" | "15to20" | "20plus" | "unknown";
+/** Cumulative windows ("month" includes "week"); `older` is past the quarter, `never` nothing recorded. */
+export type PoolRecencyBand = "week" | "month" | "quarter" | "older" | "never";
 
-/** What the Candidates page asks of the pool; an empty value is no filter. */
+/** What the Candidates page asks of the pool. An empty value is no filter; the values of one list are any-of. */
 export interface PoolFilters {
   q: string;
   view: PoolView;
+  name: string;
+  title: string;
+  company: string;
   tagIds: string[];
-  tagMatch: TagMatch;
-  position: string;
-  status: CandidateStatus | "";
-  /** A stage key; narrows to every status under it. */
-  pipelineStage: string;
-  /** A user id, "nobody" for people nobody owns, or empty for anyone. */
-  owner: string;
-  country: string;
+  positions: string[];
+  /** Status keys; a person matches with a position at any of them, or at any status of a ticked stage. */
+  statuses: string[];
+  pipelineStages: string[];
+  /** User ids, and "nobody" for people nobody owns. */
+  owners: string[];
+  countries: string[];
+  linkedin: PoolPresence[];
+  contacts: PoolContactFilter[];
+  experience: PoolExperienceBand[];
+  activity: PoolRecencyBand[];
+  /** Seniority tokens, and "none" for people with none recorded. */
+  seniorities: string[];
+  sources: CandidateSource[];
+  added: PoolRecencyBand[];
+  doNotContact: PoolPresence[];
   sort: PoolSortField;
   direction: "asc" | "desc";
 }
@@ -551,6 +575,10 @@ export interface PoolRow {
   enrichedAt: string | null;
   doNotContact: boolean;
   yearsExperience: number | null;
+  seniority: CandidateSeniority | null;
+  source: CandidateSource;
+  /** When they were first added to the workspace. */
+  createdAt: string;
   /** Posts in their recorded career. */
   careerRoles: number;
   /** Which channels the contact ledger holds; the values stay in the drawer. */
