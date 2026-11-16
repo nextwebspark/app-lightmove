@@ -98,7 +98,7 @@ once by `ops/cloudsql/scrub-audit-pii.sql`.
 | `app_lm_outreach_message_attachment` | file metadata | an email's files | with the message | erasure, cancel | cascade, `StorageDeletionSweeper` |
 | `app_lm_executive_sourcing_run` | counts only (V213 took the names off) | Find executives' record | with the position | — | — |
 | `app_lm_executive_sourcing_suggestion` | profile slug, our judgement | who a Find executives search found | the people cache's life (30 days) | the next run, erasure | `ExecutiveSourcingWorker`, `PersonErasureService` |
-| `app_lm_import_enrichment_item` | profile or company slug, our outcome | which imported people and companies an import asked to have researched (V225) | `lightmove.spreadsheet-import.enrichment-keep-for` (30 days) after finishing | age, erasure | `ImportEnrichmentWorker`, `ImportEnrichmentErasure` |
+| `app_lm_import_enrichment_item` | profile or company slug, our outcome | which imported people and companies an import asked to have researched (V225) | `lightmove.spreadsheet-import.enrichment-keep-for` (30 days) after finishing | age, erasure | `ImportEnrichmentPurge` (daily), `ImportEnrichmentErasure` |
 | `app_lm_company_note` | staff's notes about a company | the team's record | with the company; a deleted note 30 days ⚖️ | delete | `CompanyNotePurge` |
 | `app_lm_assistant_thread` | user, questions asked | the assistant's chats | 180 days past the last turn ⚖️ | inactivity, account deletion | `RetentionSweeper` |
 | `app_lm_assistant_turn` | user, questions and answers | one exchange | with the thread | thread swept | cascade |

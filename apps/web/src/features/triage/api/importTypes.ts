@@ -98,6 +98,7 @@ export interface ImportEnrichmentProgress {
   alreadyResearched: number;
   notFound: number;
   refused: number;
+  overAllowance: number;
   unavailable: number;
   failed: number;
   done: boolean;

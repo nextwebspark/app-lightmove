@@ -93,7 +93,8 @@ export function ImportEnrichmentChoice({
       </label>
       {isOverAllowance && !error && (
         <p className="ml-6.5 mt-1.5 font-mono text-meta text-u-offlimits">
-          Only {offer.allowanceLeft} lookups are left this month — untick enrichment or import fewer rows.
+          Only {(offer.allowanceLeft ?? 0).toLocaleString()} lookups are left this month — untick enrichment or import fewer
+          rows.
         </p>
       )}
       {error && (
@@ -170,6 +171,7 @@ function finishedLine(progress: ImportEnrichmentProgress): string {
   const enriched = progress.researched + progress.alreadyResearched;
   const parts = [`${enriched} enriched`];
   if (progress.notFound > 0) parts.push(`${progress.notFound} not found on LinkedIn`);
+  if (progress.overAllowance > 0) parts.push(`${progress.overAllowance} past this month's lookups`);
   const skipped = progress.refused + progress.unavailable + progress.failed;
   if (skipped > 0) parts.push(`${skipped} skipped`);
   return `Enrichment finished: ${parts.join(", ")}.`;

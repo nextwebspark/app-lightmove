@@ -656,7 +656,8 @@ method (`applyTo`) that decides what a row may store in them, since the bag is o
 stands between it and arbitrary caller-chosen keys. `triagecompany` and `candidate` depend on it; it
 depends on neither and knows nothing about companies or people. **`dataimport` is the spreadsheet** —
 read the file, work out what its columns mean, and write what it carries through the doors that
-already exist. It depends on those three and none of them depends back. **`dataexport` is the same
+already exist. It depends on those three, and on `enrichment.importrun` for the box that has what it filed
+researched (`ImportEnrichmentService`; its progress DTO rides `dataimport`'s controller); none of them depends back. **`dataexport` is the same
 three doors outward** — one stage of the Companies grid, composed and written as a CSV, reading
 through the seams `talentmap` already uses; it depends on the same three and on nothing else. Details
 in `java-spring-development`.
