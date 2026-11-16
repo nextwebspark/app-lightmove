@@ -7,6 +7,7 @@ import { Button, FormError, useToast } from "../../../components/ui";
 import { PanelCloseButton } from "../../../components/ui/PanelCloseButton";
 import { ApiRequestError } from "../../../lib/apiClient";
 import { codeOf, messageFor } from "../../../lib/errorCodes";
+import { profileSlugOf } from "../../../lib/linkedinUrls";
 import { useSubmitShortcut } from "../../../lib/useSubmitShortcut";
 import type { CustomColumn, CustomFieldValues } from "../../customcolumns/api/types";
 import { CustomFieldsFieldset } from "../../customcolumns/components/CustomFieldsFieldset";
@@ -81,6 +82,7 @@ export function AddCandidateForm({
   // Outside react-hook-form: its schema is a fixed shape and these keys are the project's, decided at
   // runtime. They still travel in the same submit, so a save is one request and one audit event.
   const [customFields, setCustomFields] = useState<CustomFieldValues>({});
+  const [lookedUpUrl, setLookedUpUrl] = useState<string | null>(null);
 
   const form = useForm<CandidateForm, unknown, ParsedCandidateForm>({
     resolver: zodResolver(candidateSchema.superRefine(refineCompensation)),
@@ -154,7 +156,14 @@ export function AddCandidateForm({
         ref={formEl}
         onSubmit={form.handleSubmit((parsed) => {
           setSubmitError(null);
-          save.mutate({ ...payloadOf(parsed, company?.triageCompanyId ?? null), customFields });
+          // Only the profile research answered for: an address changed since is a different person.
+          const lookedUpProfile =
+            lookedUpUrl !== null && profileSlugOf(parsed.linkedinUrl) === profileSlugOf(lookedUpUrl);
+          save.mutate({
+            ...payloadOf(parsed, company?.triageCompanyId ?? null),
+            customFields,
+            ...(lookedUpProfile ? { lookedUpProfile } : {}),
+          });
         })}
         onKeyDown={handleSubmitShortcut}
         noValidate
@@ -168,6 +177,7 @@ export function AddCandidateForm({
             form={form}
             employerLocked={company !== null}
             onOpenExisting={onSaved}
+            onFound={setLookedUpUrl}
           />
 
           <Section title="Identity">

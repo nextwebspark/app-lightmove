@@ -1,13 +1,6 @@
 import type { LookedUpProfile } from "../api/types";
 import type { CandidateForm } from "./candidateForm";
 
-const PROFILE_PATH = /(^|\.)linkedin\.com\/in\/[^/?#\s]+/i;
-
-/** A member's profile page — the one kind of LinkedIn address the lookup reads; a company or search page is not. */
-export function isLinkedInProfileUrl(value: string): boolean {
-  return PROFILE_PATH.test(value.trim().replace(/^https?:\/\//i, ""));
-}
-
 /** The fields a lookup fills, as the form holds them. A field research left blank is absent, never cleared. */
 export type LookupFill = Partial<
   Pick<
@@ -43,6 +36,11 @@ export function lookupFillOf(profile: LookedUpProfile, employerLocked: boolean):
     }));
   }
   return Object.fromEntries(Object.entries(fill).filter(([, value]) => value !== undefined)) as LookupFill;
+}
+
+/** What a field holds once a lookup's value is taken back out of it. */
+export function emptyValueOf(key: keyof LookupFill): string | [] {
+  return key === "career" ? [] : "";
 }
 
 /** Nothing typed there yet: an empty string, or a career with no posts. */

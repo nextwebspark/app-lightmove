@@ -7,51 +7,72 @@ import { messageFor } from "../../../lib/errorCodes";
 import * as candidatesApi from "../api/candidatesApi";
 import type { Candidate, LookedUpProfile, ProfileLookupResult } from "../api/types";
 import type { CandidateForm, ParsedCandidateForm } from "../lib/candidateForm";
-import { isBlankValue, isLinkedInProfileUrl, lookupFillOf, type LookupFill } from "../lib/profileLookup";
+import { isLinkedInProfileUrl } from "../../../lib/linkedinUrls";
+import { emptyValueOf, isBlankValue, lookupFillOf, type LookupFill } from "../lib/profileLookup";
 
 /**
  * The Add form's first step: paste a LinkedIn profile and research fills the form below, photo and employer included,
- * as the plugin's capture does. A field already typed in is left alone; one an earlier lookup filled is replaced.
- * Skippable — the form below still takes someone typed in by hand.
+ * as the plugin's capture does. A field already typed in is left alone; one an earlier lookup filled belongs to that
+ * profile, so the next answer replaces it or, where it has nothing, takes it back out. Only the latest lookup counts.
  */
 export function ProfileLookupStep({
   projectId,
   form,
   employerLocked,
   onOpenExisting,
+  onFound,
 }: {
   projectId: string;
   form: UseFormReturn<CandidateForm, unknown, ParsedCandidateForm>;
   employerLocked: boolean;
   /** Opens the executive this position already maps at the pasted profile, in place of the form. */
   onOpenExisting: (candidate: Candidate) => void;
+  /** The profile research answered for, or null once the latest lookup found none. */
+  onFound: (linkedinUrl: string | null) => void;
 }) {
   const lastAsked = useRef<string | null>(null);
   const filled = useRef<LookupFill>({});
 
   const lookup = useMutation({
     mutationFn: (linkedinUrl: string) => candidatesApi.lookUpProfile(projectId, linkedinUrl),
-    onSuccess: (result) => {
-      if (result.outcome === "found" && result.profile) fillForm(result.profile);
-    },
   });
 
-  function fillForm(profile: LookedUpProfile) {
-    const fill = lookupFillOf(profile, employerLocked);
-    for (const [key, value] of Object.entries(fill) as [keyof LookupFill, LookupFill[keyof LookupFill]][]) {
+  function settle(profile: LookedUpProfile | null) {
+    const fill = profile ? lookupFillOf(profile, employerLocked) : {};
+    const previous = filled.current;
+    const keys = new Set([...Object.keys(previous), ...Object.keys(fill)] as (keyof LookupFill)[]);
+    const settled: LookupFill = {};
+    for (const key of keys) {
       const current = form.getValues(key);
-      const wasFilledHere = JSON.stringify(current) === JSON.stringify(filled.current[key]);
-      if (!isBlankValue(current) && !wasFilledHere) continue;
-      form.setValue(key, value as never, { shouldDirty: true });
+      const heldFromLookup = key in previous && JSON.stringify(current) === JSON.stringify(previous[key]);
+      if (!isBlankValue(current) && !heldFromLookup) continue;
+      if (key in fill) {
+        form.setValue(key, fill[key] as never, { shouldDirty: true });
+        Object.assign(settled, { [key]: fill[key] });
+      } else if (heldFromLookup) {
+        form.setValue(key, emptyValueOf(key) as never, { shouldDirty: true });
+      }
     }
-    filled.current = fill;
+    filled.current = settled;
+    onFound(profile?.linkedinUrl ?? null);
   }
 
-  function ask(value: string) {
+  /** `again`: Enter or Look up on the address already asked, which the server answers from what it holds. */
+  function ask(value: string, again = false) {
     const url = value.trim();
-    if (!isLinkedInProfileUrl(url) || url === lastAsked.current) return;
+    if (!isLinkedInProfileUrl(url)) return;
+    if (url === lastAsked.current && (!again || lookup.isPending)) return;
     lastAsked.current = url;
-    lookup.mutate(url);
+    // Callbacks given to mutate fire for the latest call alone; the check keeps a slower, earlier answer out even so.
+    lookup.mutate(url, {
+      onSuccess: (result) => {
+        if (url !== lastAsked.current) return;
+        settle(result.outcome === "found" ? result.profile : null);
+      },
+      onError: () => {
+        if (url === lastAsked.current) settle(null);
+      },
+    });
   }
 
   const field = form.register("linkedinUrl");
@@ -80,8 +101,7 @@ export function ProfileLookupStep({
             onKeyDown={(event: KeyboardEvent<HTMLInputElement>) => {
               if (event.key !== "Enter" || event.metaKey || event.ctrlKey) return;
               event.preventDefault();
-              lastAsked.current = null;
-              ask(event.currentTarget.value);
+              ask(event.currentTarget.value, true);
             }}
           />
           <Button
@@ -90,10 +110,7 @@ export function ProfileLookupStep({
             size="md"
             className="flex-none"
             disabled={!isLinkedInProfileUrl(typed) || lookup.isPending}
-            onClick={() => {
-              lastAsked.current = null;
-              ask(typed);
-            }}
+            onClick={() => ask(typed, true)}
           >
             <Icon d={ICONS.search} size={14} />
             Look up

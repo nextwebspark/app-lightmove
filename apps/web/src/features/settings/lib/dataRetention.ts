@@ -1,3 +1,4 @@
+import { isLinkedInProfileUrl } from "../../../lib/linkedinUrls";
 import { formatInstantDate, formatInstantDateTime } from "../../../lib/datetime";
 import type { RetentionErased, SuppressionKind, SuppressionReason } from "../api/dataRetentionApi";
 
@@ -125,7 +126,7 @@ export function suppressionRemoveBody(reason: SuppressionReason): string {
 export function linkedinProfileProblem(value: string): string | null {
   const trimmed = value.trim();
   if (!trimmed) return null;
-  return /linkedin\.com\/in\/[^/?#\s]+/i.test(trimmed)
+  return isLinkedInProfileUrl(trimmed)
     ? null
     : "Paste a LinkedIn profile link, such as linkedin.com/in/name";
 }

@@ -224,6 +224,8 @@ export interface AddedBy {
  * so an omitted field is a cleared field — which is what the drawer means, because it holds every one.
  */
 export interface SaveCandidatePayload {
+  /** The Add form's LinkedIn lookup found this profile: the save files that research. */
+  lookedUpProfile?: boolean;
   triageCompanyId?: string | null;
   fullName: string;
   title?: string;
