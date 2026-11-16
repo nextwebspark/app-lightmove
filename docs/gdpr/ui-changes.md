@@ -16,8 +16,9 @@ the PR that shipped it. The feature docs beside this file hold the rules behind 
 | `LEGAL_DPA_VERSION` + `LEGAL_DPA_URL` | Adds the DPA tick when founding a workspace. Blank, no tick. |
 | Not gated, **live** | AI on people (#1300, in `v0.36.0`), the terms ticks (#928), account deletion and Download my data (#926), workspace deletion (#926), the booking page and extension privacy notes (#929). |
 
-To see the gated screens locally, start the API with `DATA_PROTECTION_ENABLED=true` and `SUPPRESSION_LIST_ENABLED=true`
-(see [use-cases.md](use-cases.md) §7), sign in as an admin and fill in Settings → Data & retention → Candidate privacy.
+`npm run dev` starts with the flag off, as production does. To see the gated screens locally, start it with
+`DATA_PROTECTION_ENABLED=true SUPPRESSION_LIST_ENABLED=true npm run dev` (see [use-cases.md](use-cases.md) §7), sign
+in as an admin and fill in Settings → Data & retention → Candidate privacy.
 
 ## Navigation map
 

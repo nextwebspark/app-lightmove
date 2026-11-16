@@ -2,7 +2,8 @@
 // retention, a notice sent from the Candidates drawer, the public page it links to with no session, and an objection
 // made there reaching the person's record and the admins' bell.
 //
-// Needs `npm run dev` (or its two halves) with DATA_PROTECTION_ENABLED=true; mail prints to the API console.
+// Needs `DATA_PROTECTION_ENABLED=true SUPPRESSION_LIST_ENABLED=true npm run dev` (both off by default); mail prints
+// to the API console.
 //
 //   API_LOG=<the API's console log> node e2e/spa/privacy-notices.mjs
 
