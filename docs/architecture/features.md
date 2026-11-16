@@ -959,7 +959,9 @@ pipe included, since the notes editor writes one. A template holds only the six 
 are offered): `{{opener}}`, `{{signature}}`, an unknown name or a fallback on the link is `VALIDATION_FAILED` on its
 field. Sharing, unsharing and any edit or delete of a shared one are Outreach audit events named only while the
 template is still shared (`SharedEmailTemplateNames`); a personal one is unaudited. **The composer** (`ReplyComposer`,
-so Write email, the Outreach reply and New email alike) carries the same Insert bar, a **Templates** picker beside
+so Write email, the Outreach reply and New email alike) reads each variable as the executive's value in a chip
+(decision 17: `variableChipsExtension`, a decoration over the same `{{…}}` words, so a saved template keeps the
+variable), has a **Variable** menu (`VariableMenu`) in place of the Insert bar, a **Templates** picker beside
 Attach (`TemplatePicker`: search, Recently used — the caller's five, from `app_lm_outreach_message.template_id` — Mine,
 Shared with the owner's face, and a preview with this executive's values) whose foot saves the words as a template
 (`SaveAsTemplateDialog`, never the signature). A template goes into an empty editor as the body and into words at the

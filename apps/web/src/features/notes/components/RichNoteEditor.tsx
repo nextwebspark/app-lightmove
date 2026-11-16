@@ -49,6 +49,7 @@ export default function RichNoteEditor({
   onExpandChange,
   editorRef,
   pictures,
+  extraExtensions,
 }: NoteEditorProps) {
   const [picker, setPicker] = useState<Picker | null>(null);
   const [uploadingPictures, setUploadingPictures] = useState(0);
@@ -106,6 +107,7 @@ export default function RichNoteEditor({
         },
         schema,
       ),
+      ...(extraExtensions ?? []),
       Placeholder.configure({ placeholder: placeholder ?? "" }),
       Extension.create({
         name: "noteShortcuts",
@@ -167,6 +169,7 @@ export default function RichNoteEditor({
       ? {
           insertText: (text) => at()?.insertContent({ type: "text", text }).run(),
           insertDoc: (doc) => at()?.insertContent(doc.content ?? []).run(),
+          editor,
         }
       : null;
     return () => {

@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
+import { cn } from "../../../lib/cn";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Button, DateInput, Select, useToast } from "../../../components/ui";
 import { Popover } from "../../../components/ui/Popover";
@@ -25,14 +26,22 @@ import type { RecipientTokens } from "../api/sequenceApi";
 import * as mailboxApi from "../api/mailboxApi";
 import * as sequenceApi from "../api/sequenceApi";
 import { AttachButton, AttachmentChips } from "./ComposerAttachments";
-import { TokenInsertBar } from "./TokenInsertBar";
+import { VariableChipPopover } from "./VariableChipPopover";
+import { VariableMenu } from "./VariableMenu";
 import { MailboxProviderMark } from "./MailboxProviderMark";
 import { attachmentProblemOf, type ComposerAttachment } from "../lib/composerAttachments";
 import { composerFootnoteOf } from "../lib/conversationVocabulary";
 import { canSendFrom, providerLabel, type MailboxState } from "../lib/mailboxState";
 import { isLive } from "../lib/runVocabulary";
 import { HALF_HOURS, instantOf, wallClockOf, whenLabelOf } from "../lib/sendSchedule";
-import { firstNameOf, templateTokenOptions, unfilledIn, unknownIn } from "../lib/sequenceTokens";
+import { firstNameOf, replaceVariable, templateTokenOptions, unfilledIn, unknownIn } from "../lib/sequenceTokens";
+import { CHIP_CLASS, chipOf, piecesOf, VARIABLE_LABELS, type VariableChip, type VariableChipKind } from "../lib/variableChips";
+import {
+  refreshVariableChips,
+  replaceVariableInEditor,
+  variableChipsExtension,
+  type VariableChipHost,
+} from "../lib/variableChipsExtension";
 import type { MailboxConnect } from "../lib/useMailboxConnect";
 import { formatClock, getDateTimePreferences } from "../../../lib/datetime";
 
@@ -171,6 +180,10 @@ function OpenComposer({
   const [lastField, setLastField] = useState<"subject" | "body">("body");
   const subjectRef = useRef<HTMLInputElement>(null);
   const bodyEditor = useRef<NoteEditorHandle | null>(null);
+  const [isSubjectFocused, setIsSubjectFocused] = useState(false);
+  const [openChip, setOpenChip] = useState<{ name: string; kind: VariableChipKind; chip: VariableChip; rect: DOMRect } | null>(null);
+  const chipHost = useRef<VariableChipHost | null>(null);
+  const [chipExtensions] = useState(() => [variableChipsExtension(chipHost)]);
   const signature = useSignatureChoice();
   const templates = useQuery({
     queryKey: emailTemplatesApi.EMAIL_TEMPLATES_KEY,
@@ -271,7 +284,22 @@ function OpenComposer({
     else setBody(body + token);
   };
 
+  // An email to one person reads each variable as their value; until the values are read, it reads as typed.
+  useEffect(() => {
+    chipHost.current = tokens ? { chipFor: (name, fallback) => chipOf(name, fallback, tokens, firstName), onChip: setOpenChip } : null;
+    refreshVariableChips(bodyEditor.current?.editor);
+  }, [tokens, firstName]);
+
+  /** A variable given the words typed for this email, or taken out with none: wherever it is used, subject and all. */
+  const fillVariable = (name: string, text: string) => {
+    if (bodyEditor.current) replaceVariableInEditor(bodyEditor.current.editor, name, text);
+    if (!isReply) setSubject((current) => replaceVariable(current, name, text));
+    setOpenChip(null);
+  };
+
   const unsendable = unsendableVariablesOf(isReply ? body : `${subject}\n${body}`, tokens, templateVocabulary(bookingLinkOffered));
+  const subjectChips = tokens ? piecesOf(subject, tokens, firstName) : [];
+  const subjectPieces = subjectChips.some((piece) => "chip" in piece) ? subjectChips : null;
   const hasBody = body.trim().length > 0;
   const hasDraft = hasBody || subject.trim().length > 0 || attachments.length > 0;
   useEffect(() => onDraftChange?.(hasDraft), [hasDraft, onDraftChange]);
@@ -329,6 +357,7 @@ function OpenComposer({
         fillsDialog
         onExpandChange={onExpandChange}
         editorRef={bodyEditor}
+        extraExtensions={chipExtensions}
         header={
           <>
             <div className="flex items-center gap-2 border-b border-u-border py-2 text-note">
@@ -359,24 +388,53 @@ function OpenComposer({
             ) : (
               <label className="flex items-center gap-2 border-b border-u-border py-2 text-note">
                 <span className="w-14 flex-none text-u-text3">Subject</span>
-                <input
-                  ref={subjectRef}
-                  aria-label="Subject"
-                  autoFocus={autoFocus}
-                  onFocus={() => setLastField("subject")}
-                  value={subject}
-                  maxLength={200}
-                  onChange={(event) => setSubject(event.target.value)}
-                  className="min-w-0 flex-1 bg-transparent text-u-text outline-none placeholder:text-u-text3"
-                  placeholder="What the email is about"
-                />
+                <span className="relative flex min-w-0 flex-1 items-center">
+                  <input
+                    ref={subjectRef}
+                    aria-label="Subject"
+                    autoFocus={autoFocus}
+                    onFocus={() => {
+                      setLastField("subject");
+                      setIsSubjectFocused(true);
+                    }}
+                    onBlur={() => setIsSubjectFocused(false)}
+                    value={subject}
+                    maxLength={200}
+                    onChange={(event) => setSubject(event.target.value)}
+                    className={cn(
+                      "min-w-0 flex-1 bg-transparent text-u-text outline-none placeholder:text-u-text3",
+                      subjectPieces && !isSubjectFocused && "text-transparent",
+                    )}
+                    placeholder="What the email is about"
+                  />
+                  {/* The words in the field stay the variables; this reads them as the executive's values until the field is
+                      pressed, since a field of plain text cannot draw a chip in place. */}
+                  {subjectPieces && !isSubjectFocused && (
+                    <span className="pointer-events-none absolute inset-0 flex items-center overflow-hidden whitespace-pre text-u-text">
+                      {subjectPieces.map((piece, index) =>
+                        "chip" in piece ? (
+                          <button
+                            key={index}
+                            type="button"
+                            title={piece.chip.title}
+                            onMouseDown={(event) => event.preventDefault()}
+                            onClick={(event) => {
+                              event.preventDefault();
+                              setOpenChip({ name: piece.name, kind: piece.chip.kind, chip: piece.chip, rect: event.currentTarget.getBoundingClientRect() });
+                            }}
+                            className={cn("pointer-events-auto flex-none", CHIP_CLASS[piece.chip.kind])}
+                          >
+                            {piece.text}
+                          </button>
+                        ) : (
+                          <span key={index}>{piece.text}</span>
+                        ),
+                      )}
+                    </span>
+                  )}
+                </span>
               </label>
             )}
-            <TokenInsertBar
-              options={templateTokenOptions(bookingLinkOffered)}
-              onInsert={insertVariable}
-              className="mt-2 border-none bg-transparent px-0 py-1"
-            />
           </>
         }
         footer={
@@ -385,9 +443,7 @@ function OpenComposer({
             <AttachmentChips attachments={attachments} limits={attachmentLimits} onChange={setAttachments} />
             {unsendable.length > 0 && (
               <p role="alert" className="mt-1.5 text-meta text-u-offlimits">
-                Fill in or remove {unsendable.length === 1 ? "1 variable" : `${unsendable.length} variables`} to send:{" "}
-                {unsendable.map((problem) => problem.text).join("; ")}. Give one a fallback for anyone with none, like{" "}
-                {"{{location|your city}}"}.
+                {unsendableLineOf(unsendable, firstName)}
               </p>
             )}
             {isTooLong && (
@@ -435,6 +491,13 @@ function OpenComposer({
                   Insert follow-up
                 </Button>
               )}
+              <VariableMenu
+                options={templateTokenOptions(bookingLinkOffered)}
+                tokens={tokens}
+                forWhom={firstName}
+                disabled={send.isPending}
+                onInsert={insertVariable}
+              />
               <SignatureChooser choice={signature} disabled={send.isPending} />
               <div className="ms-auto flex flex-wrap items-center gap-2">
                 <SchedulePicker
@@ -457,6 +520,16 @@ function OpenComposer({
           </>
         }
       />
+      {openChip && (
+        <VariableChipPopover
+          target={openChip}
+          forWhom={firstName}
+          onTypeValue={(text) => fillVariable(openChip.name, text)}
+          onEditAsText={() => fillVariable(openChip.name, openChip.chip.text)}
+          onRemove={() => fillVariable(openChip.name, "")}
+          onClose={() => setOpenChip(null)}
+        />
+      )}
       <SaveAsTemplateDialog
         open={isSavingTemplate}
         subject={isReply ? null : subject}
@@ -470,6 +543,22 @@ function OpenComposer({
 interface UnsendableVariable {
   name: string;
   text: string;
+  /** No email fills it, or this executive has nothing on file for it. */
+  kind: "unknown" | "blank";
+}
+
+/** What holds Send, in a sentence: a variable with nothing on file is a red chip to click, so the line says so. */
+function unsendableLineOf(problems: readonly UnsendableVariable[], firstName: string): string {
+  const blanks = problems.filter((problem) => problem.kind === "blank");
+  if (blanks.length === problems.length) {
+    const labels = blanks.map((problem) => VARIABLE_LABELS[problem.name] ?? problem.name);
+    return blanks.length === 1
+      ? `${labels[0]} has nothing on file for ${firstName}: click it to type one for this email, or remove it.`
+      : `${blanks.length} variables have nothing on file for ${firstName}: ${labels.join(", ")}. Click one to type it for this email, or remove it.`;
+  }
+  return `Fill in or remove ${problems.length === 1 ? "1 variable" : `${problems.length} variables`} to send: ${problems
+    .map((problem) => problem.text)
+    .join("; ")}.`;
 }
 
 /**
@@ -484,10 +573,12 @@ function unsendableVariablesOf(
   const unknown = unknownIn(text, vocabulary).map((name) => ({
     name,
     text: `{{${name}}} isn't a variable Uncava fills`,
+    kind: "unknown" as const,
   }));
   const blank = (tokens ? unfilledIn(text, tokens) : []).map((name) => ({
     name,
     text: `{{${name}}} has nothing on file`,
+    kind: "blank" as const,
   }));
   return [...unknown, ...blank];
 }

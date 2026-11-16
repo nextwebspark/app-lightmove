@@ -1,4 +1,4 @@
-import type { JSONContent } from "@tiptap/core";
+import type { AnyExtension, Editor, JSONContent } from "@tiptap/core";
 import { lazy, Suspense, useState, type MutableRefObject, type ReactNode } from "react";
 import { cn } from "../../../lib/cn";
 import type { TeammateOption } from "../../tasks/lib/team";
@@ -24,6 +24,8 @@ export interface NoteEditorHandle {
   insertText: (text: string) => void;
   /** Puts a document's blocks (`parseNoteMarkdown`, `plainNoteDoc`) at the cursor, the same way. */
   insertDoc: (doc: JSONContent) => void;
+  /** The editor itself, for a surface that works on its words in ways of its own, such as filling a variable in. */
+  editor: Editor;
 }
 
 export interface NoteEditorProps {
@@ -60,6 +62,8 @@ export interface NoteEditorProps {
   editorRef?: MutableRefObject<NoteEditorHandle | null>;
   /** Fixed for the editor's life: it decides the schema the stored Markdown is read with. */
   pictures?: NotePictures;
+  /** Behaviour a surface adds to the editor, such as the composer's variable chips. Fixed for the editor's life. */
+  extraExtensions?: AnyExtension[];
 }
 
 /** The note editor, loaded on first use so a page that never writes a note never downloads it. */
