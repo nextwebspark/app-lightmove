@@ -7,6 +7,7 @@ public enum UsageKind {
     PEOPLE_SEARCH_PAGE,
     SOURCING_RUN,
     AI_ENRICH,
+    PROFILE_ENRICH,
     OUTREACH_OPENER,
     ASSISTANT_ASK;
 
@@ -15,6 +16,7 @@ public enum UsageKind {
             case PEOPLE_SEARCH_PAGE -> settings.peopleSearchPagePerSeat();
             case SOURCING_RUN -> settings.sourcingRunPerSeat();
             case AI_ENRICH -> settings.aiEnrichPerSeat();
+            case PROFILE_ENRICH -> settings.profileEnrichPerSeat();
             case OUTREACH_OPENER -> settings.outreachOpenerPerSeat();
             case ASSISTANT_ASK -> settings.assistantAskPerSeat();
         };
@@ -25,6 +27,7 @@ public enum UsageKind {
             case PEOPLE_SEARCH_PAGE -> settings.peopleSearchPageCostFils();
             case SOURCING_RUN -> settings.sourcingRunCostFils();
             case AI_ENRICH -> settings.aiEnrichCostFils();
+            case PROFILE_ENRICH -> settings.profileEnrichCostFils();
             case OUTREACH_OPENER -> settings.outreachOpenerCostFils();
             case ASSISTANT_ASK -> settings.assistantAskCostFils();
         };

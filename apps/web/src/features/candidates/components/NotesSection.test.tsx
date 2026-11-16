@@ -289,7 +289,7 @@ describe("a note in the position's drawer", () => {
   });
 
   it("is edited in place by its author", async () => {
-    vi.mocked(personCrmApi.revisePersonNote).mockImplementation(async (_p, _c, _n, note) => aNote(note.body));
+    vi.mocked(personCrmApi.revisePersonNote).mockImplementation(async (_p, _c, _n, note) => aNote(note.body ?? ""));
     renderNotes();
 
     await userEvent.click(await screen.findByRole("button", { name: "Edit" }));
@@ -566,5 +566,83 @@ describe("a log: a call, a LinkedIn message or a meeting", () => {
     await userEvent.click(screen.getByRole("button", { name: "When it happened: Today, 09:00" }));
     await userEvent.click(screen.getByRole("button", { name: "Yesterday, same time" }));
     expect(screen.getByRole("button", { name: "When it happened: Yesterday, 10:00" })).toBeInTheDocument();
+  });
+});
+
+describe("a call's or a WhatsApp message's outcome", () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"], shouldAdvanceTime: true });
+    vi.setSystemTime(new Date(2026, 9, 3, 10, 0));
+    vi.mocked(personCrmApi.getPersonPositions).mockResolvedValue([]);
+    vi.mocked(personCrmApi.writePersonNote).mockImplementation(async (_p, _c, note) => ({
+      ...aNote(note.body, note.kind),
+      outcome: note.outcome || null,
+    }));
+    vi.mocked(projectsApi.projects).mockResolvedValue([position]);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  function renderLog(props: Partial<ComponentProps<typeof PositionNoteComposer>>) {
+    render(
+      <MemoryRouter>
+        <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+          <ToastProvider>
+            <PositionNoteComposer projectId="p1" candidateId="c1" kindChoices={["call"]} initialKind="call" {...props} />
+          </ToastProvider>
+        </QueryClientProvider>
+      </MemoryRouter>,
+    );
+  }
+
+  it("saves a call on its outcome alone, with no words", async () => {
+    renderLog({});
+    await screen.findByRole("button", { name: "Mention a teammate" });
+    expect(screen.getByRole("button", { name: "Save note" })).toBeDisabled();
+
+    await userEvent.click(screen.getByRole("radio", { name: "No answer" }));
+    await userEvent.click(screen.getByRole("button", { name: "Save note" }));
+
+    await waitFor(() =>
+      expect(personCrmApi.writePersonNote).toHaveBeenCalledWith(
+        "p1",
+        "c1",
+        expect.objectContaining({ kind: "call", body: "", outcome: "no_answer" }),
+      ),
+    );
+    expect(await screen.findByText("Call logged")).toBeInTheDocument();
+  });
+
+  it("takes the outcome back on a second press, and then waits for words again", async () => {
+    renderLog({});
+    await screen.findByRole("button", { name: "Mention a teammate" });
+    const voicemail = screen.getByRole("radio", { name: "Left voicemail" });
+
+    await userEvent.click(voicemail);
+    expect(voicemail).toHaveAttribute("aria-checked", "true");
+    await userEvent.click(voicemail);
+
+    expect(voicemail).toHaveAttribute("aria-checked", "false");
+    expect(screen.getByRole("button", { name: "Save note" })).toBeDisabled();
+  });
+
+  it("opens on the outcome and the time the log-it tray hands it", async () => {
+    renderLog({ presetOutcome: "connected", presetOccurredAt: new Date(2026, 9, 3, 9, 42).toISOString() });
+    await screen.findByRole("button", { name: "Mention a teammate" });
+
+    expect(screen.getByRole("radio", { name: "Connected" })).toHaveAttribute("aria-checked", "true");
+    expect(screen.getByRole("button", { name: "When it happened: Today, 09:42" })).toBeInTheDocument();
+  });
+
+  it("asks a WhatsApp log what happened, and a meeting nothing", async () => {
+    renderLog({ kindChoices: ["whatsapp", "meeting"], initialKind: "whatsapp" });
+    await screen.findByRole("button", { name: "Mention a teammate" });
+
+    expect(screen.getByRole("radiogroup", { name: "What happened?" })).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "They replied" })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("radio", { name: "Meeting" }));
+    expect(screen.queryByRole("radiogroup", { name: "What happened?" })).not.toBeInTheDocument();
   });
 });

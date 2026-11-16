@@ -116,6 +116,7 @@ export type ApiErrorCode =
   | "UNSUPPORTED_FILE_TYPE"
   | "IMPORT_FILE_UNREADABLE"
   | "IMPORT_TOO_MANY_ROWS"
+  | "IMPORT_ENRICHMENT_TOO_LARGE"
   | "CUSTOM_COLUMN_NAME_TAKEN"
   | "CUSTOM_COLUMN_LIMIT_REACHED"
   | "POSITION_DOCUMENT_UNREADABLE"
@@ -440,6 +441,8 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   TRIAGE_COMPANY_HAS_EXECUTIVES:
     "Executives are mapped at this company, so nothing was removed. Check who is there, then try again.",
   IMPORT_FILE_UNREADABLE: "That file couldn't be read as a table. Check it has a header row, then try again.",
+  IMPORT_ENRICHMENT_TOO_LARGE:
+    "That file has too many LinkedIn links to enrich in one import. Untick enrichment to import it.",
   MAILBOX_CONNECT_CANCELLED: "Your mailbox was not connected.",
   OUTREACH_BOOKING_LINK_UNAVAILABLE:
     "Booking links aren't available for your mailbox. Remove the booking link from the emails to start this sequence.",

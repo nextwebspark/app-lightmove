@@ -8,6 +8,7 @@ import { AppRoutes } from "./app/routes";
 import { ToastProvider } from "./components/ui";
 import { AssistantProvider } from "./features/assistant/AssistantProvider";
 import { AuthProvider } from "./features/auth/AuthProvider";
+import { PendingContactsBoundary } from "./features/outreach/calling/PendingContactsBoundary";
 import { TermsUpdateSheet } from "./features/auth/components/TermsUpdateSheet";
 import { BillingRefusalSheets } from "./features/billing/components/BillingRefusalSheets";
 import { applyStoredTheme } from "./features/theme/useTheme";
@@ -42,7 +43,9 @@ createRoot(document.getElementById("root")!).render(
                 reset by crossing from a project screen to a workspace one. */}
             <AssistantProvider>
               <DateTimeBoundary>
-                <AppRoutes />
+                <PendingContactsBoundary>
+                  <AppRoutes />
+                </PendingContactsBoundary>
               </DateTimeBoundary>
             </AssistantProvider>
             <BillingRefusalSheets />

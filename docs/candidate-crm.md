@@ -308,7 +308,27 @@ Candidate details pane draw `PhoneActions`: the number dials (`tel:` with `e164`
 new tab (none for a landline or a service number), and Copy. Without a calling code the mark stays faded, and for an
 editor it opens Edit contact details. An added calling code is named on a pill and in the link's title. Do not contact,
 a reader who may not reach out on the position, and a client seat leave the number as text, its title saying why.
-The Recently approached warning before a call is deferred to the "log it" tray (#1337, PR 3).
+With a teammate's recent approach at `CAUTION` (the conversation read's `composer.recentApproach`), Call, WhatsApp
+and Copy first open `RecentApproachConfirm`, as Enrol and Reply do; `INFO` goes straight through.
+
+### The log-it tray (#1337, PR 3)
+
+Every staff press of a phone's Call, WhatsApp or Copy leaves a card in the log-it tray (`outreach/calling`): the person,
+the position the drawer or pane was opened on, the number and the press time. It is browser state only
+(`lightmove.pendingContacts` in `sessionStorage`, 12 hours, each card stamped with its workspace and the whole store
+forgotten on sign-out and on a workspace switch), one tab and one member; nothing reaches the server until an outcome
+is tapped. The tray sits in the toast corner, clear of a docked drawer, risen above the toast stack by its height
+(`--toast-stack-height`, set by `ToastProvider`), and never takes focus; a hidden status line announces a new card once,
+and Esc on a card dismisses it without closing the drawer under it.
+No answer and Left voicemail (a call or a Copy) and Sent a message / They replied (WhatsApp) log at once as a note with
+the outcome, an empty body and the press time; Connected and WhatsApp's Add note open `NoteComposerModal` with that
+outcome and time; Wrong number logs, then offers Fix number (the drawer's Edit contact details, `section=contact`).
+Not now (or Esc) logs nothing. A second press of the same number freshens its card; from three cards the newest shows.
+The composer's Log call and Log WhatsApp carry the same outcome chips, optional, and with one picked the note may stay
+empty; an outcome is drawn as a pill (`NoteOutcomePill`) on the Outreach timeline's card and the conversation pane, and
+leads the Activity line's detail. A person's call or WhatsApp card edits its outcome too (a mis-tapped tray outcome is
+corrected, not deleted), sending only what changed; a company's note takes none. The drawer reads the conversation for
+the caution only when a writer opens someone with a phone.
 
 ### Call and WhatsApp outcomes (#1337, V224)
 
@@ -379,7 +399,16 @@ spelled one way. So:
 > - **Expand only.** V91 copies contacts and photos into the person tables rather than rekeying V54/V44's,
 >   and leaves the person's columns on the mandate row, because the previous revision is still serving
 >   while Flyway runs. The final cleanup migration, after Phase 4, drops them.
-> - **Matching** is profile slug, then email unless the two records name different profiles. **Phone is
+> - **Matching** is profile slug, then a personal email whose holder's name agrees (`PersonNames`: same surname,
+>   same first initial, through "Smith, John" order, titles, suffixes and name particles) and whose profile does not
+>   differ. A **role inbox** (`info@`, `hr@`, `sales@`… — `RoleAddresses`) is never a key: one sheet giving two
+>   people `info@` once merged them, the second overwriting the first's name — in either mode, so a role inbox
+>   someone else holds never refuses the drawer's "add them here" answer either. That answer is otherwise held to
+>   the keys alone (`PersonMatcher.keyHolderOf`), so it never files one person's personal address onto another.
+>   The name rule's accepted cost: a nickname ("Bob" for Robert) or a surname changed by marriage does not agree,
+>   so that person files as a second person at the same address, for the merge tool to fold. Only Arabic particles
+>   (`al`, `el`, `bin`, `ibn`, `abu`) are peeled off a glued surname; peeling "de" would make Delaney agree with
+>   Laney. **Phone is
 >   not a key** — a switchboard is on every executive of a company. A name alone never matches; the
 >   possible-duplicate 409 and its dialog ship with the SPA phase that draws the dialog, so until then a
 >   name-only match simply founds a second person, which the merge tool will fold.
@@ -879,7 +908,8 @@ Scripts that touch the tables directly: `ops/dev/seed-report.sql`, `ops/eval/exp
      one pool row, two mandates in her drawer, a MAPPED line on the timeline naming who and when.
   2. Capture her with the plugin on mandate C → mapped, profile refreshed, contacts unioned, nothing typed
      lost.
-  3. Import a sheet with her email under a different spelling of the name → matched, no duplicate.
+  3. Import a sheet with her email under a different spelling of the name ("Dr. Haddad, Layla") → matched, no
+     duplicate; a sheet giving a colleague the same address, or a shared `info@`, files them as their own person.
   4. Add a namesake at the same company by hand → the possible-duplicate dialog; choose "Add as new".
   5. Write a call note in mandate A; open her from mandate B → not shown there (D1, revised); write one for
      All positions → shown on both. The Candidates page shows both, each with its chip. Log in as the client

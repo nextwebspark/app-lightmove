@@ -1,6 +1,11 @@
 import { request, requestBlob } from "../../../lib/apiClient";
 import { saveBlob } from "../../../lib/saveBlob";
-import type { ImportPreview, ImportSummary, ProposedColumnMapping } from "./importTypes";
+import type {
+  ImportEnrichmentProgress,
+  ImportPreview,
+  ImportSummary,
+  ProposedColumnMapping,
+} from "./importTypes";
 
 /**
  * Importing a spreadsheet into a mandate's Companies grid.
@@ -38,16 +43,22 @@ export function commitImport(
   projectId: string,
   file: File,
   columns: ProposedColumnMapping[],
+  enrich: boolean,
 ): Promise<ImportSummary> {
   const form = new FormData();
   form.append("file", file);
   form.append(
     "mapping",
-    new Blob([JSON.stringify({ columns })], { type: "application/json" }),
+    new Blob([JSON.stringify({ columns, enrich })], { type: "application/json" }),
     "mapping.json",
   );
   return request<ImportSummary>(`/projects/${projectId}/import/commit`, {
     method: "POST",
     body: form,
   });
+}
+
+/** One import's enrichment so far, for the done step's progress line. */
+export function enrichmentProgress(projectId: string, runId: string): Promise<ImportEnrichmentProgress> {
+  return request<ImportEnrichmentProgress>(`/projects/${projectId}/import/enrichment/${runId}`);
 }

@@ -71,6 +71,8 @@ changes. Copy no mockup draws — toasts, errors, banners, empty states — foll
 | **Live profiles** / **Profile index** | Find executives' two sources, in *How we searched*: today's titles bought a profile at a time, and who works where, searched cheaply | the vendors' names |
 | **Strong** / **Good** / **Possible** | how well someone who fits the role fits it, from their score | score, rank, rating |
 | **Connected** / **Left voicemail** / **No answer** / **Wrong number**; **Sent a message** / **They replied** | how a logged call, or a logged WhatsApp, went: the sequence call step's own words. An outcome that is not the note kind's own is refused with "That outcome doesn't fit this kind of note" | disposition, status, result, call result |
+| **Not now** / **Done** / **N more to log** / **Fix number** | the log-it tray's words: a card set aside unlogged, one closed after Wrong number, the cards folded under the newest, and the way to Edit contact details after a wrong number | dismiss, skip, snooze, queue |
+| **Call logged** / **WhatsApp logged** | the toast once a log that says how it went is saved (from the tray or the composer); "Call logged · Wrong number" for that outcome | note saved, call saved |
 | **12d** | a trial's days left, where a phone has room for nothing longer (the topbar chip; its spoken name is "Trial · 12 days left") | — |
 
 ## Never on screen

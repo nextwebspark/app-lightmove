@@ -102,9 +102,10 @@ public class TriageCompanyService {
         if (companyName == null || companyName.isBlank()) {
             return Optional.empty();
         }
-        return triaged.findByProjectIdAndCompanyNameIgnoreCase(projectId, companyName.trim()).stream()
-                .min(Comparator.comparing(TriageCompany::getCreatedAt))
-                .map(TriageCompanyResponseMapper::toDto);
+        // preferred(), not the oldest: the oldest same-named row can be a Declined one, where nobody looks for
+        // the people an import maps there.
+        List<TriageCompany> named = triaged.findByProjectIdAndCompanyNameIgnoreCase(projectId, companyName.trim());
+        return named.isEmpty() ? Optional.empty() : Optional.of(TriageCompanyResponseMapper.toDto(preferred(named)));
     }
 
     @Transactional

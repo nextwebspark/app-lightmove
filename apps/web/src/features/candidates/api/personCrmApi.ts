@@ -5,6 +5,7 @@ import type {
   PersonPosition,
   PersonTimelineEntry,
   PersonTimelinePage,
+  RevisePersonNotePayload,
   WritePersonNotePayload,
 } from "./types";
 
@@ -60,7 +61,7 @@ export function revisePersonNote(
   projectId: string,
   candidateId: string,
   noteId: string,
-  note: WritePersonNotePayload,
+  note: RevisePersonNotePayload,
 ): Promise<PersonNote> {
   return request<PersonNote>(`${personUrl(projectId, candidateId)}/notes/${noteId}`, { method: "PUT", body: note });
 }

@@ -180,7 +180,7 @@ is held back rather than sent (the step does not save until it is named) and the
 | Next action title | trimmed, ≤ 200, one line, required | `@NotBlank @Size(200)`, no line break (it becomes an email subject) | banner |
 | Next action detail | trimmed, ≤ 500 | `@Size(500)` | banner |
 | Note body | the note editor's Markdown, trimmed, mentions written as tokens, ≤ 10000 stored (held under the box) | `@Size(10000)`; required unless the log has an outcome (400 "Write the note" on `body`); an edit that sends none keeps the words held; V224's CHECK | toast |
-| Log's outcome (call, WhatsApp) (#1337) | optional chips: Connected · Left voicemail · No answer · Wrong number for a call, Sent a message · They replied for WhatsApp; with one picked the note may stay empty | an unknown token 400 "That is not a valid note outcome" on `outcome`; one of its own kind's, else 400 "That outcome doesn't fit this kind of note" on `outcome`; an edit that sends none keeps it while the kind still holds it, an empty token clears it; V224's CHECK | toast |
+| Log's outcome (call, WhatsApp) (#1337) | optional chips (a second press takes it back): Connected · Left voicemail · No answer · Wrong number for a call, Sent a message · They replied for WhatsApp; with one picked Save needs no words; the log-it tray's chips save at once (Connected opens the composer) | an unknown token 400 "That is not a valid note outcome" on `outcome`; one of its own kind's, else 400 "That outcome doesn't fit this kind of note" on `outcome`; an edit that sends none keeps it while the kind still holds it, an empty token clears it; V224's CHECK | toast |
 | Note format | `markdown` from the editor | `ApiValueEnum`, plain when absent (a door's note is always plain): 400 "That is not a valid note format" | toast |
 | Note kind | none on the Notes tabs (plain); Call, LinkedIn, WhatsApp or Meeting in Log call / Log LinkedIn / Log WhatsApp / Log meeting; the extension's chips leave out Email | `ApiValueEnum`, plain when absent: 400 "That is not a valid note kind"; `email` on a new note, or onto a note that was not one, 400 on `kind` | toast |
 | Log's when (call, LinkedIn, WhatsApp, meeting) | date and time, now unless changed; never past today in the picker, and a time later than now flagged under When with Save held | `occurredAt` no later than now + 5 min, never on a plain note: 400 on `occurredAt` / `kind` | toast |
@@ -217,7 +217,9 @@ is held back rather than sent (the step does not save until it is named) and the
 | Field | Client | Server | Shown as |
 |---|---|---|---|
 | Import file | — | ≤ 10 MB, ≤ 5000 rows, type by bytes | sentence |
-| ☐ Import cells | — | bypass the drawer's rules; dropped silently (a currency no ISO code reads as is not written) | row list (leaks internal text) |
+| ☐ Import cells | — | bypass the drawer's rules; dropped silently (a currency no ISO code reads as is not written; an email cell not shaped like an address is dropped, never matched on) | row list (leaks internal text; a database race reads as a fixed sentence) |
+| Import "New column" name | Import held while blank | blank label defines nothing | field |
+| Import enrichment box | ticked by default; disabled + unticked with no mapped LinkedIn column or over `autoEnrichLimit` links; warns over `allowanceLeft` | absent = no; over `spreadsheet-import.max-auto-enrich` distinct links `IMPORT_ENRICHMENT_TOO_LARGE` (field `enrich`), over fair use `FAIR_USE_REACHED`, both before any row is written | field |
 | Export cells | — | formula starters defused | — |
 | ☐ Import template headers | — | not defused | — |
 | Sequence steps | ≤ 3 | 1–3, delays, window ordering | field |

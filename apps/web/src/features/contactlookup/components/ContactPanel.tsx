@@ -27,6 +27,7 @@ import { CopyContactButton } from "./CopyContactButton";
 import { isReachable } from "../lib/phoneReach";
 import {
   AddedCodePill,
+  CopyPhoneButton,
   PhoneNumberLink,
   SaveInternationalButton,
   WhatsAppLink,
@@ -367,7 +368,7 @@ function PhoneLine({
         <AddedCodePill phone={entry} reach={reach} />
         <span className="ms-auto flex flex-none items-center gap-0.5">
           <WhatsAppLink phone={entry} reach={reach} />
-          {isReachable(reach) && <CopyContactButton what="Phone" value={entry.number} />}
+          {isReachable(reach) && <CopyPhoneButton phone={entry} reach={reach} />}
         </span>
         <SaveInternationalButton phone={entry} reach={reach} />
       </li>
