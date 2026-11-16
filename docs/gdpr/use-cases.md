@@ -224,6 +224,9 @@ Three deployment switches decide what a deployment offers. All three are off by 
 | `SUPPRESSION_LIST_ENABLED` | Mounts the suppression list's keyset. Without it, nothing can be added to the list, and an erasure that suppresses is refused. | The `lightmove-suppression-keyset` secret |
 | `RETENTION_ENABLED` | The hourly sweep of system records (5b) | Counsel's sign-off on the periods (#930) |
 
+`npm run dev` starts with all three off too, as production does. Turn them on locally with
+`DATA_PROTECTION_ENABLED=true SUPPRESSION_LIST_ENABLED=true npm run dev`; `ops/dev/api.sh` then mounts a dev keyset.
+
 **Turning `DATA_PROTECTION_ENABLED` off again does not lift anything.** Suppression entries and processing
 restrictions made while it was on are still enforced at every route that files a person. But no screen can remove an
 entry or lift a restriction until the switch is back on.

@@ -2,7 +2,7 @@
 // everything held on them from the drawer's ⋯, and the zip that downloads holds the readable page, the JSON and the
 // latest file of each document, with the audit line recorded by id and counts.
 //
-// Needs `npm run dev` (or its two halves) with DATA_PROTECTION_ENABLED on, which `ops/dev/api.sh` sets. Reads the
+// Needs `DATA_PROTECTION_ENABLED=true SUPPRESSION_LIST_ENABLED=true npm run dev` (both off by default). Reads the
 // zip with Python's zipfile, so `python` must be on the PATH.
 //
 //   API_LOG=<the API's console log> node e2e/spa/subject-access-export.mjs
