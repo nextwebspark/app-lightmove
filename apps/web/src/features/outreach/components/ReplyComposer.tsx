@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
+import { cn } from "../../../lib/cn";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Button, DateInput, Select, useToast } from "../../../components/ui";
 import { Popover } from "../../../components/ui/Popover";
@@ -25,19 +26,24 @@ import type { RecipientTokens } from "../api/sequenceApi";
 import * as mailboxApi from "../api/mailboxApi";
 import * as sequenceApi from "../api/sequenceApi";
 import { AttachButton, AttachmentChips } from "./ComposerAttachments";
-import { TokenInsertBar } from "./TokenInsertBar";
+import { VariableChipPopover } from "./VariableChipPopover";
+import { VariableMenu } from "./VariableMenu";
 import { MailboxProviderMark } from "./MailboxProviderMark";
 import { attachmentProblemOf, type ComposerAttachment } from "../lib/composerAttachments";
 import { composerFootnoteOf } from "../lib/conversationVocabulary";
 import { canSendFrom, providerLabel, type MailboxState } from "../lib/mailboxState";
 import { isLive } from "../lib/runVocabulary";
 import { HALF_HOURS, instantOf, wallClockOf, whenLabelOf } from "../lib/sendSchedule";
-import { firstNameOf, templateTokenOptions, unfilledIn, unknownIn } from "../lib/sequenceTokens";
+import { firstNameOf, replaceVariable, templateTokenOptions, unfilledIn, unknownIn } from "../lib/sequenceTokens";
+import { CHIP_CLASS, chipOf, piecesOf, VARIABLE_LABELS, type VariableChip, type VariableChipKind } from "../lib/variableChips";
+import { createVariableChips, replaceRangeInEditor, replaceVariableInEditor } from "../lib/variableChipsExtension";
 import type { MailboxConnect } from "../lib/useMailboxConnect";
 import { formatClock, getDateTimePreferences } from "../../../lib/datetime";
 
 /** As far ahead as the server takes a scheduled email. */
 const SCHEDULE_HORIZON_DAYS = 60;
+/** The Subject field's own limit. */
+const SUBJECT_MAX_LENGTH = 200;
 /** The server's own limit on what a consultant writes, before the tokens are filled in. */
 const BODY_MAX_LENGTH = 10_000;
 
@@ -171,6 +177,13 @@ function OpenComposer({
   const [lastField, setLastField] = useState<"subject" | "body">("body");
   const subjectRef = useRef<HTMLInputElement>(null);
   const bodyEditor = useRef<NoteEditorHandle | null>(null);
+  const subjectId = useId();
+  const [isSubjectFocused, setIsSubjectFocused] = useState(false);
+  const [openChip, setOpenChip] = useState<OpenChip | null>(null);
+  const [chips] = useState(() => {
+    const created = createVariableChips();
+    return { ...created, extensions: [created.extension] };
+  });
   const signature = useSignatureChoice();
   const templates = useQuery({
     queryKey: emailTemplatesApi.EMAIL_TEMPLATES_KEY,
@@ -271,7 +284,55 @@ function OpenComposer({
     else setBody(body + token);
   };
 
+  // An email to one person reads each variable as their value, those the composer accepts; until the values are read,
+  // it reads as typed. A booking link where none is offered stays as typed: the line under the editor names it.
+  useEffect(() => {
+    const accepted = new Set(templateVocabulary(bookingLinkOffered));
+    chips.setHost(
+      tokens
+        ? {
+            chipFor: (name, fallback) => (accepted.has(name) ? chipOf(name, fallback, tokens, firstName) : null),
+            // A second press on the open chip closes its popover.
+            onChip: (target) => setOpenChip((open) => (open?.name === target.name && open.scope === "body" && open.from === target.from ? null : { ...target, scope: "body" })),
+          }
+        : null,
+    );
+  }, [chips, tokens, firstName, bookingLinkOffered]);
+
+  // The popover is fixed where its chip was: a word typed before it would leave it behind.
+  useEffect(() => {
+    setOpenChip(null);
+  }, [body, subject]);
+
+  const returnFocus = (scope: OpenChip["scope"]) => {
+    if (scope === "subject") subjectRef.current?.focus();
+    else bodyEditor.current?.editor.commands.focus();
+  };
+
+  /** Words typed for this email, or none to take it out: wherever the variable has nothing on file, subject and all. */
+  const fillBlank = (open: OpenChip, text: string) => {
+    if (bodyEditor.current) replaceVariableInEditor(bodyEditor.current.editor, open.name, text, true);
+    if (!isReply) setSubject((current) => replaceVariable(current, open.name, text, true).slice(0, SUBJECT_MAX_LENGTH));
+    setOpenChip(null);
+    returnFocus(open.scope);
+  };
+
+  /** Only the chip that was pressed: its words given the value as plain text, or taken out. */
+  const settleChip = (open: OpenChip, text: string) => {
+    if (open.scope === "body") {
+      if (bodyEditor.current) replaceRangeInEditor(bodyEditor.current.editor, open.from, open.to, text);
+    } else {
+      setSubject((current) => (current.slice(0, open.from) + text + current.slice(open.to)).slice(0, SUBJECT_MAX_LENGTH));
+    }
+    setOpenChip(null);
+    returnFocus(open.scope);
+  };
+
   const unsendable = unsendableVariablesOf(isReply ? body : `${subject}\n${body}`, tokens, templateVocabulary(bookingLinkOffered));
+  const subjectChips = tokens
+    ? piecesOf(subject, tokens, firstName, (name) => templateVocabulary(bookingLinkOffered).includes(name))
+    : [];
+  const subjectPieces = subjectChips.some((piece) => "chip" in piece) ? subjectChips : null;
   const hasBody = body.trim().length > 0;
   const hasDraft = hasBody || subject.trim().length > 0 || attachments.length > 0;
   useEffect(() => onDraftChange?.(hasDraft), [hasDraft, onDraftChange]);
@@ -302,7 +363,7 @@ function OpenComposer({
   });
 
   return (
-    <section aria-label="Reply" className="flex min-h-0 flex-1 flex-col">
+    <section aria-label="Reply" className="flex min-h-fit flex-1 flex-col">
       <div className="mb-1 flex flex-none flex-wrap items-center gap-x-3 gap-y-1">
         <span className="inline-flex items-center gap-1.5 text-body font-semibold text-u-text">
           <Icon d={ICONS.mail} size={14} className="text-u-accent" />
@@ -329,6 +390,7 @@ function OpenComposer({
         fillsDialog
         onExpandChange={onExpandChange}
         editorRef={bodyEditor}
+        extraExtensions={chips.extensions}
         header={
           <>
             <div className="flex items-center gap-2 border-b border-u-border py-2 text-note">
@@ -357,44 +419,87 @@ function OpenComposer({
                 <span className="min-w-0 truncate text-u-text2">{replySubject}</span>
               </div>
             ) : (
-              <label className="flex items-center gap-2 border-b border-u-border py-2 text-note">
-                <span className="w-14 flex-none text-u-text3">Subject</span>
-                <input
-                  ref={subjectRef}
-                  aria-label="Subject"
-                  autoFocus={autoFocus}
-                  onFocus={() => setLastField("subject")}
-                  value={subject}
-                  maxLength={200}
-                  onChange={(event) => setSubject(event.target.value)}
-                  className="min-w-0 flex-1 bg-transparent text-u-text outline-none placeholder:text-u-text3"
-                  placeholder="What the email is about"
-                />
-              </label>
+              <div className="flex items-center gap-2 border-b border-u-border py-2 text-note">
+                {/* Not wrapped round the field: a label names the first control inside it, and the chips come first. */}
+                <label htmlFor={subjectId} className="w-14 flex-none text-u-text3">
+                  Subject
+                </label>
+                <span className="relative flex min-w-0 flex-1 items-center">
+                  {/* The words in the field stay the variables; this reads them as the executive's values until the field is
+                      pressed, since a field of plain text cannot draw a chip in place. Before the field, so Tab reaches the
+                      chips first; a press on its words puts the caret at the same words in the field. */}
+                  {subjectPieces && !isSubjectFocused && (
+                    <span
+                      className="absolute inset-0 z-10 flex cursor-text items-center text-u-text"
+                      onMouseDown={(event) => {
+                        if (event.target instanceof Element && event.target.closest("[data-variable]")) return;
+                        event.preventDefault();
+                        const field = subjectRef.current;
+                        if (!field) return;
+                        const placed = caretOffsetIn(event.target, event.clientX, event.clientY);
+                        field.focus();
+                        const at = placed === null ? subject.length : placed;
+                        field.setSelectionRange(at, at);
+                      }}
+                    >
+                      <span className="min-w-0 truncate">
+                        {subjectPieces.map((piece, index) =>
+                          "chip" in piece ? (
+                            <button
+                              key={index}
+                              type="button"
+                              title={piece.chip.title}
+                              data-variable={piece.name}
+                              onClick={(event) => {
+                                event.preventDefault();
+                                const rect = event.currentTarget.getBoundingClientRect();
+                                setOpenChip((open) =>
+                                  open?.name === piece.name && open.scope === "subject" && open.from === piece.start
+                                    ? null
+                                    : { name: piece.name, kind: piece.chip.kind, chip: piece.chip, rect, scope: "subject", from: piece.start, to: piece.end },
+                                );
+                              }}
+                              className={CHIP_CLASS[piece.chip.kind]}
+                            >
+                              {piece.text}
+                            </button>
+                          ) : (
+                            <span key={index} data-start={piece.start}>
+                              {piece.text}
+                            </span>
+                          ),
+                        )}
+                      </span>
+                    </span>
+                  )}
+                  <input
+                    id={subjectId}
+                    ref={subjectRef}
+                    aria-label="Subject"
+                    autoFocus={autoFocus}
+                    onFocus={() => {
+                      setLastField("subject");
+                      setIsSubjectFocused(true);
+                    }}
+                    onBlur={() => setIsSubjectFocused(false)}
+                    value={subject}
+                    maxLength={SUBJECT_MAX_LENGTH}
+                    onChange={(event) => setSubject(event.target.value)}
+                    className={cn(
+                      "min-w-0 flex-1 bg-transparent text-u-text outline-none placeholder:text-u-text3",
+                      subjectPieces && !isSubjectFocused && "text-transparent",
+                    )}
+                    placeholder="What the email is about"
+                  />
+                </span>
+              </div>
             )}
-            <TokenInsertBar
-              options={templateTokenOptions(bookingLinkOffered)}
-              onInsert={insertVariable}
-              className="mt-2 border-none bg-transparent px-0 py-1"
-            />
           </>
         }
         footer={
           <>
             <SignatureUnderEmail choice={signature} />
             <AttachmentChips attachments={attachments} limits={attachmentLimits} onChange={setAttachments} />
-            {unsendable.length > 0 && (
-              <p role="alert" className="mt-1.5 text-meta text-u-offlimits">
-                Fill in or remove {unsendable.length === 1 ? "1 variable" : `${unsendable.length} variables`} to send:{" "}
-                {unsendable.map((problem) => problem.text).join("; ")}. Give one a fallback for anyone with none, like{" "}
-                {"{{location|your city}}"}.
-              </p>
-            )}
-            {isTooLong && (
-              <p role="alert" className="mt-1.5 text-meta text-u-offlimits">
-                Too long to send. Shorten it to {BODY_MAX_LENGTH.toLocaleString("en-GB")} characters.
-              </p>
-            )}
             <RecentApproachNote approach={recentApproach} className="mt-1.5" />
             {isApproaching && (
               <RecentApproachConfirm
@@ -413,7 +518,20 @@ function OpenComposer({
                 }}
               />
             )}
-            <div className="mt-1 flex flex-wrap items-center gap-2">
+            {/* Stuck to the dialog's foot: on a short window the body scrolls, and Send must not scroll away with it. */}
+            <div className="sticky bottom-0 z-10 mt-1 bg-u-surface pb-2 pt-1">
+              {/* With the row: what holds Send is as much in view as Send itself. */}
+              {unsendable.length > 0 && (
+                <p role="alert" className="mb-1.5 text-meta text-u-offlimits">
+                  {unsendableLineOf(unsendable, firstName)}
+                </p>
+              )}
+              {isTooLong && (
+                <p role="alert" className="mb-1.5 text-meta text-u-offlimits">
+                  Too long to send. Shorten it to {BODY_MAX_LENGTH.toLocaleString("en-GB")} characters.
+                </p>
+              )}
+              <div className="flex flex-wrap items-center gap-2">
               <AttachButton
                 projectId={projectId}
                 candidateId={candidateId}
@@ -434,6 +552,13 @@ function OpenComposer({
                   Insert follow-up
                 </Button>
               )}
+              <VariableMenu
+                options={templateTokenOptions(bookingLinkOffered)}
+                tokens={tokens}
+                forWhom={firstName}
+                disabled={send.isPending}
+                onInsert={insertVariable}
+              />
               <SignatureChooser choice={signature} disabled={send.isPending} />
               <div className="ms-auto flex flex-wrap items-center gap-2">
                 <SchedulePicker
@@ -451,11 +576,26 @@ function OpenComposer({
                   Send now
                 </Button>
               </div>
+              </div>
             </div>
             <p className="mt-2 text-meta text-u-text3">{footnote}</p>
           </>
         }
       />
+      {openChip && (
+        <VariableChipPopover
+          target={openChip}
+          forWhom={firstName}
+          onTypeValue={(text) => fillBlank(openChip, text)}
+          onEditAsText={() => settleChip(openChip, openChip.chip.text)}
+          onRemove={() => (openChip.kind === "blank" ? fillBlank(openChip, "") : settleChip(openChip, ""))}
+          onClose={() => setOpenChip(null)}
+          onEscape={() => {
+            setOpenChip(null);
+            returnFocus(openChip.scope);
+          }}
+        />
+      )}
       <SaveAsTemplateDialog
         open={isSavingTemplate}
         subject={isReply ? null : subject}
@@ -466,9 +606,48 @@ function OpenComposer({
   );
 }
 
+/** Where in a plain run of the subject's overlay a press landed, as an offset in the field's own words. */
+function caretOffsetIn(target: EventTarget, x: number, y: number): number | null {
+  const run = target instanceof Element ? target.closest<HTMLElement>("[data-start]") : null;
+  if (!run) return null;
+  const doc = document as Document & {
+    caretRangeFromPoint?: (x: number, y: number) => Range | null;
+    caretPositionFromPoint?: (x: number, y: number) => { offsetNode: Node; offset: number } | null;
+  };
+  const inside = doc.caretRangeFromPoint?.(x, y)?.startOffset ?? doc.caretPositionFromPoint?.(x, y)?.offset;
+  return inside === undefined ? null : Number(run.dataset.start) + inside;
+}
+
+/** A chip whose popover is open: where its words are in the body (document positions) or the subject (offsets). */
+interface OpenChip {
+  name: string;
+  kind: VariableChipKind;
+  chip: VariableChip;
+  rect: DOMRect;
+  scope: "body" | "subject";
+  from: number;
+  to: number;
+}
+
 interface UnsendableVariable {
   name: string;
   text: string;
+  /** No email fills it, or this executive has nothing on file for it. */
+  kind: "unknown" | "blank";
+}
+
+/** What holds Send, in a sentence: a variable with nothing on file is a red chip to click, so the line says so. */
+function unsendableLineOf(problems: readonly UnsendableVariable[], firstName: string): string {
+  const blanks = problems.filter((problem) => problem.kind === "blank");
+  if (blanks.length === problems.length) {
+    const labels = blanks.map((problem) => VARIABLE_LABELS[problem.name] ?? problem.name);
+    return blanks.length === 1
+      ? `${labels[0]} has nothing on file for ${firstName}: click it to type one for this email, or remove it.`
+      : `${blanks.length} variables have nothing on file for ${firstName}: ${labels.join(", ")}. Click one to type it for this email, or remove it.`;
+  }
+  return `Fill in or remove ${problems.length === 1 ? "1 variable" : `${problems.length} variables`} to send: ${problems
+    .map((problem) => problem.text)
+    .join("; ")}.`;
 }
 
 /**
@@ -483,10 +662,12 @@ function unsendableVariablesOf(
   const unknown = unknownIn(text, vocabulary).map((name) => ({
     name,
     text: `{{${name}}} isn't a variable Uncava fills`,
+    kind: "unknown" as const,
   }));
   const blank = (tokens ? unfilledIn(text, tokens) : []).map((name) => ({
     name,
     text: `{{${name}}} has nothing on file`,
+    kind: "blank" as const,
   }));
   return [...unknown, ...blank];
 }

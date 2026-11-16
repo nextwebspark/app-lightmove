@@ -23,6 +23,9 @@ export const BOOKING_LINK_TOKEN = "{{bookingLink}}";
  */
 const TOKEN = /\{\{\s*([A-Za-z]+)\s*(?:\\?\|([^{}|\n]{1,60}))?\s*\}\}/g;
 
+/** The grammar as a pattern, for a surface that reads variables off its own text (the composer's chips). */
+export const TOKEN_PATTERN = TOKEN;
+
 export const SEQUENCE_TOKENS: SequenceTokenOption[] = [
   { token: "{{firstName}}", tip: "Their first name" },
   { token: "{{currentTitle}}", tip: "Their current title" },
@@ -121,6 +124,23 @@ export function tokenGapsIn(texts: readonly (string | null | undefined)[], token
     (name) => !blanks.includes(name),
   );
   return { blanks, fallbacks };
+}
+
+/** What this person has for a variable the composer can fill, trimmed, "" where nothing is on file; null for any other name. */
+export function tokenValueOf(tokens: RecipientTokens, name: string): string | null {
+  const values = valuesOf(tokens);
+  return Object.hasOwn(values, name) ? values[name] : null;
+}
+
+/**
+ * The text with every use of one variable replaced, a fallback and its pipe included — for a value typed for one
+ * email, or "" to take the variable out of it. `onlyWithoutFallback` leaves the uses a fallback stands in for alone:
+ * they are not the ones with nothing to say.
+ */
+export function replaceVariable(text: string, name: string, replacement: string, onlyWithoutFallback = false): string {
+  return text.replace(TOKEN, (whole, used: string, fallback: string | undefined) =>
+    used === name && (!onlyWithoutFallback || fallbackOf(fallback) === null) ? replacement : whole,
+  );
 }
 
 /** A subject: every value on one line, as the server writes it. */
