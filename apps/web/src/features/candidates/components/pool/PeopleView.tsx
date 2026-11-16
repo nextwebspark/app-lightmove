@@ -1,31 +1,38 @@
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { RowSelectionState } from "@tanstack/react-table";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { Link } from "react-router-dom";
 import { Icon, ICONS } from "../../../../components/layout/Icon";
 import { EmptyState, FullscreenButton } from "../../../../components/ui";
+import { ColumnPicker, hideableColumnsOf } from "../../../../components/ui/ColumnPicker";
 import { CompanyLogo } from "../../../../components/ui/CompanyLogo";
 import { DataGrid } from "../../../../components/ui/DataGrid";
+import { GridFilterButton } from "../../../../components/ui/GridFilters";
 import { PaginationBar } from "../../../../components/ui/PaginationBar";
 import { SelectionAction, SelectionActionBar } from "../../../../components/ui/SelectionActionBar";
 import { SelectionCheckbox } from "../../../../components/ui/SelectionCheckbox";
 import { cn } from "../../../../lib/cn";
 import { messageFor } from "../../../../lib/errorCodes";
+import { useColumnVisibility } from "../../../../lib/useColumnVisibility";
 import { useDebouncedValue } from "../../../../lib/useComboboxList";
 import { useDataGridTable } from "../../../../lib/useDataGridTable";
 import { isBelowTableWidth } from "../../../../lib/viewport";
 import { FULLSCREEN_PANEL, useFullscreen } from "../../../../lib/useFullscreen";
-import { layoutColumnsOf, useGridLayout } from "../../../../lib/useGridLayout";
+import { EMPTY_GRID_LAYOUT, layoutColumnsOf, useGridLayout } from "../../../../lib/useGridLayout";
 import { useGridPaging } from "../../../../lib/useGridPaging";
 import * as poolApi from "../../api/poolApi";
 import type { PoolFilters, PoolRow, PoolSortField } from "../../api/types";
-import { POOL_COLUMN_PINNING, poolColumnsFor, poolTableFeatures } from "../../lib/poolColumns";
-import { countActiveFilters } from "../../lib/poolFilters";
+import {
+  DEFAULT_POOL_COLUMN_VISIBILITY,
+  POOL_COLUMN_PINNING,
+  poolColumnsFor,
+  poolTableFeatures,
+} from "../../lib/poolColumns";
+import { NO_POOL_TEXT_FILTERS, poolColumnFilters, type PoolTextFilters } from "../../lib/poolFilters";
+import { usePipelineCatalog } from "../../../workspace/lib/usePipelineCatalog";
 import { usePoolLookups } from "../../lib/usePoolLookups";
 import { AddToPositionDialog } from "./AddToPositionDialog";
-import { ActiveFilters } from "./ActiveFilters";
 import { PeopleToolbar } from "./PeopleToolbar";
-import { PoolFilterRail } from "./PoolFilterRail";
 import { SetOwnerDialog } from "./SetOwnerDialog";
 import { TagPeopleDialog } from "./TagPeopleDialog";
 import { SendPrivacyNoticeDialog } from "./SendPrivacyNoticeDialog";
@@ -34,14 +41,15 @@ import { useConsentMode } from "../../lib/useConsentMode";
 import { useDataProtection } from "../../lib/useDataProtection";
 
 const POOL_LAYOUT_COLUMNS = layoutColumnsOf(poolColumnsFor(new Map(), new Map()));
+const HIDEABLE_POOL_COLUMNS = hideableColumnsOf(poolColumnsFor(new Map(), new Map()));
 const NOTHING_SELECTED: RowSelectionState = {};
 
 type BulkDialog = "position" | "tag" | "owner" | "notice" | "consent" | null;
 
 /**
  * The People view of the Candidates page: everyone the workspace holds, searched, filtered and sorted
- * by the server, with the selection bar's bulk actions over the people ticked. Strategy's frame — the
- * toolbar, the filter rail beside the grid, the paging row with full screen under it.
+ * by the server, with the selection bar's bulk actions over the people ticked. In universe's frame: every
+ * column filters from its header menu, the toolbar's Filter button lists them and Columns shows or hides them.
  */
 export function PeopleView({
   toggle,
@@ -54,7 +62,7 @@ export function PeopleView({
   /** The People | Activity switch, drawn first in this view's toolbar. */
   toggle: ReactNode;
   filters: PoolFilters;
-  onFiltersChange: (filters: PoolFilters) => void;
+  onFiltersChange: Dispatch<SetStateAction<PoolFilters>>;
   onOpen: (personId: string) => void;
   onExport: (personIds: string[]) => void;
   exporting: boolean;
@@ -64,20 +72,33 @@ export function PeopleView({
   const { offered: dataProtection } = useDataProtection();
   const consentMode = useConsentMode();
   const paging = useGridPaging(50);
+  const { catalog } = usePipelineCatalog();
   const [query, setQuery] = useState(filters.q);
-  // Closed at every width, unlike Strategy's: most visits here are a search or a quick view.
-  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [textFilters, setTextFilters] = useState<PoolTextFilters>(NO_POOL_TEXT_FILTERS);
   const [isFullscreen, toggleFullscreen] = useFullscreen();
   const [rowSelection, setRowSelection] = useState<RowSelectionState>(NOTHING_SELECTED);
   const [asCards] = useState(isBelowTableWidth);
   const [dialog, setDialog] = useState<BulkDialog>(null);
   const [layout, setLayout] = useGridLayout("candidatePool", POOL_LAYOUT_COLUMNS);
+  const [columnVisibility, setColumnVisibility] = useColumnVisibility(
+    "candidatePool",
+    "workspace",
+    DEFAULT_POOL_COLUMN_VISIBILITY,
+  );
   const { reset: resetPaging, clampTo, page: pageIndex, size: pageSize } = paging;
   const settledQuery = useDebouncedValue(query);
+  const settledText = useDebouncedValue(textFilters);
 
   useEffect(() => {
-    if (settledQuery !== filters.q) onFiltersChange({ ...filters, q: settledQuery });
-  }, [settledQuery, filters, onFiltersChange]);
+    onFiltersChange((current) => (current.q === settledQuery ? current : { ...current, q: settledQuery }));
+  }, [settledQuery, onFiltersChange]);
+  useEffect(() => {
+    onFiltersChange((current) =>
+      current.name === settledText.name && current.title === settledText.title && current.company === settledText.company
+        ? current
+        : { ...current, ...settledText },
+    );
+  }, [settledText, onFiltersChange]);
 
   // The selection is what the bulk actions count and summarise, and they can only see the rows on
   // screen — so a new question, or a turned page, starts it again.
@@ -112,11 +133,21 @@ export function PeopleView({
     getRowId: (row) => row.personId,
     pinning: POOL_COLUMN_PINNING,
     sort: { field: filters.sort, direction: filters.direction },
-    onSortChange: (sort) => onFiltersChange({ ...filters, sort: sort.field, direction: sort.direction }),
+    onSortChange: (sort) => onFiltersChange((current) => ({ ...current, sort: sort.field, direction: sort.direction })),
+    columnVisibility,
+    onColumnVisibilityChange: setColumnVisibility,
     layout,
     onLayoutChange: setLayout,
     rowSelection,
     onRowSelectionChange: setRowSelection,
+  });
+
+  const columnFilters = poolColumnFilters(filters, onFiltersChange, textFilters, setTextFilters, {
+    tags: lookups.tags,
+    staff: lookups.staff,
+    positions: lookups.positions,
+    countries: page.data?.countries ?? [],
+    catalog,
   });
 
   const tickedOnPage = rows.filter((row) => rowSelection[row.personId]).length;
@@ -127,14 +158,29 @@ export function PeopleView({
     <div className={cn("flex min-h-0 flex-1 flex-col", isFullscreen && FULLSCREEN_PANEL)}>
       <PeopleToolbar
         toggle={toggle}
-        filtersOpen={filtersOpen}
-        onToggleFilters={() => setFiltersOpen((open) => !open)}
-        activeFilterCount={countActiveFilters(filters)}
+        filter={
+          <GridFilterButton
+            filters={columnFilters}
+            resultLabel={
+              page.data ? `${page.data.totalCount.toLocaleString()} of ${page.data.poolSize.toLocaleString()} people` : undefined
+            }
+          />
+        }
+        columns={
+          <ColumnPicker
+            variant="toolbar"
+            columns={HIDEABLE_POOL_COLUMNS}
+            visibility={columnVisibility}
+            defaults={DEFAULT_POOL_COLUMN_VISIBILITY}
+            onChange={setColumnVisibility}
+            onResetLayout={() => setLayout(EMPTY_GRID_LAYOUT)}
+          />
+        }
         query={query}
         onQueryChange={setQuery}
         view={filters.view}
         viewCounts={page.data?.viewCounts}
-        onViewChange={(view) => onFiltersChange({ ...filters, view })}
+        onViewChange={(view) => onFiltersChange((current) => ({ ...current, view }))}
         shown={page.data?.totalCount ?? null}
         pool={page.data?.poolSize ?? null}
         canExportView={selectedPeople === 0}
@@ -145,19 +191,6 @@ export function PeopleView({
       />
 
       <div className="flex min-h-0 flex-1">
-        <PoolFilterRail
-          open={filtersOpen}
-          filters={filters}
-          onChange={onFiltersChange}
-          onClose={() => setFiltersOpen(false)}
-          tags={lookups.offeredTags}
-          staff={lookups.staff}
-          positions={lookups.positions}
-          countries={page.data?.countries ?? []}
-          shown={page.data?.totalCount ?? null}
-          pool={page.data?.poolSize ?? null}
-        />
-
         <div className="flex min-w-0 flex-1 flex-col gap-3 p-2">
           {poolIsEmpty ? (
             <EmptyState
@@ -171,19 +204,11 @@ export function PeopleView({
             </EmptyState>
           ) : (
             <>
-              {!filtersOpen && (
-                <ActiveFilters
-                  filters={filters}
-                  onChange={onFiltersChange}
-                  tagsById={lookups.tagsById}
-                  membersByUserId={lookups.membersByUserId}
-                  positions={lookups.positions}
-                />
-              )}
               <div className="flex min-h-0 flex-1 flex-col">
                 <DataGrid
                   table={table}
                   label="Candidates"
+                  columnFilters={columnFilters}
                   layout={layout}
                   onLayoutChange={setLayout}
                   loading={page.isPending}

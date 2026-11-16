@@ -285,7 +285,9 @@ public class CandidatePoolService {
             return new CandidatePoolRowResponse(person.getId(), person.getFullName(), person.getTitle(),
                     employers.get(person.getId()).name(), logos.get(person.getId()), person.getLocationCity(),
                     person.getLocationCountry(), person.getLinkedinUrl(), person.getProfile().enrichedAt(),
-                    person.isDoNotContact(), person.getYearsExperience(), person.getProfile().career().size(),
+                    person.isDoNotContact(), person.getYearsExperience(),
+                    person.getSeniorityLevel() == null ? null : person.getSeniorityLevel().value(),
+                    person.getSource().value(), person.getCreatedAt(), person.getProfile().career().size(),
                     holds(person, ContactChannel.EMAIL), holds(person, ContactChannel.PHONE),
                     chipsOf(rows, mandates), List.copyOf(person.getTagIds()), person.getOwnerUserId(),
                     latest.get(person.getId()));

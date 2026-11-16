@@ -103,6 +103,9 @@ const fatima: PoolRow = {
   enrichedAt: null,
   doNotContact: false,
   yearsExperience: 18,
+  seniority: "C-Suite",
+  source: "manual",
+  createdAt: "2026-08-01T10:00:00Z",
   careerRoles: 4,
   hasEmail: true,
   hasPhone: false,
@@ -274,8 +277,9 @@ describe("CandidatesPage", () => {
     expect(screen.getByText("2 of 2 people")).toBeInTheDocument();
   });
 
-  it("asks the server again for a quick view, a tag filter or a sort, never filtering what it already has", async () => {
+  it("asks the server again for a quick view, a column filter or a sort, never filtering what it already has", async () => {
     renderPage();
+    const grid = await screen.findByRole("table", { name: "Candidates" });
     await screen.findAllByText("Fatima Al Mazrouei");
 
     await userEvent.click(screen.getByRole("button", { name: /Owned by me/ }));
@@ -288,66 +292,120 @@ describe("CandidatesPage", () => {
       ),
     );
 
-    await userEvent.click(screen.getByRole("button", { name: "Show Filters" }));
-    const rail = screen.getByRole("region", { name: "Filters" });
-    await userEvent.click(within(rail).getByRole("button", { name: "Tags" }));
-    await userEvent.click(within(rail).getByRole("checkbox", { name: /Referral/ }));
-    await userEvent.click(within(rail).getByRole("radio", { name: "None of" }));
+    await userEvent.click(within(grid).getByRole("button", { name: "Tags column menu" }));
+    await userEvent.click(await screen.findByRole("checkbox", { name: "Referral" }));
     await waitFor(() =>
       expect(poolApi.listPool).toHaveBeenLastCalledWith(
-        expect.objectContaining({ tagIds: ["t2"], tagMatch: "none" }),
+        expect.objectContaining({ view: "mine", tagIds: ["t2"] }),
         0,
         50,
         expect.anything(),
       ),
     );
-    expect(screen.queryByText("None of: Referral")).not.toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: /^Hide Filters/ }));
-    expect(screen.getByText("None of: Referral")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Filter, 1 applied" })).toBeInTheDocument();
   });
 
-  it("keeps the filter rail hidden until asked for, and takes one value per axis", async () => {
+  it("filters every column from its header menu, typed ones once the typing settles", async () => {
     renderPage();
+    const grid = await screen.findByRole("table", { name: "Candidates" });
     await screen.findAllByText("Fatima Al Mazrouei");
     expect(screen.queryByRole("region", { name: "Filters" })).not.toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole("button", { name: "Show Filters" }));
-    const rail = screen.getByRole("region", { name: "Filters" });
-    await userEvent.click(within(rail).getByRole("button", { name: "Stage & status" }));
-    await userEvent.click(within(rail).getByRole("checkbox", { name: "Engaged" }));
+    await userEvent.click(within(grid).getByRole("button", { name: "Company column menu" }));
+    await userEvent.type(screen.getByRole("textbox", { name: "Filter by company" }), "Aldar");
     await waitFor(() =>
       expect(poolApi.listPool).toHaveBeenLastCalledWith(
-        expect.objectContaining({ status: "engaged" }),
+        expect.objectContaining({ company: "Aldar" }),
+        0,
+        50,
+        expect.anything(),
+      ),
+    );
+    await userEvent.keyboard("{Escape}");
+
+    await userEvent.click(within(grid).getByRole("button", { name: "Positions column menu" }));
+    await userEvent.click(await screen.findByRole("checkbox", { name: "Chief Financial Officer" }));
+    await userEvent.keyboard("{Escape}");
+    await userEvent.click(within(grid).getByRole("button", { name: "Experience column menu" }));
+    await userEvent.click(await screen.findByRole("checkbox", { name: "15–20 yrs" }));
+    await userEvent.click(screen.getByRole("checkbox", { name: "20+ yrs" }));
+    await waitFor(() =>
+      expect(poolApi.listPool).toHaveBeenLastCalledWith(
+        expect.objectContaining({ company: "Aldar", positions: ["p1"], experience: ["15to20", "20plus"] }),
+        0,
+        50,
+        expect.anything(),
+      ),
+    );
+    expect(screen.getByRole("button", { name: "Filter, 3 applied" })).toBeInTheDocument();
+  });
+
+  it("offers stage and status as one Status list, a stage as every status under it", async () => {
+    renderPage();
+    await screen.findAllByText("Fatima Al Mazrouei");
+
+    await userEvent.click(screen.getByRole("button", { name: "Filter" }));
+    await userEvent.click(screen.getByRole("button", { name: "Add filter" }));
+    await userEvent.click(
+      within(screen.getByRole("group", { name: "Choose a column to filter" })).getByRole("button", { name: "Status" }),
+    );
+    await userEvent.click(await screen.findByRole("checkbox", { name: "Engaged" }));
+    await userEvent.click(screen.getByRole("checkbox", { name: "All Interested" }));
+    await waitFor(() =>
+      expect(poolApi.listPool).toHaveBeenLastCalledWith(
+        expect.objectContaining({ statuses: ["engaged"], pipelineStages: ["interested"] }),
+        0,
+        50,
+        expect.anything(),
+      ),
+    );
+  });
+
+  it("clears every filter at once from the toolbar, typed and ticked alike", async () => {
+    renderPage();
+    const grid = await screen.findByRole("table", { name: "Candidates" });
+    await screen.findAllByText("Fatima Al Mazrouei");
+
+    await userEvent.click(within(grid).getByRole("button", { name: "Person column menu" }));
+    await userEvent.type(screen.getByRole("textbox", { name: "Filter by person" }), "Fat");
+    await userEvent.keyboard("{Escape}");
+    await userEvent.click(within(grid).getByRole("button", { name: "Location column menu" }));
+    await userEvent.click(await screen.findByRole("checkbox", { name: "United Arab Emirates" }));
+    await userEvent.keyboard("{Escape}");
+    await userEvent.click(within(grid).getByRole("button", { name: "Owner column menu" }));
+    await userEvent.click(await screen.findByRole("checkbox", { name: "Nobody" }));
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() =>
+      expect(poolApi.listPool).toHaveBeenLastCalledWith(
+        expect.objectContaining({ name: "Fat", countries: ["United Arab Emirates"], owners: ["nobody"] }),
         0,
         50,
         expect.anything(),
       ),
     );
 
-    await userEvent.click(within(rail).getByRole("checkbox", { name: "All Interested" }));
+    await userEvent.click(screen.getByRole("button", { name: "Clear all filters" }));
     await waitFor(() =>
       expect(poolApi.listPool).toHaveBeenLastCalledWith(
-        expect.objectContaining({ status: "", pipelineStage: "interested" }),
+        expect.objectContaining({ name: "", countries: [], owners: [] }),
         0,
         50,
         expect.anything(),
       ),
     );
-    expect(within(rail).getByRole("checkbox", { name: "Engaged" })).not.toBeChecked();
+    expect(screen.queryByRole("button", { name: "Clear all filters" })).not.toBeInTheDocument();
+  });
 
-    await userEvent.click(within(rail).getByRole("button", { name: "Country" }));
-    await userEvent.click(within(rail).getByRole("checkbox", { name: "United Arab Emirates" }));
-    expect(screen.getByRole("button", { name: /Hide Filters\s*2/ })).toBeInTheDocument();
+  it("starts the extra columns hidden and shows one from the Columns menu", async () => {
+    renderPage();
+    const grid = await screen.findByRole("table", { name: "Candidates" });
+    await screen.findAllByText("Fatima Al Mazrouei");
+    expect(within(grid).queryByRole("button", { name: "Seniority column menu" })).not.toBeInTheDocument();
 
-    await userEvent.click(within(rail).getByRole("button", { name: "Clear all filters" }));
-    await waitFor(() =>
-      expect(poolApi.listPool).toHaveBeenLastCalledWith(
-        expect.objectContaining({ status: "", pipelineStage: "", country: "" }),
-        0,
-        50,
-        expect.anything(),
-      ),
-    );
+    await userEvent.click(screen.getByRole("button", { name: /Columns/ }));
+    await userEvent.click(screen.getByRole("checkbox", { name: "Seniority" }));
+    expect(await within(grid).findByRole("button", { name: "Seniority column menu" })).toBeInTheDocument();
+    expect(within(grid).getAllByText("C-Suite").length).toBeGreaterThan(0);
   });
 
   it("switches between People and Activity from the toolbar", async () => {

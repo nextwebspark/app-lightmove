@@ -599,11 +599,16 @@ expand and the contract in separate deploys.
 >   `OWNER_CHANGED`, `DO_NOT_CONTACT_SET`, `DO_NOT_CONTACT_CLEARED`; a line keeps the tag's id and the
 >   owner's id, and the read names them as they are today. `rank` on the mapping is **not** built: no
 >   screen in either mockup ranks people, so it waits for the pipeline that would.
-> - **Pool read**: `GET /candidates` — search over name, title, a mapped employer and an email key
->   (`ILIKE`, a plain scan per workspace: V33's reasoning, and no trigram extension), the four quick
->   views with their counts under the other filters, tags any/all/none, position (+ status on it), owner
->   (a user or `nobody`), country, four sorts, paged (the mockup draws every row; a pool of thousands
->   cannot). `PersonPoolQuery` answers ids; the rows, mappings and each person's latest line load in
+> - **Pool read**: `GET /candidates` — search over name, title, a mapped employer, the employer the row
+>   draws (the newest position's, else research's first post) and an email key (`ILIKE`, a plain scan per
+>   workspace: V33's reasoning, and no trigram extension), the quick views with their counts under the
+>   other filters, then one filter per grid column (`CandidatePoolQueryRequest`, read off the raw
+>   parameters so a country holding a comma survives): `name`/`title`/`company` contain; `tag` (any/all/none
+>   by `tagMatch`, the grid sends any), `position`, `status`/`pipelineStage` (one mapping on a named
+>   position, at any of them), `owner` (users and `nobody`), `country`, `linkedin`, `contact`
+>   (email/phone/none), `experience` bands, `activity` and `added` windows, `seniority` (tiers and `none`),
+>   `source` and `doNotContact` each repeat and match any of their values. Nine sorts, paged (the mockup
+>   draws every row; a pool of thousands cannot). `PersonPoolQuery` answers ids; the rows, mappings and each person's latest line load in
 >   batches. A row reads as Strategy → People draws a person (photo, LinkedIn, title, company,
 >   location, experience, the contact channels on file), then the CRM's columns. `GET /candidates/count`
 >   is the nav's figure, and `GET /candidates/{personId}/photo` the stored photo by person.
