@@ -19,7 +19,7 @@ and `Settings.dc.html` → Meetings & email.
 | `REPLIED` | `app_lm_outreach_message`: an inbound reply, credited to the mailbox it reached |
 | `IN_SEQUENCE` | a live (`SCHEDULED`/`ACTIVE`) enrollment on another position. Ongoing, so it ignores the window |
 | `CALL_LOGGED`, `LINKEDIN_LOGGED`, `WHATSAPP_LOGGED`, `MEETING_LOGGED`, `EMAIL_LOGGED` | a live logged note of that kind (`app_lm_person_note`), dated by `occurred_at`, else when it was written |
-| `REPLIED` (logged) | a WhatsApp log whose outcome is They replied: their answer, so it ranks with an emailed reply |
+| `WHATSAPP_REPLIED` | a WhatsApp log whose outcome is They replied: their answer, so it ranks with `REPLIED` (`ApproachKind.isReply`) on its own line |
 
 A logged call or WhatsApp message carries its outcome (`outcome` on the touch), and the line says it: "Sara called
 (left voicemail)", "Sara sent a WhatsApp message", "Replied to Sara on WhatsApp".

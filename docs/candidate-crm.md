@@ -327,8 +327,8 @@ Not now (or Esc) logs nothing. A second press of the same number freshens its ca
 The composer's Log call and Log WhatsApp carry the same outcome chips, optional, and with one picked the note may stay
 empty; an outcome is drawn as a pill (`NoteOutcomePill`) on the Outreach timeline's card and the conversation pane, and
 leads the Activity line's detail. A person's call or WhatsApp card edits its outcome too (a mis-tapped tray outcome is
-corrected, not deleted), sending only what changed; a company's note takes none. The drawer reads the conversation for
-the caution only when a writer opens someone with a phone.
+corrected, not deleted), sending only what changed; a company's note takes none. The drawer reads the conversation
+whenever a writer opens someone, for the caution and for Last call.
 
 ### Call and WhatsApp outcomes (#1337, V224)
 
@@ -345,13 +345,14 @@ replied as a reply (`docs/recently-approached.md`).
 
 ### Last call (#1337)
 
-The newest live call note on the person, on any position, whatever its outcome (`LastCallReader`): when
-(`occurred_at`, else when it was written), how it went and who logged it, never the words or the position — the same
-exposure as Recently approached. It rides the staff-only conversation read as `keyDates.lastCall`
-(`LastCallResponse`), never `CandidateResponse`, the public API or MCP. The drawer's Contact section draws it under
-the Phone row ("Last call 14 Sep · No answer · Sara Al-Mansour", the exact time in the title; `lib/lastCall.ts`), from
-the conversation it already reads for the caution, and the Outreach pane's Key dates adds a Last call row
-("05 OCT 2026 · CONNECTED") once there is one. A logged or deleted call refreshes both through `CONVERSATION_KEY`.
+The newest live call note on the person, on any position, whatever its outcome (`LastCallReader`, one projection
+query joining the author's name, never the note's words): when (`occurred_at`, else when it was written), how it went
+and who logged it, never the position — the same exposure as Recently approached. It rides the staff-only
+conversation read as `keyDates.lastCall` (`LastCallResponse`), never `CandidateResponse`, the public API or MCP. The
+drawer's Contact section draws it under the Phone row, a phone on record or none ("Last call 14 Sep · No answer ·
+Sara Al-Mansour", `shortWhen`'s day, the exact time in the title; `lib/lastCall.ts`), and the Outreach pane's Key
+dates adds a Last call row ("05 OCT 2026 · CONNECTED") once there is one. Every note write refreshes the person's
+conversation on every position and nobody else's (`invalidateConversationsOf`), since Last call spans positions.
 
 ### Tags (Phase 4, V98): "Open to work", "Open to relocate", …
 

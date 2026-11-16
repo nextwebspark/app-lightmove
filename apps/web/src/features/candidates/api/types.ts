@@ -368,6 +368,7 @@ export interface PersonPosition {
 export type ApproachKind =
   | "EMAILED"
   | "REPLIED"
+  | "WHATSAPP_REPLIED"
   | "IN_SEQUENCE"
   | "CALL_LOGGED"
   | "LINKEDIN_LOGGED"

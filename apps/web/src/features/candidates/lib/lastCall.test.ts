@@ -13,6 +13,10 @@ describe("last call line", () => {
     expect(lastCallLine(call({}), NOW)).toBe("Last call 14 Sep · No answer · Sara Al-Mansour");
   });
 
+  it("says Today with the time for a call made today", () => {
+    expect(lastCallLine(call({ at: "2026-11-16T09:30:00Z" }), NOW)).toMatch(/^Last call Today \S+ · No answer · Sara/);
+  });
+
   it("names the year of a call from an earlier one", () => {
     expect(lastCallLine(call({ at: "2025-12-02T08:30:00Z" }), NOW)).toBe(
       "Last call 02 Dec 2025 · No answer · Sara Al-Mansour",
