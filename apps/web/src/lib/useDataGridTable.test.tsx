@@ -115,10 +115,10 @@ function Harness({
 const grid = () => screen.getByRole("table", { name: "Rows" });
 const bodyRows = () => within(grid()).getAllByRole("row").slice(1);
 const firstCell = (row: HTMLElement) => within(row).getAllByRole("cell")[0]!.textContent;
-// Anchored so it does not also match the header's own column-menu button, whose accessible name is
-// "<label> column menu" — a looser match on "Size" catches both.
-const sortButton = (label: string) =>
-  within(grid()).getByRole("button", { name: new RegExp(`^${label}\\s?[↑↓]?$`) });
+const sortFromMenu = async (label: string, direction: "ascending" | "descending") => {
+  await userEvent.click(within(grid()).getByRole("button", { name: `${label} column menu` }));
+  await userEvent.click(screen.getByRole("button", { name: new RegExp(`^Sort ${direction}`) }));
+};
 
 describe("useDataGridTable in client mode", () => {
   it("sorts the rows it was handed and shows one page of them", () => {
@@ -129,21 +129,15 @@ describe("useDataGridTable in client mode", () => {
     expect(firstCell(rows[24]!)).toBe("Row 24");
   });
 
-  it("re-sorts on a header click by the column's own comparator, one column and never cleared", async () => {
+  it("re-sorts from the header menu by the column's own comparator", async () => {
     render(<Harness />);
-    // A numeric column opens descending — largest first is what a reader wants from a figure — and
-    // the same auto default the market grids have always had.
-    await userEvent.click(sortButton("Size"));
+    await sortFromMenu("Size", "descending");
     expect(screen.getByRole("status")).toHaveTextContent("sort:size:desc");
     expect(firstCell(bodyRows()[0]!)).toBe("Row 00");
 
-    await userEvent.click(sortButton("Size"));
+    await sortFromMenu("Size", "ascending");
     expect(screen.getByRole("status")).toHaveTextContent("sort:size:asc");
     expect(firstCell(bodyRows()[0]!)).toBe("Row 59");
-
-    // A third click flips again rather than dropping the sort.
-    await userEvent.click(sortButton("Size"));
-    expect(screen.getByRole("status")).toHaveTextContent("sort:size:desc");
   });
 
   it("turns the page from the caller's state", async () => {

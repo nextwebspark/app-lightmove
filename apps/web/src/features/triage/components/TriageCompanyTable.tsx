@@ -2,8 +2,9 @@ import type { ColumnVisibilityState, OnChangeFn } from "@tanstack/react-table";
 import { useMemo, useState } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { CompanyLogo } from "../../../components/ui/CompanyLogo";
-import { DataGrid, type DataGridColumnFilter } from "../../../components/ui/DataGrid";
+import { DataGrid } from "../../../components/ui/DataGrid";
 import { SelectionCheckbox } from "../../../components/ui/SelectionCheckbox";
+import type { DataGridColumnFilter } from "../../../lib/gridFilters";
 import { useDataGridTable } from "../../../lib/useDataGridTable";
 import { isBelowTableWidth } from "../../../lib/viewport";
 import type { GridLayout } from "../../../lib/useGridLayout";
@@ -194,8 +195,6 @@ export function TriageCompanyTable({
       errorMessage="That list could not be loaded. Refresh, or check you still have access to this mandate."
       emptyMessage={emptyMessage}
       columnFilters={columnFilters}
-      clearFiltersColumnId="actions"
-      menuOnHeaderClick
       onEditColumn={
         onEditColumn &&
         ((gridColumnId: string) => {

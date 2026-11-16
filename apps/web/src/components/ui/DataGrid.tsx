@@ -24,7 +24,8 @@ import {
 } from "react";
 import { Icon, ICONS } from "../layout/Icon";
 import { cn } from "../../lib/cn";
-import { FilterCheckRow } from "./FilterCheckRow";
+import { isFilterInForce, type DataGridColumnFilter } from "../../lib/gridFilters";
+import { ColumnFilterEditor } from "./GridFilters";
 import { Popover } from "./Popover";
 import { TruncatedText } from "./TruncatedText";
 import { DEFAULT_COLUMN_MIN, type GridLayout } from "../../lib/useGridLayout";
@@ -51,31 +52,6 @@ const SORT_HINTS: Record<DataGridSortKind, { asc: string; desc: string }> = {
   date: { asc: "Old → New", desc: "New → Old" },
 };
 
-/** One column's own text filter, offered as a "Filter by" section of that column's header menu. */
-export interface DataGridTextFilter {
-  kind?: "text";
-  value: string;
-  onChange: (value: string) => void;
-  placeholder?: string;
-  "aria-label": string;
-}
-
-/**
- * One column's own multi-select filter — a fixed set of values ticked from a checkbox list rather
- * than typed, for a column (Status) whose values are a closed vocabulary a free-text box would make a
- * reader guess the spelling of.
- */
-export interface DataGridCheckFilter {
-  kind: "check";
-  /** `indent` draws an option as a child of the one above it — a status under its stage. */
-  options: { value: string; label: string; indent?: boolean }[];
-  selected: string[];
-  onChange: (selected: string[]) => void;
-  "aria-label": string;
-}
-
-/** A column's own header-menu filter, keyed by column id — free text, or a closed set of checkboxes. */
-export type DataGridColumnFilter = DataGridTextFilter | DataGridCheckFilter;
 
 /**
  * The four features every grid on this component registers. Spread into each grid's own
@@ -102,9 +78,6 @@ export const LOCAL_ROW_MODELS = {
 
 /** `gap-3` in numbers, so the row's minimum width can be added up rather than guessed. */
 const ROW_GAP = 12;
-
-/** The header's "Clear all filters" button (`size-5`) and the gap before it; its `-my-1` keeps it from setting the header's height. */
-const CLEAR_ALL_ROOM = 24;
 
 /** Below this a pointer is still a click, so a header drag cannot steal the sort. */
 const DRAG_THRESHOLD = 4;
@@ -171,9 +144,7 @@ export function DataGrid<TFeatures extends TableFeatures, TData extends RowData>
   onEditColumn,
   onDeleteColumn,
   columnFilters,
-  clearFiltersColumnId,
   groupBy,
-  menuOnHeaderClick = false,
 }: {
   table: ReactTable<TFeatures, TData>;
   /** Names the grid for screen readers — "Companies", "Shortlisted companies". */
@@ -217,28 +188,16 @@ export function DataGrid<TFeatures extends TableFeatures, TData extends RowData>
   /** Removes a mandate's own column, from its header menu's "Delete column"; left out, nothing offers it. */
   onDeleteColumn?: (columnId: string) => void;
   /**
-   * A filter offered from a column's own header menu, keyed by column id — free text ("type a few
-   * letters" narrowing) or a closed checkbox set for a column whose values are a fixed vocabulary. A
-   * column with no entry gets no "Filter by" section on its menu.
+   * A column's own filter, keyed by column id, edited from that column's header menu. The same record feeds the
+   * toolbar's {@link GridFilterButton}, which is where every filter in force is listed and cleared.
    */
   columnFilters?: Record<string, DataGridColumnFilter>;
-  /**
-   * The column whose header carries "Clear all filters" while any of `columnFilters` is in force — the last
-   * visible column when this one is absent or hidden. The button's room is that header's own and is held
-   * whenever the grid offers filters, so the columns never shift as the button comes and goes.
-   */
-  clearFiltersColumnId?: string;
   /**
    * Partitions the grid's rows under full-width section headers ("AUTOMOTIVE · 2"), after the
    * table's own sort — the mockup's positions list. Only the grid branch: the card stack already
    * names the group on every card.
    */
   groupBy?: DataGridGrouping<TData>;
-  /**
-   * The whole header opens the column's menu — sort, move, freeze, filter, hide — rather than a click sorting and a
-   * small arrow beside the name opening the menu, which readers did not find.
-   */
-  menuOnHeaderClick?: boolean;
 }) {
   /*
    * The one cast, and the reason GridFeatures exists. Every caller registers at least those four
@@ -293,22 +252,7 @@ export function DataGrid<TFeatures extends TableFeatures, TData extends RowData>
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pinnedIds.join(","), layout.widths]);
 
-  const filtersInForce = Object.values(columnFilters ?? {}).some(isFilterInForce);
-  const clearAllHost =
-    Object.keys(columnFilters ?? {}).length > 0
-      ? (visibleColumns.find((column) => column.id === clearFiltersColumnId) ?? visibleColumns[visibleColumns.length - 1])
-      : undefined;
-  const clearAllRoom = clearAllHost ? { id: clearAllHost.id, px: CLEAR_ALL_ROOM } : undefined;
-
-  const clearAllFilters = () => {
-    for (const filter of Object.values(columnFilters ?? {})) {
-      if (filter.kind === "check") filter.onChange([]);
-      else filter.onChange("");
-    }
-    setAnnouncement("All filters cleared");
-  };
-
-  const { cols, min } = templateOf(visibleColumns, layout.widths, clearAllRoom);
+  const { cols, min } = templateOf(visibleColumns, layout.widths);
 
   const setWidth = (column: GridColumn<TData>, width: number) => {
     onLayoutChange({ ...layout, widths: { ...layout.widths, [column.id]: width } });
@@ -325,7 +269,7 @@ export function DataGrid<TFeatures extends TableFeatures, TData extends RowData>
   const preview = (widths: Record<string, number>) => {
     const box = scrollRef.current;
     if (!box) return;
-    const next = templateOf(visibleColumns, widths, clearAllRoom);
+    const next = templateOf(visibleColumns, widths);
     box.style.setProperty("--dg-cols", next.cols);
     box.style.setProperty("--dg-min", `${next.min}px`);
   };
@@ -568,7 +512,6 @@ export function DataGrid<TFeatures extends TableFeatures, TData extends RowData>
           >
             {headerGroup.headers.map((header, index) => {
               const column = header.column;
-              const sortable = column.getCanSort();
               const sorted = column.getIsSorted();
               const pinned = column.getIsPinned();
               const movable = isMovable(column);
@@ -593,19 +536,12 @@ export function DataGrid<TFeatures extends TableFeatures, TData extends RowData>
                   onPointerDown={movable ? (event) => startReorder(event, column) : undefined}
                   onKeyDown={(event) => onHeaderKeyDown(event, column)}
                   // A drag that crossed the threshold is a move, and must not also open the menu.
-                  onClickCapture={
-                    menuOnHeaderClick
-                      ? (event) => {
-                          if (!draggedRef.current) return;
-                          draggedRef.current = false;
-                          event.stopPropagation();
-                        }
-                      : undefined
-                  }
+                  onClickCapture={(event) => {
+                    if (!draggedRef.current) return;
+                    draggedRef.current = false;
+                    event.stopPropagation();
+                  }}
                   aria-keyshortcuts={movable ? "Alt+ArrowLeft Alt+ArrowRight" : undefined}
-                  // The sort button is the tab stop where there is one; without it the cell is. A header that opens
-                  // its menu is a button itself, and every movable column has a menu to open.
-                  tabIndex={!menuOnHeaderClick && movable && !sortable ? 0 : undefined}
                   style={pinned === "start" ? { insetInlineStart: pinnedOffsets[column.id] ?? 0 } : undefined}
                   className={cn(
                     "group/header relative min-w-0",
@@ -618,55 +554,18 @@ export function DataGrid<TFeatures extends TableFeatures, TData extends RowData>
                   {/* The slot rides the first column, which in every caller is the pinned one, so
                       the boxes stay on screen when the row scrolls away from its own name. */}
                   <LeadingSlot lead={index === 0 && headerLead}>
-                    {menuOnHeaderClick ? (
-                      <WithClearAll host={clearAllHost?.id === column.id} show={filtersInForce} onClear={clearAllFilters}>
-                        <HeaderMenu
-                          column={column}
-                          visibleColumns={visibleColumns}
-                          frozen={layout.pinnedIds.includes(column.id)}
-                          filter={columnFilters?.[column.id]}
-                          onMove={moveByStep}
-                          onFreeze={setFrozen}
-                          onEditColumn={onEditColumn}
-                          onHide={hideColumn}
-                          onDeleteColumn={onDeleteColumn}
-                          headerLabel={label}
-                        />
-                      </WithClearAll>
-                    ) : (
-                      <span className="flex min-w-0 items-center gap-1">
-                        <span className="min-w-0 flex-1">
-                          {sortable ? (
-                            <button
-                              type="button"
-                              // A drag that crossed the threshold is a move, and must not also sort.
-                              onClick={(event) => {
-                                if (draggedRef.current) {
-                                  draggedRef.current = false;
-                                  return;
-                                }
-                                column.getToggleSortingHandler()?.(event);
-                              }}
-                              className="block w-full text-left transition hover:opacity-80"
-                            >
-                              {label}
-                            </button>
-                          ) : (
-                            label
-                          )}
-                        </span>
-                        <HeaderMenu
-                          column={column}
-                          visibleColumns={visibleColumns}
-                          frozen={layout.pinnedIds.includes(column.id)}
-                          filter={columnFilters?.[column.id]}
-                          onMove={moveByStep}
-                          onFreeze={setFrozen}
-                          onEditColumn={onEditColumn}
-                        />
-                        {filtersInForce && clearAllHost?.id === column.id && <ClearAllFiltersButton onClear={clearAllFilters} />}
-                      </span>
-                    )}
+                    <HeaderMenu
+                      column={column}
+                      visibleColumns={visibleColumns}
+                      frozen={layout.pinnedIds.includes(column.id)}
+                      filter={columnFilters?.[column.id]}
+                      onMove={moveByStep}
+                      onFreeze={setFrozen}
+                      onEditColumn={onEditColumn}
+                      onHide={hideColumn}
+                      onDeleteColumn={onDeleteColumn}
+                      headerLabel={label}
+                    />
                   </LeadingSlot>
 
                   {!column.columnDef.meta?.fixed && (
@@ -805,7 +704,6 @@ function groupsOf<TData extends RowData>(
 function templateOf<TData extends RowData>(
   columns: readonly GridColumn<TData>[],
   widths: Record<string, number>,
-  room?: { id: string; px: number },
 ): { cols: string; min: number } {
   const cols: string[] = [];
   let min = (columns.length - 1) * ROW_GAP;
@@ -817,7 +715,7 @@ function templateOf<TData extends RowData>(
       min += dragged;
       continue;
     }
-    const floor = (layout?.min ?? DEFAULT_COLUMN_MIN) + (room?.id === column.id ? room.px : 0);
+    const floor = layout?.min ?? DEFAULT_COLUMN_MIN;
     cols.push(
       !layout
         ? "1fr"
@@ -844,87 +742,9 @@ function titleOf<TData extends RowData>(column: GridColumn<TData>): string {
   return typeof header === "string" && header.length > 0 ? header : column.id;
 }
 
-function isFilterInForce(filter: DataGridColumnFilter): boolean {
-  return filter.kind === "check" ? filter.selected.length > 0 : filter.value.length > 0;
-}
-
-/** A text filter's box, with a ✕ inside it while it holds text; clearing keeps the caret in the box. */
-function TextFilterInput({ filter, onEnter }: { filter: DataGridTextFilter; onEnter: () => void }) {
-  const inputRef = useRef<HTMLInputElement>(null);
-  return (
-    <div className="relative">
-      <input
-        ref={inputRef}
-        type="text"
-        value={filter.value}
-        onChange={(event) => filter.onChange(event.target.value)}
-        onKeyDown={(event) => {
-          if (event.key === "Enter") onEnter();
-        }}
-        placeholder={filter.placeholder}
-        aria-label={filter["aria-label"]}
-        className={cn(
-          "h-7 w-full min-w-0 rounded-[4px] border border-u-border-strong bg-u-surface px-2 font-sans text-[12px] text-u-text outline-none placeholder:text-u-text3 focus:border-u-accent",
-          filter.value && "pe-7",
-        )}
-      />
-      {filter.value && (
-        <button
-          type="button"
-          onClick={() => {
-            filter.onChange("");
-            inputRef.current?.focus();
-          }}
-          aria-label="Clear filter"
-          className="absolute end-1 top-1/2 grid size-5 -translate-y-1/2 flex-none place-items-center rounded text-u-text3 hover:bg-u-raised hover:text-u-text"
-        >
-          <Icon d={ICONS.close} size={12} />
-        </button>
-      )}
-    </div>
-  );
-}
-
-function ClearAllFiltersButton({ onClear }: { onClear: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onClear}
-      // Pressing here must not start the header's column drag.
-      onPointerDown={(event) => event.stopPropagation()}
-      aria-label="Clear all filters"
-      title="Clear all filters"
-      className="-my-1 grid size-5 flex-none place-items-center rounded-[4px] text-u-accent transition hover:bg-u-surface"
-    >
-      <Icon d={ICONS.filterX} size={13} />
-    </button>
-  );
-}
-
-function WithClearAll({
-  host,
-  show,
-  onClear,
-  children,
-}: {
-  host: boolean;
-  show: boolean;
-  onClear: () => void;
-  children: ReactNode;
-}) {
-  if (!host) return children;
-  return (
-    <span className="flex min-w-0 items-center gap-1">
-      <span className="min-w-0 flex-1">{children}</span>
-      {show && <ClearAllFiltersButton onClear={onClear} />}
-    </span>
-  );
-}
-
 /**
- * The menu every column header opens: filter, sort, move, freeze and — for a mandate's own column — edit, in one place
- * a reader learns once. Hidden when it would offer nothing. Given `headerLabel`, the whole header is its trigger and
- * the menu also marks the active sort, hides a built-in column and deletes a mandate's own.
+ * The menu every column header opens — filter, sort, move, freeze, hide, and edit or delete for a mandate's own
+ * column. The whole header is its trigger, so one place is learned once on every grid.
  */
 function HeaderMenu<TData extends RowData>({
   column,
@@ -942,17 +762,14 @@ function HeaderMenu<TData extends RowData>({
   visibleColumns: readonly GridColumn<TData>[];
   /** Whether this is the one column, beyond the grid's own always-pinned one, that a user froze. */
   frozen: boolean;
-  /** This column's own filter, if the caller offers one — text or a closed checkbox set. */
   filter?: DataGridColumnFilter;
   onMove: (column: GridColumn<TData>, step: 1 | -1) => void;
   onFreeze: (column: GridColumn<TData>, freeze: boolean) => void;
   onEditColumn?: (columnId: string) => void;
-  onHide?: (column: GridColumn<TData>) => void;
+  onHide: (column: GridColumn<TData>) => void;
   onDeleteColumn?: (columnId: string) => void;
-  /** The header's own label, which becomes the menu's trigger. */
-  headerLabel?: ReactNode;
+  headerLabel: ReactNode;
 }) {
-  const asHeader = headerLabel !== undefined;
   const sortable = column.getCanSort();
   const sorted = column.getIsSorted();
   const pinned = column.getIsPinned();
@@ -966,14 +783,14 @@ function HeaderMenu<TData extends RowData>({
   const canMoveRight = !pinned && !!rightNeighbour && !rightNeighbour.getIsPinned();
   const custom = column.id.startsWith("custom:");
   const editable = !!onEditColumn && custom;
-  const deletable = asHeader && !!onDeleteColumn && custom;
-  const hideable = asHeader && !!onHide && !custom && column.getCanHide();
-  const filtered = filter?.kind === "check" ? filter.selected.length > 0 : !!filter?.value;
+  const deletable = !!onDeleteColumn && custom;
+  const hideable = !custom && column.getCanHide();
+  const filtered = !!filter && isFilterInForce(filter);
   const hints = column.columnDef.meta?.sortKind ? SORT_HINTS[column.columnDef.meta.sortKind] : undefined;
 
   const offersSomething =
     sortable || canMoveLeft || canMoveRight || !structurallyPinned || editable || deletable || hideable || !!filter;
-  if (!offersSomething) return asHeader ? headerLabel : null;
+  if (!offersSomething) return headerLabel;
 
   const sections = [
     sortable || canMoveLeft || canMoveRight,
@@ -985,33 +802,19 @@ function HeaderMenu<TData extends RowData>({
     <Popover
       label={`${titleOf(column)} column menu`}
       align="left"
-      width={asHeader ? 220 : 190}
-      hasPopup={asHeader ? "dialog" : undefined}
-      trigger={() =>
-        asHeader ? (
-          <>
-            <span className="min-w-0 flex-1">{headerLabel}</span>
-            {filtered && <Icon d={ICONS.filter} size={11} className="flex-none text-u-accent" />}
-          </>
-        ) : (
-          <Icon d={filtered ? ICONS.filter : ICONS.chevronDown} size={12} />
-        )
-      }
-      triggerClassName={
-        asHeader
-          ? cn(
-              "-mx-1.5 -my-1 flex w-[calc(100%+12px)] min-w-0 cursor-pointer items-center gap-1 rounded-[5px] px-1.5 py-1 text-left transition",
-              "hover:bg-u-surface aria-expanded:bg-u-surface focus-visible:outline focus-visible:outline-u-accent",
-              filtered && "text-u-accent",
-            )
-          : cn(
-              "grid size-5 shrink-0 place-items-center rounded-[4px] transition hover:bg-u-raised",
-              "aria-expanded:opacity-100 focus-visible:opacity-100",
-              filtered
-                ? "text-u-accent opacity-100"
-                : "text-u-text3 opacity-0 hover:text-u-text group-hover/header:opacity-100",
-            )
-      }
+      width={220}
+      hasPopup="dialog"
+      trigger={() => (
+        <>
+          <span className="min-w-0 flex-1">{headerLabel}</span>
+          {filtered && <Icon d={ICONS.filter} size={11} className="flex-none text-u-accent" />}
+        </>
+      )}
+      triggerClassName={cn(
+        "-mx-1.5 -my-1 flex w-[calc(100%+12px)] min-w-0 cursor-pointer items-center gap-1 rounded-[5px] px-1.5 py-1 text-left transition",
+        "hover:bg-u-surface aria-expanded:bg-u-surface focus-visible:outline focus-visible:outline-u-accent",
+        filtered && "text-u-accent",
+      )}
     >
       {(close) => (
         <div className="flex flex-col">
@@ -1019,7 +822,7 @@ function HeaderMenu<TData extends RowData>({
             <>
               <div className="px-2.5 py-1.5">
                 <div className="mb-1 flex items-center justify-between gap-2">
-                  <label className="block font-sans text-[11px] font-medium text-u-text3">Filter by</label>
+                  <span className="block font-sans text-[11px] font-medium text-u-text3">Filter by</span>
                   {filter.kind === "check" && filter.selected.length > 0 && (
                     <button
                       type="button"
@@ -1031,32 +834,7 @@ function HeaderMenu<TData extends RowData>({
                     </button>
                   )}
                 </div>
-                {filter.kind === "check" ? (
-                  <div
-                    role="group"
-                    aria-label={filter["aria-label"]}
-                    className="flex max-h-[220px] flex-col gap-0.5 overflow-y-auto"
-                  >
-                    {filter.options.map((option) => (
-                      <div key={option.value} className={option.indent ? "ps-4" : undefined}>
-                      <FilterCheckRow
-                        label={option.label}
-                        size="sm"
-                        checked={filter.selected.includes(option.value)}
-                        onToggle={() =>
-                          filter.onChange(
-                            filter.selected.includes(option.value)
-                              ? filter.selected.filter((value) => value !== option.value)
-                              : [...filter.selected, option.value],
-                          )
-                        }
-                      />
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <TextFilterInput filter={filter} onEnter={close} />
-                )}
+                <ColumnFilterEditor filter={filter} onEnter={close} />
               </div>
               {sections.some(Boolean) && <MenuDivider />}
             </>
@@ -1066,7 +844,7 @@ function HeaderMenu<TData extends RowData>({
               icon={ICONS.arrowUp}
               label="Sort ascending"
               hint={hints?.asc}
-              active={asHeader && sorted === "asc"}
+              active={sorted === "asc"}
               onClick={() => {
                 column.toggleSorting(false);
                 close();
@@ -1078,7 +856,7 @@ function HeaderMenu<TData extends RowData>({
               icon={ICONS.arrowDown}
               label="Sort descending"
               hint={hints?.desc}
-              active={asHeader && sorted === "desc"}
+              active={sorted === "desc"}
               onClick={() => {
                 column.toggleSorting(true);
                 close();
@@ -1107,7 +885,7 @@ function HeaderMenu<TData extends RowData>({
           )}
           {!structurallyPinned && (
             <>
-              {asHeader && sections[0] && <MenuDivider />}
+              {sections[0] && <MenuDivider />}
               <MenuItem
                 icon={frozen ? ICONS.unlock : ICONS.lock}
                 label={frozen ? "Unfreeze column" : "Freeze column"}
@@ -1135,7 +913,7 @@ function HeaderMenu<TData extends RowData>({
               label="Hide column"
               onClick={() => {
                 close();
-                onHide?.(column);
+                onHide(column);
               }}
             />
           )}

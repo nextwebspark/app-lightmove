@@ -1,5 +1,6 @@
 import type { ColumnVisibilityState, OnChangeFn, PaginationState } from "@tanstack/react-table";
 import { DataGrid } from "../../../components/ui/DataGrid";
+import type { DataGridColumnFilter } from "../../../lib/gridFilters";
 import { useDataGridTable } from "../../../lib/useDataGridTable";
 import type { GridLayout } from "../../../lib/useGridLayout";
 import type { GridSort } from "../../../lib/useGridSort";
@@ -32,6 +33,7 @@ export function TemplatesList({
   isToggling,
   onToggle,
   onOpen,
+  columnFilters,
 }: {
   scope: TemplateScope;
   templates: TemplateOverview[];
@@ -48,6 +50,7 @@ export function TemplatesList({
   isToggling: boolean;
   onToggle: (template: TemplateOverview) => void;
   onOpen: (template: TemplateOverview) => void;
+  columnFilters?: Record<string, DataGridColumnFilter>;
 }) {
   const table = useDataGridTable<typeof templateTableFeatures, TemplateOverview, TemplateSortField>({
     features: templateTableFeatures,
@@ -77,6 +80,7 @@ export function TemplatesList({
       errorMessage="The templates could not be loaded. Refresh to try again."
       emptyMessage="No templates match. Clear the search or pick another filter."
       onRowClick={onOpen}
+      columnFilters={columnFilters}
       renderCard={(template) => (
         <TemplateCard scope={scope} template={template} isToggling={isToggling} onToggle={onToggle} />
       )}

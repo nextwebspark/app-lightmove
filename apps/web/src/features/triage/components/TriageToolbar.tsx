@@ -28,6 +28,7 @@ export function TriageToolbar({
   search,
   onSearch,
   searchPlaceholder,
+  filter,
   views,
   view,
   onViewChange,
@@ -40,6 +41,8 @@ export function TriageToolbar({
   search: string;
   onSearch: (search: string) => void;
   searchPlaceholder: string;
+  /** The grid's Filter button, beside the search; absent where the view has no column filters. */
+  filter?: ReactNode;
   /** The views this caller may read the stage as; the control is drawn only for more than one. */
   views: readonly CompaniesView[];
   view: CompaniesView;
@@ -130,6 +133,7 @@ export function TriageToolbar({
         />
       )}
       <ToolbarSearch value={search} onChange={onSearch} label={searchPlaceholder} placeholder={searchPlaceholder} />
+      {filter}
 
       <div className="flex flex-none items-center gap-2 max-sm:flex-wrap sm:ml-auto">
         {groups.map((group, index) => (

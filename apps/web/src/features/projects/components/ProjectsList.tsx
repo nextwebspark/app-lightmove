@@ -2,6 +2,7 @@ import type { ColumnVisibilityState, OnChangeFn, PaginationState } from "@tansta
 import { useMemo } from "react";
 import { ArchivedPill, CompanyLogo, HealthInline, StagePill } from "../../../components/ui";
 import { DataGrid } from "../../../components/ui/DataGrid";
+import type { DataGridColumnFilter } from "../../../lib/gridFilters";
 import { useDataGridTable } from "../../../lib/useDataGridTable";
 import type { GridLayout } from "../../../lib/useGridLayout";
 import type { GridSort } from "../../../lib/useGridSort";
@@ -34,6 +35,7 @@ export function ProjectsList({
   onPaginationChange,
   emptyMessage,
   onOpen,
+  columnFilters,
 }: {
   projects: Project[];
   sort: GridSort<ProjectSortField>;
@@ -46,6 +48,7 @@ export function ProjectsList({
   onPaginationChange: OnChangeFn<PaginationState>;
   emptyMessage: string;
   onOpen: (projectId: string) => void;
+  columnFilters?: Record<string, DataGridColumnFilter>;
 }) {
   const vocabulary = useWorkspaceVocabulary();
   const grouping = useMemo(() => projectGroupingFor(`No ${vocabulary.unitLower}`), [vocabulary]);
@@ -79,6 +82,7 @@ export function ProjectsList({
       emptyMessage={emptyMessage}
       onRowClick={(project) => onOpen(project.id)}
       groupBy={grouping}
+      columnFilters={columnFilters}
       renderCard={(project) => <ProjectCard project={project} onOpen={() => onOpen(project.id)} />}
     />
   );

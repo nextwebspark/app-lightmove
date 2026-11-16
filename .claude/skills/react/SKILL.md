@@ -90,6 +90,12 @@ A `DataGrid` given `renderCard` still keeps its own CSS swap (`hidden md:flex` g
 so on a phone it carries the hidden grid as well as the cards. Anything that is only *restyled* between
 widths stays a Tailwind variant.
 
+Every `DataGrid` header click opens its column menu (filter, sort, move, freeze, hide) — there is no
+click-to-sort mode. A grid's column filters are one `columnFilters` record handed to both the grid (each
+column's menu edits its own) and a `GridFilterButton` in the toolbar beside the search, which is the only
+place filters in force are listed and cleared — never a "Clear all" in a column header. A list held whole
+in memory builds that record with `useLocalGridFilters`; a server-paged one owns the state and sends it.
+
 Wide data grids scroll horizontally inside their own `overflow-x` box with a `sticky start-0` first
 column, per `CompanyResultsTable`. Lists people *scan* (mandates, clients) render as cards below `md`
 instead — scanning sideways is not scanning.

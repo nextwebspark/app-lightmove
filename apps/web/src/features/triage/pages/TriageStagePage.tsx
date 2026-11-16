@@ -5,6 +5,8 @@ import type { ProjectOutletContext } from "../../../components/layout/ProjectLay
 import { ICONS } from "../../../components/layout/Icon";
 import { FullscreenButton } from "../../../components/ui";
 import { ColumnPickerList, hideableColumnsOf } from "../../../components/ui/ColumnPicker";
+import { GridFilterButton } from "../../../components/ui/GridFilters";
+import type { DataGridColumnFilter } from "../../../lib/gridFilters";
 import { PaginationBar } from "../../../components/ui/PaginationBar";
 import { useToast } from "../../../components/ui/Toast";
 import { cn } from "../../../lib/cn";
@@ -883,6 +885,33 @@ function TriageStage() {
     if (page > lastPage) setPage(lastPage);
   }, [page, lastPage]);
 
+  const columnFilters: Record<string, DataGridColumnFilter> = {
+    name: {
+      label: "Company",
+      value: query,
+      onChange: setQuery,
+      "aria-label": "Filter by company name",
+    },
+    executive: {
+      label: "Executive",
+      value: executiveQuery,
+      onChange: setExecutiveQuery,
+      "aria-label": "Filter by executive name",
+    },
+    ...(executiveStatusOptions.length > 1
+      ? {
+          executiveStatus: {
+            kind: "check" as const,
+            label: "Status",
+            options: executiveStatusOptions,
+            selected: executiveStatusChoice,
+            onChange: setExecutiveStatusChoice,
+            "aria-label": "Filter by status",
+          },
+        }
+      : {}),
+  };
+
   return (
     /* No negative margins and no viewport arithmetic: the shell gives this tab the whole main area
        and a definite height (FULL_BLEED_TABS in ProjectLayout), so the height is inherited rather
@@ -892,6 +921,14 @@ function TriageStage() {
         search={search}
         onSearch={setSearch}
         searchPlaceholder={!canWrite ? "Search companies and executives…" : "Search companies, executives, notes…"}
+        filter={
+          view === "table" ? (
+            <GridFilterButton
+              filters={columnFilters}
+              resultLabel={totalCount === undefined ? undefined : `${totalCount} ${totalCount === 1 ? "result" : "results"}`}
+            />
+          ) : undefined
+        }
         views={views}
         view={view}
         onViewChange={handleViewChange}
@@ -1014,29 +1051,7 @@ function TriageStage() {
               ? "No companies match that search."
               : stage.emptyMessage
           }
-          columnFilters={{
-            name: {
-              value: query,
-              onChange: setQuery,
-              "aria-label": "Filter by company name",
-            },
-            executive: {
-              value: executiveQuery,
-              onChange: setExecutiveQuery,
-              "aria-label": "Filter by executive name",
-            },
-            ...(executiveStatusOptions.length > 1
-              ? {
-                  executiveStatus: {
-                    kind: "check" as const,
-                    options: executiveStatusOptions,
-                    selected: executiveStatusChoice,
-                    onChange: setExecutiveStatusChoice,
-                    "aria-label": "Filter by status",
-                  },
-                }
-              : {}),
-          }}
+          columnFilters={columnFilters}
           onEditColumn={
             declinedStage
               ? undefined

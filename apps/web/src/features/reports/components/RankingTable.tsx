@@ -1,9 +1,11 @@
 import { createColumnHelper, tableFeatures, type ColumnPinningState } from "@tanstack/react-table";
 import { type ReactNode, useMemo, useState } from "react";
 import { DATA_GRID_FEATURES, DataGrid, type DataGridColumnLayout } from "../../../components/ui/DataGrid";
+import { GridFilterButton } from "../../../components/ui/GridFilters";
 import { SelectionCheckbox } from "../../../components/ui/SelectionCheckbox";
 import { TruncatedText } from "../../../components/ui/TruncatedText";
 import { cn } from "../../../lib/cn";
+import type { DataGridColumnFilter } from "../../../lib/gridFilters";
 import { compareNumber, compareText } from "../../../lib/gridSortFns";
 import { useDataGridTable } from "../../../lib/useDataGridTable";
 import { layoutColumnsOf, useGridLayout } from "../../../lib/useGridLayout";
@@ -148,6 +150,16 @@ export function RankingTable({
     meta: { projectId, onOpen },
   });
 
+  const columnFilters: Record<string, DataGridColumnFilter> = {
+    candidate: {
+      label: "Candidate",
+      value: query,
+      onChange: setQuery,
+      placeholder: "Name, title or company",
+      "aria-label": "Filter by candidate",
+    },
+  };
+
   const selected = rows.filter((row) => selectedIds.includes(row.candidate.candidateId));
   const selectionText =
     selected.length === 2
@@ -188,7 +200,10 @@ export function RankingTable({
             )}
           </div>
         </div>
-        {filters}
+        <div className="flex flex-wrap items-center gap-2">
+          <GridFilterButton filters={columnFilters} resultLabel={`${shown.length} of ${rows.length} candidates`} />
+          {filters}
+        </div>
       </div>
       <div className="mt-3.5">
         <DataGrid
@@ -201,15 +216,7 @@ export function RankingTable({
           error={false}
           errorMessage="The ranking could not be loaded."
           emptyMessage="No candidate matches these filters."
-          menuOnHeaderClick
-          columnFilters={{
-            candidate: {
-              value: query,
-              onChange: setQuery,
-              placeholder: "Name, title or company",
-              "aria-label": "Filter by candidate",
-            },
-          }}
+          columnFilters={columnFilters}
           headerLead={<span aria-hidden="true" className="size-4 flex-none" />}
           rowLead={checkbox}
           renderCard={(row) => <RankingCard row={row} checkbox={checkbox(row)} meta={{ projectId, onOpen }} />}
