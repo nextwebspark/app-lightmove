@@ -230,7 +230,12 @@ a person's URL is always editable, and an edit that changes it clears the flag.
 **The workspace's Candidates page** (`/candidates`, `RequireStaff`, `Candidates.dc.html`, Phase 4) reads
 those routes: a People list the server searches (name, title, employer, an email; a plain scan per
 workspace, V33's reasoning), pages, sorts and narrows — quick views (owned by me, in an active position,
-in none) in the toolbar, then tags any/all/none, position, status, owner and country in a Strategy-style filter rail hidden until asked for — with a selection bar that adds people to
+in none) in the toolbar, then every column's own filter in its header menu, listed and cleared by the toolbar's
+Filter button and shown or hidden from Columns as In universe's grid is: person, title and company typed
+(company reads the employer the row draws — the newest position's, else research's first post); LinkedIn,
+country, experience bands, seniority, contact on file, positions, status (each stage's statuses under "All
+{stage}", read from any position), tags (any of), owner, source, added, do not contact and last activity
+ticked, any of each, all repeatable query parameters on `GET /candidates` and its export — with a selection bar that adds people to
 a position as Identified (that position's `WORK_EXECUTE` too, since filing someone is work on it) under the employer their
 latest position recorded, filed into its universe as a plugin capture of someone known is, tags
 them, sets an owner or exports them (audited, `dataexport`); an Activity feed; and a drawer keyed by

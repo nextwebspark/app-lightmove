@@ -1,5 +1,6 @@
 package app.lightmove.api.candidate.dto;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -23,6 +24,12 @@ public record CandidatePoolRowResponse(
         String enrichedAt,
         boolean doNotContact,
         Integer yearsExperience,
+        /** The tier as the candidate contract spells it ("N-1"); null when none is recorded. */
+        String seniority,
+        /** The door they first came through. */
+        String source,
+        /** When they were first added to the workspace. */
+        Instant createdAt,
         /** Posts in their recorded career. */
         int careerRoles,
         /** Which channels the contact ledger holds; the values stay in the drawer. */

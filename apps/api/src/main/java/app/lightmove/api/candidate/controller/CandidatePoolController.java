@@ -36,6 +36,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.util.MultiValueMap;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -63,29 +64,15 @@ public class CandidatePoolController {
     private final PersonTimelineService timeline;
     private final CandidatePoolService pool;
 
-    /**
-     * A page of the workspace's people. Every filter is optional; {@code owner} is a user id or
-     * {@code nobody}, and {@code tag} repeats.
-     */
+    /** A page of the workspace's people; every filter is optional, as {@link PoolCriteria#read} reads them. */
     @GetMapping
     @RequireWorkspacePermission(WorkspaceAction.CANDIDATE_POOL_MANAGE)
     public CandidatePoolResponse list(@AuthenticationPrincipal AuthPrincipal principal,
-                                      @RequestParam(required = false) String q,
-                                      @RequestParam(required = false) String view,
-                                      @RequestParam(required = false) List<UUID> tag,
-                                      @RequestParam(required = false) String tagMatch,
-                                      @RequestParam(required = false) UUID position,
-                                      @RequestParam(required = false) String status,
-                                      @RequestParam(required = false) String pipelineStage,
-                                      @RequestParam(required = false) String owner,
-                                      @RequestParam(required = false) String country,
-                                      @RequestParam(required = false) String sort,
-                                      @RequestParam(required = false) String direction,
+                                      @RequestParam MultiValueMap<String, String> params,
                                       @RequestParam(required = false) Integer page,
                                       @RequestParam(required = false) Integer size) {
-        PoolCriteria criteria = PoolCriteria.read(q, view, tag, tagMatch, position, status, pipelineStage, owner,
-                country, sort, direction);
-        return pool.list(principal.userId(), principal.requireWorkspaceId(), criteria, page, size);
+        return pool.list(principal.userId(), principal.requireWorkspaceId(),
+                PoolCriteria.read(params), page, size);
     }
 
     /** Everything recorded across the workspace's people, newest first; each filter is optional. */

@@ -14,6 +14,14 @@ public enum PoolSortField implements ApiValueEnum {
     NAME("name"),
     LOCATION("location"),
 
+    TITLE("title"),
+    COMPANY("company"),
+    EXPERIENCE("experience"),
+    SENIORITY("seniority"),
+
+    /** When the person was first added to the workspace. */
+    ADDED("added"),
+
     /** How many positions the person is in. */
     POSITIONS("positions"),
 
