@@ -46,18 +46,30 @@ public class LoggedNoteRules {
 
     /**
      * How the logged call or message went: the request's, else {@code current} while the kind still holds it (an
-     * empty token clears it). Without one, the note must say something.
+     * empty token clears it). Without one, the note's {@code body} must say something.
      */
-    public NoteOutcome outcomeOf(WritePersonNoteRequest request, PersonNoteKind kind, NoteOutcome current) {
+    public NoteOutcome outcomeOf(WritePersonNoteRequest request, PersonNoteKind kind, NoteOutcome current,
+                                 String body) {
         NoteOutcome outcome = request.outcome() == null
                 ? (current != null && current.fits(kind) ? current : null)
-                : ApiValueEnum.parse(NoteOutcome.class, request.outcome(), null, "note outcome");
+                : requestedOutcome(request.outcome());
         if (outcome != null && !outcome.fits(kind)) {
             throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "outcome",
-                    "Only a call or a WhatsApp message says how it went, in its own words");
+                    "That outcome doesn't fit this kind of note");
         }
-        if (outcome == null && request.bodyText().isEmpty()) {
+        if (outcome == null && body.isEmpty()) {
             throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "body", "Write the note");
+        }
+        return outcome;
+    }
+
+    private static NoteOutcome requestedOutcome(String token) {
+        if (token.isBlank()) {
+            return null;
+        }
+        NoteOutcome outcome = ApiValueEnum.fromValue(NoteOutcome.class, token);
+        if (outcome == null) {
+            throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "outcome", "That is not a valid note outcome");
         }
         return outcome;
     }

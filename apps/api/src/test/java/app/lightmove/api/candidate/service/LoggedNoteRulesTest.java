@@ -50,6 +50,10 @@ class LoggedNoteRulesTest {
         return new WritePersonNoteRequest(kind, body, null, null, null, null, null, null, null, outcome);
     }
 
+    private NoteOutcome outcomeOf(WritePersonNoteRequest request, PersonNoteKind kind, NoteOutcome current) {
+        return rules.outcomeOf(request, kind, current, request.bodyText());
+    }
+
     private NoteOccurrence revise(NoteOccurrence current, PersonNoteKind kind, WritePersonNoteRequest request) {
         return rules.revisedOccurrence(current, request, kind, WORKSPACE, POSITION, PERSON);
     }
@@ -151,37 +155,38 @@ class LoggedNoteRulesTest {
 
     @Test
     void anOutcomeLetsALogSayNothingElse() {
-        assertThat(rules.outcomeOf(logged("call", "  ", "no_answer"), PersonNoteKind.CALL, null))
+        assertThat(outcomeOf(logged("call", "  ", "no_answer"), PersonNoteKind.CALL, null))
                 .isEqualTo(NoteOutcome.NO_ANSWER);
-        assertThat(rules.outcomeOf(logged("whatsapp", null, "replied"), PersonNoteKind.WHATSAPP, null))
+        assertThat(outcomeOf(logged("whatsapp", null, "replied"), PersonNoteKind.WHATSAPP, null))
                 .isEqualTo(NoteOutcome.REPLIED);
-        assertThat(rules.outcomeOf(logged("call", "Spoke at length.", null), PersonNoteKind.CALL, null)).isNull();
-        assertThatThrownBy(() -> rules.outcomeOf(logged("call", " ", null), PersonNoteKind.CALL, null))
+        assertThat(outcomeOf(logged("call", "Spoke at length.", null), PersonNoteKind.CALL, null)).isNull();
+        assertThatThrownBy(() -> outcomeOf(logged("call", " ", null), PersonNoteKind.CALL, null))
                 .isInstanceOf(ApiException.class);
-        assertThatThrownBy(() -> rules.outcomeOf(logged("general", null, null), PersonNoteKind.GENERAL, null))
+        assertThatThrownBy(() -> outcomeOf(logged("general", null, null), PersonNoteKind.GENERAL, null))
                 .isInstanceOf(ApiException.class);
     }
 
     @Test
     void anOutcomeBelongsToItsOwnKind() {
-        assertThatThrownBy(() -> rules.outcomeOf(logged("whatsapp", "Words.", "voicemail"), PersonNoteKind.WHATSAPP,
+        assertThatThrownBy(() -> outcomeOf(logged("whatsapp", "Words.", "voicemail"), PersonNoteKind.WHATSAPP,
                 null)).isInstanceOf(ApiException.class);
-        assertThatThrownBy(() -> rules.outcomeOf(logged("general", "Words.", "connected"), PersonNoteKind.GENERAL,
+        assertThatThrownBy(() -> outcomeOf(logged("general", "Words.", "connected"), PersonNoteKind.GENERAL,
                 null)).isInstanceOf(ApiException.class);
-        assertThatThrownBy(() -> rules.outcomeOf(logged("call", "Words.", "hung_up"), PersonNoteKind.CALL, null))
-                .isInstanceOf(ApiException.class);
+        assertThatThrownBy(() -> outcomeOf(logged("call", "Words.", "hung_up"), PersonNoteKind.CALL, null))
+                .isInstanceOf(ApiException.class)
+                .satisfies(refusal -> assertThat(((ApiException) refusal).getFieldErrors()).containsKey("outcome"));
     }
 
     @Test
     void anEditKeepsTheOutcomeWhileTheKindHoldsItAndAnEmptyTokenClearsIt() {
-        assertThat(rules.outcomeOf(logged(null, "", null), PersonNoteKind.CALL, NoteOutcome.VOICEMAIL))
+        assertThat(outcomeOf(logged(null, "", null), PersonNoteKind.CALL, NoteOutcome.VOICEMAIL))
                 .isEqualTo(NoteOutcome.VOICEMAIL);
-        assertThat(rules.outcomeOf(logged("call", "", "connected"), PersonNoteKind.CALL, NoteOutcome.VOICEMAIL))
+        assertThat(outcomeOf(logged("call", "", "connected"), PersonNoteKind.CALL, NoteOutcome.VOICEMAIL))
                 .isEqualTo(NoteOutcome.CONNECTED);
-        assertThat(rules.outcomeOf(logged("general", "Now a note.", null), PersonNoteKind.GENERAL,
+        assertThat(outcomeOf(logged("general", "Now a note.", null), PersonNoteKind.GENERAL,
                 NoteOutcome.VOICEMAIL)).isNull();
-        assertThat(rules.outcomeOf(logged("call", "Words.", ""), PersonNoteKind.CALL, NoteOutcome.VOICEMAIL)).isNull();
-        assertThatThrownBy(() -> rules.outcomeOf(logged("call", "", ""), PersonNoteKind.CALL, NoteOutcome.VOICEMAIL))
+        assertThat(outcomeOf(logged("call", "Words.", ""), PersonNoteKind.CALL, NoteOutcome.VOICEMAIL)).isNull();
+        assertThatThrownBy(() -> outcomeOf(logged("call", "", ""), PersonNoteKind.CALL, NoteOutcome.VOICEMAIL))
                 .isInstanceOf(ApiException.class);
     }
 }

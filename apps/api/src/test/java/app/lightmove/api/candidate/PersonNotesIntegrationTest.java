@@ -566,6 +566,14 @@ class PersonNotesIntegrationTest extends FlowTestSupport {
                 {"kind":"whatsapp","body":"Sent the outline.","outcome":"voicemail"}""");
         refuse(cfo, candidateId, """
                 {"kind":"general","outcome":"connected"}""");
+        JsonNode unknown = body(mvc.perform(post(notesUrl(cfo, candidateId))
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"kind":"call","outcome":"busy"}"""))
+                .andExpect(status().isBadRequest())
+                .andReturn());
+        assertThat(unknown.get("fieldErrors").has("outcome")).isTrue();
 
         mvc.perform(delete(notesUrl(cfo, candidateId) + "/" + again).header("Authorization", "Bearer " + admin))
                 .andExpect(status().isNoContent());
@@ -574,6 +582,18 @@ class PersonNotesIntegrationTest extends FlowTestSupport {
                 .andExpect(status().isOk())
                 .andReturn());
         assertThat(restored.get("id").asText()).isEqualTo(again);
+        log(cfo, candidateId, """
+                {"kind":"call","body":"Tried mobile.","outcome":"no_answer"}""");
+        String voicemail = log(cfo, candidateId, """
+                {"kind":"call","body":"Tried mobile.","outcome":"voicemail"}""").get("id").asText();
+        mvc.perform(delete(notesUrl(cfo, candidateId) + "/" + voicemail).header("Authorization", "Bearer " + admin))
+                .andExpect(status().isNoContent());
+        JsonNode voicemailBack = body(mvc.perform(post(notesUrl(cfo, candidateId) + "/" + voicemail + "/restore")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andReturn());
+        assertThat(voicemailBack.get("id").asText()).isEqualTo(voicemail);
+        assertThat(voicemailBack.get("outcome").asText()).isEqualTo("voicemail");
 
         String noAnswerUrl = notesUrl(cfo, candidateId) + "/" + noAnswer.get("id").asText();
         JsonNode reworded = body(mvc.perform(put(noAnswerUrl)
@@ -584,6 +604,15 @@ class PersonNotesIntegrationTest extends FlowTestSupport {
                 .andExpect(status().isOk())
                 .andReturn());
         assertThat(reworded.get("outcome").asText()).isEqualTo("no_answer");
+        JsonNode connected = body(mvc.perform(put(noAnswerUrl)
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"outcome":"connected"}"""))
+                .andExpect(status().isOk())
+                .andReturn());
+        assertThat(connected.get("body").asText()).isEqualTo("Rang twice, no voicemail box.");
+        assertThat(connected.get("outcome").asText()).isEqualTo("connected");
         JsonNode plain = body(mvc.perform(put(noAnswerUrl)
                         .header("Authorization", "Bearer " + admin)
                         .contentType(MediaType.APPLICATION_JSON)

@@ -30,6 +30,11 @@ public record WritePersonNoteRequest(
         return body == null ? "" : body.strip();
     }
 
+    /** An edit that sends no body keeps the words held, as one sending no kind keeps the kind. */
+    public String bodyTextOr(String current) {
+        return body == null ? current : body.strip();
+    }
+
     public boolean isForAllPositions() {
         return Boolean.TRUE.equals(allPositions);
     }
