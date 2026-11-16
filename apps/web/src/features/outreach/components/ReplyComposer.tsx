@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { cn } from "../../../lib/cn";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Button, DateInput, Select, useToast } from "../../../components/ui";
@@ -36,7 +36,7 @@ import { isLive } from "../lib/runVocabulary";
 import { HALF_HOURS, instantOf, wallClockOf, whenLabelOf } from "../lib/sendSchedule";
 import { firstNameOf, replaceVariable, templateTokenOptions, unfilledIn, unknownIn } from "../lib/sequenceTokens";
 import { CHIP_CLASS, chipOf, piecesOf, VARIABLE_LABELS, type VariableChip, type VariableChipKind } from "../lib/variableChips";
-import { createVariableChips, replaceVariableInEditor } from "../lib/variableChipsExtension";
+import { createVariableChips, replaceRangeInEditor, replaceVariableInEditor } from "../lib/variableChipsExtension";
 import type { MailboxConnect } from "../lib/useMailboxConnect";
 import { formatClock, getDateTimePreferences } from "../../../lib/datetime";
 
@@ -177,8 +177,9 @@ function OpenComposer({
   const [lastField, setLastField] = useState<"subject" | "body">("body");
   const subjectRef = useRef<HTMLInputElement>(null);
   const bodyEditor = useRef<NoteEditorHandle | null>(null);
+  const subjectId = useId();
   const [isSubjectFocused, setIsSubjectFocused] = useState(false);
-  const [openChip, setOpenChip] = useState<{ name: string; kind: VariableChipKind; chip: VariableChip; rect: DOMRect } | null>(null);
+  const [openChip, setOpenChip] = useState<OpenChip | null>(null);
   const [chips] = useState(() => {
     const created = createVariableChips();
     return { ...created, extensions: [created.extension] };
@@ -292,7 +293,7 @@ function OpenComposer({
         ? {
             chipFor: (name, fallback) => (accepted.has(name) ? chipOf(name, fallback, tokens, firstName) : null),
             // A second press on the open chip closes its popover.
-            onChip: (target) => setOpenChip((open) => (open?.name === target.name ? null : target)),
+            onChip: (target) => setOpenChip((open) => (open?.name === target.name && open.scope === "body" && open.from === target.from ? null : { ...target, scope: "body" })),
           }
         : null,
     );
@@ -303,11 +304,28 @@ function OpenComposer({
     setOpenChip(null);
   }, [body, subject]);
 
-  /** A variable given the words typed for this email, or taken out with none: wherever it is used, subject and all. */
-  const fillVariable = (name: string, text: string) => {
-    if (bodyEditor.current) replaceVariableInEditor(bodyEditor.current.editor, name, text);
-    if (!isReply) setSubject((current) => replaceVariable(current, name, text).slice(0, SUBJECT_MAX_LENGTH));
+  const returnFocus = (scope: OpenChip["scope"]) => {
+    if (scope === "subject") subjectRef.current?.focus();
+    else bodyEditor.current?.editor.commands.focus();
+  };
+
+  /** Words typed for this email, or none to take it out: wherever the variable has nothing on file, subject and all. */
+  const fillBlank = (open: OpenChip, text: string) => {
+    if (bodyEditor.current) replaceVariableInEditor(bodyEditor.current.editor, open.name, text, true);
+    if (!isReply) setSubject((current) => replaceVariable(current, open.name, text, true).slice(0, SUBJECT_MAX_LENGTH));
     setOpenChip(null);
+    returnFocus(open.scope);
+  };
+
+  /** Only the chip that was pressed: its words given the value as plain text, or taken out. */
+  const settleChip = (open: OpenChip, text: string) => {
+    if (open.scope === "body") {
+      if (bodyEditor.current) replaceRangeInEditor(bodyEditor.current.editor, open.from, open.to, text);
+    } else {
+      setSubject((current) => (current.slice(0, open.from) + text + current.slice(open.to)).slice(0, SUBJECT_MAX_LENGTH));
+    }
+    setOpenChip(null);
+    returnFocus(open.scope);
   };
 
   const unsendable = unsendableVariablesOf(isReply ? body : `${subject}\n${body}`, tokens, templateVocabulary(bookingLinkOffered));
@@ -401,10 +419,61 @@ function OpenComposer({
                 <span className="min-w-0 truncate text-u-text2">{replySubject}</span>
               </div>
             ) : (
-              <label className="flex items-center gap-2 border-b border-u-border py-2 text-note">
-                <span className="w-14 flex-none text-u-text3">Subject</span>
+              <div className="flex items-center gap-2 border-b border-u-border py-2 text-note">
+                {/* Not wrapped round the field: a label names the first control inside it, and the chips come first. */}
+                <label htmlFor={subjectId} className="w-14 flex-none text-u-text3">
+                  Subject
+                </label>
                 <span className="relative flex min-w-0 flex-1 items-center">
+                  {/* The words in the field stay the variables; this reads them as the executive's values until the field is
+                      pressed, since a field of plain text cannot draw a chip in place. Before the field, so Tab reaches the
+                      chips first; a press on its words puts the caret at the same words in the field. */}
+                  {subjectPieces && !isSubjectFocused && (
+                    <span
+                      className="absolute inset-0 z-10 flex cursor-text items-center text-u-text"
+                      onMouseDown={(event) => {
+                        if (event.target instanceof Element && event.target.closest("[data-variable]")) return;
+                        event.preventDefault();
+                        const field = subjectRef.current;
+                        if (!field) return;
+                        const placed = caretOffsetIn(event.target, event.clientX, event.clientY);
+                        field.focus();
+                        const at = placed === null ? subject.length : placed;
+                        field.setSelectionRange(at, at);
+                      }}
+                    >
+                      <span className="min-w-0 truncate">
+                        {subjectPieces.map((piece, index) =>
+                          "chip" in piece ? (
+                            <button
+                              key={index}
+                              type="button"
+                              title={piece.chip.title}
+                              data-variable={piece.name}
+                              onClick={(event) => {
+                                event.preventDefault();
+                                const rect = event.currentTarget.getBoundingClientRect();
+                                setOpenChip((open) =>
+                                  open?.name === piece.name && open.scope === "subject" && open.from === piece.start
+                                    ? null
+                                    : { name: piece.name, kind: piece.chip.kind, chip: piece.chip, rect, scope: "subject", from: piece.start, to: piece.end },
+                                );
+                              }}
+                              className={CHIP_CLASS[piece.chip.kind]}
+                            >
+                              {piece.text}
+                            </button>
+                          ) : (
+                            <span key={index} data-start={piece.start}>
+                              {piece.text}
+                            </span>
+                          ),
+                        )}
+                      </span>
+                    </span>
+                  )}
                   <input
+                    id={subjectId}
                     ref={subjectRef}
                     aria-label="Subject"
                     autoFocus={autoFocus}
@@ -422,37 +491,8 @@ function OpenComposer({
                     )}
                     placeholder="What the email is about"
                   />
-                  {/* The words in the field stay the variables; this reads them as the executive's values until the field is
-                      pressed, since a field of plain text cannot draw a chip in place. */}
-                  {subjectPieces && !isSubjectFocused && (
-                    <span className="pointer-events-none absolute inset-0 flex items-center overflow-hidden whitespace-pre text-u-text">
-                      {subjectPieces.map((piece, index) =>
-                        "chip" in piece ? (
-                          <button
-                            key={index}
-                            type="button"
-                            title={piece.chip.title}
-                            data-variable={piece.name}
-                            onMouseDown={(event) => event.preventDefault()}
-                            onClick={(event) => {
-                              event.preventDefault();
-                              const rect = event.currentTarget.getBoundingClientRect();
-                              setOpenChip((open) =>
-                                open?.name === piece.name ? null : { name: piece.name, kind: piece.chip.kind, chip: piece.chip, rect },
-                              );
-                            }}
-                            className={cn("pointer-events-auto flex-none", CHIP_CLASS[piece.chip.kind])}
-                          >
-                            {piece.text}
-                          </button>
-                        ) : (
-                          <span key={index}>{piece.text}</span>
-                        ),
-                      )}
-                    </span>
-                  )}
                 </span>
-              </label>
+              </div>
             )}
           </>
         }
@@ -546,10 +586,14 @@ function OpenComposer({
         <VariableChipPopover
           target={openChip}
           forWhom={firstName}
-          onTypeValue={(text) => fillVariable(openChip.name, text)}
-          onEditAsText={() => fillVariable(openChip.name, openChip.chip.text)}
-          onRemove={() => fillVariable(openChip.name, "")}
+          onTypeValue={(text) => fillBlank(openChip, text)}
+          onEditAsText={() => settleChip(openChip, openChip.chip.text)}
+          onRemove={() => (openChip.kind === "blank" ? fillBlank(openChip, "") : settleChip(openChip, ""))}
           onClose={() => setOpenChip(null)}
+          onEscape={() => {
+            setOpenChip(null);
+            returnFocus(openChip.scope);
+          }}
         />
       )}
       <SaveAsTemplateDialog
@@ -560,6 +604,29 @@ function OpenComposer({
       />
     </section>
   );
+}
+
+/** Where in a plain run of the subject's overlay a press landed, as an offset in the field's own words. */
+function caretOffsetIn(target: EventTarget, x: number, y: number): number | null {
+  const run = target instanceof Element ? target.closest<HTMLElement>("[data-start]") : null;
+  if (!run) return null;
+  const doc = document as Document & {
+    caretRangeFromPoint?: (x: number, y: number) => Range | null;
+    caretPositionFromPoint?: (x: number, y: number) => { offsetNode: Node; offset: number } | null;
+  };
+  const inside = doc.caretRangeFromPoint?.(x, y)?.startOffset ?? doc.caretPositionFromPoint?.(x, y)?.offset;
+  return inside === undefined ? null : Number(run.dataset.start) + inside;
+}
+
+/** A chip whose popover is open: where its words are in the body (document positions) or the subject (offsets). */
+interface OpenChip {
+  name: string;
+  kind: VariableChipKind;
+  chip: VariableChip;
+  rect: DOMRect;
+  scope: "body" | "subject";
+  from: number;
+  to: number;
 }
 
 interface UnsendableVariable {

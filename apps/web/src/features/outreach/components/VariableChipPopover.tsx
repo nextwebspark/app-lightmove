@@ -19,6 +19,7 @@ export function VariableChipPopover({
   onEditAsText,
   onRemove,
   onClose,
+  onEscape,
 }: {
   target: { name: string; kind: VariableChipKind; chip: VariableChip; rect: DOMRect };
   forWhom: string;
@@ -26,11 +27,13 @@ export function VariableChipPopover({
   onTypeValue: (text: string) => void;
   onEditAsText: () => void;
   onRemove: () => void;
+  /** Dismissed from the keyboard: the caret goes back to where the words were being written. */
+  onEscape: () => void;
   onClose: () => void;
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
   const [typedValue, setTypedValue] = useState("");
-  useEscapeKey(true, onClose);
+  useEscapeKey(true, onEscape);
 
   useEffect(() => {
     const closeOnOutside = (event: MouseEvent) => {

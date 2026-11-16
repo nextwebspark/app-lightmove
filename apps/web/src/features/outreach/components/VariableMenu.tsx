@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState, type KeyboardEvent } from "react";
 import { Popover } from "../../../components/ui/Popover";
 import { cn } from "../../../lib/cn";
 import type { RecipientTokens } from "../api/sequenceApi";
@@ -80,7 +80,20 @@ export function VariableList({
   onPick: (token: string) => void;
 }) {
   const [query, setQuery] = useState("");
+  const listRef = useRef<HTMLDivElement>(null);
   const typed = query.trim().toLowerCase();
+
+  // Arrows move through the list from the search and back, so it is a menu to a keyboard as well as to a pointer.
+  const stepThrough = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+    const items = Array.from(listRef.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? []);
+    if (items.length === 0) return;
+    event.preventDefault();
+    const at = items.indexOf(document.activeElement as HTMLElement);
+    const next = event.key === "ArrowDown" ? at + 1 : at - 1;
+    if (next < 0) (event.currentTarget.querySelector("input") as HTMLElement | null)?.focus();
+    else items[Math.min(next, items.length - 1)].focus();
+  };
   const shown = options.filter((option) => {
     const name = tokenNameOf(option);
     return !typed || (VARIABLE_LABELS[name] ?? name).toLowerCase().includes(typed) || name.toLowerCase().includes(typed);
@@ -92,7 +105,7 @@ export function VariableList({
   ].filter((group) => group.items.length > 0);
 
   return (
-    <div role="menu" aria-label="Insert a variable" className="flex flex-col">
+    <div className="flex flex-col" onKeyDown={stepThrough}>
       <input
         autoFocus
         value={query}
@@ -102,6 +115,7 @@ export function VariableList({
         className="m-1 rounded-u-control border border-u-border bg-u-raised px-2.5 py-1.5 text-note text-u-text outline-none focus:border-u-accent"
       />
       {groups.length === 0 && <p className="p-2 text-note text-u-text3">No variable matches “{query.trim()}”.</p>}
+      <div ref={listRef} role="menu" aria-label="Insert a variable">
       {groups.map((group) => (
         <div key={group.label}>
           <p className="px-2 pb-1 pt-2 type-micro-label text-u-text3">{group.label}</p>
@@ -132,6 +146,7 @@ export function VariableList({
           })}
         </div>
       ))}
+      </div>
     </div>
   );
 }

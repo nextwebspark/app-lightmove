@@ -53,7 +53,8 @@ export const CHIP_CLASS: Record<VariableChipKind, string> = {
   blank: "cursor-pointer rounded-u-control bg-u-offlimits-tint px-1 font-medium text-u-offlimits ring-1 ring-u-offlimits",
 };
 
-export type TextPiece = { text: string } | { text: string; name: string; chip: VariableChip };
+/** `start` and `end` are where the piece's own words are in the line, as typed. */
+export type TextPiece = ({ text: string } | { text: string; name: string; chip: VariableChip }) & { start: number; end: number };
 
 /** A line of words cut into plain text and the chips its variables are, for a field that cannot draw them in place. */
 export function piecesOf(
@@ -69,10 +70,10 @@ export function piecesOf(
     const chip = accepts(match[1]) ? chipOf(match[1], fallback, tokens, forWhom) : null;
     if (!chip) continue;
     const at = match.index ?? 0;
-    if (at > last) pieces.push({ text: text.slice(last, at) });
-    pieces.push({ text: chip.text, name: match[1], chip });
+    if (at > last) pieces.push({ text: text.slice(last, at), start: last, end: at });
+    pieces.push({ text: chip.text, name: match[1], chip, start: at, end: at + match[0].length });
     last = at + match[0].length;
   }
-  if (last < text.length) pieces.push({ text: text.slice(last) });
+  if (last < text.length) pieces.push({ text: text.slice(last), start: last, end: text.length });
   return pieces;
 }

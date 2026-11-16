@@ -134,10 +134,13 @@ export function tokenValueOf(tokens: RecipientTokens, name: string): string | nu
 
 /**
  * The text with every use of one variable replaced, a fallback and its pipe included — for a value typed for one
- * email, or "" to take the variable out of it.
+ * email, or "" to take the variable out of it. `onlyWithoutFallback` leaves the uses a fallback stands in for alone:
+ * they are not the ones with nothing to say.
  */
-export function replaceVariable(text: string, name: string, replacement: string): string {
-  return text.replace(TOKEN, (whole, used: string) => (used === name ? replacement : whole));
+export function replaceVariable(text: string, name: string, replacement: string, onlyWithoutFallback = false): string {
+  return text.replace(TOKEN, (whole, used: string, fallback: string | undefined) =>
+    used === name && (!onlyWithoutFallback || fallbackOf(fallback) === null) ? replacement : whole,
+  );
 }
 
 /** A subject: every value on one line, as the server writes it. */

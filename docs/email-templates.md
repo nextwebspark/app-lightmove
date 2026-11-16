@@ -156,10 +156,11 @@ Sources (vendor help centres, read November 2026):
     chip where a fallback stands in, a red chip naming the variable where nothing is on file and nothing stands in. It
     is a decoration only: the words in the editor and in the stored Markdown stay `{{firstName}}`, so **Save as
     template** keeps the variable and the server still fills it at send. The Subject, a plain field, reads the same way
-    until it is pressed. Pressing a chip opens its popover: a filled one says where the value came from, and offers
-    *Edit as text* (the value becomes plain words) and *Remove*; a blank one asks for words to type **for this email
-    only**, which replace the variable wherever it is used, subject included, or *Remove from email*. Backspace and
-    Delete take a chip whole and an arrow steps over it. The Insert bar's row is replaced by a **Variable** button beside
+    until it is pressed. Pressing a chip, or Enter on it (a chip is reached by Tab), opens its popover: a filled one
+    says where the value came from, and offers *Edit as text* (that chip's value becomes plain words) and *Remove*
+    (that chip alone); a blank one asks for words to type **for this email only**, which replace the variable
+    wherever it has nothing on file, subject included — a use a fallback stands in for is left — or *Remove from
+    email*. Escape returns to the words. Backspace and Delete take a chip whole and an arrow steps over it. The Insert bar's row is replaced by a **Variable** button beside
     Templates (`VariableMenu`): each variable with this executive's value beside it, and "Nothing on file" in red. The
     line under the editor now reads "Location has nothing on file for Fatima: click it to type one for this email, or
     remove it." *Why:* every product that writes to one known person fills the values in (Lever, Front, Ashby,

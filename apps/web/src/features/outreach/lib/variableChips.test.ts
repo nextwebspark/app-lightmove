@@ -38,13 +38,14 @@ describe("piecesOf", () => {
     const pieces = piecesOf("For {{firstName}}, {{opener}} {{location|there}}", TOKENS, "Fatima", () => true);
     expect(pieces.map((piece) => piece.text).join("")).toBe("For Fatima, {{opener}} there");
     expect(pieces.filter((piece) => "chip" in piece)).toHaveLength(2);
+    expect(pieces[1]).toMatchObject({ name: "firstName", start: 4, end: 17 });
   });
 });
 
 describe("piecesOf with a vocabulary", () => {
   it("draws no chip for a name the composer does not accept, such as a booking link where none is offered", () => {
     const pieces = piecesOf("Book: {{bookingLink}}", TOKENS, "Fatima", (name) => name !== "bookingLink");
-    expect(pieces).toEqual([{ text: "Book: {{bookingLink}}" }]);
+    expect(pieces).toEqual([{ text: "Book: {{bookingLink}}", start: 0, end: 21 }]);
   });
 });
 
@@ -53,6 +54,10 @@ describe("replaceVariable", () => {
     expect(replaceVariable("In {{location}} or {{ location|the region }}, {{firstName}}", "location", "Dubai")).toBe(
       "In Dubai or Dubai, {{firstName}}",
     );
+  });
+
+  it("leaves the uses a fallback stands in for alone when asked", () => {
+    expect(replaceVariable("{{location}} / {{location|there}}", "location", "Dubai", true)).toBe("Dubai / {{location|there}}");
   });
 
   it("takes a variable out with an empty replacement", () => {

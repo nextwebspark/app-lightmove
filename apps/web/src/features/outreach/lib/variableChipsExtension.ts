@@ -8,7 +8,8 @@ import { CHIP_CLASS, type VariableChip, type VariableChipKind } from "./variable
 export interface VariableChipHost {
   /** Null while the executive's values load, or for a name no email fills: the text stays as typed. */
   chipFor: (name: string, fallback: string | null) => VariableChip | null;
-  onChip: (target: { name: string; kind: VariableChipKind; chip: VariableChip; rect: DOMRect }) => void;
+  /** `from` and `to` are the variable's words in the document, as they are until the next edit. */
+  onChip: (target: { name: string; kind: VariableChipKind; chip: VariableChip; rect: DOMRect; from: number; to: number }) => void;
 }
 
 interface ChipRange {
@@ -70,13 +71,24 @@ export function createVariableChips(): VariableChips {
   };
 }
 
-/** Every use of one variable in the words replaced by `replacement` ("" takes it out), as one change. */
-export function replaceVariableInEditor(editor: Editor, name: string, replacement: string) {
+/** One variable's words, where the chip was, given other words or taken out with "". */
+export function replaceRangeInEditor(editor: Editor, from: number, to: number, replacement: string) {
+  const transaction = editor.state.tr;
+  if (replacement) transaction.insertText(replacement, from, to);
+  else transaction.delete(from, to);
+  editor.view.dispatch(transaction);
+}
+
+/**
+ * Every use of one variable in the words replaced by `replacement` ("" takes it out), as one change.
+ * `onlyWithoutFallback` leaves the uses a fallback stands in for.
+ */
+export function replaceVariableInEditor(editor: Editor, name: string, replacement: string, onlyWithoutFallback = false) {
   const edits: Array<{ from: number; to: number }> = [];
   editor.state.doc.descendants((node, position) => {
     if (!node.isText || !node.text) return;
     for (const match of node.text.matchAll(new RegExp(TOKEN_PATTERN.source, "g"))) {
-      if (match[1] !== name) continue;
+      if (match[1] !== name || (onlyWithoutFallback && typed(match[2]) !== null)) continue;
       const from = position + (match.index ?? 0);
       edits.push({ from, to: from + match[0].length });
     }
@@ -106,12 +118,12 @@ function chipsOf(state: EditorState, host: { current: VariableChipHost | null })
         const to = from + match[0].length;
         ranges.push({ from, to });
         decorations.push(
-          Decoration.widget(from, () => chipElement(chip, name, source), {
+          Decoration.widget(from, () => chipElement(chip, name, source, from, to), {
             // Drawn after the position at `from`: the caret there is left of the chip, and `to` is right of it.
             side: 1,
-            key: `${from}:${name}:${chip.kind}:${chip.text}`,
+            key: `${from}:${to}:${name}:${chip.kind}:${chip.text}:${chip.title}`,
             // A press on a chip opens its popover; it must not also move the caret.
-            stopEvent: (event) => event.type === "mousedown" || event.type === "click",
+            stopEvent: (event) => event.type === "mousedown" || event.type === "click" || event.type === "keydown",
           }),
           Decoration.inline(from, to, { style: "display:none" }),
           // The caret at `to` would be drawn at the end of the hidden words, where typing and Delete find nothing to act on.
@@ -124,7 +136,7 @@ function chipsOf(state: EditorState, host: { current: VariableChipHost | null })
   return { decorations: DecorationSet.create(state.doc, decorations), ranges };
 }
 
-function chipElement(chip: VariableChip, name: string, host: VariableChipHost): HTMLElement {
+function chipElement(chip: VariableChip, name: string, host: VariableChipHost, from: number, to: number): HTMLElement {
   const element = document.createElement("span");
   element.contentEditable = "false";
   element.className = CHIP_CLASS[chip.kind];
@@ -134,9 +146,16 @@ function chipElement(chip: VariableChip, name: string, host: VariableChipHost): 
   element.setAttribute("role", "button");
   element.setAttribute("aria-label", `${chip.label}: ${chip.kind === "blank" ? "nothing on file" : chip.text}`);
   element.textContent = chip.text;
+  // A chip is reached by Tab and pressed with Enter or Space, like any button.
+  element.tabIndex = 0;
   element.addEventListener("click", (event) => {
     event.preventDefault();
-    host.onChip({ name, kind: chip.kind, chip, rect: element.getBoundingClientRect() });
+    host.onChip({ name, kind: chip.kind, chip, rect: element.getBoundingClientRect(), from, to });
+  });
+  element.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    event.preventDefault();
+    element.click();
   });
   return element;
 }
