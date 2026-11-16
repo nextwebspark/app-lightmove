@@ -160,17 +160,18 @@ export function CandidateProfile({
   focusTab?: DrawerTab | null;
 }) {
   const sections = useProfileSections();
+  const outlet = useOutletContext<ProjectOutletContext | undefined>();
+  // Only where a press could warn: a writer, and a phone to press. The Outreach tab reads the same conversation, so
+  // opening it costs nothing more.
+  const conversation = useQuery({
+    queryKey: CONVERSATION_KEY(projectId, candidate.id),
+    queryFn: ({ signal }) => getConversation(projectId, candidate.id, signal),
+    enabled: canWrite && candidate.contacts.phones.length > 0,
+  });
   /**
    * Whether this deployment looks contacts up. A deployment fact, not a row one, so it is read once
    * and kept — and a refused or failed read means no buttons rather than buttons that cannot work.
    */
-  const outlet = useOutletContext<ProjectOutletContext | undefined>();
-  // The Outreach tab reads the same conversation; a phone takes its Recently approached from it.
-  const conversation = useQuery({
-    queryKey: CONVERSATION_KEY(projectId, candidate.id),
-    queryFn: ({ signal }) => getConversation(projectId, candidate.id, signal),
-    enabled: canWrite,
-  });
   const lookupConfig = useQuery({
     queryKey: contactLookupApi.CONTACT_LOOKUP_CONFIG_KEY,
     queryFn: ({ signal }) => contactLookupApi.getContactLookupConfig(signal),

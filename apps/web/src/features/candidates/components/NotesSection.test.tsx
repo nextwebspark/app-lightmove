@@ -289,7 +289,7 @@ describe("a note in the position's drawer", () => {
   });
 
   it("is edited in place by its author", async () => {
-    vi.mocked(personCrmApi.revisePersonNote).mockImplementation(async (_p, _c, _n, note) => aNote(note.body));
+    vi.mocked(personCrmApi.revisePersonNote).mockImplementation(async (_p, _c, _n, note) => aNote(note.body ?? ""));
     renderNotes();
 
     await userEvent.click(await screen.findByRole("button", { name: "Edit" }));
@@ -576,7 +576,7 @@ describe("a call's or a WhatsApp message's outcome", () => {
     vi.mocked(personCrmApi.getPersonPositions).mockResolvedValue([]);
     vi.mocked(personCrmApi.writePersonNote).mockImplementation(async (_p, _c, note) => ({
       ...aNote(note.body, note.kind),
-      outcome: note.outcome ?? null,
+      outcome: note.outcome || null,
     }));
     vi.mocked(projectsApi.projects).mockResolvedValue([position]);
   });

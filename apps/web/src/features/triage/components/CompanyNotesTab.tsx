@@ -112,10 +112,10 @@ function CompanyNoteCard({ projectId, companyId, note }: { projectId: string; co
     note,
     {
       pin: (noteId, pinned) => companyNotesApi.pinCompanyNote(projectId, companyId, noteId, pinned),
-      revise: (current, body) =>
+      revise: (current, change) =>
         companyNotesApi.reviseCompanyNote(projectId, companyId, current.id, {
           kind: current.kind,
-          body,
+          body: change.body ?? current.body,
           format: "markdown",
         }),
       remove: (noteId) => companyNotesApi.removeCompanyNote(projectId, companyId, noteId),

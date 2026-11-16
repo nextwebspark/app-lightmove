@@ -329,9 +329,12 @@ export interface WritePersonNotePayload {
   meetingId?: string | null;
   /** Or the Notetaker recording, for a call known only from it; never with a `meetingId`. */
   recordingId?: string | null;
-  /** A call's or WhatsApp log's outcome; an edit that leaves it out keeps it. */
-  outcome?: NoteOutcome | null;
+  /** A call's or WhatsApp log's outcome; an edit that leaves it out keeps it, and `""` clears it. */
+  outcome?: NoteOutcome | "" | null;
 }
+
+/** An edit: a body left out keeps the words held, as an outcome left out keeps the outcome. */
+export type RevisePersonNotePayload = Omit<WritePersonNotePayload, "body"> & { body?: string };
 
 /** One mandate a person is mapped on, with that mandate's status and who filed them there. */
 export interface PersonPosition {

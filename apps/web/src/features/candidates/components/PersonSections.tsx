@@ -12,7 +12,7 @@ import * as personCrmApi from "../api/personCrmApi";
 import * as poolApi from "../api/poolApi";
 import type { NoteOutcome, PersonNote, PersonNoteKind } from "../api/types";
 import { isContactNote, notePlaceholderOf, PLAIN_NOTE_KIND } from "../lib/noteKinds";
-import { outcomesOf } from "../lib/noteOutcomes";
+import { loggedToastOf, outcomesOf } from "../lib/noteOutcomes";
 import { useNoteCardActions } from "../lib/useNoteCardActions";
 import type { Meeting } from "../../outreach/api/meetingApi";
 import {
@@ -269,7 +269,7 @@ export function PositionNoteComposer({
         toast("Note saved");
         onSetNextAction(taskNoteOf(note));
       } else if (note.outcome) {
-        toast(note.kind === "whatsapp" ? "WhatsApp logged" : "Call logged");
+        toast(loggedToastOf(note.kind));
       } else {
         toast(note.projectId ? "Note saved" : "Note saved — your team sees it on every position");
       }
@@ -377,8 +377,12 @@ export function PositionNoteCard({
     note,
     {
       pin: (noteId, pinned) => personCrmApi.pinPersonNote(projectId, candidateId, noteId, pinned),
-      revise: (current, body) =>
-        personCrmApi.revisePersonNote(projectId, candidateId, current.id, { kind: current.kind, body, format: "markdown" }),
+      revise: (current, change) =>
+        personCrmApi.revisePersonNote(projectId, candidateId, current.id, {
+          kind: current.kind,
+          format: "markdown",
+          ...change,
+        }),
       remove: (noteId) => personCrmApi.removePersonNote(projectId, candidateId, noteId),
       restore: (noteId) => personCrmApi.restorePersonNote(projectId, candidateId, noteId),
     },
@@ -402,6 +406,7 @@ export function PositionNoteCard({
       showsKindMark={showsKindMark}
       lead={lead}
       namesPosition={false}
+      takesOutcome
     />
   );
 }

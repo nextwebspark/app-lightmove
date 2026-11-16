@@ -113,6 +113,15 @@ export function NoteOutcomePicker({
   );
 }
 
+/** How a logged call or message went, beside its kind on a card. */
+export function NoteOutcomePill({ outcome, className }: { outcome: NoteOutcome; className?: string }) {
+  return (
+    <span className={cn("flex-none rounded-full bg-u-raised px-2 py-px text-meta text-u-text2", className)}>
+      {outcomeLabel(outcome)}
+    </span>
+  );
+}
+
 /** The composer's chips: a radio group with one tab stop, the arrows moving the choice. */
 function NoteChoiceChips<TValue extends string>({
   label,
@@ -178,10 +187,16 @@ export function noteAnchorOf(noteId: string): string {
 export type NoteCardNote = Omit<PersonNote, "projectId" | "projectTitle"> &
   Partial<Pick<PersonNote, "projectId" | "projectTitle">>;
 
+/** What an edit changed: the words, the outcome (`""` clears it), or both; what it leaves out stays as it is. */
+export interface NoteRevision {
+  body?: string;
+  outcome?: NoteOutcome | "";
+}
+
 /** What a card may do to its note; a card drawn without them only reads. */
 export interface NoteCardActions {
   onPin: () => void;
-  onRevise: (body: string) => void;
+  onRevise: (change: NoteRevision) => void;
   onRemove: () => void;
   busy: boolean;
 }
@@ -205,6 +220,7 @@ export function NoteCard({
   showsKindMark = true,
   lead = null,
   namesPosition = true,
+  takesOutcome = false,
 }: {
   note: NoteCardNote;
   actions?: NoteCardActions;
@@ -220,29 +236,35 @@ export function NoteCard({
   lead?: NoteCardLead | null;
   /** Off inside a position, where "About" would only repeat the position being read. */
   namesPosition?: boolean;
+  /** A person's call or WhatsApp log, whose edit may change how it went; a company's note takes no outcome. */
+  takesOutcome?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [confirmingRemove, setConfirmingRemove] = useState(false);
   const [reading, setReading] = useState(false);
   const [draft, setDraft] = useState(note.body);
+  const [outcome, setOutcome] = useState<NoteOutcome | null>(note.outcome ?? null);
+  const editsOutcome = takesOutcome && outcomesOf(note.kind) !== null;
   const revised = draft.trim();
   const revisedTooLong = revised.length > NOTE_MAX_STORED;
-  const canSave = revised.length > 0 && !revisedTooLong;
+  const canSave = (revised.length > 0 || (editsOutcome && outcome !== null)) && !revisedTooLong;
   const startEditing = () => {
     setDraft(note.body);
+    setOutcome(note.outcome ?? null);
     setEditing(true);
   };
   const authorName = note.authorName ?? "Someone";
   const saveRevision = () => {
     if (!actions || !canSave) return;
+    const change: NoteRevision = {};
     // An untouched draft is still the stored body; sent back as Markdown, a plain note's "*" and "1." would format.
-    if (draft !== note.body) actions.onRevise(revised);
+    if (draft !== note.body) change.body = revised;
+    if (editsOutcome && outcome !== (note.outcome ?? null)) change.outcome = outcome ?? "";
+    if (change.body !== undefined || change.outcome !== undefined) actions.onRevise(change);
     setEditing(false);
   };
 
-  const outcomePill = note.outcome && (
-    <span className="flex-none rounded-full bg-u-raised px-2 py-px text-meta text-u-text2">{outcomeLabel(note.outcome)}</span>
-  );
+  const outcomePill = note.outcome && <NoteOutcomePill outcome={note.outcome} />;
   const pinnedMark = note.pinned && (
     <span className="flex items-center gap-0.5 font-mono text-[10px] font-semibold uppercase tracking-[0.06em] text-u-accent">
       <Icon d={ICONS.pin} size={10} />
@@ -327,6 +349,9 @@ export function NoteCard({
             canSubmit={canSave}
             expandTitle="Edit note"
             autoFocus
+            header={
+              editsOutcome ? <NoteOutcomePicker kind={note.kind} value={outcome} onChange={setOutcome} /> : undefined
+            }
             footer={
               <>
                 {revisedTooLong && (

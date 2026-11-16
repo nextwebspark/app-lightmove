@@ -15,7 +15,7 @@ import type { ConversationAttachment, ConversationEvent, ConversationMessage } f
 import { actorOfEvent, addressLineOf, eventFaceOf, tileOfEvent, TONE_TEXT } from "../lib/conversationVocabulary";
 import { sendTimeOf } from "../lib/runVocabulary";
 import { EntryActor, OutreachEntryCard } from "./OutreachEntryCard";
-import { outcomeLabel } from "../../candidates/lib/noteOutcomes";
+import { NoteOutcomePill } from "../../candidates/components/NoteParts";
 
 /**
  * One line of an executive's communication history (`Outreach.dc.html`'s history cards): an email that went or is
@@ -67,11 +67,7 @@ function NoteEventBody({ note, title }: { note: Extract<ConversationEvent, { typ
   const [reading, setReading] = useState(false);
   return (
     <>
-      {note.outcome && (
-        <span className="mt-1 inline-flex rounded-full bg-u-raised px-2 py-px text-meta text-u-text2">
-          {outcomeLabel(note.outcome)}
-        </span>
-      )}
+      {note.outcome && <NoteOutcomePill outcome={note.outcome} className="mt-1 inline-flex" />}
       {note.body.trim() && (
         <ClampedNoteText
           body={note.body}

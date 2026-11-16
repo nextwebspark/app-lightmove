@@ -315,15 +315,20 @@ and Copy first open `RecentApproachConfirm`, as Enrol and Reply do; `INFO` goes 
 
 Every staff press of a phone's Call, WhatsApp or Copy leaves a card in the log-it tray (`outreach/calling`): the person,
 the position the drawer or pane was opened on, the number and the press time. It is browser state only
-(`sessionStorage`, 12 hours, forgotten on sign-out), one tab and one member; nothing reaches the server until an outcome
-is tapped. The tray sits in the toast corner, clear of a docked drawer, under the toasts, and never takes focus.
+(`lightmove.pendingContacts` in `sessionStorage`, 12 hours, each card stamped with its workspace and the whole store
+forgotten on sign-out and on a workspace switch), one tab and one member; nothing reaches the server until an outcome
+is tapped. The tray sits in the toast corner, clear of a docked drawer, risen above the toast stack by its height
+(`--toast-stack-height`, set by `ToastProvider`), and never takes focus; a hidden status line announces a new card once,
+and Esc on a card dismisses it without closing the drawer under it.
 No answer and Left voicemail (a call or a Copy) and Sent a message / They replied (WhatsApp) log at once as a note with
 the outcome, an empty body and the press time; Connected and WhatsApp's Add note open `NoteComposerModal` with that
 outcome and time; Wrong number logs, then offers Fix number (the drawer's Edit contact details, `section=contact`).
 Not now (or Esc) logs nothing. A second press of the same number freshens its card; from three cards the newest shows.
 The composer's Log call and Log WhatsApp carry the same outcome chips, optional, and with one picked the note may stay
-empty; an outcome is drawn as a pill on the Outreach timeline's card and the conversation pane, and leads the
-Activity line's detail.
+empty; an outcome is drawn as a pill (`NoteOutcomePill`) on the Outreach timeline's card and the conversation pane, and
+leads the Activity line's detail. A person's call or WhatsApp card edits its outcome too (a mis-tapped tray outcome is
+corrected, not deleted), sending only what changed; a company's note takes none. The drawer reads the conversation for
+the caution only when a writer opens someone with a phone.
 
 ### Call and WhatsApp outcomes (#1337, V224)
 

@@ -1,12 +1,15 @@
 /**
  * What a Call, WhatsApp or Copy on a phone left waiting to be logged, in this tab only (#1337): nothing reaches the
  * server until an outcome is tapped. Held in `sessionStorage` so it survives a page change and a reload, never another
- * tab or another member; every access may throw (a private window, blocked storage) and then the tray simply forgets.
+ * tab, another member or another workspace; every access may throw (a private window, blocked storage) and then the
+ * tray simply forgets.
  */
 export type PendingChannel = "call" | "whatsapp" | "copy";
 
 export interface PendingContact {
   id: string;
+  /** The workspace the press was made in: a switch to another leaves its cards unread. */
+  workspaceId: string;
   channel: PendingChannel;
   projectId: string;
   candidateId: string;
@@ -22,14 +25,20 @@ export interface PendingContact {
   loggedWrongNumber?: boolean;
 }
 
-const STORAGE_KEY = "uncava.pendingContacts";
+const STORAGE_KEY = "lightmove.pendingContacts";
+const WHATSAPP_CHAT = "https://wa.me/";
 export const PENDING_EXPIRY_MS = 12 * 60 * 60 * 1000;
 
-export function readPending(now: number = Date.now()): PendingContact[] {
+/** This workspace's cards still within the 12 hours; a card held in storage is never trusted beyond its shape. */
+export function readPending(workspaceId: string, now: number = Date.now()): PendingContact[] {
   try {
     const raw = window.sessionStorage.getItem(STORAGE_KEY);
     const parsed: unknown = raw ? JSON.parse(raw) : [];
-    return Array.isArray(parsed) ? parsed.filter(isPendingContact).filter((pending) => isFresh(pending, now)) : [];
+    return Array.isArray(parsed)
+      ? parsed
+          .filter(isPendingContact)
+          .filter((pending) => pending.workspaceId === workspaceId && isFresh(pending, now))
+      : [];
   } catch {
     return [];
   }
@@ -70,11 +79,13 @@ function isPendingContact(value: unknown): value is PendingContact {
   const held = value as Record<string, unknown>;
   return (
     typeof held.id === "string" &&
+    typeof held.workspaceId === "string" &&
     (held.channel === "call" || held.channel === "whatsapp" || held.channel === "copy") &&
     typeof held.projectId === "string" &&
     typeof held.candidateId === "string" &&
     typeof held.personName === "string" &&
     typeof held.number === "string" &&
-    typeof held.at === "string"
+    typeof held.at === "string" &&
+    (held.whatsappHref === null || (typeof held.whatsappHref === "string" && held.whatsappHref.startsWith(WHATSAPP_CHAT)))
   );
 }

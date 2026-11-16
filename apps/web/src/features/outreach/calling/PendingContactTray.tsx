@@ -1,19 +1,15 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState, type KeyboardEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { Icon, ICONS } from "../../../components/layout/Icon";
-import { useToast } from "../../../components/ui";
 import { NetworkMark } from "../../../components/ui/NetworkMark";
-import { messageFor } from "../../../lib/errorCodes";
 import { formatTimeAgo } from "../../../lib/format";
-import * as personCrmApi from "../../candidates/api/personCrmApi";
 import type { NoteOutcome } from "../../candidates/api/types";
-import { CALL_OUTCOMES, WHATSAPP_OUTCOMES } from "../../candidates/lib/noteOutcomes";
+import { outcomeQuestionOf, outcomesOf } from "../../candidates/lib/noteOutcomes";
 import { positionPipelinePath } from "../../pipeline/lib/pipelinePath";
-import { CONVERSATION_KEY } from "../api/conversationApi";
 import { NoteComposerModal } from "../components/NoteComposerModal";
 import { usePendingContacts } from "./pendingContactsContext";
 import type { PendingContact } from "./pendingContactStore";
+import { kindOfCard, useLogPendingContact } from "./useLogPendingContact";
 
 /** From this many cards on, the newest shows and the rest wait a press away. */
 const COLLAPSE_FROM = 3;
@@ -28,7 +24,7 @@ interface Writing {
  * The log-it tray (#1337, `Position.dc.html`): one card per number pressed in this tab, asking how it went. Never
  * modal, never takes focus, and never goes on its own; nothing is logged until an outcome is tapped. No answer, Left
  * voicemail and both WhatsApp outcomes log at once; Connected and Add note open the composer; Wrong number logs, then
- * offers Fix number.
+ * offers Fix number. It rises above the toasts (`--toast-stack-height`) rather than under them.
  */
 export function PendingContactTray() {
   const tray = usePendingContacts();
@@ -39,10 +35,15 @@ export function PendingContactTray() {
   if (!tray || (cards.length === 0 && !writing)) return null;
   const isCollapsed = cards.length >= COLLAPSE_FROM && !isExpanded;
   const shown = isCollapsed ? cards.slice(0, 1) : cards;
+  const newest = cards[0];
   return (
     <>
+      {/* Announces a new card once; the cards stay out of the live region, their clock ticking each minute. */}
+      <p className="sr-only" role="status">
+        {newest ? `${titleOf(newest)} to log` : ""}
+      </p>
       {cards.length > 0 && (
-        <div role="region" aria-label="Calls and messages to log" aria-live="polite" className="log-tray z-[97] flex flex-col gap-2">
+        <div role="region" aria-label="Calls and messages to log" className="log-tray z-[97] flex flex-col gap-2">
           {isCollapsed && (
             <button
               type="button"
@@ -53,12 +54,7 @@ export function PendingContactTray() {
             </button>
           )}
           {shown.map((card) => (
-            <PendingCard
-              key={card.id}
-              card={card}
-              now={now}
-              onWrite={(outcome) => setWriting({ card, outcome })}
-            />
+            <PendingCard key={card.id} card={card} now={now} onWrite={(outcome) => setWriting({ card, outcome })} />
           ))}
         </div>
       )}
@@ -67,7 +63,7 @@ export function PendingContactTray() {
           projectId={writing.card.projectId}
           candidateId={writing.card.candidateId}
           fullName={writing.card.personName}
-          kind={writing.card.channel === "whatsapp" ? "whatsapp" : "call"}
+          kind={kindOfCard(writing.card)}
           presetOutcome={writing.outcome}
           presetOccurredAt={writing.card.at}
           onClose={() => setWriting(null)}
@@ -88,75 +84,29 @@ function PendingCard({
   onWrite: (outcome: NoteOutcome | null) => void;
 }) {
   const tray = usePendingContacts();
-  const queryClient = useQueryClient();
-  const toast = useToast();
   const navigate = useNavigate();
-  const isWhatsApp = card.channel === "whatsapp";
-  const logging = useMutation({
-    mutationFn: (outcome: NoteOutcome) =>
-      personCrmApi.writePersonNote(card.projectId, card.candidateId, {
-        kind: isWhatsApp ? "whatsapp" : "call",
-        body: "",
-        format: "markdown",
-        occurredAt: card.at,
-        outcome,
-      }),
-    onSuccess: (_note, outcome) => {
-      void queryClient.invalidateQueries({ queryKey: personCrmApi.PERSON_NOTES_KEY(card.projectId, card.candidateId) });
-      void queryClient.invalidateQueries({ queryKey: personCrmApi.PERSON_TIMELINE_KEY(card.projectId, card.candidateId) });
-      void queryClient.invalidateQueries({ queryKey: CONVERSATION_KEY(card.projectId, card.candidateId) });
-      if (outcome === "wrong_number") {
-        toast("Call logged · Wrong number");
-        tray?.markWrongNumber(card.id);
-        return;
-      }
-      toast(isWhatsApp ? "WhatsApp logged" : "Call logged");
-      tray?.settle(card.id);
-    },
-    onError: (error) => toast.error(messageFor(error)),
-  });
-  const choose = (outcome: NoteOutcome) => {
-    if (outcome === "connected") onWrite("connected");
-    else logging.mutate(outcome);
-  };
+  const logging = useLogPendingContact(card);
+  const kind = kindOfCard(card);
+  const isWhatsApp = kind === "whatsapp";
+  const isWrong = card.loggedWrongNumber === true;
   const dismiss = () => tray?.settle(card.id);
+  const choose = (outcome: NoteOutcome) => (outcome === "connected" ? onWrite(outcome) : logging.mutate(outcome));
   const pressed = sentenceCase(formatTimeAgo(card.at, now));
   const meta = [card.number, card.channel === "copy" ? `copied ${pressed.toLowerCase()}` : pressed, card.positionTitle]
     .filter(Boolean)
     .join(" · ");
-  const title = isWhatsApp ? `WhatsApp to ${card.personName}` : `Call with ${card.personName}`;
-  const isWrong = card.loggedWrongNumber === true;
-  const outcomes = isWhatsApp ? WHATSAPP_OUTCOMES : CALL_OUTCOMES;
+  // Esc on a focused card is Not now, and only that: the drawer under the tray listens on the document.
+  const handleKeyDown = (event: KeyboardEvent) => {
+    if (event.key !== "Escape") return;
+    event.stopPropagation();
+    dismiss();
+  };
   return (
-    <div
-      onKeyDown={(event: KeyboardEvent) => event.key === "Escape" && dismiss()}
-      className="rounded-u-card border border-u-border bg-u-surface px-3.5 py-3 shadow-u-e2"
-    >
+    <div onKeyDown={handleKeyDown} className="rounded-u-card border border-u-border bg-u-surface px-3.5 py-3 shadow-u-e2">
       <div className="flex items-start gap-2.5">
-        {isWhatsApp ? (
-          card.whatsappHref ? (
-            <a
-              href={card.whatsappHref}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label={`Open the chat with ${card.personName} in WhatsApp`}
-              title="Open the chat in WhatsApp"
-              className="grid size-6.5 flex-none place-items-center rounded-md hover:bg-u-raised"
-            >
-              <NetworkMark network="whatsapp" size={18} />
-            </a>
-          ) : (
-            <span className="grid size-6.5 flex-none place-items-center">
-              <NetworkMark network="whatsapp" size={18} />
-            </span>
-          )
-        ) : (
-          <span className="grid size-6.5 flex-none place-items-center rounded-full bg-u-accent-tint text-u-accent">
-            <Icon d={ICONS.phoneCall} size={13} />
-          </span>
-        )}
+        <CardMark card={card} />
         <div className="min-w-0 flex-1">
-          <div className="text-body font-semibold text-u-text">{title}</div>
+          <div className="text-body font-semibold text-u-text">{titleOf(card)}</div>
           <div className="mt-0.5 truncate font-mono text-meta text-u-text3">{meta}</div>
         </div>
         <button
@@ -188,15 +138,14 @@ function PendingCard({
         </div>
       ) : (
         <>
-          <div className="ms-9 mb-1.5 mt-2.5 text-meta font-medium text-u-text3">
-            {isWhatsApp ? "What happened?" : "How did the call go?"}
-          </div>
+          <div className="ms-9 mb-1.5 mt-2.5 text-meta font-medium text-u-text3">{outcomeQuestionOf(kind)}</div>
+          {/* Actions, not a choice: each logs at once, as the mockup's group of buttons does. */}
           <div
             role="group"
             aria-label={`${isWhatsApp ? "WhatsApp" : "Call"} outcome for ${card.personName}`}
             className="ms-9 flex flex-wrap gap-1.5"
           >
-            {outcomes.map((option) => (
+            {(outcomesOf(kind) ?? []).map((option) => (
               <button
                 key={option.value}
                 type="button"
@@ -221,6 +170,40 @@ function PendingCard({
       )}
     </div>
   );
+}
+
+/** A call's handset in a disc; WhatsApp's own mark, which reopens the chat. */
+function CardMark({ card }: { card: PendingContact }) {
+  if (card.channel !== "whatsapp") {
+    return (
+      <span className="grid size-6.5 flex-none place-items-center rounded-full bg-u-accent-tint text-u-accent">
+        <Icon d={ICONS.phoneCall} size={13} />
+      </span>
+    );
+  }
+  if (!card.whatsappHref) {
+    return (
+      <span className="grid size-6.5 flex-none place-items-center">
+        <NetworkMark network="whatsapp" size={18} />
+      </span>
+    );
+  }
+  return (
+    <a
+      href={card.whatsappHref}
+      target="_blank"
+      rel="noopener noreferrer"
+      aria-label={`Open the chat with ${card.personName} in WhatsApp`}
+      title="Open the chat in WhatsApp"
+      className="grid size-6.5 flex-none place-items-center rounded-md hover:bg-u-raised"
+    >
+      <NetworkMark network="whatsapp" size={18} />
+    </a>
+  );
+}
+
+function titleOf(card: PendingContact): string {
+  return card.channel === "whatsapp" ? `WhatsApp to ${card.personName}` : `Call with ${card.personName}`;
 }
 
 /** Re-reads the clock each minute, so "2 minutes ago" keeps counting while the card waits. */

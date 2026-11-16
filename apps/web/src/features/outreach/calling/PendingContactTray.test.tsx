@@ -89,6 +89,7 @@ const caution: RecentApproach = {
 
 const card = (id: string, patch: Partial<PendingContact> = {}): PendingContact => ({
   id,
+  workspaceId: "w1",
   channel: "call",
   projectId: "p1",
   candidateId: "c1",
@@ -101,7 +102,7 @@ const card = (id: string, patch: Partial<PendingContact> = {}): PendingContact =
 });
 
 function seed(cards: PendingContact[]) {
-  window.sessionStorage.setItem("uncava.pendingContacts", JSON.stringify(cards));
+  window.sessionStorage.setItem("lightmove.pendingContacts", JSON.stringify(cards));
 }
 
 function renderTray(reach: PhoneReach | null = null) {
@@ -109,7 +110,7 @@ function renderTray(reach: PhoneReach | null = null) {
     <MemoryRouter>
       <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
         <ToastProvider>
-          <PendingContacts>
+          <PendingContacts workspaceId="w1">
             {reach && <ContactChannels contacts={contacts} reach={reach} />}
             <PendingContactTray />
           </PendingContacts>
@@ -177,7 +178,7 @@ describe("the log-it tray", () => {
 
     expect(screen.queryByText("Call with Fatima Al Mazrouei")).not.toBeInTheDocument();
     expect(personCrmApi.writePersonNote).not.toHaveBeenCalled();
-    expect(window.sessionStorage.getItem("uncava.pendingContacts")).toBe("[]");
+    expect(window.sessionStorage.getItem("lightmove.pendingContacts")).toBe("[]");
   });
 
   it("opens the call's composer on Connected, and keeps the card when it is cancelled", async () => {
@@ -233,6 +234,38 @@ describe("the log-it tray", () => {
       ),
     );
     expect(await screen.findByText("WhatsApp logged")).toBeInTheDocument();
+  });
+
+  it("dismisses on Esc without the Escape reaching the drawer under it", async () => {
+    seed([card("k1")]);
+    renderTray();
+    const drawerEscape = vi.fn();
+    document.addEventListener("keydown", drawerEscape);
+
+    within(tray()).getByRole("button", { name: "No answer" }).focus();
+    await userEvent.keyboard("{Escape}");
+
+    expect(screen.queryByText("Call with Fatima Al Mazrouei")).not.toBeInTheDocument();
+    expect(drawerEscape).not.toHaveBeenCalled();
+    document.removeEventListener("keydown", drawerEscape);
+  });
+
+  it("announces a new card once, outside the cards, and rises above the toasts", async () => {
+    seed([card("k1")]);
+    renderTray();
+
+    expect(screen.getByRole("status")).toHaveTextContent("Call with Fatima Al Mazrouei to log");
+    expect(tray()).not.toHaveAttribute("aria-live");
+    await userEvent.click(within(tray()).getByRole("button", { name: "Wrong number" }));
+    await screen.findByText("Call logged · Wrong number");
+    expect(document.documentElement.style.getPropertyValue("--toast-stack-height")).not.toBe("0px");
+  });
+
+  it("never shows another workspace's cards", () => {
+    seed([card("k1", { workspaceId: "w2" })]);
+    renderTray();
+
+    expect(screen.queryByRole("region", { name: "Calls and messages to log" })).not.toBeInTheDocument();
   });
 
   it("shows only the newest of three or more, the rest a press away", async () => {

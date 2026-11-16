@@ -2,12 +2,12 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "../../../components/ui";
 import { messageFor } from "../../../lib/errorCodes";
 import { TASKS_KEY_PREFIX } from "../../tasks/api/tasksApi";
-import type { NoteCardActions, NoteCardNote } from "../components/NoteParts";
+import type { NoteCardActions, NoteCardNote, NoteRevision } from "../components/NoteParts";
 
 /** One drawer's routes to a note, so both drawers' cards behave alike whatever they are keyed under. */
 export interface NoteRoutes<N extends NoteCardNote> {
   pin: (noteId: string, pinned: boolean) => Promise<N>;
-  revise: (note: N, body: string) => Promise<N>;
+  revise: (note: N, change: NoteRevision) => Promise<N>;
   remove: (noteId: string) => Promise<void>;
   restore: (noteId: string) => Promise<N>;
 }
@@ -35,7 +35,7 @@ export function useNoteCardActions<N extends NoteCardNote>(
     onError: fail,
   });
   const revising = useMutation({
-    mutationFn: (body: string) => routes.revise(note, body),
+    mutationFn: (change: NoteRevision) => routes.revise(note, change),
     onSuccess: refresh,
     onError: fail,
   });
@@ -57,7 +57,7 @@ export function useNoteCardActions<N extends NoteCardNote>(
 
   return {
     onPin: () => pinning.mutate(),
-    onRevise: (body) => revising.mutate(body),
+    onRevise: (change) => revising.mutate(change),
     onRemove: () => removing.mutate(),
     // A deleted card stays on screen until the list refetches; it must not be pressed again meanwhile.
     busy: pinning.isPending || revising.isPending || removing.isPending || removing.isSuccess,

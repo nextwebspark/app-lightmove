@@ -209,6 +209,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const session = await switchWorkspaceSession(workspaceId);
       startFreshSession();
       forgetOpenAssistant();
+      forgetPendingContacts();
       setUser(session.user);
       // Through the listening channel itself: a channel never receives its own posts, but a second
       // one of the same name in this tab does — which reloaded the switching tab too, and threw away

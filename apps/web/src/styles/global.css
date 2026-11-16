@@ -193,18 +193,23 @@ html:has(> body.dark),
   animation: dot-pop 0.28s ease both;
 }
 
-/* The log-it tray (#1337) keeps the same corner and the same clearance: over a drawer (z 97 to its 95), so a number
-   pressed there leaves a card in reach, and under a dialog (100) and the toasts (120). */
-
 /* Toasts stack in the bottom-right corner, clear of any panel docked on the right: a drawer's footer
-   holds its Save and Remove, and an error that stays must never sit on the button that answers it. */
+   holds its Save and Remove, and an error that stays must never sit on the button that answers it. The log-it tray
+   (#1337) shares the corner and the clearance, risen above the stack by its height (`--toast-stack-height`, set by
+   ToastProvider): over a drawer (z 97 to its 95), so a number pressed there leaves a card in reach, under a dialog. */
 .toast-stack,
 .log-tray {
   --toast-clearance: 0px;
+  --log-tray-rise: 0px;
   position: fixed;
-  bottom: 16px;
+  bottom: calc(16px + var(--log-tray-rise));
   left: 16px;
   right: 16px;
+}
+
+.log-tray {
+  --log-tray-rise: var(--toast-stack-height, 0px);
+  transition: bottom 150ms ease;
 }
 
 /* The phone's bottom bar (MobileTabBar, below `lg`): its height, and how far what floats at the bottom edge rises
@@ -220,7 +225,7 @@ html:has(> body.dark),
   }
   body:has([data-mobile-nav]) .toast-stack,
   body:has([data-mobile-nav]) .log-tray {
-    bottom: calc(16px + var(--mobile-nav-clearance));
+    bottom: calc(16px + var(--mobile-nav-clearance) + var(--log-tray-rise));
   }
 }
 
@@ -236,7 +241,7 @@ html:has(> body.dark),
 @media (min-width: 640px) {
   .toast-stack,
   .log-tray {
-    bottom: 24px;
+    bottom: calc(24px + var(--log-tray-rise));
     left: auto;
     right: max(24px, min(calc(24px + var(--toast-clearance)), calc(100vw - 384px)));
     width: 360px;

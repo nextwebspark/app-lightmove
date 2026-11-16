@@ -10,6 +10,7 @@ import {
 
 const card = (id: string, patch: Partial<PendingContact> = {}): PendingContact => ({
   id,
+  workspaceId: "w1",
   channel: "call",
   projectId: "p1",
   candidateId: "c1",
@@ -37,17 +38,28 @@ describe("the pending contacts store", () => {
     writePending([card("a"), card("b", { at: "2026-11-15T20:00:00.000Z" })]);
     const now = Date.parse("2026-11-16T09:30:00.000Z") + 60_000;
 
-    expect(readPending(now).map((held) => held.id)).toEqual(["a"]);
-    expect(readPending(Date.parse("2026-11-16T09:30:00.000Z") + PENDING_EXPIRY_MS)).toEqual([]);
+    expect(readPending("w1", now).map((held) => held.id)).toEqual(["a"]);
+    expect(readPending("w1", Date.parse("2026-11-16T09:30:00.000Z") + PENDING_EXPIRY_MS)).toEqual([]);
   });
 
-  it("reads nothing from a broken or foreign value, and forgets everything on sign-out", () => {
-    window.sessionStorage.setItem("uncava.pendingContacts", "{not json");
-    expect(readPending()).toEqual([]);
-    window.sessionStorage.setItem("uncava.pendingContacts", JSON.stringify([{ id: 1 }, card("a")]));
-    expect(readPending(Date.parse("2026-11-16T09:31:00.000Z")).map((held) => held.id)).toEqual(["a"]);
+  it("reads only the workspace it is asked for, so a switch leaves the other workspace's cards unread", () => {
+    writePending([card("a"), card("b", { workspaceId: "w2" })]);
+    const now = Date.parse("2026-11-16T09:31:00.000Z");
+
+    expect(readPending("w1", now).map((held) => held.id)).toEqual(["a"]);
+    expect(readPending("w2", now).map((held) => held.id)).toEqual(["b"]);
+  });
+
+  it("reads nothing from a broken or foreign value, nor a chat link that is not WhatsApp's, and forgets on sign-out", () => {
+    window.sessionStorage.setItem("lightmove.pendingContacts", "{not json");
+    expect(readPending("w1")).toEqual([]);
+    window.sessionStorage.setItem(
+      "lightmove.pendingContacts",
+      JSON.stringify([{ id: 1 }, card("a"), card("b", { whatsappHref: "javascript:alert(1)" })]),
+    );
+    expect(readPending("w1", Date.parse("2026-11-16T09:31:00.000Z")).map((held) => held.id)).toEqual(["a"]);
 
     forgetPendingContacts();
-    expect(window.sessionStorage.getItem("uncava.pendingContacts")).toBeNull();
+    expect(window.sessionStorage.getItem("lightmove.pendingContacts")).toBeNull();
   });
 });

@@ -13,8 +13,8 @@ interface HeldPress {
   go: () => void;
 }
 
-export function PendingContacts({ children }: { children: ReactNode }) {
-  const [pending, setPending] = useState<PendingContact[]>(() => readPending());
+export function PendingContacts({ workspaceId, children }: { workspaceId: string; children: ReactNode }) {
+  const [pending, setPending] = useState<PendingContact[]>(() => readPending(workspaceId));
   const [held, setHeld] = useState<HeldPress | null>(null);
 
   const change = useCallback((next: (current: PendingContact[]) => PendingContact[]) => {
@@ -29,7 +29,8 @@ export function PendingContacts({ children }: { children: ReactNode }) {
     (channel: PendingChannel, phone: CandidatePhone, target: DialTarget) =>
       change((current) =>
         withPending(current, {
-          id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          id: crypto.randomUUID(),
+          workspaceId,
           channel,
           projectId: target.projectId,
           candidateId: target.candidateId,
@@ -40,7 +41,7 @@ export function PendingContacts({ children }: { children: ReactNode }) {
           at: new Date().toISOString(),
         }),
       ),
-    [change],
+    [change, workspaceId],
   );
 
   const reachOut = useCallback<PendingContactsValue["reachOut"]>(

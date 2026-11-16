@@ -1,17 +1,20 @@
 import type { NoteOutcome, PersonNoteKind } from "../api/types";
 
-/** A call's outcomes, the sequence call step's own four (`Outreach.dc.html`), and a WhatsApp log's two. */
-export const CALL_OUTCOMES: readonly { value: NoteOutcome; label: string }[] = [
-  { value: "connected", label: "Connected" },
-  { value: "voicemail", label: "Left voicemail" },
-  { value: "no_answer", label: "No answer" },
-  { value: "wrong_number", label: "Wrong number" },
-];
+/** Each outcome's words: a call's are the sequence call step's own four (`Outreach.dc.html`), a WhatsApp log's two. */
+const OUTCOME_LABELS: Record<NoteOutcome, string> = {
+  connected: "Connected",
+  voicemail: "Left voicemail",
+  no_answer: "No answer",
+  wrong_number: "Wrong number",
+  sent: "Sent a message",
+  replied: "They replied",
+};
 
-export const WHATSAPP_OUTCOMES: readonly { value: NoteOutcome; label: string }[] = [
-  { value: "sent", label: "Sent a message" },
-  { value: "replied", label: "They replied" },
-];
+const optionsOf = (outcomes: readonly NoteOutcome[]) =>
+  outcomes.map((value) => ({ value, label: OUTCOME_LABELS[value] }));
+
+export const CALL_OUTCOMES = optionsOf(["connected", "voicemail", "no_answer", "wrong_number"]);
+export const WHATSAPP_OUTCOMES = optionsOf(["sent", "replied"]);
 
 /** The outcomes a kind of log may say, or null for one that says none. */
 export function outcomesOf(kind: PersonNoteKind): readonly { value: NoteOutcome; label: string }[] | null {
@@ -25,12 +28,16 @@ export function outcomeQuestionOf(kind: PersonNoteKind): string {
 }
 
 export function outcomeLabel(outcome: NoteOutcome): string {
-  return [...CALL_OUTCOMES, ...WHATSAPP_OUTCOMES].find((option) => option.value === outcome)?.label ?? outcome;
+  return OUTCOME_LABELS[outcome];
+}
+
+/** The toast once a log that says how it went is saved, from the composer or the log-it tray. */
+export function loggedToastOf(kind: PersonNoteKind): string {
+  return kind === "whatsapp" ? "WhatsApp logged" : "Call logged";
 }
 
 /** An outcome as a note carries it (`no_answer`) or as a timeline line does (`NO_ANSWER`); null for none or unknown. */
 export function noteOutcomeOf(value: string | null | undefined): NoteOutcome | null {
-  if (!value) return null;
-  const outcome = value.toLowerCase();
-  return [...CALL_OUTCOMES, ...WHATSAPP_OUTCOMES].find((option) => option.value === outcome)?.value ?? null;
+  const outcome = (value ?? "").toLowerCase();
+  return outcome in OUTCOME_LABELS ? (outcome as NoteOutcome) : null;
 }
