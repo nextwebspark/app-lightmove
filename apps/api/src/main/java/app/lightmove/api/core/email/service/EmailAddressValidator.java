@@ -62,6 +62,11 @@ public class EmailAddressValidator {
         return domain;
     }
 
+    /** The permissive shape check alone — no domain or MX rules — for an address a spreadsheet cell supplies. */
+    public static boolean hasAddressShape(String email) {
+        return email != null && email.matches(SHAPE);
+    }
+
     /** Assumes the address has already been validated. */
     public static String domainOf(String email) {
         return email.substring(email.lastIndexOf('@') + 1).toLowerCase(Locale.ROOT);

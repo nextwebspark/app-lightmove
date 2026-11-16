@@ -14,6 +14,8 @@ public record FairUseSettings(
         @DefaultValue("8") long sourcingRunCostFils,
         @DefaultValue("2000") long aiEnrichPerSeat,
         @DefaultValue("6") long aiEnrichCostFils,
+        @DefaultValue("1000") long profileEnrichPerSeat,
+        @DefaultValue("10") long profileEnrichCostFils,
         @DefaultValue("5000") long outreachOpenerPerSeat,
         @DefaultValue("2") long outreachOpenerCostFils,
         @DefaultValue("1500") long assistantAskPerSeat,

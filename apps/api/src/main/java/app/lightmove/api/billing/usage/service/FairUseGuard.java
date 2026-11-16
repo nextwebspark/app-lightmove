@@ -4,6 +4,7 @@ import app.lightmove.api.billing.plan.service.BillingSeats;
 import app.lightmove.api.billing.plan.service.TrialGate;
 import app.lightmove.api.billing.usage.constant.UsageKind;
 import app.lightmove.api.billing.usage.model.FairUseAllowance;
+import app.lightmove.api.billing.usage.model.FairUseHeadroom;
 import app.lightmove.api.core.audit.constant.WorkspaceEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.config.LightMoveProperties;
@@ -15,6 +16,8 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Map;
+import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -53,22 +56,34 @@ public class FairUseGuard {
      */
     public void check(UUID workspaceId, UUID userId, UsageKind kind, long units) {
         trialGate.requireOpen(workspaceId);
-        if (!properties.billing().enforce()) {
+        Optional<FairUseHeadroom> headroom = headroomOf(workspaceId, kind);
+        if (headroom.isEmpty() || headroom.get().used() + units <= headroom.get().ceiling()) {
             return;
+        }
+        FairUseHeadroom spent = headroom.get();
+        reportOnce(workspaceId, userId, kind, spent.used(), spent.ceiling(), spent.periodEnd());
+        throw ApiException.withProperties(ErrorCode.FAIR_USE_REACHED,
+                Map.of("kind", kind.name(), "resetsAt", spent.periodEnd()));
+    }
+
+    /** What the month's ceiling leaves of {@code kind}; empty when nothing bounds it (enforcement off, or 0). */
+    public OptionalLong unitsLeft(UUID workspaceId, UsageKind kind) {
+        return headroomOf(workspaceId, kind)
+                .map(headroom -> OptionalLong.of(Math.max(0, headroom.ceiling() - headroom.used())))
+                .orElse(OptionalLong.empty());
+    }
+
+    private Optional<FairUseHeadroom> headroomOf(UUID workspaceId, UsageKind kind) {
+        if (!properties.billing().enforce()) {
+            return Optional.empty();
         }
         long perSeat = kind.perSeatIn(properties.billing().fairUse());
         if (perSeat == 0) {
-            return;
+            return Optional.empty();
         }
         FairUseAllowance allowance = seats.allowanceOf(workspaceId, clock.instant());
-        long ceiling = perSeat * allowance.staffSeats();
         long used = events.unitsBetween(workspaceId, kind, allowance.periodStart(), allowance.periodEnd());
-        if (used + units <= ceiling) {
-            return;
-        }
-        reportOnce(workspaceId, userId, kind, used, ceiling, allowance.periodEnd());
-        throw ApiException.withProperties(ErrorCode.FAIR_USE_REACHED,
-                Map.of("kind", kind.name(), "resetsAt", allowance.periodEnd()));
+        return Optional.of(new FairUseHeadroom(perSeat * allowance.staffSeats(), used, allowance.periodEnd()));
     }
 
     private void reportOnce(UUID workspaceId, UUID userId, UsageKind kind, long used, long ceiling, Instant resetsAt) {

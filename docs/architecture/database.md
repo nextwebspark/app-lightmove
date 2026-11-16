@@ -506,6 +506,17 @@ scan's V191-style resolver; the activity and notification kind lists gain the co
 V224 adds `app_lm_person_note.outcome` (#1337): how a logged call (`CONNECTED | VOICEMAIL | NO_ANSWER | WRONG_NUMBER`)
 or WhatsApp message (`SENT | REPLIED`) went, each value checked against its kind, and lets the body be empty once an
 outcome says what happened (`app_lm_person_note_body_chk`, V142's limit kept). Company notes take none.
+V225 adds `app_lm_import_enrichment_item` (`docs/spreadsheet-import.md`): one row per person or company a spreadsheet
+import asked to have researched from LinkedIn — `kind` `PERSON | COMPANY`, the candidate's or triage company's id in
+`target_id` (no foreign key: two tables), the profile or company slug, `status` from `QUEUED` through `RUNNING` to one
+outcome, `attempts` (given up as `FAILED` after three stale claims). `run_id` groups one import's rows; there is no run
+table. `OVER_ALLOWANCE` is a row whose paid read fair use refused at the worker. Forced RLS;
+`app_lm_workspaces_with_import_enrichment_due` is the worker's V191-style resolver and
+`app_lm_workspaces_with_import_enrichment_expired` the daily purge's (`ImportEnrichmentPurge`, apart from the drain, so a
+workspace that never imports again still loses its rows). Finished rows go after
+`lightmove.spreadsheet-import.enrichment-keep-for`, an erased person's at once. It also adds `PROFILE_ENRICH` to
+`app_lm_usage_event_kind_chk`: without it every enrichment record was refused and swallowed by `UsageRecorder`, so the
+fair-use ceiling never saw a lookup.
 V195 adds `app_lm_workspace_suppression` (`kind` `PROFILE_SLUG | EMAIL`, a keyed `value_hash` unique per workspace and
 kind, the `key_id` it was taken under, `reason` `ERASED | OBJECTED | MANUAL`, an admin's `note`), forced row-level security
 in the same migration.

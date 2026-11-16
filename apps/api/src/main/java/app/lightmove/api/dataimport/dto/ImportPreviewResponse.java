@@ -9,5 +9,6 @@ public record ImportPreviewResponse(
         List<ImportColumnDto> columns,
         List<ImportTargetFieldDto> availableFields,
         /** A {@code MappingSource} wire token. */
-        String mappingSource
+        String mappingSource,
+        ImportEnrichmentOfferDto enrichment
 ) {}
