@@ -54,7 +54,7 @@ export function VariableChipPopover({
       role="dialog"
       aria-label={label}
       style={{ ...place, left: Math.max(EDGE_GAP, Math.min(rect.left, window.innerWidth - WIDTH - EDGE_GAP)), width: WIDTH }}
-      className="fixed z-[110] overflow-y-auto rounded-[10px] border border-u-border-strong bg-u-surface p-3 shadow-u-e3"
+      className="fixed z-[110] overflow-y-auto rounded-u-chip border border-u-border-strong bg-u-surface p-3 shadow-u-e3"
     >
       <div className="text-note font-semibold text-u-text">{label}</div>
       {isBlank ? (

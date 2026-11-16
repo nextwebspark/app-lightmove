@@ -48,9 +48,9 @@ export function chipOf(
 }
 
 export const CHIP_CLASS: Record<VariableChipKind, string> = {
-  value: "cursor-pointer rounded-[4px] bg-u-accent-tint px-1 text-u-text",
-  fallback: "cursor-pointer rounded-[4px] border border-dashed border-u-border-strong px-1 text-u-text2",
-  blank: "cursor-pointer rounded-[4px] bg-u-offlimits-tint px-1 font-medium text-u-offlimits ring-1 ring-u-offlimits",
+  value: "cursor-pointer rounded-u-control bg-u-accent-tint px-1 text-u-text",
+  fallback: "cursor-pointer rounded-u-control border border-dashed border-u-border-strong px-1 text-u-text2",
+  blank: "cursor-pointer rounded-u-control bg-u-offlimits-tint px-1 font-medium text-u-offlimits ring-1 ring-u-offlimits",
 };
 
 export type TextPiece = { text: string } | { text: string; name: string; chip: VariableChip };

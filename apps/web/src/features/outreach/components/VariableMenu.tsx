@@ -45,7 +45,7 @@ export function VariableMenu({
       triggerClassName="inline-flex items-center gap-1.5 rounded-u-control px-2 py-1 text-note font-medium text-u-text2 hover:bg-u-raised hover:text-u-text disabled:opacity-50"
       trigger={() => (
         <>
-          <span aria-hidden className="font-mono text-[12px] font-semibold tracking-tighter">
+          <span aria-hidden className="font-mono text-note font-semibold tracking-tighter">
             {"{ }"}
           </span>
           Variable
