@@ -79,6 +79,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -352,16 +353,28 @@ public class CandidateService {
     }
 
     /**
-     * The person this mandate already has for a spreadsheet row. Email first, then name — a name identifies someone only
-     * within a company (V36's index scope); oldest first when several answer.
+     * The person this mandate already has for a spreadsheet row: LinkedIn profile first, then email, then name — a name
+     * identifies someone only within a company (V36's index scope); oldest first when several answer. An email match
+     * counts only when the names agree on a surname: a sheet's shared {@code info@} address once merged two people,
+     * the second row overwriting the first's name and title.
      */
     @Transactional(readOnly = true)
-    public Optional<CandidateResponse> findCandidateOfProject(UUID projectId, UUID triageCompanyId,
+    public Optional<CandidateResponse> findCandidateOfProject(UUID projectId, UUID triageCompanyId, String linkedinUrl,
                                                               String email, String fullName) {
+        String slug = LinkedInUrls.profileSlugOrNull(linkedinUrl);
+        if (slug != null) {
+            Optional<Candidate> byProfile = candidates.findByProjectIdAndProfileSlugLike(projectId, slug).stream()
+                    .filter(held -> slug.equals(LinkedInUrls.profileSlugOrNull(held.getPerson().getLinkedinUrl())))
+                    .min(Comparator.comparing(Candidate::getCreatedAt));
+            if (byProfile.isPresent()) {
+                return byProfile.map(responses::toDto);
+            }
+        }
         if (email != null && !email.isBlank()) {
             Optional<Candidate> byEmail = candidates
                     .findByProjectIdAndEmailKey(projectId, CandidateContact.keyOf(ContactChannel.EMAIL, email))
                     .stream()
+                    .filter(held -> shareSurname(held.getPerson().getFullName(), fullName))
                     .min(Comparator.comparing(Candidate::getCreatedAt));
             if (byEmail.isPresent()) {
                 return byEmail.map(responses::toDto);
@@ -376,6 +389,19 @@ public class CandidateService {
         return byName.stream()
                 .min(Comparator.comparing(Candidate::getCreatedAt))
                 .map(responses::toDto);
+    }
+
+    private static boolean shareSurname(String held, String supplied) {
+        String heldSurname = surnameOf(held);
+        return heldSurname != null && heldSurname.equals(surnameOf(supplied));
+    }
+
+    private static String surnameOf(String fullName) {
+        if (fullName == null || fullName.isBlank()) {
+            return null;
+        }
+        String[] words = fullName.trim().toLowerCase(Locale.ROOT).split("\\s+");
+        return words[words.length - 1];
     }
 
     @Transactional
@@ -944,9 +970,12 @@ public class CandidateService {
 
     /** Filed as the door the person came through: a hand-typed add researched behind its save is still hand-typed. */
     private EmployerFilings capturedBy(UUID projectId, Candidate candidate) {
-        TriageCompanySource door = candidate.getSource() == CandidateSource.MANUAL
-                ? TriageCompanySource.MANUAL
-                : TriageCompanySource.EXTENSION;
+        // CSV is its own door: a spreadsheet person researched by an import's enrichment was badged a plugin capture.
+        TriageCompanySource door = switch (candidate.getSource()) {
+            case MANUAL -> TriageCompanySource.MANUAL;
+            case CSV -> TriageCompanySource.CSV;
+            default -> TriageCompanySource.EXTENSION;
+        };
         return new EmployerFilings(triage, projectId, candidate.getAddedBy(), door);
     }
 

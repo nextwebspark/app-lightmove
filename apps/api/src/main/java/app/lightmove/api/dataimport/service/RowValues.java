@@ -5,6 +5,11 @@ import app.lightmove.api.common.constant.NoticePeriod;
 import app.lightmove.api.common.constant.NoticeUnit;
 import app.lightmove.api.common.constant.Seniority;
 import app.lightmove.api.common.location.service.Currencies;
+import app.lightmove.api.core.email.service.EmailAddressValidator;
+import app.lightmove.api.core.text.service.LinkedInUrls;
+import app.lightmove.api.core.text.service.SuppliedText;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
@@ -41,21 +46,93 @@ final class RowValues {
         return parsed.intValue();
     }
 
-    /** A fraction is rounded: every field this feeds is a count or a whole-currency figure. */
+    /**
+     * A fraction is rounded: every field this feeds is a count or a whole-currency figure. Reads a magnitude suffix
+     * ("$1.2bn", "5k", "2.5M") — stripping it once saved a billion in revenue as 1. A range ("1001-5000") and a lone
+     * decimal comma ("1,5", which could be 1.5 or 15) are null rather than a guess.
+     */
     static Long number(String value) {
         String trimmed = text(value);
         if (trimmed == null) {
             return null;
         }
-        String digits = trimmed.replaceAll("[^0-9.\\-]", "");
-        if (digits.isEmpty() || digits.equals("-") || digits.equals(".")) {
+        String lowered = DIGIT_GROUP_SPACE.matcher(trimmed.toLowerCase(Locale.ROOT)).replaceAll("$1");
+        if (RANGE.matcher(lowered).find()) {
             return null;
+        }
+        Matcher figure = FIGURE.matcher(lowered);
+        if (!figure.find()) {
+            return null;
+        }
+        BigDecimal amount = decimalOf(figure.group(1));
+        if (amount == null) {
+            return null;
+        }
+        String suffix = figure.group(2);
+        BigDecimal scaled = suffix == null ? amount : amount.multiply(MAGNITUDES.get(suffix));
+        try {
+            return scaled.setScale(0, RoundingMode.HALF_UP).longValueExact();
+        } catch (ArithmeticException tooLarge) {
+            return null;
+        }
+    }
+
+    private static BigDecimal decimalOf(String digits) {
+        boolean negative = digits.startsWith("-");
+        String unsigned = negative ? digits.substring(1) : digits;
+        String plain;
+        int lastComma = unsigned.lastIndexOf(',');
+        int lastDot = unsigned.lastIndexOf('.');
+        if (lastComma >= 0 && lastDot >= 0) {
+            plain = lastDot > lastComma
+                    ? unsigned.replace(",", "")
+                    : unsigned.replace(".", "").replace(',', '.');
+        } else if (lastComma >= 0) {
+            if (!GROUPED_BY_COMMA.matcher(unsigned).matches()) {
+                return null;
+            }
+            plain = unsigned.replace(",", "");
+        } else if (unsigned.indexOf('.') != lastDot) {
+            if (!GROUPED_BY_DOT.matcher(unsigned).matches()) {
+                return null;
+            }
+            plain = unsigned.replace(".", "");
+        } else {
+            plain = unsigned;
         }
         try {
-            return Math.round(Double.parseDouble(digits));
-        } catch (NumberFormatException e) {
+            BigDecimal parsed = new BigDecimal(plain);
+            return negative ? parsed.negate() : parsed;
+        } catch (NumberFormatException notANumber) {
             return null;
         }
+    }
+
+    /**
+     * The cell's email in the stored form, or null when it is not shaped like one: "n/a", "-" and "TBC" were stored as
+     * addresses and then matched every other row carrying the same placeholder.
+     */
+    static String email(String value) {
+        String trimmed = text(value, 320);
+        if (trimmed == null) {
+            return null;
+        }
+        String normalised = EmailAddressValidator.normalise(trimmed.replaceFirst("(?i)^mailto:", ""));
+        return EmailAddressValidator.hasAddressShape(normalised) ? normalised : null;
+    }
+
+    /** A member profile in its canonical spelling ("linkedin.com/in/x" included); anything else as the cell had it. */
+    static String linkedinProfile(String value) {
+        String trimmed = text(value, 500);
+        String slug = LinkedInUrls.profileSlugOrNull(SuppliedText.browsableUrlOrNull(trimmed));
+        return slug == null ? trimmed : LinkedInUrls.profileUrlOf(slug);
+    }
+
+    /** A company page with its scheme restored, so its slug can be read for research; anything else as the cell had it. */
+    static String linkedinCompany(String value) {
+        String trimmed = text(value, 500);
+        String browsable = SuppliedText.browsableUrlOrNull(trimmed);
+        return LinkedInUrls.companySlugOrNull(browsable) == null ? trimmed : browsable;
     }
 
     /** An ISO 4217 code, or null rather than a guess; "AED 450,000" still means AED. */
@@ -120,6 +197,24 @@ final class RowValues {
                 count != null ? count : Integer.valueOf(stated.group(1)), NOTICE_UNITS.get(stated.group(2)));
         return period == null ? null : period.value();
     }
+
+    private static final Pattern DIGIT_GROUP_SPACE = Pattern.compile("(\\d)[\\s\u00a0'](?=\\d{3}(?!\\d))");
+
+    private static final Pattern RANGE = Pattern.compile("\\d\\s*[-\u2013\u2014]\\s*\\d");
+
+    private static final Pattern FIGURE = Pattern.compile(
+            "(-?\\d[\\d.,]*)\\s*(?:(thousand|million|billion|mn|mm|bn|k|m|b)(?![a-z]))?");
+
+    private static final Pattern GROUPED_BY_COMMA = Pattern.compile("^\\d{1,3}(,\\d{3})+$");
+
+    private static final Pattern GROUPED_BY_DOT = Pattern.compile("^\\d{1,3}(\\.\\d{3})+$");
+
+    private static final Map<String, BigDecimal> MAGNITUDES = Map.of(
+            "k", BigDecimal.valueOf(1_000L), "thousand", BigDecimal.valueOf(1_000L),
+            "m", BigDecimal.valueOf(1_000_000L), "mn", BigDecimal.valueOf(1_000_000L),
+            "mm", BigDecimal.valueOf(1_000_000L), "million", BigDecimal.valueOf(1_000_000L),
+            "b", BigDecimal.valueOf(1_000_000_000L), "bn", BigDecimal.valueOf(1_000_000_000L),
+            "billion", BigDecimal.valueOf(1_000_000_000L));
 
     private static final Set<String> NO_NOTICE_SPELLINGS = Set.of("none", "nil", "nonotice", "nonoticeperiod",
             "immediate", "immediately", "availableimmediately", "asap", "0");
