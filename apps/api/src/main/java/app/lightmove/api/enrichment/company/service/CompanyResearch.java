@@ -75,6 +75,15 @@ public class CompanyResearch {
         return enricher.isEnabled();
     }
 
+    /** "Emaar Properties PJSC" and "Emaar" name one company; "Aldar Education" and "ALDAR" do not. */
+    public static boolean namesTheSameCompany(String one, String other) {
+        if (one == null || other == null) {
+            return false;
+        }
+        List<String> otherSpellings = CompanyNames.spellingsOf(other);
+        return CompanyNames.spellingsOf(one).stream().anyMatch(otherSpellings::contains);
+    }
+
     /** "Seddiqi Holdings" → [seddiqi]: what a name search keys on. */
     public static List<String> distinctiveNameWords(String name) {
         return CompanyNames.distinctiveWords(name);

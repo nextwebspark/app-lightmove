@@ -294,9 +294,11 @@ are rows in `app_lm_project_custom_column` and the values a jsonb bag on the row
 it like any built-in while a new mandate still starts from the built-ins alone. The importer writes
 nothing itself — it builds the same requests the Companies drawer posts and hands them to
 `triagecompany` and `candidate`, so every scope check, duplicate rule and audit event stays where it
-already lives. **An imported row is never resolved against the market and never researched** — a file
-states its own figures and arrives a thousand rows at once, so the two things a one-at-a-time capture
-affords are exactly the two it cannot.
+already lives. **An imported row is never resolved against the market**, and it is **researched only when the
+mapping step's "enrich from LinkedIn" box is ticked** (ticked by default): the file's distinct LinkedIn links are
+counted before anything is written and a file of more than `max-auto-enrich` (250), or past the month's fair use, is
+refused; what it filed is queued in `app_lm_import_enrichment_item` (V225) and researched behind the import by
+`ImportEnrichmentWorker`, filling only what the file left empty.
 A stage also leaves as a file: **Export** (under the toolbar's Advanced ▾) downloads the whole stage —
 every row, not the page on screen, narrowed by the toolbar's search and whichever of the grid's three header filters
 are in force, rows as well as companies, so the file is what the screen was showing — carrying every
@@ -654,7 +656,8 @@ method (`applyTo`) that decides what a row may store in them, since the bag is o
 stands between it and arbitrary caller-chosen keys. `triagecompany` and `candidate` depend on it; it
 depends on neither and knows nothing about companies or people. **`dataimport` is the spreadsheet** —
 read the file, work out what its columns mean, and write what it carries through the doors that
-already exist. It depends on those three and none of them depends back. **`dataexport` is the same
+already exist. It depends on those three, and on `enrichment.importrun` for the box that has what it filed
+researched (`ImportEnrichmentService`; its progress DTO rides `dataimport`'s controller); none of them depends back. **`dataexport` is the same
 three doors outward** — one stage of the Companies grid, composed and written as a CSV, reading
 through the seams `talentmap` already uses; it depends on the same three and on nothing else. Details
 in `java-spring-development`.

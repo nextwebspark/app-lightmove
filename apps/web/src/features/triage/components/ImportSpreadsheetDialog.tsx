@@ -12,6 +12,12 @@ import type {
   CustomColumnType,
 } from "../../customcolumns/api/types";
 import * as importApi from "../api/importApi";
+import {
+  ImportEnrichmentChoice,
+  ImportEnrichmentProgressLine,
+  enrichmentBlockOf,
+  enrichmentLinksOf,
+} from "./ImportEnrichmentChoice";
 import type {
   ImportPreview,
   ImportSummary,
@@ -54,7 +60,14 @@ const FILE_SHAPED_CODES = [
  * Failures that will fail again unchanged. A missing seat and a name clash are decided by state this
  * dialog cannot alter, so offering to retry them would be offering a button that cannot work.
  */
-const UNRETRYABLE_CODES = ["FORBIDDEN", "NOT_FOUND", "CUSTOM_COLUMN_NAME_TAKEN", "CUSTOM_COLUMN_LIMIT_REACHED"];
+const UNRETRYABLE_CODES = [
+  "FORBIDDEN",
+  "NOT_FOUND",
+  "CUSTOM_COLUMN_NAME_TAKEN",
+  "CUSTOM_COLUMN_LIMIT_REACHED",
+  "IMPORT_ENRICHMENT_TOO_LARGE",
+  "FAIR_USE_REACHED",
+];
 
 /** What failed, so the error can offer to run that same request again. */
 type FailedRequest = "preview" | "commit" | "template";
@@ -84,6 +97,16 @@ export function ImportSpreadsheetDialog({
   const [mappings, setMappings] = useState<ProposedColumnMapping[]>([]);
   const [summary, setSummary] = useState<ImportSummary | null>(null);
   const [failure, setFailure] = useState<Failure | null>(null);
+  // Ticked by default (the user's own decision); the box greys itself out where a file cannot be enriched.
+  const [enrich, setEnrich] = useState(true);
+
+  const enrichmentLinks = preview ? enrichmentLinksOf(preview, mappings) : null;
+  const isEnrichmentOffered = preview !== null && (preview.enrichment.profilesOffered || preview.enrichment.companiesOffered);
+  const willEnrich =
+    isEnrichmentOffered &&
+    enrich &&
+    enrichmentLinks !== null &&
+    enrichmentBlockOf(preview.enrichment, enrichmentLinks) === null;
 
   // A new column left nameless was dropped by the server without a word, losing that column's values.
   const hasUnnamedNewColumn = mappings.some(isUnnamedNewColumn);
@@ -95,6 +118,7 @@ export function ImportSpreadsheetDialog({
     setMappings([]);
     setSummary(null);
     setFailure(null);
+    setEnrich(true);
   };
 
   const close = () => {
@@ -122,7 +146,7 @@ export function ImportSpreadsheetDialog({
   });
 
   const commit = useMutation({
-    mutationFn: () => importApi.commitImport(projectId, file!, mappings),
+    mutationFn: () => importApi.commitImport(projectId, file!, mappings, willEnrich),
     onMutate: () => setFailure(null),
     onSuccess: (result) => {
       setSummary(result);
@@ -362,6 +386,16 @@ export function ImportSpreadsheetDialog({
             </table>
           </div>
 
+          {isEnrichmentOffered && enrichmentLinks && (
+            <ImportEnrichmentChoice
+              offer={preview.enrichment}
+              links={enrichmentLinks}
+              checked={enrich}
+              onChange={setEnrich}
+              error={failure?.fieldErrors.enrich}
+            />
+          )}
+
           <div className="flex justify-end gap-2">
             <Button variant="secondary" onClick={close} disabled={commit.isPending}>
               Cancel
@@ -387,6 +421,10 @@ export function ImportSpreadsheetDialog({
             <Tally count={summary.candidatesCreated} noun="person" plural="people" verb="added" />
             <Tally count={summary.candidatesUpdated} noun="person" plural="people" verb="updated" />
           </ul>
+
+          {summary.enrichment && summary.enrichment.peopleQueued + summary.enrichment.companiesQueued > 0 && (
+            <ImportEnrichmentProgressLine projectId={projectId} queued={summary.enrichment} />
+          )}
 
           {summary.customColumnsCreated.length > 0 && (
             <p className="rounded-lg bg-u-accent-tint px-3 py-2 font-sans text-[12.5px] text-u-accent">

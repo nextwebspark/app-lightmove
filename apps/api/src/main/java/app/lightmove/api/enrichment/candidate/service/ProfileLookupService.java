@@ -5,7 +5,6 @@ import app.lightmove.api.candidate.dto.HeldCandidateResponse;
 import app.lightmove.api.candidate.model.EnrichedPhoto;
 import app.lightmove.api.candidate.model.EnrichedProfile;
 import app.lightmove.api.candidate.service.CandidateService;
-import app.lightmove.api.candidate.service.LookedUpResearch;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
@@ -15,6 +14,7 @@ import app.lightmove.api.core.text.service.LinkedInUrls;
 import app.lightmove.api.enrichment.candidate.constant.ProfileLookupOutcome;
 import app.lightmove.api.enrichment.candidate.dto.LookedUpProfileResponse;
 import app.lightmove.api.enrichment.candidate.dto.ProfileLookupResponse;
+import app.lightmove.api.enrichment.candidate.model.ProfileResearchOutcome;
 import app.lightmove.api.triagecompany.dto.TriageCompanyResponse;
 import app.lightmove.api.triagecompany.service.TriageCompanyReadService;
 import java.time.Duration;
@@ -32,20 +32,18 @@ import org.springframework.stereotype.Service;
 @Slf4j
 public class ProfileLookupService {
 
-    private final LinkedInProfileEnricher enricher;
+    private final ProfileResearch profileResearch;
     private final CandidateService candidates;
     private final TriageCompanyReadService companies;
-    private final LookedUpResearch lookedUp;
     private final RateLimiter limiter;
     private final int lookupsPerUserPerMinute;
 
-    public ProfileLookupService(LinkedInProfileEnricher enricher, CandidateService candidates,
-                                TriageCompanyReadService companies, LookedUpResearch lookedUp, RateLimiter limiter,
+    public ProfileLookupService(ProfileResearch research, CandidateService candidates,
+                                TriageCompanyReadService companies, RateLimiter limiter,
                                 LightMoveProperties properties) {
-        this.enricher = enricher;
+        this.profileResearch = research;
         this.candidates = candidates;
         this.companies = companies;
-        this.lookedUp = lookedUp;
         this.limiter = limiter;
         this.lookupsPerUserPerMinute = properties.enrichment().profileLookupsPerUserPerMinute();
     }
@@ -61,23 +59,15 @@ public class ProfileLookupService {
         if (held.isPresent()) {
             return new ProfileLookupResponse(ProfileLookupOutcome.HELD.value(), null, held.get());
         }
-        lookedUp.refuseUnresearchable(workspaceId, profileUrl);
-
-        Optional<EnrichedProfile> onFile = lookedUp.researchOnFile(workspaceId, profileUrl);
-        if (onFile.isPresent()) {
-            return found(workspaceId, projectId, profileUrl, onFile.get());
-        }
-        if (!enricher.isOffered()) {
-            return new ProfileLookupResponse(ProfileLookupOutcome.UNAVAILABLE.value(), null, null);
-        }
-        requireBudget(userId);
-
-        Optional<EnrichedProfile> research = fetch(profileUrl);
-        if (research.isEmpty()) {
-            return new ProfileLookupResponse(ProfileLookupOutcome.NOT_FOUND.value(), null, null);
-        }
-        lookedUp.remember(workspaceId, profileUrl, research.get());
-        return found(workspaceId, projectId, profileUrl, research.get());
+        return switch (researchOf(userId, workspaceId, profileUrl)) {
+            case ProfileResearchOutcome.Refused refused -> throw refused.reason();
+            case ProfileResearchOutcome.OnFile onFile -> found(workspaceId, projectId, profileUrl, onFile.research());
+            case ProfileResearchOutcome.Fetched bought -> found(workspaceId, projectId, profileUrl, bought.research());
+            case ProfileResearchOutcome.Unavailable unavailable ->
+                    new ProfileLookupResponse(ProfileLookupOutcome.UNAVAILABLE.value(), null, null);
+            case ProfileResearchOutcome.NotFound notFound ->
+                    new ProfileLookupResponse(ProfileLookupOutcome.NOT_FOUND.value(), null, null);
+        };
     }
 
     private ProfileLookupResponse found(UUID workspaceId, UUID projectId, String profileUrl, EnrichedProfile research) {
@@ -86,9 +76,12 @@ public class ProfileLookupService {
                 profileOf(profileUrl, research, heldEmployerId), null);
     }
 
-    private Optional<EnrichedProfile> fetch(String profileUrl) {
+    /** The budget is taken just before the paid read, and its refusal reaches the caller as it is. */
+    private ProfileResearchOutcome researchOf(UUID userId, UUID workspaceId, String profileUrl) {
         try {
-            return enricher.fetch(profileUrl);
+            return profileResearch.researchOrFetch(workspaceId, profileUrl, () -> requireBudget(userId));
+        } catch (ApiException refused) {
+            throw refused;
         } catch (RuntimeException failed) {
             // The message only: a transport failure's cause can quote the profile address.
             log.warn("Profile lookup failed: {}", failed.getMessage());

@@ -276,6 +276,50 @@ Three consequences worth naming:
 - **A spreadsheet's own "status" column is never imported.** That is the sender's pipeline, not this
   mandate's, and overwriting a researcher's decision with it would undo their work.
 
+### Enrichment from LinkedIn
+
+The mapping step carries one tick box, **"I'm okay with enriching people and companies from LinkedIn"**, ticked by
+default — a product decision, against the market's habit (HubSpot, Gem and Ashby offer it unticked; most tools make it
+a separate step), so the safeguards around it carry the weight.
+
+**What it does.** After the commit, every person whose row carried a LinkedIn profile and every non-market company
+whose row carried a LinkedIn page is researched through the vendor the plugin's capture uses, and filed through
+`CandidateService.applyResearch` / `TriageCompanyService.applyEnrichment` — which fill **only what nobody recorded**,
+so the file always wins (a title the sheet gave is kept; an empty summary is filled). A company the file gave no page
+is researched from the page its person's research names, when the names agree (`CompanyResearch.namesTheSameCompany`).
+No company is ever searched for by name, and a market company keeps the market's snapshot.
+
+**Why a persisted queue, not events.** The shared `@Async` pool has no queue: past its 64 threads a listener runs on
+the publisher's thread, so one `CandidateCapturedEvent` per row would have put a big file's vendor reads back on the
+import's own request. `app_lm_import_enrichment_item` (V225) holds a row per target; `ImportEnrichmentWorker` claims a
+few per workspace per tick (`FOR UPDATE SKIP LOCKED`, inside `WorkspaceScope`), researches every workspace's claim on
+one shared virtual-thread pool bounded by `enrichment-parallelism`, holds no connection across a read, and finishes
+each row in its own statement. A tick claims nothing while an earlier tick's reads are still running. A claim its instance never finished is taken again after
+`enrichment-stale-after`, and given up as `FAILED` after three. The dialog follows
+`GET /projects/{id}/import/enrichment/{runId}`; the grid refreshes on the `CANDIDATE_ENRICHED` / `COMPANY_ENRICHED`
+stream events the services already publish.
+
+**The limits, decided before anything is written.** The file's distinct profile and company links (in the columns the
+mapping reads them from) are counted at commit: over `lightmove.spreadsheet-import.max-auto-enrich` (250) the commit is
+refused `IMPORT_ENRICHMENT_TOO_LARGE` on field `enrich`, and past the month's fair use (`UsageKind.PROFILE_ENRICH`)
+`FAIR_USE_REACHED` — the same file imports unchanged with the box unticked. **The commit's check is not the last word**:
+a follow-on company read and a second import checked against the same headroom would slip past it, so the worker checks
+fair use again before every paid read (a refused row is `OVER_ALLOWANCE`), and a follow-on row is queued only while
+its run holds fewer than `max-auto-enrich` rows. The preview sends each column's link counts
+and `allowanceLeft`, so the dialog greys the box out (unticked) over the limit, and warns over the allowance, before the
+button is pressed. The count is an upper bound: research the workspace already holds costs nothing and is filed free
+(`LookedUpResearch.researchOnFile`).
+
+**What protects the person.** The suppression list and a processing restriction are checked before every read
+(`ProfileResearch`, the one path the Add form's lookup shares); an erased person's rows go with them
+(`ImportEnrichmentErasure`); finished rows hold a slug and our outcome only, and `ImportEnrichmentPurge` deletes them
+daily after `enrichment-keep-for`. The box says the workspace is
+responsible for telling those people their profile was looked up (Article 14), because the workspace is the
+controller.
+
+**Not built yet.** A per-person Enrich / Re-enrich (it would call `ProfileResearch`), and a workspace setting for the
+box's default. The ticked default is a recorded decision in `docs/gdpr/lia.md` §2.
+
 ### Neither import method is `@Transactional`
 
 This is the design, not an omission. A thousand-row file will have a bad row in it, and the useful
@@ -335,6 +379,8 @@ every other mandate's grid.
 
 ## Out of scope
 
+- **Researching an imported company by name.** Only a LinkedIn page the file gave, or one its person's research
+  names, is ever read.
 - **Matching an imported company back to an Apollo account.** Imported companies are `source = 'CSV'`
   with `apollo_account_id` NULL, deduped by name exactly as a hand-typed company is. Fuzzy-resolving a
   spreadsheet name against 71,822 Apollo rows is its own feature with its own failure modes.
@@ -361,6 +407,13 @@ every other mandate's grid.
 - `ChatClientLoggingTest` — the log line, driven through a real `ChatClient` and the real advisor:
   model, both token counts, the finish reason, the prompt id from each call site, an unattributed
   call, a response carrying no metadata, and that no prompt or response content is ever logged.
+- `ImportEnrichmentIntegrationTest` — nothing queued unasked; only the blanks filled; the employer page a person's
+  research names; a file over the link limit refused before any write and importable unticked; progress scoped.
+  An old finished row purged in a workspace that never imports again.
+- `ImportEnrichmentAllowanceIntegrationTest` — two imports that each passed the commit's check, and their follow-on
+  company reads, never buy past the month's ceiling.
+- `RowValuesTest` — magnitude suffixes, ranges and decimal commas; an email placeholder is not an address; a LinkedIn
+  profile in its canonical spelling.
 - `SpreadsheetImportIntegrationTest` — companies-only, candidates-only and combined files; a re-import
   that updates rather than duplicates; a blank cell that does not clear a stored value; an unknown
   header becoming a custom column and the same header not creating a second one on the next import; a

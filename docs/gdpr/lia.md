@@ -50,6 +50,17 @@ headers only (`send-sample-values: false`).
   recruiting; scraping a live profile on demand (HarvestAPI) is closer to the edge ⚖️.
 - *Safeguards:* the suppression list is checked at every door that files a person; a restricted person is
   refused a contact lookup and a further mapping (`people-controls-918-920.md`); enrichment providers are off unless `ENRICHMENT_PROVIDER` is set.
+- *Spreadsheet import enrichment* ⚖️ — **recorded decision (product owner, 2026-11-16, PR #1360).** The import's
+  "enrich from LinkedIn" box is **ticked by default**. Art. 25 leans to opt-in for optional processing, and the market
+  mostly agrees (HubSpot, Gem and Ashby offer it unticked; most tools make it a separate step); the owner chose
+  ticked because an import of executives with LinkedIn links is, in this product, overwhelmingly made to be researched.
+  The default is accepted on these safeguards, which carry the weight and must not be weakened without revisiting it:
+  the box states how many profiles and companies will be looked up and that the workspace must tell those people
+  (Art. 14 — the workspace is the controller); a file of more than `max-auto-enrich` (250) links is never enriched
+  automatically and the box greys itself out; fair use is checked at the commit and again before every paid read;
+  research fills only empty fields; the suppression list and a processing restriction are checked before every read;
+  queue rows hold a slug and an outcome only, purged daily after 30 days and at once on erasure. A workspace-level
+  default switch (so an EU/UK firm can choose unticked) is the follow-up if this is revisited.
 
 ## 3. Outreach
 

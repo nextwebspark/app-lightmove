@@ -42,6 +42,8 @@ const preview: ImportPreview = {
       header: "Organisation",
       valueShape: "short_text",
       sampleValues: ["ACWA Power"],
+      linkedinProfileCount: 0,
+      linkedinCompanyCount: 0,
       mapping: {
         index: 0,
         header: "Organisation",
@@ -57,6 +59,8 @@ const preview: ImportPreview = {
       header: "Ethnicity",
       valueShape: "short_text",
       sampleValues: ["Lebanese"],
+      linkedinProfileCount: 0,
+      linkedinCompanyCount: 0,
       mapping: {
         index: 1,
         header: "Ethnicity",
@@ -68,7 +72,35 @@ const preview: ImportPreview = {
       },
     },
   ],
+  enrichment: { profilesOffered: true, companiesOffered: true, autoEnrichLimit: 250, allowanceLeft: null },
 };
+
+/** The same file with a LinkedIn column: two distinct profiles, so enrichment can be offered. */
+const withLinkedIn = (profiles: number, offer: Partial<ImportPreview["enrichment"]> = {}): ImportPreview => ({
+  ...preview,
+  availableFields: [...preview.availableFields, { value: "candidateLinkedin", label: "LinkedIn", target: "candidate" }],
+  columns: [
+    ...preview.columns,
+    {
+      index: 2,
+      header: "LinkedIn",
+      valueShape: "url",
+      sampleValues: ["https://www.linkedin.com/in/layla-haddad/"],
+      linkedinProfileCount: profiles,
+      linkedinCompanyCount: 0,
+      mapping: {
+        index: 2,
+        header: "LinkedIn",
+        targetField: "candidateLinkedin",
+        customFieldKey: null,
+        customLabel: null,
+        customTarget: null,
+        customType: null,
+      },
+    },
+  ],
+  enrichment: { ...preview.enrichment, ...offer },
+});
 
 const summary: ImportSummary = {
   rowsRead: 2,
@@ -79,6 +111,7 @@ const summary: ImportSummary = {
   candidatesUpdated: 0,
   customColumnsCreated: ["Ethnicity"],
   rowErrors: [],
+  enrichment: null,
 };
 
 const onImported = vi.fn();
@@ -383,5 +416,76 @@ describe("ImportSpreadsheetDialog", () => {
 
     expect(screen.getByRole("button", { name: /Import 2 rows/i })).toBeDisabled();
     expect(screen.getByText(/Name the new column/i)).toBeInTheDocument();
+  });
+
+  describe("enrichment from LinkedIn", () => {
+    const enrichBox = () => screen.findByRole("checkbox", { name: /okay with enriching/i });
+
+    it("is ticked by default and asks the server to enrich", async () => {
+      vi.mocked(importApi.previewImport).mockResolvedValue(withLinkedIn(2));
+      renderDialog();
+      await choose();
+
+      expect(await enrichBox()).toBeChecked();
+      expect(screen.getByText(/up to 2 profiles/i)).toBeInTheDocument();
+      await userEvent.click(screen.getByRole("button", { name: /Import 2 rows/i }));
+
+      await waitFor(() => expect(importApi.commitImport).toHaveBeenCalled());
+      expect(vi.mocked(importApi.commitImport).mock.calls[0][3]).toBe(true);
+    });
+
+    it("sends no enrichment once the user unticks it", async () => {
+      vi.mocked(importApi.previewImport).mockResolvedValue(withLinkedIn(2));
+      renderDialog();
+      await choose();
+
+      await userEvent.click(await enrichBox());
+      await userEvent.click(screen.getByRole("button", { name: /Import 2 rows/i }));
+
+      await waitFor(() => expect(importApi.commitImport).toHaveBeenCalled());
+      expect(vi.mocked(importApi.commitImport).mock.calls[0][3]).toBe(false);
+    });
+
+    it("is greyed out and unticked when the file has more links than one import enriches", async () => {
+      vi.mocked(importApi.previewImport).mockResolvedValue(withLinkedIn(251));
+      renderDialog();
+      await choose();
+
+      const box = await enrichBox();
+      expect(box).toBeDisabled();
+      expect(box).not.toBeChecked();
+      expect(screen.getByText(/more than 250 LinkedIn links/i)).toBeInTheDocument();
+      await userEvent.click(screen.getByRole("button", { name: /Import 2 rows/i }));
+
+      await waitFor(() => expect(importApi.commitImport).toHaveBeenCalled());
+      expect(vi.mocked(importApi.commitImport).mock.calls[0][3]).toBe(false);
+    });
+
+    it("is greyed out until a LinkedIn column is mapped", async () => {
+      renderDialog();
+      await choose();
+
+      expect(await enrichBox()).toBeDisabled();
+      expect(screen.getByText(/Map a LinkedIn column to enrich/i)).toBeInTheDocument();
+    });
+
+    it("is not offered at all where no provider answers", async () => {
+      vi.mocked(importApi.previewImport).mockResolvedValue(
+        withLinkedIn(2, { profilesOffered: false, companiesOffered: false }),
+      );
+      renderDialog();
+      await choose();
+
+      await screen.findByText("Organisation");
+      expect(screen.queryByRole("checkbox", { name: /okay with enriching/i })).not.toBeInTheDocument();
+    });
+
+    it("warns before committing when the month's lookups would not cover the file", async () => {
+      vi.mocked(importApi.previewImport).mockResolvedValue(withLinkedIn(20, { allowanceLeft: 5 }));
+      renderDialog();
+      await choose();
+
+      expect(await screen.findByText(/Only 5 lookups are left this month/i)).toBeInTheDocument();
+    });
   });
 });
