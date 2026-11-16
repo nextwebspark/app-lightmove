@@ -29,6 +29,14 @@ PG_PORT="${PG_PORT:-55433}"
 DEV_SUPPRESSION_KEYSET='{"primaryKeyId":31013455,"key":[{"keyData":{"typeUrl":"type.googleapis.com/google.crypto.tink.HmacPrfKey","value":"EgIIAxogNW7n0Y4IR7YVIIa+pBH3RFlacGOjmxrNWT/yv57Gs9E=","keyMaterialType":"SYMMETRIC"},"status":"ENABLED","keyId":31013455,"outputPrefixType":"RAW"}]}'
 DEV_CREDENTIAL_KEYSET='{"primaryKeyId":653769729,"key":[{"keyData":{"typeUrl":"type.googleapis.com/google.crypto.tink.AesGcmKey","value":"GiDdcDK+eD7jyE+NjJ55C7Ta4t9IgqMRKbdXgoG/+4KVfw==","keyMaterialType":"SYMMETRIC"},"status":"ENABLED","keyId":653769729,"outputPrefixType":"TINK"}]}'
 
+# The GDPR switches start off, as in production (deploy.yml). Turn them on with
+#   DATA_PROTECTION_ENABLED=true SUPPRESSION_LIST_ENABLED=true npm run dev
+# SUPPRESSION_LIST_ENABLED mounts the dev keyset here, as it mounts the secret in a deployment.
+SUPPRESSION_LIST_ENABLED="${SUPPRESSION_LIST_ENABLED:-false}"
+if [ "$SUPPRESSION_LIST_ENABLED" = "true" ]; then
+  SUPPRESSION_KEYSET="${SUPPRESSION_KEYSET:-$DEV_SUPPRESSION_KEYSET}"
+fi
+
 cd "$REPO_DIR/apps/api"
 exec env \
   SPRING_DATASOURCE_URL="jdbc:postgresql://localhost:$PG_PORT/lightmove" \
@@ -37,8 +45,9 @@ exec env \
   DB_PASSWORD=lm \
   LIGHTMOVE_EMAIL_PROVIDER=log \
   CREDENTIAL_KEYSET="${CREDENTIAL_KEYSET:-$DEV_CREDENTIAL_KEYSET}" \
-  SUPPRESSION_KEYSET="${SUPPRESSION_KEYSET:-$DEV_SUPPRESSION_KEYSET}" \
+  SUPPRESSION_KEYSET="${SUPPRESSION_KEYSET:-}" \
   MCP_ENABLED="${MCP_ENABLED:-true}" \
   MFA_ENABLED="${MFA_ENABLED:-true}" \
-  DATA_PROTECTION_ENABLED="${DATA_PROTECTION_ENABLED:-true}" \
+  DATA_PROTECTION_ENABLED="${DATA_PROTECTION_ENABLED:-false}" \
+  RETENTION_ENABLED="${RETENTION_ENABLED:-false}" \
   ./mvnw spring-boot:run -Dspring-boot.run.profiles=local
