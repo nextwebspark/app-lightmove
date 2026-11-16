@@ -293,8 +293,7 @@ public class CandidateService {
         if (slug == null) {
             return Optional.empty();
         }
-        return candidates.findByProjectIdAndProfileSlugLike(projectId, slug).stream()
-                .filter(held -> slug.equals(LinkedInUrls.profileSlugOrNull(held.getPerson().getLinkedinUrl())))
+        return candidatesAtProfile(projectId, slug).stream()
                 .findFirst()
                 .map(held -> new HeldCandidateResponse(responses.toDto(held), adderOf(projectId, held.getId()),
                         employerResolver.logoOfMapping(workspaceId, held)));
@@ -352,16 +351,26 @@ public class CandidateService {
     }
 
     /**
-     * The person this mandate already has for a spreadsheet row. Email first, then name — a name identifies someone only
-     * within a company (V36's index scope); oldest first when several answer.
+     * The person this mandate already has for a spreadsheet row: LinkedIn profile first, then email, then name — a name
+     * identifies someone only within a company (V36's index scope); oldest first when several answer. An email match
+     * follows {@link PersonMatcher}'s rule: never a role inbox, and only where the names agree.
      */
     @Transactional(readOnly = true)
-    public Optional<CandidateResponse> findCandidateOfProject(UUID projectId, UUID triageCompanyId,
+    public Optional<CandidateResponse> findCandidateOfProject(UUID projectId, UUID triageCompanyId, String linkedinUrl,
                                                               String email, String fullName) {
-        if (email != null && !email.isBlank()) {
+        String slug = LinkedInUrls.profileSlugOrNull(linkedinUrl);
+        if (slug != null) {
+            Optional<Candidate> byProfile = candidatesAtProfile(projectId, slug).stream()
+                    .min(Comparator.comparing(Candidate::getCreatedAt));
+            if (byProfile.isPresent()) {
+                return byProfile.map(responses::toDto);
+            }
+        }
+        if (email != null && !email.isBlank() && !RoleAddresses.isRoleAddress(email)) {
             Optional<Candidate> byEmail = candidates
                     .findByProjectIdAndEmailKey(projectId, CandidateContact.keyOf(ContactChannel.EMAIL, email))
                     .stream()
+                    .filter(held -> PersonNames.agree(held.getPerson().getFullName(), fullName))
                     .min(Comparator.comparing(Candidate::getCreatedAt));
             if (byEmail.isPresent()) {
                 return byEmail.map(responses::toDto);
@@ -376,6 +385,13 @@ public class CandidateService {
         return byName.stream()
                 .min(Comparator.comparing(Candidate::getCreatedAt))
                 .map(responses::toDto);
+    }
+
+    /** LIKE narrows; the exact slug decides — "jon-smith" must not answer for "jon-smith-acwa". */
+    private List<Candidate> candidatesAtProfile(UUID projectId, String slug) {
+        return candidates.findByProjectIdAndProfileSlugLike(projectId, slug).stream()
+                .filter(held -> slug.equals(LinkedInUrls.profileSlugOrNull(held.getPerson().getLinkedinUrl())))
+                .toList();
     }
 
     @Transactional
@@ -574,6 +590,19 @@ public class CandidateService {
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void applyResearch(UUID projectId, UUID candidateId, EnrichedProfile enriched) {
+        fileResearch(projectId, candidateId, enriched, true);
+    }
+
+    /**
+     * {@link #applyResearch} with no AI background run after it: an import's enrichment box consents to LinkedIn
+     * research, not to inference, which stays a press of Suggest with AI.
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void applyResearchWithoutAi(UUID projectId, UUID candidateId, EnrichedProfile enriched) {
+        fileResearch(projectId, candidateId, enriched, false);
+    }
+
+    private void fileResearch(UUID projectId, UUID candidateId, EnrichedProfile enriched, boolean requestsAi) {
         candidates.findByIdAndProjectId(candidateId, projectId).ifPresentOrElse(candidate -> {
             Person person = candidate.getPerson();
             if (person.isProcessingRestricted()) {
@@ -593,9 +622,11 @@ public class CandidateService {
             mapToEmployer(projectId, candidate, CapturedCompanyDetails.employerNamed(enriched.employerName(),
                     enriched.employerLinkedinUrl(), enriched.employerLogoUrl()), capturedBy(projectId, candidate));
             stream.publish(projectId, ProjectStreamKind.CANDIDATE_ENRICHED);
-            projects.findById(projectId).ifPresent(project -> events.publishEvent(
-                    new CandidateAiEnrichRequested(candidateId, projectId, project.getWorkspaceId(),
-                            candidate.getAddedBy(), AiEnrichTrigger.CAPTURE)));
+            if (requestsAi) {
+                projects.findById(projectId).ifPresent(project -> events.publishEvent(
+                        new CandidateAiEnrichRequested(candidateId, projectId, project.getWorkspaceId(),
+                                candidate.getAddedBy(), AiEnrichTrigger.CAPTURE)));
+            }
         }, () -> log.info("Candidate {} was removed before its research landed", candidateId));
     }
 
@@ -944,9 +975,12 @@ public class CandidateService {
 
     /** Filed as the door the person came through: a hand-typed add researched behind its save is still hand-typed. */
     private EmployerFilings capturedBy(UUID projectId, Candidate candidate) {
-        TriageCompanySource door = candidate.getSource() == CandidateSource.MANUAL
-                ? TriageCompanySource.MANUAL
-                : TriageCompanySource.EXTENSION;
+        // CSV is its own door: a spreadsheet person researched by an import's enrichment was badged a plugin capture.
+        TriageCompanySource door = switch (candidate.getSource()) {
+            case MANUAL -> TriageCompanySource.MANUAL;
+            case CSV -> TriageCompanySource.CSV;
+            default -> TriageCompanySource.EXTENSION;
+        };
         return new EmployerFilings(triage, projectId, candidate.getAddedBy(), door);
     }
 
@@ -1052,9 +1086,8 @@ public class CandidateService {
         if (slug == null) {
             return;
         }
-        boolean held = candidates.findByProjectIdAndProfileSlugLike(projectId, slug).stream()
-                .filter(other -> !other.getId().equals(selfId))
-                .anyMatch(other -> slug.equals(LinkedInUrls.profileSlugOrNull(other.getPerson().getLinkedinUrl())));
+        boolean held = candidatesAtProfile(projectId, slug).stream()
+                .anyMatch(other -> !other.getId().equals(selfId));
         if (held) {
             throw ApiException.of(ErrorCode.CANDIDATE_ALREADY_MAPPED);
         }
@@ -1115,7 +1148,7 @@ public class CandidateService {
             return known;
         }
         if (request.existingPersonId() != null) {
-            return Optional.of(answeredPerson(workspaceId, request.existingPersonId(), known, details));
+            return Optional.of(answeredPerson(workspaceId, request.existingPersonId(), details));
         }
         if (known.isEmpty() && !Boolean.TRUE.equals(request.addAsNewPerson())) {
             List<UUID> namesakes = matcher.possibleDuplicates(workspaceId, details).stream()
@@ -1134,13 +1167,13 @@ public class CandidateService {
      * two people one key. Without a key match, only a namesake the 409 could have named is taken — any
      * other id would map a stranger under a typed name the mandate's own name rule never saw.
      */
-    private Person answeredPerson(UUID workspaceId, UUID existingPersonId, Optional<Person> known,
-                                  CandidateDetails details) {
-        if (known.isPresent()) {
-            if (!known.get().getId().equals(existingPersonId)) {
+    private Person answeredPerson(UUID workspaceId, UUID existingPersonId, CandidateDetails details) {
+        Optional<Person> keyHolder = matcher.keyHolderOf(workspaceId, details);
+        if (keyHolder.isPresent()) {
+            if (!keyHolder.get().getId().equals(existingPersonId)) {
                 throw ApiException.of(ErrorCode.CANDIDATE_KEYS_NAME_ANOTHER);
             }
-            return known.get();
+            return keyHolder.get();
         }
         return matcher.possibleDuplicates(workspaceId, details).stream()
                 .filter(namesake -> namesake.getId().equals(existingPersonId))

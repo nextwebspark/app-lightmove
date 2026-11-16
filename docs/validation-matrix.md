@@ -217,7 +217,9 @@ is held back rather than sent (the step does not save until it is named) and the
 | Field | Client | Server | Shown as |
 |---|---|---|---|
 | Import file | — | ≤ 10 MB, ≤ 5000 rows, type by bytes | sentence |
-| ☐ Import cells | — | bypass the drawer's rules; dropped silently (a currency no ISO code reads as is not written) | row list (leaks internal text) |
+| ☐ Import cells | — | bypass the drawer's rules; dropped silently (a currency no ISO code reads as is not written; an email cell not shaped like an address is dropped, never matched on) | row list (leaks internal text; a database race reads as a fixed sentence) |
+| Import "New column" name | Import held while blank | blank label defines nothing | field |
+| Import enrichment box | ticked by default; disabled + unticked with no mapped LinkedIn column or over `autoEnrichLimit` links; warns over `allowanceLeft` | absent = no; over `spreadsheet-import.max-auto-enrich` distinct links `IMPORT_ENRICHMENT_TOO_LARGE` (field `enrich`), over fair use `FAIR_USE_REACHED`, both before any row is written | field |
 | Export cells | — | formula starters defused | — |
 | ☐ Import template headers | — | not defused | — |
 | Sequence steps | ≤ 3 | 1–3, delays, window ordering | field |

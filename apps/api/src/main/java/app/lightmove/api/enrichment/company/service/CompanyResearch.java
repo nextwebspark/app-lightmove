@@ -4,6 +4,7 @@ import app.lightmove.api.common.location.service.Countries;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.enrichment.company.model.CachedCompany;
 import app.lightmove.api.enrichment.company.model.CompanyActivityQuery;
+import app.lightmove.api.enrichment.company.model.CompanyRead;
 import app.lightmove.api.enrichment.company.model.VendorCompanyRecord;
 import app.lightmove.api.enrichment.company.model.VendorSearchAllowance;
 import app.lightmove.api.triagecompany.model.CapturedCompanyDetails;
@@ -54,25 +55,44 @@ public class CompanyResearch {
 
     /** The whole record, specialties included. */
     public Optional<VendorCompanyRecord> recordOf(String linkedinSlug) {
+        return read(linkedinSlug, () -> { }).record();
+    }
+
+    /**
+     * {@link #recordOf}, saying whether the vendor was asked: {@code beforeVendorRead} runs only then — a fair-use
+     * check — and stops the read by throwing. The one place the fresh-cache rule decides what is paid for, so a meter
+     * cannot charge a cached miss or let a stale record be bought unchecked.
+     */
+    public CompanyRead read(String linkedinSlug, Runnable beforeVendorRead) {
         Instant staleBefore = Instant.now().minus(cacheTtl);
         Optional<CachedCompany> held = store.find(linkedinSlug);
         if (held.isPresent() && held.get().fetchedAt().isAfter(staleBefore)) {
-            return held.get().found();
+            return new CompanyRead(held.get().found(), false);
         }
 
         // With enrichment off a stored miss would outlive the day someone configures a key.
         if (!enricher.isEnabled()) {
-            return Optional.empty();
+            return new CompanyRead(Optional.empty(), false);
         }
 
+        beforeVendorRead.run();
         Optional<VendorCompanyRecord> answer = enricher.fetch(linkedinSlug);
         // A vendor that threw never reaches here, so a bad minute is not remembered as a miss.
         store.remember(linkedinSlug, enricher.provider(), answer);
-        return answer;
+        return new CompanyRead(answer, true);
     }
 
     public boolean isEnabled() {
         return enricher.isEnabled();
+    }
+
+    /** "Emaar Properties PJSC" and "Emaar" name one company; "Aldar Education" and "ALDAR" do not. */
+    public static boolean namesTheSameCompany(String one, String other) {
+        if (one == null || other == null) {
+            return false;
+        }
+        List<String> otherSpellings = CompanyNames.spellingsOf(other);
+        return CompanyNames.spellingsOf(one).stream().anyMatch(otherSpellings::contains);
     }
 
     /** "Seddiqi Holdings" → [seddiqi]: what a name search keys on. */

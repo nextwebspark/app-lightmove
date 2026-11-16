@@ -9,5 +9,13 @@ import java.util.List;
 public record CommitImportRequest(
         @NotNull
         @Size(max = 200, message = "That file has more columns than one import can map")
-        List<@Valid ProposedColumnMappingDto> columns
-) {}
+        List<@Valid ProposedColumnMappingDto> columns,
+
+        /** Absent is no: a caller never spends on research by leaving a field out. */
+        Boolean enrich
+) {
+
+    public boolean asksForEnrichment() {
+        return Boolean.TRUE.equals(enrich);
+    }
+}
