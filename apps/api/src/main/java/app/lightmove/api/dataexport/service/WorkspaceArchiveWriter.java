@@ -138,6 +138,7 @@ public class WorkspaceArchiveWriter {
         StringBuilder markdown = new StringBuilder("# ").append(text(person.fullName())).append("\n");
         for (ArchivedNote note : person.notes()) {
             markdown.append("\n## ").append(capitalised(note.kind()))
+                    .append(note.outcome() == null ? "" : " · " + note.outcome().label())
                     .append(" · ").append(note.positionTitle() == null ? "All positions" : note.positionTitle())
                     .append(" · ").append(note.authorName() == null ? "Someone who has left" : note.authorName())
                     .append(" · ").append(STAMP.format(note.createdAt()));

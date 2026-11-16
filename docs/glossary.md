@@ -69,6 +69,7 @@ changes. Copy no mockup draws — toasts, errors, banners, empty states — foll
 | **Title not on record** | someone Find executives found at a company with no current title on record, whom no free check reached | no title, unknown |
 | **Live profiles** / **Profile index** | Find executives' two sources, in *How we searched*: today's titles bought a profile at a time, and who works where, searched cheaply | the vendors' names |
 | **Strong** / **Good** / **Possible** | how well someone who fits the role fits it, from their score | score, rank, rating |
+| **Connected** / **Left voicemail** / **No answer** / **Wrong number**; **Sent a message** / **They replied** | how a logged call, or a logged WhatsApp, went: the sequence call step's own words. An outcome that is not the note kind's own is refused with "That outcome doesn't fit this kind of note" | disposition, status, result, call result |
 | **12d** | a trial's days left, where a phone has room for nothing longer (the topbar chip; its spoken name is "Trial · 12 days left") | — |
 
 ## Never on screen

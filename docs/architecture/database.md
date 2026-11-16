@@ -503,6 +503,9 @@ required; `wording` is what was last answered, the open request's own words and 
 answer copies them) and `app_lm_person_consent_event` its append-only history (a `BEFORE UPDATE` trigger refuses an update; deletes
 still cascade with the person and the workspace). Both forced RLS. `app_lm_workspaces_with_consents_due` is the daily
 scan's V191-style resolver; the activity and notification kind lists gain the consent kinds.
+V224 adds `app_lm_person_note.outcome` (#1337): how a logged call (`CONNECTED | VOICEMAIL | NO_ANSWER | WRONG_NUMBER`)
+or WhatsApp message (`SENT | REPLIED`) went, each value checked against its kind, and lets the body be empty once an
+outcome says what happened (`app_lm_person_note_body_chk`, V142's limit kept). Company notes take none.
 V195 adds `app_lm_workspace_suppression` (`kind` `PROFILE_SLUG | EMAIL`, a keyed `value_hash` unique per workspace and
 kind, the `key_id` it was taken under, `reason` `ERASED | OBJECTED | MANUAL`, an admin's `note`), forced row-level security
 in the same migration.

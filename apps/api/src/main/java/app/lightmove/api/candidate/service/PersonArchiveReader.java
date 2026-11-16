@@ -1,5 +1,6 @@
 package app.lightmove.api.candidate.service;
 
+import app.lightmove.api.candidate.constant.NoteOutcome;
 import app.lightmove.api.candidate.model.ArchivedDocumentFile;
 import app.lightmove.api.candidate.model.ArchivedNote;
 import app.lightmove.api.candidate.model.ArchivedPerson;
@@ -52,16 +53,17 @@ public class PersonArchiveReader {
         Map<UUID, List<ArchivedNote>> notes = new HashMap<>();
         jdbc.query("""
                 SELECT n.person_id, n.kind, n.project_title, u.full_name AS author, n.created_at, n.edited_at,
-                       n.pinned, n.body
+                       n.pinned, n.body, n.outcome
                 FROM app_lm_person_note n LEFT JOIN app_lm_user u ON u.id = n.author_user_id
                 WHERE n.workspace_id = :workspaceId AND n.person_id = ANY (:personIds) AND n.deleted_at IS NULL
                 ORDER BY n.person_id, n.created_at""", parameters, row -> {
                     Timestamp edited = row.getTimestamp("edited_at");
+                    String outcome = row.getString("outcome");
                     notes.computeIfAbsent(row.getObject("person_id", UUID.class), ignored -> new ArrayList<>())
                             .add(new ArchivedNote(row.getString("kind"), row.getString("project_title"),
                                     row.getString("author"), row.getTimestamp("created_at").toInstant(),
                                     edited == null ? null : edited.toInstant(), row.getBoolean("pinned"),
-                                    row.getString("body")));
+                                    row.getString("body"), outcome == null ? null : NoteOutcome.valueOf(outcome)));
                 });
         Map<UUID, List<ArchivedDocumentFile>> files = new HashMap<>();
         jdbc.query("""
