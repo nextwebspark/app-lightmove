@@ -201,6 +201,10 @@ public enum ErrorCode {
     IMPORT_TOO_MANY_ROWS(HttpStatus.PAYLOAD_TOO_LARGE,
             "That file has more rows than one import can take"),
 
+    /** More LinkedIn links than one import enriches on its own; the same file imports with the box unticked. */
+    IMPORT_ENRICHMENT_TOO_LARGE(HttpStatus.UNPROCESSABLE_CONTENT,
+            "That file has too many LinkedIn links to enrich in one import"),
+
     CUSTOM_COLUMN_NAME_TAKEN(HttpStatus.CONFLICT,
             "This mandate already has a column with that name"),
 

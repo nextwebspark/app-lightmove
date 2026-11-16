@@ -15,6 +15,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Map;
+import java.util.OptionalLong;
 import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -69,6 +70,20 @@ public class FairUseGuard {
         reportOnce(workspaceId, userId, kind, used, ceiling, allowance.periodEnd());
         throw ApiException.withProperties(ErrorCode.FAIR_USE_REACHED,
                 Map.of("kind", kind.name(), "resetsAt", allowance.periodEnd()));
+    }
+
+    /** What the month's ceiling leaves of {@code kind}; empty when nothing bounds it (enforcement off, or 0). */
+    public OptionalLong unitsLeft(UUID workspaceId, UsageKind kind) {
+        if (!properties.billing().enforce()) {
+            return OptionalLong.empty();
+        }
+        long perSeat = kind.perSeatIn(properties.billing().fairUse());
+        if (perSeat == 0) {
+            return OptionalLong.empty();
+        }
+        FairUseAllowance allowance = seats.allowanceOf(workspaceId, clock.instant());
+        long used = events.unitsBetween(workspaceId, kind, allowance.periodStart(), allowance.periodEnd());
+        return OptionalLong.of(Math.max(0, perSeat * allowance.staffSeats() - used));
     }
 
     private void reportOnce(UUID workspaceId, UUID userId, UsageKind kind, long used, long ceiling, Instant resetsAt) {

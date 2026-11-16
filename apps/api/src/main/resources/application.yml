@@ -570,6 +570,15 @@ lightmove:
     # column's header and a locally computed shape ("looks like an email") instead — nearly all the
     # signal a mapping needs, with none of the data. Turn this on only knowingly.
     send-sample-values: ${SPREADSHEET_IMPORT_SEND_SAMPLES:false}
+    # Enrichment on import: a file with more distinct LinkedIn profile + company links than this is not enriched
+    # automatically (the dialog greys the box out, and the server refuses it), because each link is a paid read.
+    max-auto-enrich: ${SPREADSHEET_IMPORT_MAX_AUTO_ENRICH:250}
+    # Read by @Scheduled, which never sees a binding default, so spelled out here.
+    enrichment-tick: ${SPREADSHEET_IMPORT_ENRICHMENT_TICK:5s}
+    enrichment-batch: ${SPREADSHEET_IMPORT_ENRICHMENT_BATCH:8}
+    enrichment-parallelism: ${SPREADSHEET_IMPORT_ENRICHMENT_PARALLELISM:4}
+    enrichment-stale-after: ${SPREADSHEET_IMPORT_ENRICHMENT_STALE_AFTER:10m}
+    enrichment-keep-for: ${SPREADSHEET_IMPORT_ENRICHMENT_KEEP_FOR:30d}
     # Checked server-side, but only as a coarse filter: browsers disagree about what a .csv is and
     # several send application/vnd.ms-excel for one, so the reader decides the real format from the
     # bytes. Hence octet-stream is allowed here and would not be for a document upload.
@@ -878,6 +887,9 @@ lightmove:
       sourcing-run-cost-fils: ${FAIR_USE_SOURCING_RUN_COST_FILS:8}
       ai-enrich-per-seat: ${FAIR_USE_AI_ENRICH_PER_SEAT:2000}
       ai-enrich-cost-fils: ${FAIR_USE_AI_ENRICH_COST_FILS:6}
+      # One LinkedIn profile or company page read by an import's enrichment; a read the cache answers is free.
+      profile-enrich-per-seat: ${FAIR_USE_PROFILE_ENRICH_PER_SEAT:1000}
+      profile-enrich-cost-fils: ${FAIR_USE_PROFILE_ENRICH_COST_FILS:10}
       outreach-opener-per-seat: ${FAIR_USE_OUTREACH_OPENER_PER_SEAT:5000}
       outreach-opener-cost-fils: ${FAIR_USE_OUTREACH_OPENER_COST_FILS:2}
       assistant-ask-per-seat: ${FAIR_USE_ASSISTANT_ASK_PER_SEAT:1500}

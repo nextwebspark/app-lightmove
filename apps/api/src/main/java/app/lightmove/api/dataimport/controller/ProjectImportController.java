@@ -8,6 +8,8 @@ import app.lightmove.api.dataimport.dto.ImportPreviewResponse;
 import app.lightmove.api.dataimport.dto.ImportSummaryResponse;
 import app.lightmove.api.dataimport.service.ImportTemplateWriter;
 import app.lightmove.api.dataimport.service.ProjectImportService;
+import app.lightmove.api.enrichment.importrun.dto.ImportEnrichmentProgressResponse;
+import app.lightmove.api.enrichment.importrun.service.ImportEnrichmentService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import java.nio.charset.StandardCharsets;
@@ -37,6 +39,7 @@ import org.springframework.web.multipart.MultipartFile;
 public class ProjectImportController {
 
     private final ProjectImportService imports;
+    private final ImportEnrichmentService enrichment;
 
     /**
      * A file built from this needs no model call. {@code text/csv} is safe here, unlike the position
@@ -66,6 +69,16 @@ public class ProjectImportController {
                                          @RequestParam("file") MultipartFile file) {
         return imports.preview(principal.userId(), principal.requireWorkspaceId(),
                 projectId, file);
+    }
+
+    /** One import's enrichment so far, for the dialog's progress line. Counts only. */
+    @GetMapping("/enrichment/{runId}")
+    @RequireProjectPermission(ProjectAction.WORK_EXECUTE)
+    public ImportEnrichmentProgressResponse enrichmentProgress(@AuthenticationPrincipal AuthPrincipal principal,
+                                                               @PathVariable UUID projectId,
+                                                               @PathVariable UUID runId) {
+        return ImportEnrichmentProgressResponse.of(
+                enrichment.progressOf(principal.requireWorkspaceId(), projectId, runId));
     }
 
     /** {@code @RequestPart}, unlike other uploads: the JSON mapping must be bound and validated as one. */

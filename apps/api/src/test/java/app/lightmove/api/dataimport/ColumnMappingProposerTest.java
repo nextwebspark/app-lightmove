@@ -18,6 +18,7 @@ import app.lightmove.api.dataimport.model.SheetColumn;
 import app.lightmove.api.dataimport.service.ColumnMappingProposer;
 import app.lightmove.api.dataimport.service.HeuristicColumnMatcher;
 import app.lightmove.api.core.ratelimit.service.LlmBudgetGuard;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -425,7 +426,8 @@ class ColumnMappingProposerTest {
 
     private static LightMoveProperties propertiesWith(boolean sendSamples) {
         return new LightMoveProperties(null, null, null, null, null, null, null, null, null,
-                new SpreadsheetImportSettings(10_485_760L, 5000, sendSamples, List.of("text/csv")), null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+                new SpreadsheetImportSettings(10_485_760L, 5000, sendSamples, 250,
+                        Duration.ofSeconds(5), 8, 4, Duration.ofMinutes(10), Duration.ofDays(30), List.of("text/csv")), null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
     }
 
     /**

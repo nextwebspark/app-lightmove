@@ -16,6 +16,8 @@ import app.lightmove.api.customcolumn.service.CustomColumnService;
 import app.lightmove.api.dataimport.constant.ImportTargetField;
 import app.lightmove.api.dataimport.dto.CommitImportRequest;
 import app.lightmove.api.dataimport.dto.ImportColumnDto;
+import app.lightmove.api.dataimport.dto.ImportEnrichmentOfferDto;
+import app.lightmove.api.dataimport.dto.ImportEnrichmentQueuedDto;
 import app.lightmove.api.dataimport.dto.ImportPreviewResponse;
 import app.lightmove.api.dataimport.dto.ImportSummaryResponse;
 import app.lightmove.api.dataimport.dto.ImportTargetFieldDto;
@@ -25,6 +27,9 @@ import app.lightmove.api.dataimport.model.ImportTally;
 import app.lightmove.api.dataimport.model.ParsedSheet;
 import app.lightmove.api.dataimport.model.ProposedColumnMappings;
 import app.lightmove.api.dataimport.model.SheetColumn;
+import app.lightmove.api.enrichment.importrun.model.ImportEnrichmentTarget;
+import app.lightmove.api.enrichment.importrun.model.QueuedEnrichment;
+import app.lightmove.api.enrichment.importrun.service.ImportEnrichmentService;
 import app.lightmove.api.project.repository.ProjectRepository;
 import app.lightmove.api.triagecompany.dto.CaptureCompanyRequest;
 import app.lightmove.api.triagecompany.dto.EditTriageCompanyRequest;
@@ -36,6 +41,7 @@ import java.util.Arrays;
 import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -67,6 +73,7 @@ public class ProjectImportService {
     private final ImportRequestBuilder requests;
     private final ProjectRepository projects;
     private final AuditService audit;
+    private final ImportEnrichmentService enrichment;
 
     /** The blank CSV a consultant can fill in — carrying this mandate's own custom columns. */
     public String template(UUID workspaceId, UUID projectId) {
@@ -88,14 +95,17 @@ public class ProjectImportService {
                     column.header(),
                     column.valueShape().name().toLowerCase(Locale.ROOT),
                     column.sampleValues(),
-                    toDto(proposed.mappings().get(index))));
+                    toDto(proposed.mappings().get(index)),
+                    LinkedInLinks.profileSlugsIn(sheet, column.index()).size(),
+                    LinkedInLinks.companySlugsIn(sheet, column.index()).size()));
         }
         return new ImportPreviewResponse(
                 FileNameSanitizer.sanitize(file.getOriginalFilename(), "import"),
                 sheet.rowCount(),
                 columns,
                 availableFields(),
-                proposed.source().value());
+                proposed.source().value(),
+                ImportEnrichmentOfferDto.of(enrichment.offerFor(workspaceId)));
     }
 
     public ImportSummaryResponse commit(UUID userId, UUID workspaceId, UUID projectId,
@@ -104,6 +114,15 @@ public class ProjectImportService {
         projects.requireInWorkspace(projectId, workspaceId);
         ParsedSheet sheet = reader.read(file);
         ImportTally tally = new ImportTally();
+        boolean enrich = request.asksForEnrichment();
+        if (enrich) {
+            // Before anything is written, custom columns included: a refused enrichment leaves the file importable
+            // unchanged with the box unticked.
+            enrichment.requireEnrichable(workspaceId, userId,
+                    LinkedInLinks.profileSlugsIn(sheet, firstColumnMappedTo(request, ImportTargetField.CANDIDATE_LINKEDIN)).size(),
+                    LinkedInLinks.companySlugsIn(sheet, firstColumnMappedTo(request, ImportTargetField.COMPANY_LINKEDIN)).size());
+        }
+        Set<ImportEnrichmentTarget> targets = new LinkedHashSet<>();
 
         // Columns first: defined lazily mid-loop, earlier rows would miss a column later rows got.
         Map<Integer, ResolvedColumn> resolved = resolveColumns(projectId, userId, workspaceId, request, tally);
@@ -112,7 +131,10 @@ public class ProjectImportService {
             List<String> row = sheet.rows().get(rowIndex);
             tally.countRow();
             try {
-                importRow(userId, workspaceId, projectId, sheet, row, resolved, tally, httpRequest);
+                FiledRow filed = importRow(userId, workspaceId, projectId, sheet, row, resolved, tally, httpRequest);
+                if (enrich) {
+                    targets.addAll(filed.enrichmentTargets());
+                }
             } catch (ApiException refused) {
                 // The internal detail reaches only the uploader. Not RuntimeException — a real bug must fail loudly.
                 tally.rowFailed(rowIndex + 1, refused.getMessage());
@@ -123,18 +145,34 @@ public class ProjectImportService {
             }
         }
 
+        QueuedEnrichment queued = enrich ? enrichment.queue(workspaceId, projectId, userId, targets) : null;
+
         audit.projectEvent(ProjectEventType.SPREADSHEET_IMPORTED, userId, workspaceId, projectId, httpRequest)
                 .detail("fileName", FileNameSanitizer.sanitize(file.getOriginalFilename(), "import"))
                 .detail("rowsRead", String.valueOf(tally.rowsRead()))
                 .detail("companiesCreated", String.valueOf(tally.companiesCreated()))
                 .detail("candidatesCreated", String.valueOf(tally.candidatesCreated()))
                 .detail("rowsFailed", String.valueOf(tally.failedRows()))
+                .detail("enrich", String.valueOf(enrich))
+                .detail("peopleQueued", String.valueOf(queued == null ? 0 : queued.peopleQueued()))
+                .detail("companiesQueued", String.valueOf(queued == null ? 0 : queued.companiesQueued()))
                 .record();
 
         return new ImportSummaryResponse(
                 tally.rowsRead(), tally.companiesCreated(), tally.companiesUpdated(),
                 tally.companiesSkipped(), tally.candidatesCreated(), tally.candidatesUpdated(),
-                tally.customColumnsCreated(), tally.rowErrors());
+                tally.customColumnsCreated(), tally.rowErrors(),
+                queued == null ? null : ImportEnrichmentQueuedDto.of(queued));
+    }
+
+    /** The column the server will read a field from: the first to claim it, as {@link #resolveColumns} keeps. */
+    private static int firstColumnMappedTo(CommitImportRequest request, ImportTargetField field) {
+        return request.columns().stream()
+                .filter(mapping -> mapping != null && mapping.index() >= 0 && mapping.targetField() != null)
+                .filter(mapping -> field.value().equals(mapping.targetField().trim()))
+                .mapToInt(ProposedColumnMappingDto::index)
+                .findFirst()
+                .orElse(-1);
     }
 
     /** A field claimed by two columns keeps the first, or the second would silently overwrite it per row. */
@@ -197,29 +235,25 @@ public class ProjectImportService {
         }
     }
 
-    private void importRow(UUID userId, UUID workspaceId, UUID projectId, ParsedSheet sheet,
-                           List<String> row, Map<Integer, ResolvedColumn> resolved, ImportTally tally,
-                           HttpServletRequest httpRequest) {
+    private FiledRow importRow(UUID userId, UUID workspaceId, UUID projectId, ParsedSheet sheet,
+                               List<String> row, Map<Integer, ResolvedColumn> resolved, ImportTally tally,
+                               HttpServletRequest httpRequest) {
         RowFields fields = RowFields.read(sheet, row, resolved);
-
-        UUID triageCompanyId = null;
         String companyName = fields.field(ImportTargetField.COMPANY_NAME);
-        if (companyName != null) {
-            TriageCompanyResponse company = upsertCompany(
-                    userId, workspaceId, projectId, companyName, fields, tally, httpRequest);
-            triageCompanyId = company.id();
-        }
-
         String personName = fields.personName();
-        if (personName != null) {
-            upsertCandidate(userId, workspaceId, projectId, triageCompanyId, companyName, personName,
-                    fields, tally, httpRequest);
-        }
-
         if (companyName == null && personName == null) {
             throw new ApiException(ErrorCode.VALIDATION_FAILED,
                     "row carries neither a company name nor a person's name");
         }
+
+        TriageCompanyResponse company = companyName == null ? null
+                : upsertCompany(userId, workspaceId, projectId, companyName, fields, tally, httpRequest);
+        UUID triageCompanyId = company == null ? null : company.id();
+        CandidateResponse person = personName == null ? null
+                : upsertCandidate(userId, workspaceId, projectId, triageCompanyId, companyName, personName,
+                        fields, tally, httpRequest);
+        return new FiledRow(company, LinkedInLinks.companySlugOf(fields.field(ImportTargetField.COMPANY_LINKEDIN)),
+                person, LinkedInLinks.profileSlugOf(fields.field(ImportTargetField.CANDIDATE_LINKEDIN)));
     }
 
     private TriageCompanyResponse upsertCompany(UUID userId, UUID workspaceId, UUID projectId,
@@ -261,25 +295,26 @@ public class ProjectImportService {
         return updated;
     }
 
-    private void upsertCandidate(UUID userId, UUID workspaceId, UUID projectId, UUID triageCompanyId,
-                                 String companyName, String personName, RowFields fields,
-                                 ImportTally tally, HttpServletRequest httpRequest) {
+    private CandidateResponse upsertCandidate(UUID userId, UUID workspaceId, UUID projectId, UUID triageCompanyId,
+                                              String companyName, String personName, RowFields fields,
+                                              ImportTally tally, HttpServletRequest httpRequest) {
         Optional<CandidateResponse> existing = candidates.findCandidateOfProject(projectId, triageCompanyId,
                 RowValues.linkedinProfile(fields.field(ImportTargetField.CANDIDATE_LINKEDIN)),
                 RowValues.email(fields.field(ImportTargetField.CANDIDATE_EMAIL)), personName);
 
         if (existing.isEmpty()) {
-            candidates.add(userId, workspaceId, projectId,
+            CandidateResponse created = candidates.add(userId, workspaceId, projectId,
                     requests.candidateRequestFor(null, triageCompanyId, companyName, personName, fields),
                     httpRequest);
             tally.candidateCreated();
-            return;
+            return created;
         }
         CandidateResponse held = existing.get();
-        candidates.replace(userId, workspaceId, projectId, held.id(),
+        CandidateResponse updated = candidates.replace(userId, workspaceId, projectId, held.id(),
                 requests.candidateRequestFor(held, triageCompanyId, companyName, personName, fields),
                 ContactSource.CSV, httpRequest);
         tally.candidateUpdated();
+        return updated;
     }
 
     private static CustomColumnTarget customTargetOf(ProposedColumnMappingDto mapping) {

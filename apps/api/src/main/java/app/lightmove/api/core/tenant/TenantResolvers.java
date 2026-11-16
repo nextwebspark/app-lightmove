@@ -145,6 +145,12 @@ public class TenantResolvers {
         return workspaces("SELECT * FROM app_lm_workspaces_with_consents_due(?)", Timestamp.from(at));
     }
 
+    /** A spreadsheet import's enrichment row waiting its turn, or claimed before {@code staleBefore} (V225). */
+    public List<UUID> workspacesWithImportEnrichmentDue(Instant staleBefore) {
+        return workspaces("SELECT * FROM app_lm_workspaces_with_import_enrichment_due(?)",
+                Timestamp.from(staleBefore));
+    }
+
     public List<UUID> workspacesWithNotificationEmailsDue(Instant at) {
         return workspaces("SELECT * FROM app_lm_workspaces_with_notification_emails_due(?)", Timestamp.from(at));
     }

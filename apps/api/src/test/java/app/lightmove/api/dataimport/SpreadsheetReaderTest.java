@@ -12,6 +12,7 @@ import app.lightmove.api.dataimport.model.SheetColumn;
 import app.lightmove.api.dataimport.service.SpreadsheetReader;
 import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.List;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
@@ -279,7 +280,8 @@ class SpreadsheetReaderTest {
 
     private static LightMoveProperties propertiesWith(int maxRows) {
         return new LightMoveProperties(null, null, null, null, null, null, null, null, null,
-                new SpreadsheetImportSettings(10_485_760L, maxRows, false,
+                new SpreadsheetImportSettings(10_485_760L, maxRows, false, 250, Duration.ofSeconds(5), 8, 4,
+                        Duration.ofMinutes(10), Duration.ofDays(30),
                         List.of("text/csv", "text/plain",
                                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")), null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
     }
