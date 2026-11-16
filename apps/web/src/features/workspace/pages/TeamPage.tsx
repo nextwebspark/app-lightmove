@@ -10,9 +10,11 @@ import { useColumnVisibility } from "../../../lib/useColumnVisibility";
 import { EMPTY_GRID_LAYOUT, layoutColumnsOf, useGridLayout } from "../../../lib/useGridLayout";
 import { useGridPaging } from "../../../lib/useGridPaging";
 import { useGridSort, WORKSPACE_SCOPE } from "../../../lib/useGridSort";
+import { cn } from "../../../lib/cn";
 import { titleCase } from "../../../lib/format";
-import { useLocalGridFilters, type LocalGridFilterSpec } from "../../../lib/useLocalGridFilters";
+import { filterSpec, useLocalGridFilters } from "../../../lib/useLocalGridFilters";
 import { useAuth } from "../../auth/AuthProvider";
+import type { WorkspaceRole } from "../../auth/api/types";
 import * as projectsApi from "../../projects/api/projectsApi";
 import { isActive } from "../../projects/lib/filtering";
 import * as workspaceApi from "../api/workspaceApi";
@@ -34,14 +36,14 @@ const TEAM_SUBTITLE = "each position has its own lead";
 
 const DEFAULT_MEMBER_SORT = { field: "name", direction: "asc" } as const;
 
-const MEMBER_COLUMN_FILTERS: LocalGridFilterSpec<Member>[] = [
-  {
+const MEMBER_COLUMN_FILTERS = [
+  filterSpec<Member, WorkspaceRole>({
     id: "roles",
     label: "Workspace role",
     valuesOf: (member) => member.roles,
     labelOf: titleCase,
     order: ["ADMIN", "MEMBER", "CLIENT"],
-  },
+  }),
 ];
 
 /**
@@ -141,7 +143,10 @@ export function TeamPage() {
         }
       />
 
-      <div className="mb-3.5 flex items-center gap-2.5">
+      {/* Below `md` the Columns menu is hidden, so a roster with nothing to filter would leave an empty row. */}
+      <div
+        className={cn("mb-3.5 items-center gap-2.5", Object.keys(columnFilters).length > 0 ? "flex" : "hidden md:flex")}
+      >
         <GridFilterButton filters={columnFilters} resultLabel={`${rows.length} of ${members.length} members`} />
         <div className="ms-auto hidden md:flex">
           <ColumnPicker

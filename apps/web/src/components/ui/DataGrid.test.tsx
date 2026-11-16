@@ -13,12 +13,8 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  DataGrid,
-  type DataGridColumnFilter,
-  type DataGridColumnLayout,
-  type DataGridGrouping,
-} from "./DataGrid";
+import { DataGrid, type DataGridColumnLayout, type DataGridGrouping } from "./DataGrid";
+import type { DataGridColumnFilter } from "../../lib/gridFilters";
 import { EMPTY_GRID_LAYOUT, layoutColumnsOf, type GridLayout } from "../../lib/useGridLayout";
 
 interface Row {

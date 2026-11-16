@@ -13,7 +13,7 @@ import { useColumnVisibility } from "../../../lib/useColumnVisibility";
 import { EMPTY_GRID_LAYOUT, layoutColumnsOf, useGridLayout } from "../../../lib/useGridLayout";
 import { useGridPaging } from "../../../lib/useGridPaging";
 import { useGridSort, WORKSPACE_SCOPE } from "../../../lib/useGridSort";
-import { useLocalGridFilters, type LocalGridFilterSpec } from "../../../lib/useLocalGridFilters";
+import { filterSpec, useLocalGridFilters, type LocalGridFilter } from "../../../lib/useLocalGridFilters";
 import { useAuth } from "../../auth/AuthProvider";
 import { isPureClient } from "../../auth/roles";
 import * as clientsApi from "../../clients/api/clientsApi";
@@ -21,7 +21,7 @@ import { liveClients } from "../../clients/lib/filtering";
 import * as workspaceApi from "../../workspace/api/workspaceApi";
 import { useWorkspaceVocabulary } from "../../workspace/lib/vocabulary";
 import * as projectsApi from "../api/projectsApi";
-import type { Project } from "../api/types";
+import type { Project, ProjectHealth } from "../api/types";
 import { MyTasksCard } from "../../tasks/components/MyTasksCard";
 import { NewProjectModal } from "../components/NewProjectModal";
 import { ProjectDrawer } from "../components/ProjectDrawer";
@@ -44,16 +44,26 @@ const DEFAULT_CHIP: ChipKey = "active";
 
 const DEFAULT_PROJECT_SORT = { field: "target", direction: "asc" } as const;
 
-const PROJECT_COLUMN_FILTERS: LocalGridFilterSpec<Project>[] = [
-  {
-    id: "health",
-    label: "Health",
-    valuesOf: (project) => (isArchived(project) ? [] : [project.health]),
-    labelOf: (health) => healthLabel(health as Project["health"]),
-    order: ["OK", "RISK", "OFF", "DONE"],
-  },
-  { id: "team", label: "Team", valuesOf: (project) => project.team.map((seat) => seat.fullName) },
-];
+const HEALTH_ORDER: readonly ProjectHealth[] = ["OK", "RISK", "OFF", "DONE"];
+
+function projectColumnFilters(projects: readonly Project[]): LocalGridFilter<Project>[] {
+  const names = new Map(projects.flatMap((project) => project.team.map((seat) => [seat.memberId, seat.fullName] as const)));
+  return [
+    filterSpec<Project, ProjectHealth>({
+      id: "health",
+      label: "Health",
+      valuesOf: (project) => (isArchived(project) ? [] : [project.health]),
+      labelOf: healthLabel,
+      order: HEALTH_ORDER,
+    }),
+    filterSpec<Project, string>({
+      id: "team",
+      label: "Team",
+      valuesOf: (project) => project.team.map((seat) => seat.memberId),
+      labelOf: (memberId) => names.get(memberId) ?? memberId,
+    }),
+  ];
+}
 
 /**
  * The workspace home: the mandate list under My/All views, with the search box, stage chips and
@@ -107,6 +117,7 @@ export function ProjectsPage({ view }: { view: "my" | "all" }) {
 
   const myMemberId = members.find((m) => m.userId === user?.id)?.memberId;
 
+  const columnFilterSpecs = useMemo(() => projectColumnFilters(projects), [projects]);
   const searched = useMemo(
     () => filterProjects(projects, { view: clientOnly ? "all" : view, myMemberId, chip, query }),
     [projects, view, clientOnly, myMemberId, chip, query],
@@ -117,7 +128,7 @@ export function ProjectsPage({ view }: { view: "my" | "all" }) {
     inForce: columnFiltered,
     key: columnFilterKey,
     clear: clearColumnFilters,
-  } = useLocalGridFilters(searched, PROJECT_COLUMN_FILTERS);
+  } = useLocalGridFilters(searched, columnFilterSpecs);
 
   // Narrowing the list returns to the first page — staying on page 4 of a filter that now matches
   // two mandates shows an empty grid over a non-empty result — and a list that shrank under the
@@ -251,7 +262,7 @@ export function ProjectsPage({ view }: { view: "my" | "all" }) {
           chips={chips}
           activeChip={chip}
           onChipChange={setChip}
-          filter={<GridFilterButton filters={columnFilters} />}
+          filter={<GridFilterButton filters={columnFilters} resultLabel={countLabel(rows.length, searched.length, true)} />}
           trailing={
             <ColumnPicker
               columns={HIDEABLE_PROJECT_COLUMNS}

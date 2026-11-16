@@ -1,7 +1,8 @@
 import type { ColumnVisibilityState, OnChangeFn, PaginationState } from "@tanstack/react-table";
 import { useMemo } from "react";
 import { ArchivedPill, CompanyLogo, HealthInline, StagePill } from "../../../components/ui";
-import { DataGrid, type DataGridColumnFilter } from "../../../components/ui/DataGrid";
+import { DataGrid } from "../../../components/ui/DataGrid";
+import type { DataGridColumnFilter } from "../../../lib/gridFilters";
 import { useDataGridTable } from "../../../lib/useDataGridTable";
 import type { GridLayout } from "../../../lib/useGridLayout";
 import type { GridSort } from "../../../lib/useGridSort";

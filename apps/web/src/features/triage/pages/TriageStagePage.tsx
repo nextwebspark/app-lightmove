@@ -5,7 +5,8 @@ import type { ProjectOutletContext } from "../../../components/layout/ProjectLay
 import { ICONS } from "../../../components/layout/Icon";
 import { FullscreenButton } from "../../../components/ui";
 import { ColumnPickerList, hideableColumnsOf } from "../../../components/ui/ColumnPicker";
-import { GridFilterButton, type DataGridColumnFilter } from "../../../components/ui/GridFilters";
+import { GridFilterButton } from "../../../components/ui/GridFilters";
+import type { DataGridColumnFilter } from "../../../lib/gridFilters";
 import { PaginationBar } from "../../../components/ui/PaginationBar";
 import { useToast } from "../../../components/ui/Toast";
 import { cn } from "../../../lib/cn";
@@ -920,7 +921,14 @@ function TriageStage() {
         search={search}
         onSearch={setSearch}
         searchPlaceholder={!canWrite ? "Search companies and executives…" : "Search companies, executives, notes…"}
-        filter={view === "table" ? <GridFilterButton filters={columnFilters} /> : undefined}
+        filter={
+          view === "table" ? (
+            <GridFilterButton
+              filters={columnFilters}
+              resultLabel={totalCount === undefined ? undefined : `${totalCount} ${totalCount === 1 ? "result" : "results"}`}
+            />
+          ) : undefined
+        }
         views={views}
         view={view}
         onViewChange={handleViewChange}

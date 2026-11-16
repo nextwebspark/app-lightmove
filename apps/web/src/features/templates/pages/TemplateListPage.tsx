@@ -12,7 +12,7 @@ import { FULLSCREEN_PANEL, useFullscreen } from "../../../lib/useFullscreen";
 import { EMPTY_GRID_LAYOUT, layoutColumnsOf, useGridLayout } from "../../../lib/useGridLayout";
 import { useGridPaging } from "../../../lib/useGridPaging";
 import { useGridSort, WORKSPACE_SCOPE } from "../../../lib/useGridSort";
-import { useLocalGridFilters, type LocalGridFilterSpec } from "../../../lib/useLocalGridFilters";
+import { filterSpec, useLocalGridFilters, type LocalGridFilter } from "../../../lib/useLocalGridFilters";
 import { SENIORITY_LABELS, SENIORITY_TIERS } from "../../../lib/seniority";
 import { POSITION_TEMPLATES_KEY } from "../../position/api/positionApi";
 import * as templateApi from "../api/templateAdminApi";
@@ -130,7 +130,12 @@ function TemplateList({ scope }: { scope: TemplateScope }) {
         scope={scope}
         query={query}
         onQuery={setQuery}
-        filter={<GridFilterButton filters={columnFilters} />}
+        filter={
+          <GridFilterButton
+            filters={columnFilters}
+            resultLabel={`${rows.length} of ${searched.length} ${searched.length === 1 ? "template" : "templates"}`}
+          />
+        }
         hideableColumns={HIDEABLE_COLUMNS[scope]}
         columnVisibility={columnVisibility}
         onColumnVisibilityChange={setColumnVisibility}
@@ -182,30 +187,30 @@ function TemplateList({ scope }: { scope: TemplateScope }) {
   );
 }
 
-function templateColumnFilters(scope: TemplateScope): LocalGridFilterSpec<TemplateOverview>[] {
+function templateColumnFilters(scope: TemplateScope): LocalGridFilter<TemplateOverview>[] {
   return [
-    {
+    filterSpec<TemplateOverview, TemplateOverview["discipline"]>({
       id: "discipline",
       label: "Discipline",
       valuesOf: (template) => [template.discipline],
-      labelOf: (discipline) => DISCIPLINE_LABELS[discipline as TemplateOverview["discipline"]],
+      labelOf: (discipline) => DISCIPLINE_LABELS[discipline],
       order: DISCIPLINES,
-    },
-    {
+    }),
+    filterSpec<TemplateOverview, TemplateOverview["seniority"]>({
       id: "seniority",
       label: "Seniority",
       valuesOf: (template) => [template.seniority],
-      labelOf: (seniority) => SENIORITY_LABELS[seniority as TemplateOverview["seniority"]],
+      labelOf: (seniority) => SENIORITY_LABELS[seniority],
       order: SENIORITY_TIERS,
-    },
-    {
+    }),
+    filterSpec<TemplateOverview, string>({
       id: "revisedBy",
       label: "Revised by",
       valuesOf: (template) => {
         const reviser = reviserOf(scope, template);
         return reviser ? [reviser] : [];
       },
-    },
+    }),
   ];
 }
 

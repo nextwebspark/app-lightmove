@@ -2,7 +2,8 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
-import { GridFilterButton, type DataGridColumnFilter } from "./GridFilters";
+import { GridFilterButton } from "./GridFilters";
+import type { DataGridColumnFilter } from "../../lib/gridFilters";
 
 const STATUS_OPTIONS = [
   { value: "contacted", label: "Contacted" },
@@ -84,6 +85,25 @@ describe("GridFilterButton", () => {
     expect(screen.queryByRole("textbox", { name: "Filter by company name" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Status values" })).toHaveTextContent("Contacted");
     expect(screen.getByRole("button", { name: "Filter, 1 applied" })).toBeInTheDocument();
+  });
+
+  it("hands focus back to the Filter button, and says so, when its ✕ clears everything", async () => {
+    render(<Harness initialName="acwa" />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Clear all filters" }));
+
+    expect(screen.getByRole("button", { name: "Filter" })).toHaveFocus();
+    expect(screen.getByRole("status")).toHaveTextContent("All filters cleared");
+  });
+
+  it("keeps focus in the panel when a line's ✕ takes the line away", async () => {
+    render(<Harness initialName="acwa" initialStatus={["contacted"]} />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Filter, 2 applied" }));
+    await userEvent.click(screen.getByRole("button", { name: "Remove Status filter" }));
+
+    expect(screen.getByRole("button", { name: "Add filter" })).toHaveFocus();
+    expect(screen.getByRole("status")).toHaveTextContent("Status filter removed");
   });
 
   it("offers no Add filter once every column is already listed", async () => {

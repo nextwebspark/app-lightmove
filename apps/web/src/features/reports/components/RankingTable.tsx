@@ -1,10 +1,11 @@
 import { createColumnHelper, tableFeatures, type ColumnPinningState } from "@tanstack/react-table";
 import { type ReactNode, useMemo, useState } from "react";
 import { DATA_GRID_FEATURES, DataGrid, type DataGridColumnLayout } from "../../../components/ui/DataGrid";
-import { GridFilterButton, type DataGridColumnFilter } from "../../../components/ui/GridFilters";
+import { GridFilterButton } from "../../../components/ui/GridFilters";
 import { SelectionCheckbox } from "../../../components/ui/SelectionCheckbox";
 import { TruncatedText } from "../../../components/ui/TruncatedText";
 import { cn } from "../../../lib/cn";
+import type { DataGridColumnFilter } from "../../../lib/gridFilters";
 import { compareNumber, compareText } from "../../../lib/gridSortFns";
 import { useDataGridTable } from "../../../lib/useDataGridTable";
 import { layoutColumnsOf, useGridLayout } from "../../../lib/useGridLayout";

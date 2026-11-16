@@ -24,7 +24,8 @@ import {
 } from "react";
 import { Icon, ICONS } from "../layout/Icon";
 import { cn } from "../../lib/cn";
-import { ColumnFilterEditor, isFilterInForce, type DataGridColumnFilter } from "./GridFilters";
+import { isFilterInForce, type DataGridColumnFilter } from "../../lib/gridFilters";
+import { ColumnFilterEditor } from "./GridFilters";
 import { Popover } from "./Popover";
 import { TruncatedText } from "./TruncatedText";
 import { DEFAULT_COLUMN_MIN, type GridLayout } from "../../lib/useGridLayout";
@@ -51,7 +52,6 @@ const SORT_HINTS: Record<DataGridSortKind, { asc: string; desc: string }> = {
   date: { asc: "Old → New", desc: "New → Old" },
 };
 
-export type { DataGridCheckFilter, DataGridColumnFilter, DataGridTextFilter } from "./GridFilters";
 
 /**
  * The four features every grid on this component registers. Spread into each grid's own

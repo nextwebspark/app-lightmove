@@ -1,53 +1,29 @@
 import { useEffect, useRef, useState } from "react";
 import { Icon, ICONS } from "../layout/Icon";
 import { cn } from "../../lib/cn";
+import {
+  clearFilter,
+  filterSummary,
+  isFilterInForce,
+  type DataGridCheckFilter,
+  type DataGridColumnFilter,
+  type DataGridTextFilter,
+} from "../../lib/gridFilters";
 import { FilterCheckRow } from "./FilterCheckRow";
 import { Popover } from "./Popover";
 import { TOOLBAR_GHOST, ToolbarLabel } from "./Toolbar";
 
-/** One column's free-text filter: "contains". */
-export interface DataGridTextFilter {
-  kind?: "text";
-  /** The column's name, as the toolbar's Filter panel lists it. */
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  placeholder?: string;
-  "aria-label": string;
-}
-
-/** One column's closed-vocabulary filter (Status, Role): values ticked from a list rather than typed. */
-export interface DataGridCheckFilter {
-  kind: "check";
-  label: string;
-  /** `indent` draws an option as a child of the one above it — a status under its stage. */
-  options: { value: string; label: string; indent?: boolean }[];
-  selected: string[];
-  onChange: (selected: string[]) => void;
-  "aria-label": string;
-}
-
-/** A column's filter, keyed by column id — edited from its header menu and listed by {@link GridFilterButton}. */
-export type DataGridColumnFilter = DataGridTextFilter | DataGridCheckFilter;
-
 /** Past this many options a checkbox list gets a search box of its own. */
 const CHECK_SEARCH_THRESHOLD = 8;
 
-export function isFilterInForce(filter: DataGridColumnFilter): boolean {
-  return filter.kind === "check" ? filter.selected.length > 0 : filter.value.length > 0;
-}
+const FILTER_INPUT =
+  "h-7 w-full min-w-0 rounded-[4px] border border-u-border-strong bg-u-surface px-2 font-sans text-[12px] text-u-text outline-none placeholder:text-u-text3 focus:border-u-accent";
 
-export function clearFilter(filter: DataGridColumnFilter) {
-  if (filter.kind === "check") filter.onChange([]);
-  else filter.onChange("");
-}
+const PANEL_FIELD =
+  "flex h-7 w-full min-w-0 items-center justify-between gap-1.5 rounded-[4px] border border-u-border-strong bg-u-surface px-2 text-left font-sans text-[12px] text-u-text transition hover:border-u-text3 aria-expanded:border-u-accent";
 
-export function filterSummary(filter: DataGridCheckFilter): string {
-  const labels = filter.selected.map(
-    (value) => filter.options.find((option) => option.value === value)?.label ?? value,
-  );
-  return labels.length > 2 ? `${labels.slice(0, 2).join(", ")} +${labels.length - 2}` : labels.join(", ");
-}
+const PANEL_TEXT_BUTTON =
+  "inline-flex h-7 items-center gap-1.5 rounded-[6px] px-2 font-sans text-[12.5px] font-medium text-u-text2 transition hover:bg-u-raised hover:text-u-text disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent";
 
 /** The editor for one filter: a text box, or a checkbox list. Shared by the header menu and the Filter panel. */
 export function ColumnFilterEditor({
@@ -92,10 +68,7 @@ function TextFilterInput({
         }}
         placeholder={filter.placeholder}
         aria-label={filter["aria-label"]}
-        className={cn(
-          "h-7 w-full min-w-0 rounded-[4px] border border-u-border-strong bg-u-surface px-2 font-sans text-[12px] text-u-text outline-none placeholder:text-u-text3 focus:border-u-accent",
-          filter.value && "pe-7",
-        )}
+        className={cn(FILTER_INPUT, filter.value && "pe-7")}
       />
       {filter.value && (
         <button
@@ -135,7 +108,7 @@ function CheckFilterList({ filter }: { filter: DataGridCheckFilter }) {
           onChange={(event) => setQuery(event.target.value)}
           placeholder="Search…"
           aria-label={`Search ${filter.label} options`}
-          className="h-7 w-full min-w-0 rounded-[4px] border border-u-border-strong bg-u-surface px-2 font-sans text-[12px] text-u-text outline-none placeholder:text-u-text3 focus:border-u-accent"
+          className={FILTER_INPUT}
         />
       )}
       <div role="group" aria-label={filter["aria-label"]} className="flex max-h-[220px] flex-col gap-0.5 overflow-y-auto">
@@ -155,11 +128,86 @@ function CheckFilterList({ filter }: { filter: DataGridCheckFilter }) {
   );
 }
 
-const PANEL_FIELD =
-  "flex h-7 w-full min-w-0 items-center justify-between gap-1.5 rounded-[4px] border border-u-border-strong bg-u-surface px-2 text-left font-sans text-[12px] text-u-text transition hover:border-u-text3 aria-expanded:border-u-accent";
+/** One filter in the panel: column, operator, value, and its own ✕. A checkbox filter opens its list beneath. */
+function FilterPanelRow({
+  filter,
+  expanded,
+  focusOnMount,
+  onToggleExpanded,
+  onRemove,
+  onEnter,
+}: {
+  filter: DataGridColumnFilter;
+  expanded: boolean;
+  focusOnMount: boolean;
+  onToggleExpanded: () => void;
+  onRemove: () => void;
+  onEnter: () => void;
+}) {
+  return (
+    <li className="flex flex-col gap-1.5">
+      <div className="grid grid-cols-[88px_64px_minmax(0,1fr)_28px] items-center gap-1.5">
+        <span className="truncate font-sans text-[12.5px] font-medium text-u-text">{filter.label}</span>
+        <span className="truncate font-sans text-[12px] text-u-text3">
+          {filter.kind === "check" ? "is any of" : "contains"}
+        </span>
+        {filter.kind === "check" ? (
+          <button
+            type="button"
+            aria-expanded={expanded}
+            aria-label={`${filter.label} values`}
+            onClick={onToggleExpanded}
+            className={PANEL_FIELD}
+          >
+            <span className={cn("truncate", filter.selected.length === 0 && "text-u-text3")}>
+              {filter.selected.length > 0 ? filterSummary(filter) : "Choose…"}
+            </span>
+            <Icon d={ICONS.chevronDown} size={12} className="flex-none text-u-text3" />
+          </button>
+        ) : (
+          <ColumnFilterEditor filter={filter} onEnter={onEnter} focusOnMount={focusOnMount} />
+        )}
+        <button
+          type="button"
+          aria-label={`Remove ${filter.label} filter`}
+          onClick={onRemove}
+          className="grid size-7 place-items-center rounded-[6px] text-u-text3 transition hover:bg-u-raised hover:text-u-text"
+        >
+          <Icon d={ICONS.close} size={13} />
+        </button>
+      </div>
+      {filter.kind === "check" && expanded && (
+        <div className="rounded-[6px] border border-u-border bg-u-bg p-1.5">
+          <ColumnFilterEditor filter={filter} onEnter={onEnter} />
+        </div>
+      )}
+    </li>
+  );
+}
 
-const PANEL_TEXT_BUTTON =
-  "inline-flex h-7 items-center gap-1.5 rounded-[6px] px-2 font-sans text-[12.5px] font-medium text-u-text2 transition hover:bg-u-raised hover:text-u-text disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent";
+/** The columns not yet in the panel, any one of which becomes a new filter line. */
+function AddFilterMenu({
+  columns,
+  onAdd,
+}: {
+  columns: readonly [string, DataGridColumnFilter][];
+  onAdd: (id: string) => void;
+}) {
+  return (
+    <div role="group" aria-label="Choose a column to filter" className="mx-1.5 flex flex-col rounded-[6px] border border-u-border bg-u-bg p-1">
+      {columns.map(([id, filter]) => (
+        <button
+          key={id}
+          type="button"
+          onClick={() => onAdd(id)}
+          className="rounded-[5px] px-2 py-1.5 text-left font-sans text-[12.5px] text-u-text2 transition hover:bg-u-raised hover:text-u-text"
+        >
+          {filter.label}
+        </button>
+      ))}
+    </div>
+  );
+}
 
 /**
  * The toolbar's one place for a grid's filters: a plain Filter button while none is in force; a tinted
@@ -177,6 +225,19 @@ export function GridFilterButton({
   const [added, setAdded] = useState<string[]>([]);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
+  const [announcement, setAnnouncement] = useState("");
+  const [refocus, setRefocus] = useState<"trigger" | "add" | null>(null);
+  const wrapperRef = useRef<HTMLSpanElement>(null);
+  const addButtonRef = useRef<HTMLButtonElement>(null);
+
+  // A ✕ that clears or removes unmounts under the caret, so focus moves — once the render it caused has
+  // landed, since Add filter is disabled until the removed column is addable again.
+  useEffect(() => {
+    if (!refocus) return;
+    if (refocus === "add") addButtonRef.current?.focus();
+    else wrapperRef.current?.querySelector<HTMLButtonElement>("button")?.focus();
+    setRefocus(null);
+  }, [refocus]);
 
   const entries = Object.entries(filters);
   if (entries.length === 0) return null;
@@ -186,17 +247,21 @@ export function GridFilterButton({
   const addable = entries.filter(([id]) => !shown.some(([shownId]) => shownId === id));
   const count = inForce.length;
 
-  const clearAll = () => {
+  const clearAll = (then: "trigger" | "add") => {
     for (const [, filter] of entries) clearFilter(filter);
     setAdded([]);
     setExpanded(null);
     setAdding(false);
+    setAnnouncement("All filters cleared");
+    setRefocus(then);
   };
 
   const remove = (id: string, filter: DataGridColumnFilter) => {
     clearFilter(filter);
     setAdded((current) => current.filter((entry) => entry !== id));
     if (expanded === id) setExpanded(null);
+    setAnnouncement(`${filter.label} filter removed`);
+    setRefocus("add");
   };
 
   const add = (id: string) => {
@@ -233,9 +298,7 @@ export function GridFilterButton({
         <div className="flex flex-col gap-1">
           <div className="flex items-baseline justify-between gap-3 px-1.5 pb-1 pt-1">
             <span className="font-sans text-[13px] font-semibold text-u-text">Filters</span>
-            {count > 0 && resultLabel && (
-              <span className="font-mono text-[11px] text-u-text3">{resultLabel}</span>
-            )}
+            {count > 0 && resultLabel && <span className="font-mono text-[11px] text-u-text3">{resultLabel}</span>}
           </div>
 
           {shown.length === 0 ? (
@@ -243,64 +306,24 @@ export function GridFilterButton({
           ) : (
             <ul className="flex flex-col gap-1.5 px-1.5">
               {shown.map(([id, filter]) => (
-                <li key={id} className="flex flex-col gap-1.5">
-                  <div className="grid grid-cols-[88px_64px_minmax(0,1fr)_28px] items-center gap-1.5">
-                    <span className="truncate font-sans text-[12.5px] font-medium text-u-text">{filter.label}</span>
-                    <span className="truncate font-sans text-[12px] text-u-text3">
-                      {filter.kind === "check" ? "is any of" : "contains"}
-                    </span>
-                    {filter.kind === "check" ? (
-                      <button
-                        type="button"
-                        aria-expanded={expanded === id}
-                        aria-label={`${filter.label} values`}
-                        onClick={() => setExpanded(expanded === id ? null : id)}
-                        className={PANEL_FIELD}
-                      >
-                        <span className={cn("truncate", filter.selected.length === 0 && "text-u-text3")}>
-                          {filter.selected.length > 0 ? filterSummary(filter) : "Choose…"}
-                        </span>
-                        <Icon d={ICONS.chevronDown} size={12} className="flex-none text-u-text3" />
-                      </button>
-                    ) : (
-                      <ColumnFilterEditor filter={filter} onEnter={close} focusOnMount={expanded === id} />
-                    )}
-                    <button
-                      type="button"
-                      aria-label={`Remove ${filter.label} filter`}
-                      onClick={() => remove(id, filter)}
-                      className="grid size-7 place-items-center rounded-[6px] text-u-text3 transition hover:bg-u-raised hover:text-u-text"
-                    >
-                      <Icon d={ICONS.close} size={13} />
-                    </button>
-                  </div>
-                  {filter.kind === "check" && expanded === id && (
-                    <div className="rounded-[6px] border border-u-border bg-u-bg p-1.5">
-                      <ColumnFilterEditor filter={filter} onEnter={close} />
-                    </div>
-                  )}
-                </li>
+                <FilterPanelRow
+                  key={id}
+                  filter={filter}
+                  expanded={expanded === id}
+                  focusOnMount={expanded === id}
+                  onToggleExpanded={() => setExpanded(expanded === id ? null : id)}
+                  onRemove={() => remove(id, filter)}
+                  onEnter={close}
+                />
               ))}
             </ul>
           )}
 
-          {adding && addable.length > 0 && (
-            <div role="group" aria-label="Choose a column to filter" className="mx-1.5 flex flex-col rounded-[6px] border border-u-border bg-u-bg p-1">
-              {addable.map(([id, filter]) => (
-                <button
-                  key={id}
-                  type="button"
-                  onClick={() => add(id)}
-                  className="rounded-[5px] px-2 py-1.5 text-left font-sans text-[12.5px] text-u-text2 transition hover:bg-u-raised hover:text-u-text"
-                >
-                  {filter.label}
-                </button>
-              ))}
-            </div>
-          )}
+          {adding && addable.length > 0 && <AddFilterMenu columns={addable} onAdd={add} />}
 
           <div className="mt-1 flex items-center justify-between border-t border-u-border px-0.5 pt-2">
             <button
+              ref={addButtonRef}
               type="button"
               aria-expanded={adding}
               disabled={addable.length === 0}
@@ -310,7 +333,12 @@ export function GridFilterButton({
               <Icon d={ICONS.plus} size={13} />
               Add filter
             </button>
-            <button type="button" disabled={shown.length === 0} onClick={clearAll} className={PANEL_TEXT_BUTTON}>
+            <button
+              type="button"
+              disabled={shown.length === 0}
+              onClick={() => clearAll("add")}
+              className={PANEL_TEXT_BUTTON}
+            >
               Clear all
             </button>
           </div>
@@ -322,8 +350,9 @@ export function GridFilterButton({
   // One wrapper whichever state, so the first tick that puts a filter in force does not remount — and close — the panel.
   return (
     <span
+      ref={wrapperRef}
       className={cn(
-        "inline-flex h-[34px] flex-none items-stretch rounded-u-control",
+        "relative inline-flex h-[34px] flex-none items-stretch rounded-u-control",
         count > 0 && "overflow-hidden border border-u-accent-ring bg-u-accent-tint",
       )}
     >
@@ -333,7 +362,7 @@ export function GridFilterButton({
           <span aria-hidden="true" className="w-px bg-u-accent-ring" />
           <button
             type="button"
-            onClick={clearAll}
+            onClick={() => clearAll("trigger")}
             aria-label="Clear all filters"
             title="Clear all filters"
             className="grid w-[30px] place-items-center text-u-accent transition hover:bg-u-accent-tint"
@@ -342,6 +371,9 @@ export function GridFilterButton({
           </button>
         </>
       )}
+      <span role="status" aria-live="polite" className="sr-only">
+        {announcement}
+      </span>
     </span>
   );
 }
