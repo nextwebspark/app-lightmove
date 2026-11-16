@@ -1,4 +1,4 @@
-import { Extension, type Editor } from "@tiptap/core";
+import { Extension, type AnyExtension, type Editor } from "@tiptap/core";
 import { Plugin, PluginKey, TextSelection, type EditorState } from "@tiptap/pm/state";
 import { Decoration, DecorationSet, type EditorView } from "@tiptap/pm/view";
 import { TOKEN_PATTERN } from "./sequenceTokens";
@@ -24,21 +24,34 @@ interface ChipState {
 const KEY = new PluginKey<ChipState>("variableChips");
 const REFRESH = "variableChips.refresh";
 
+/** The chips' extension for one editor, and the way to tell it what to draw. */
+export interface VariableChips {
+  extension: AnyExtension;
+  /** Null while the executive's values load: the words read as typed. Whatever editor is built, now or later, follows. */
+  setHost: (host: VariableChipHost | null) => void;
+}
+
 /**
  * An email to one person reads each `{{variable}}` as that person's value in a chip, and stays the variable underneath:
  * the words in the document and in the stored Markdown are untouched (a template saved from the email keeps
  * `{{firstName}}`, not a name), and only what is drawn changes. The raw text is hidden and the caret steps over it as one.
  */
-export function variableChipsExtension(host: { current: VariableChipHost | null }) {
-  return Extension.create({
+export function createVariableChips(): VariableChips {
+  const source: { current: VariableChipHost | null } = { current: null };
+  const views = new Set<EditorView>();
+  const extension = Extension.create({
     name: "variableChips",
     addProseMirrorPlugins: () => [
       new Plugin<ChipState>({
         key: KEY,
         state: {
-          init: (_config, state) => chipsOf(state, host),
+          init: (_config, state) => chipsOf(state, source),
           apply: (transaction, previous, _old, state) =>
-            transaction.docChanged || transaction.getMeta(REFRESH) ? chipsOf(state, host) : previous,
+            transaction.docChanged || transaction.getMeta(REFRESH) ? chipsOf(state, source) : previous,
+        },
+        view: (view) => {
+          views.add(view);
+          return { destroy: () => views.delete(view) };
         },
         props: {
           decorations: (state) => KEY.getState(state)?.decorations,
@@ -47,12 +60,14 @@ export function variableChipsExtension(host: { current: VariableChipHost | null 
       }),
     ],
   });
-}
-
-/** Draws the chips again, once the executive's values or the composer's rules have changed under the same words. */
-export function refreshVariableChips(editor: Editor | null | undefined) {
-  if (!editor || editor.isDestroyed) return;
-  editor.view.dispatch(editor.state.tr.setMeta(REFRESH, true));
+  return {
+    extension,
+    setHost: (host) => {
+      source.current = host;
+      // An editor built before the values arrived, or not yet: drawn again here, or built with them.
+      for (const view of views) view.dispatch(view.state.tr.setMeta(REFRESH, true));
+    },
+  };
 }
 
 /** Every use of one variable in the words replaced by `replacement` ("" takes it out), as one change. */
@@ -92,12 +107,16 @@ function chipsOf(state: EditorState, host: { current: VariableChipHost | null })
         ranges.push({ from, to });
         decorations.push(
           Decoration.widget(from, () => chipElement(chip, name, source), {
-            side: -1,
+            // Drawn after the position at `from`: the caret there is left of the chip, and `to` is right of it.
+            side: 1,
             key: `${from}:${name}:${chip.kind}:${chip.text}`,
             // A press on a chip opens its popover; it must not also move the caret.
             stopEvent: (event) => event.type === "mousedown" || event.type === "click",
           }),
           Decoration.inline(from, to, { style: "display:none" }),
+          // The caret at `to` would be drawn at the end of the hidden words, where typing and Delete find nothing to act on.
+          // An empty element there puts it in the text that follows, or at the end of the line.
+          Decoration.widget(to, () => document.createElement("span"), { side: -1, key: `${to}:${name}:end` }),
         );
       }
     });

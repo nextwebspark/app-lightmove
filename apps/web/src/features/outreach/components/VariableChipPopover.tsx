@@ -34,12 +34,27 @@ export function VariableChipPopover({
 
   useEffect(() => {
     const closeOnOutside = (event: MouseEvent) => {
+      if (!(event.target instanceof Element)) return;
+      if (panelRef.current?.contains(event.target)) return;
+      // A press on a chip is the chip's own: it opens its popover, or closes this one if it is the one pressed.
+      if (event.target.closest("[data-variable]")) return;
+      onClose();
+    };
+    // The panel is fixed where the chip was: a scroll of whatever sits behind it, or a resize, would strand it. Heard a
+    // beat late, as the shared Popover's is, since opening one brings the field into view.
+    const closeOnScroll = (event: Event) => {
       if (event.target instanceof Node && panelRef.current?.contains(event.target)) return;
-      // A second press on the chip itself is its own toggle.
       onClose();
     };
     document.addEventListener("mousedown", closeOnOutside);
-    return () => document.removeEventListener("mousedown", closeOnOutside);
+    const listenForScroll = window.setTimeout(() => window.addEventListener("scroll", closeOnScroll, true), 150);
+    window.addEventListener("resize", onClose);
+    return () => {
+      window.clearTimeout(listenForScroll);
+      document.removeEventListener("mousedown", closeOnOutside);
+      window.removeEventListener("scroll", closeOnScroll, true);
+      window.removeEventListener("resize", onClose);
+    };
   }, [onClose]);
 
   const { rect, chip } = target;

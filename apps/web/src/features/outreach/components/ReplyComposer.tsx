@@ -36,17 +36,14 @@ import { isLive } from "../lib/runVocabulary";
 import { HALF_HOURS, instantOf, wallClockOf, whenLabelOf } from "../lib/sendSchedule";
 import { firstNameOf, replaceVariable, templateTokenOptions, unfilledIn, unknownIn } from "../lib/sequenceTokens";
 import { CHIP_CLASS, chipOf, piecesOf, VARIABLE_LABELS, type VariableChip, type VariableChipKind } from "../lib/variableChips";
-import {
-  refreshVariableChips,
-  replaceVariableInEditor,
-  variableChipsExtension,
-  type VariableChipHost,
-} from "../lib/variableChipsExtension";
+import { createVariableChips, replaceVariableInEditor } from "../lib/variableChipsExtension";
 import type { MailboxConnect } from "../lib/useMailboxConnect";
 import { formatClock, getDateTimePreferences } from "../../../lib/datetime";
 
 /** As far ahead as the server takes a scheduled email. */
 const SCHEDULE_HORIZON_DAYS = 60;
+/** The Subject field's own limit. */
+const SUBJECT_MAX_LENGTH = 200;
 /** The server's own limit on what a consultant writes, before the tokens are filled in. */
 const BODY_MAX_LENGTH = 10_000;
 
@@ -182,8 +179,10 @@ function OpenComposer({
   const bodyEditor = useRef<NoteEditorHandle | null>(null);
   const [isSubjectFocused, setIsSubjectFocused] = useState(false);
   const [openChip, setOpenChip] = useState<{ name: string; kind: VariableChipKind; chip: VariableChip; rect: DOMRect } | null>(null);
-  const chipHost = useRef<VariableChipHost | null>(null);
-  const [chipExtensions] = useState(() => [variableChipsExtension(chipHost)]);
+  const [chips] = useState(() => {
+    const created = createVariableChips();
+    return { ...created, extensions: [created.extension] };
+  });
   const signature = useSignatureChoice();
   const templates = useQuery({
     queryKey: emailTemplatesApi.EMAIL_TEMPLATES_KEY,
@@ -284,21 +283,37 @@ function OpenComposer({
     else setBody(body + token);
   };
 
-  // An email to one person reads each variable as their value; until the values are read, it reads as typed.
+  // An email to one person reads each variable as their value, those the composer accepts; until the values are read,
+  // it reads as typed. A booking link where none is offered stays as typed: the line under the editor names it.
   useEffect(() => {
-    chipHost.current = tokens ? { chipFor: (name, fallback) => chipOf(name, fallback, tokens, firstName), onChip: setOpenChip } : null;
-    refreshVariableChips(bodyEditor.current?.editor);
-  }, [tokens, firstName]);
+    const accepted = new Set(templateVocabulary(bookingLinkOffered));
+    chips.setHost(
+      tokens
+        ? {
+            chipFor: (name, fallback) => (accepted.has(name) ? chipOf(name, fallback, tokens, firstName) : null),
+            // A second press on the open chip closes its popover.
+            onChip: (target) => setOpenChip((open) => (open?.name === target.name ? null : target)),
+          }
+        : null,
+    );
+  }, [chips, tokens, firstName, bookingLinkOffered]);
+
+  // The popover is fixed where its chip was: a word typed before it would leave it behind.
+  useEffect(() => {
+    setOpenChip(null);
+  }, [body, subject]);
 
   /** A variable given the words typed for this email, or taken out with none: wherever it is used, subject and all. */
   const fillVariable = (name: string, text: string) => {
     if (bodyEditor.current) replaceVariableInEditor(bodyEditor.current.editor, name, text);
-    if (!isReply) setSubject((current) => replaceVariable(current, name, text));
+    if (!isReply) setSubject((current) => replaceVariable(current, name, text).slice(0, SUBJECT_MAX_LENGTH));
     setOpenChip(null);
   };
 
   const unsendable = unsendableVariablesOf(isReply ? body : `${subject}\n${body}`, tokens, templateVocabulary(bookingLinkOffered));
-  const subjectChips = tokens ? piecesOf(subject, tokens, firstName) : [];
+  const subjectChips = tokens
+    ? piecesOf(subject, tokens, firstName, (name) => templateVocabulary(bookingLinkOffered).includes(name))
+    : [];
   const subjectPieces = subjectChips.some((piece) => "chip" in piece) ? subjectChips : null;
   const hasBody = body.trim().length > 0;
   const hasDraft = hasBody || subject.trim().length > 0 || attachments.length > 0;
@@ -357,7 +372,7 @@ function OpenComposer({
         fillsDialog
         onExpandChange={onExpandChange}
         editorRef={bodyEditor}
-        extraExtensions={chipExtensions}
+        extraExtensions={chips.extensions}
         header={
           <>
             <div className="flex items-center gap-2 border-b border-u-border py-2 text-note">
@@ -399,7 +414,7 @@ function OpenComposer({
                     }}
                     onBlur={() => setIsSubjectFocused(false)}
                     value={subject}
-                    maxLength={200}
+                    maxLength={SUBJECT_MAX_LENGTH}
                     onChange={(event) => setSubject(event.target.value)}
                     className={cn(
                       "min-w-0 flex-1 bg-transparent text-u-text outline-none placeholder:text-u-text3",
@@ -417,10 +432,14 @@ function OpenComposer({
                             key={index}
                             type="button"
                             title={piece.chip.title}
+                            data-variable={piece.name}
                             onMouseDown={(event) => event.preventDefault()}
                             onClick={(event) => {
                               event.preventDefault();
-                              setOpenChip({ name: piece.name, kind: piece.chip.kind, chip: piece.chip, rect: event.currentTarget.getBoundingClientRect() });
+                              const rect = event.currentTarget.getBoundingClientRect();
+                              setOpenChip((open) =>
+                                open?.name === piece.name ? null : { name: piece.name, kind: piece.chip.kind, chip: piece.chip, rect },
+                              );
                             }}
                             className={cn("pointer-events-auto flex-none", CHIP_CLASS[piece.chip.kind])}
                           >
@@ -441,16 +460,6 @@ function OpenComposer({
           <>
             <SignatureUnderEmail choice={signature} />
             <AttachmentChips attachments={attachments} limits={attachmentLimits} onChange={setAttachments} />
-            {unsendable.length > 0 && (
-              <p role="alert" className="mt-1.5 text-meta text-u-offlimits">
-                {unsendableLineOf(unsendable, firstName)}
-              </p>
-            )}
-            {isTooLong && (
-              <p role="alert" className="mt-1.5 text-meta text-u-offlimits">
-                Too long to send. Shorten it to {BODY_MAX_LENGTH.toLocaleString("en-GB")} characters.
-              </p>
-            )}
             <RecentApproachNote approach={recentApproach} className="mt-1.5" />
             {isApproaching && (
               <RecentApproachConfirm
@@ -470,7 +479,19 @@ function OpenComposer({
               />
             )}
             {/* Stuck to the dialog's foot: on a short window the body scrolls, and Send must not scroll away with it. */}
-            <div className="sticky bottom-0 z-10 mt-1 flex flex-wrap items-center gap-2 bg-u-surface pb-2 pt-1">
+            <div className="sticky bottom-0 z-10 mt-1 bg-u-surface pb-2 pt-1">
+              {/* With the row: what holds Send is as much in view as Send itself. */}
+              {unsendable.length > 0 && (
+                <p role="alert" className="mb-1.5 text-meta text-u-offlimits">
+                  {unsendableLineOf(unsendable, firstName)}
+                </p>
+              )}
+              {isTooLong && (
+                <p role="alert" className="mb-1.5 text-meta text-u-offlimits">
+                  Too long to send. Shorten it to {BODY_MAX_LENGTH.toLocaleString("en-GB")} characters.
+                </p>
+              )}
+              <div className="flex flex-wrap items-center gap-2">
               <AttachButton
                 projectId={projectId}
                 candidateId={candidateId}
@@ -514,6 +535,7 @@ function OpenComposer({
                 >
                   Send now
                 </Button>
+              </div>
               </div>
             </div>
             <p className="mt-2 text-meta text-u-text3">{footnote}</p>

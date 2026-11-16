@@ -56,12 +56,17 @@ export const CHIP_CLASS: Record<VariableChipKind, string> = {
 export type TextPiece = { text: string } | { text: string; name: string; chip: VariableChip };
 
 /** A line of words cut into plain text and the chips its variables are, for a field that cannot draw them in place. */
-export function piecesOf(text: string, tokens: RecipientTokens, forWhom: string): TextPiece[] {
+export function piecesOf(
+  text: string,
+  tokens: RecipientTokens,
+  forWhom: string,
+  accepts: (name: string) => boolean,
+): TextPiece[] {
   const pieces: TextPiece[] = [];
   let last = 0;
   for (const match of text.matchAll(new RegExp(TOKEN_PATTERN.source, "g"))) {
     const fallback = match[2]?.replace(/\s+/g, " ").trim() || null;
-    const chip = chipOf(match[1], fallback, tokens, forWhom);
+    const chip = accepts(match[1]) ? chipOf(match[1], fallback, tokens, forWhom) : null;
     if (!chip) continue;
     const at = match.index ?? 0;
     if (at > last) pieces.push({ text: text.slice(last, at) });

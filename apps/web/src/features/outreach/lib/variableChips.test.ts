@@ -35,9 +35,16 @@ describe("chipOf", () => {
 
 describe("piecesOf", () => {
   it("cuts a line into words and chips, keeping what no email fills as words", () => {
-    const pieces = piecesOf("For {{firstName}}, {{opener}} {{location|there}}", TOKENS, "Fatima");
+    const pieces = piecesOf("For {{firstName}}, {{opener}} {{location|there}}", TOKENS, "Fatima", () => true);
     expect(pieces.map((piece) => piece.text).join("")).toBe("For Fatima, {{opener}} there");
     expect(pieces.filter((piece) => "chip" in piece)).toHaveLength(2);
+  });
+});
+
+describe("piecesOf with a vocabulary", () => {
+  it("draws no chip for a name the composer does not accept, such as a booking link where none is offered", () => {
+    const pieces = piecesOf("Book: {{bookingLink}}", TOKENS, "Fatima", (name) => name !== "bookingLink");
+    expect(pieces).toEqual([{ text: "Book: {{bookingLink}}" }]);
   });
 });
 
