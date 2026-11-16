@@ -521,19 +521,129 @@ describe("ReplyComposer", () => {
       );
     });
 
-    it("offers the sequence's Insert bar, and holds Send while a variable has nothing to fill it", async () => {
+    it("offers a Variable menu with this executive's values, and holds Send while a variable has nothing on file", async () => {
       render(composerFor(conversation({ composer: WITH_TOKENS })), { wrapper });
-      const bar = screen.getByRole("toolbar", { name: "Insert a variable" });
-      expect(within(bar).getByRole("button", { name: "{{firstName}}" })).toBeInTheDocument();
-      expect(within(bar).queryByRole("button", { name: /opener/ })).not.toBeInTheDocument();
+      expect(screen.queryByRole("toolbar", { name: "Insert a variable" })).not.toBeInTheDocument();
+      await userEvent.click(screen.getByRole("button", { name: "Insert a variable" }));
+      const menu = await screen.findByRole("menu", { name: "Insert a variable" });
+      expect(within(menu).getByRole("menuitem", { name: /First name/ })).toHaveTextContent("Fatima");
+      expect(within(menu).getByRole("menuitem", { name: /Location/ })).toHaveTextContent("Nothing on file");
+      expect(within(menu).queryByRole("menuitem", { name: /opener/i })).not.toBeInTheDocument();
+      await userEvent.keyboard("{Escape}");
 
       await userEvent.click(screen.getByRole("textbox", { name: "Subject" }));
-      await userEvent.click(within(bar).getByRole("button", { name: "{{firstName}}" }));
+      await userEvent.click(screen.getByRole("button", { name: "Insert a variable" }));
+      await userEvent.click(within(await screen.findByRole("menu", { name: "Insert a variable" })).getByRole("menuitem", { name: /First name/ }));
       expect(screen.getByRole("textbox", { name: "Subject" })).toHaveValue("{{firstName}}");
 
       await typeInto(await screen.findByRole("textbox", { name: "Message" }), "Still in {{location}}?");
-      expect(await screen.findByRole("alert")).toHaveTextContent("Fill in or remove 1 variable to send: {{location}} has nothing on file");
+      expect(await screen.findByRole("alert")).toHaveTextContent(
+        "Location has nothing on file for Fatima: click it to type one for this email, or remove it.",
+      );
       expect(screen.getByRole("button", { name: "Send now" })).toBeDisabled();
+    });
+
+    it("reads each variable as the executive's value, still a variable underneath", async () => {
+      render(composerFor(conversation({ composer: WITH_TOKENS })), { wrapper });
+      await typeInto(await screen.findByRole("textbox", { name: "Message" }), "Hi {{firstName}}, at {{currentCompany|your firm}}.");
+      expect(await screen.findByRole("button", { name: "First name: Fatima" })).toHaveTextContent("Fatima");
+      expect(screen.getByRole("button", { name: "Current company: Gulf Ports" })).toHaveTextContent("Gulf Ports");
+
+      await userEvent.type(screen.getByRole("textbox", { name: "Subject" }), "For {{{{positionTitle}}");
+      await userEvent.tab();
+      expect(await screen.findByRole("button", { name: "Group CFO" })).toBeInTheDocument();
+      expect(screen.getByRole("textbox", { name: "Subject" })).toHaveValue("For {{positionTitle}}");
+    });
+
+    it("gives a variable with nothing on file the words typed for this email, wherever it is used", async () => {
+      render(composerFor(conversation({ composer: WITH_TOKENS })), { wrapper });
+      await userEvent.type(screen.getByRole("textbox", { name: "Subject" }), "Hello");
+      await typeInto(await screen.findByRole("textbox", { name: "Message" }), "Still in {{location}}?");
+      await userEvent.click(await screen.findByRole("button", { name: "Location: nothing on file" }));
+      const popover = await screen.findByRole("dialog", { name: "Location" });
+      expect(popover).toHaveTextContent("Nothing on file for Fatima. Type it for this email, or remove it.");
+      await userEvent.type(within(popover).getByRole("textbox", { name: "Location" }), "Dubai");
+      await userEvent.click(within(popover).getByRole("button", { name: "Use" }));
+
+      await waitFor(() => expect(screen.queryByRole("alert")).not.toBeInTheDocument());
+      expect(screen.getByRole("textbox", { name: "Message" })).toHaveTextContent("Still in Dubai?");
+      expect(screen.getByRole("button", { name: "Send now" })).toBeEnabled();
+    });
+
+    it("takes a variable out of the email from its chip", async () => {
+      render(composerFor(conversation({ composer: WITH_TOKENS })), { wrapper });
+      await userEvent.type(screen.getByRole("textbox", { name: "Subject" }), "Hello");
+      await typeInto(await screen.findByRole("textbox", { name: "Message" }), "Still in {{location}}?");
+      await userEvent.click(await screen.findByRole("button", { name: "Location: nothing on file" }));
+      await userEvent.click(within(await screen.findByRole("dialog", { name: "Location" })).getByRole("button", { name: "Remove from email" }));
+      await waitFor(() => expect(screen.queryByRole("alert")).not.toBeInTheDocument());
+      expect(screen.getByRole("textbox", { name: "Message" })).toHaveTextContent("Still in ?");
+    });
+
+    it("settles only the chip that was pressed when its value is made plain text or removed", async () => {
+      render(composerFor(conversation({ composer: WITH_TOKENS })), { wrapper });
+      await typeInto(await screen.findByRole("textbox", { name: "Message" }), "Hi {{firstName}}, dear {{firstName}}.");
+      expect(await screen.findAllByRole("button", { name: "First name: Fatima" })).toHaveLength(2);
+
+      await userEvent.click(screen.getAllByRole("button", { name: "First name: Fatima" })[0]);
+      await userEvent.click(within(await screen.findByRole("dialog", { name: "First name" })).getByRole("button", { name: "Edit as text" }));
+      await waitFor(() => expect(screen.getAllByRole("button", { name: "First name: Fatima" })).toHaveLength(1));
+      expect(screen.getByRole("textbox", { name: "Message" })).toHaveTextContent("Hi Fatima, dear");
+
+      await userEvent.click(screen.getByRole("button", { name: "First name: Fatima" }));
+      await userEvent.click(within(await screen.findByRole("dialog", { name: "First name" })).getByRole("button", { name: "Remove" }));
+      await waitFor(() => expect(screen.queryByRole("button", { name: "First name: Fatima" })).not.toBeInTheDocument());
+      expect(screen.getByRole("textbox", { name: "Message" })).toHaveTextContent("Hi Fatima, dear .");
+    });
+
+    it("fills only the uses with nothing on file, and leaves one a fallback stands in for", async () => {
+      render(composerFor(conversation({ composer: WITH_TOKENS })), { wrapper });
+      await userEvent.type(screen.getByRole("textbox", { name: "Subject" }), "Hello");
+      await typeInto(await screen.findByRole("textbox", { name: "Message" }), "In {{location}} or {{location|the region}}?");
+      await userEvent.click(await screen.findByRole("button", { name: "Location: nothing on file" }));
+      const popover = await screen.findByRole("dialog", { name: "Location" });
+      await userEvent.type(within(popover).getByRole("textbox", { name: "Location" }), "Dubai");
+      await userEvent.click(within(popover).getByRole("button", { name: "Use" }));
+      await waitFor(() => expect(screen.queryByRole("alert")).not.toBeInTheDocument());
+      expect(screen.getByRole("button", { name: "Location: the region" })).toBeInTheDocument();
+      expect(screen.getByRole("textbox", { name: "Message" })).toHaveTextContent("In Dubai or");
+    });
+
+    it("opens a chip from the keyboard, and Escape closes it", async () => {
+      render(composerFor(conversation({ composer: WITH_TOKENS })), { wrapper });
+      await typeInto(await screen.findByRole("textbox", { name: "Message" }), "Hi {{firstName}}");
+      const chip = await screen.findByRole("button", { name: "First name: Fatima" });
+      expect(chip).toHaveAttribute("tabindex", "0");
+      chip.focus();
+      await userEvent.keyboard("{Enter}");
+      expect(await screen.findByRole("dialog", { name: "First name" })).toBeInTheDocument();
+      await userEvent.keyboard("{Escape}");
+      await waitFor(() => expect(screen.queryByRole("dialog", { name: "First name" })).not.toBeInTheDocument());
+    });
+
+    it("settles a chip in the subject by where it is in the field, and reaches it before the field", async () => {
+      render(composerFor(conversation({ composer: WITH_TOKENS })), { wrapper });
+      await userEvent.type(screen.getByRole("textbox", { name: "Subject" }), "For {{{{positionTitle}} now");
+      await userEvent.tab();
+      const chip = await screen.findByRole("button", { name: "Group CFO" });
+      const field = screen.getByRole("textbox", { name: "Subject" });
+      expect(chip.compareDocumentPosition(field) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      await userEvent.click(chip);
+      await userEvent.click(within(await screen.findByRole("dialog", { name: "Position title" })).getByRole("button", { name: "Remove" }));
+      expect(screen.getByRole("textbox", { name: "Subject" })).toHaveValue("For  now");
+    });
+
+    it("moves through the Variable menu with the arrow keys", async () => {
+      render(composerFor(conversation({ composer: WITH_TOKENS })), { wrapper });
+      await userEvent.click(screen.getByRole("button", { name: "Insert a variable" }));
+      const menu = await screen.findByRole("menu", { name: "Insert a variable" });
+      screen.getByRole("textbox", { name: "Find a variable" }).focus();
+      await userEvent.keyboard("{ArrowDown}");
+      expect(within(menu).getByRole("menuitem", { name: /First name/ })).toHaveFocus();
+      await userEvent.keyboard("{ArrowDown}");
+      expect(within(menu).getByRole("menuitem", { name: /Current title/ })).toHaveFocus();
+      await userEvent.keyboard("{ArrowUp}{ArrowUp}");
+      expect(screen.getByRole("textbox", { name: "Find a variable" })).toHaveFocus();
     });
 
     it("lets a fallback through, and names a variable no email fills", async () => {

@@ -33,7 +33,7 @@ changes. Copy no mockup draws — toasts, errors, banners, empty states — foll
 | **Reset to standard** | putting the country's zone and the standard formats (04 Dec 2026, 24-hour) back on General | defaults, restore |
 | **Email signature** | what closes an email a consultant sends from Uncava, one of their own kept in Settings → Email signature, the default ticked in the composer | footer, sign-off |
 | **Email template** | a saved email or reply a consultant applies in the composer, kept in Settings → Email templates, personal or shared with the workspace — never Settings → Templates, which is the position brief library | snippet, canned reply, saved reply, role template |
-| **Variable** | a `{{firstName}}` in a sequence step or an email template, filled in for each executive when the email is written, inserted from the same Insert bar in both | token, merge field, placeholder |
+| **Variable** | a `{{firstName}}` in a sequence step or an email template, filled in for each executive when the email is written, inserted from the same Insert bar in both; in an email to one person it reads as their value, in a chip | token, merge field, placeholder |
 | **Fallback** | what a variable says for an executive with no value, written after a bar: `{{firstName\|there}}` | default value |
 | **Daily email limit** | the most one mailbox sends through Uncava in a day | quota |
 | **Synced email** | a reply read back from the consultant's own mailbox, as the history tags it | imported, fetched |

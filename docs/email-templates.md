@@ -149,6 +149,23 @@ Sources (vendor help centres, read November 2026):
     nothing on file and no fallback is named instead in one line under the editor ("Fill in or remove 1 variable to
     send: {{location}} has nothing on file"), and Send waits; the Templates picker's preview reads a template with the
     executive's values.
+17. **The composer to one person shows the values** (product owner, 2026-11-16; this replaces the composer half of
+    decision 16 — the template editor and a sequence step still show `{{firstName}}` as typed). An email to one
+    executive is written where their values are already known, so the composer reads each variable as that person's
+    value in a tinted chip (`Outreach.dc.html`, `variables=filled`; `variableChipsExtension`): their value, a dashed
+    chip where a fallback stands in, a red chip naming the variable where nothing is on file and nothing stands in. It
+    is a decoration only: the words in the editor and in the stored Markdown stay `{{firstName}}`, so **Save as
+    template** keeps the variable and the server still fills it at send. The Subject, a plain field, reads the same way
+    until it is pressed. Pressing a chip, or Enter on it (a chip is reached by Tab), opens its popover: a filled one
+    says where the value came from, and offers *Edit as text* (that chip's value becomes plain words) and *Remove*
+    (that chip alone); a blank one asks for words to type **for this email only**, which replace the variable
+    wherever it has nothing on file, subject included — a use a fallback stands in for is left — or *Remove from
+    email*. Escape returns to the words. Backspace and Delete take a chip whole and an arrow steps over it. The Insert bar's row is replaced by a **Variable** button beside
+    Templates (`VariableMenu`): each variable with this executive's value beside it, and "Nothing on file" in red. The
+    line under the editor now reads "Location has nothing on file for Fatima: click it to type one for this email, or
+    remove it." *Why:* every product that writes to one known person fills the values in (Lever, Front, Ashby,
+    Salesforce, Outreach's Gmail extension); braces are for text that serves many people. *Not built:* typing `{{` to
+    open the menu, and typing a missing value into the executive's profile from the popover.
 
 ## B. Model and ownership
 
@@ -317,7 +334,7 @@ written.
 
 *Phase 1 as built (decision 16):* the template editor is the notes editor with `editorRef` (`NoteEditorHandle
 .insertText`, the text at the cursor, or at the end where it was never focused) under the shared `TokenInsertBar`.
-No token node and no `schema="email"` were built: a variable is plain text, as in a sequence step. The bullets below
+(The composer has since left the Insert bar for chips and a Variable menu: decision 17.) No token node and no `schema="email"` were built: a variable is plain text, as in a sequence step. The bullets below
 are the Phase 0 plan, superseded: Phase 2 kept variables as typed in the composer too, so none of it was built.
 
 - **A token node** in `features/notes/lib/noteMarkdown.ts` is an inline atom with its own Markdown tokenizer and raw
@@ -335,8 +352,8 @@ are the Phase 0 plan, superseded: Phase 2 kept variables as typed in the compose
 *Revised 2026-11-11:* no email holds a signature in its words — not a template, not an own email, not a sequence step.
 #1277's step token is retired (V207 took it out of every stored step), and Add to sequence carries the composer's own
 Include signature, so the run's chosen signature closes every email of it (`docs/email-signatures.md`, decision 4). The
-template and composer Insert bar is the sequence bar less the opener (`templateTokenOptions`), and neither offers a
-signature.
+template editor's Insert bar and the composer's Variable menu are the sequence bar less the opener
+(`templateTokenOptions`), and neither offers a signature.
 
 - **A template never holds a signature.** The signature stays the composer's Include signature choice, appended after
   the body when the email is written, exactly as today (`SendMessageRequest.signatureId` →

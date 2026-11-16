@@ -49,6 +49,7 @@ export default function RichNoteEditor({
   onExpandChange,
   editorRef,
   pictures,
+  extraExtensions,
 }: NoteEditorProps) {
   const [picker, setPicker] = useState<Picker | null>(null);
   const [uploadingPictures, setUploadingPictures] = useState(0);
@@ -106,6 +107,7 @@ export default function RichNoteEditor({
         },
         schema,
       ),
+      ...(extraExtensions ?? []),
       Placeholder.configure({ placeholder: placeholder ?? "" }),
       Extension.create({
         name: "noteShortcuts",
@@ -167,6 +169,7 @@ export default function RichNoteEditor({
       ? {
           insertText: (text) => at()?.insertContent({ type: "text", text }).run(),
           insertDoc: (doc) => at()?.insertContent(doc.content ?? []).run(),
+          editor,
         }
       : null;
     return () => {
@@ -346,7 +349,8 @@ export default function RichNoteEditor({
         editor={editor}
         className={cn(
           isFramed ? "cursor-text px-4 py-3" : "mt-1.5",
-          fillsDialog && "min-h-32 flex-1 overflow-y-auto",
+          // No floor of its own: a minimum here outgrew a box squeezed to its parent's floor, and spilled past it.
+          fillsDialog && "min-h-0 flex-1 overflow-y-auto",
         )}
       />
       {teammates !== null && picker && (
