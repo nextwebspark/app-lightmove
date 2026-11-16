@@ -2,6 +2,7 @@ import type { PersonTimelineEntry } from "../api/types";
 import { TRIAGE_STAGES } from "../../triage/lib/triageStages";
 import { statusLabelOf } from "./pipelineStatus";
 import { dayKeyOf, formatDate, formatInstantTime, formatShortDate, formatWeekdayDateTime } from "../../../lib/datetime";
+import { noteOutcomeOf, outcomeLabel } from "./noteOutcomes";
 
 /**
  * A person's history as sentences: what the actor did, and a second line of detail. Worded as the
@@ -220,14 +221,14 @@ function phraseOf(
     case "NOTE_ADDED":
       return {
         text: `${NOTE_VERBS[details.kind ?? "GENERAL"] ?? NOTE_VERBS.GENERAL}${onThem}${aboutOf(entry, here)}`,
-        detail: entry.noteExcerpt,
+        detail: noteDetailOf(entry.noteExcerpt, details.outcome),
       };
     case "NOTE_EDITED":
       return { text: `edited a note${onThem}${aboutOf(entry, here)}`, detail: entry.noteExcerpt };
     case "NOTE_REMOVED":
       return { text: `deleted a note${onThem}${aboutOf(entry, here)}`, detail: null };
     case "NOTE_RESTORED":
-      return { text: `restored a note${onThem}${aboutOf(entry, here)}`, detail: entry.noteExcerpt };
+      return { text: `restored a note${onThem}${aboutOf(entry, here)}`, detail: noteDetailOf(entry.noteExcerpt, details.outcome) };
     case "TAGGED":
       return { text: `tagged${them} ${details.tag ?? "with a tag"}`, detail: null };
     case "UNTAGGED":
@@ -446,4 +447,10 @@ export function consentAnswerPhrase(status: string | undefined, purpose: string 
   const what = CONSENT_PURPOSES[purpose ?? ""] ?? "a consent request";
   const verb = status === "given" ? "agreed to" : status === "withdrawn" ? "withdrew consent to" : "declined";
   return byHand ? `recorded that they ${verb} ${what}` : `${verb} ${what} on their privacy page`;
+}
+
+/** A logged call's or message's outcome before its words: "No answer · Rang twice". */
+function noteDetailOf(excerpt: string | null | undefined, outcome: string | null | undefined): string | null {
+  const said = noteOutcomeOf(outcome);
+  return [said ? outcomeLabel(said) : null, excerpt?.trim() || null].filter(Boolean).join(" · ") || null;
 }

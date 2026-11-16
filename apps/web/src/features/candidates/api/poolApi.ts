@@ -16,6 +16,7 @@ import type {
   PoolFilters,
   PoolPage,
   TimelineGroup,
+  RevisePersonNotePayload,
   WritePersonNotePayload,
 } from "./types";
 
@@ -278,7 +279,7 @@ export function writePoolNote(personId: string, note: WritePersonNotePayload): P
   return request<PersonNote>(`/candidates/${personId}/notes`, { method: "POST", body: note });
 }
 
-export function revisePoolNote(personId: string, noteId: string, note: WritePersonNotePayload): Promise<PersonNote> {
+export function revisePoolNote(personId: string, noteId: string, note: RevisePersonNotePayload): Promise<PersonNote> {
   return request<PersonNote>(`/candidates/${personId}/notes/${noteId}`, { method: "PUT", body: note });
 }
 

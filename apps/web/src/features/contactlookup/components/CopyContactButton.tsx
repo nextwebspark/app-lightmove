@@ -8,17 +8,21 @@ export function CopyContactButton({
   value,
   size = 13,
   className,
+  onPress,
 }: {
   what: "Email" | "Phone";
   value: string;
   size?: number;
   className?: string;
+  /** Takes the press and the copy itself, to run it now or once a caution is read. */
+  onPress?: (copy: () => void) => void;
 }) {
   const toast = useToast();
+  const copy = async () => toast((await copyText(value)) ? `${what} copied` : "Couldn't copy");
   return (
     <button
       type="button"
-      onClick={async () => toast((await copyText(value)) ? `${what} copied` : "Couldn't copy")}
+      onClick={() => (onPress ? onPress(() => void copy()) : void copy())}
       aria-label={`Copy ${what.toLowerCase()}`}
       title="Copy"
       className={cn(

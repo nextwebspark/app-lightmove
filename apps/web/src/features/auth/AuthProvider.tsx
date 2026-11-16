@@ -21,6 +21,7 @@ import { automaticAware, setDateTimePreferences } from "../../lib/datetime";
 import { reportDeviceTimeZone } from "./deviceTimeZone";
 import { forgetOpenAssistant } from "../assistant/assistantStorage";
 import { forgetScorecardDrafts } from "../candidates/lib/scorecardDrafts";
+import { forgetPendingContacts } from "../outreach/calling/pendingContactStore";
 import { isReturningMailboxPopup } from "../outreach/lib/mailboxPopup";
 import * as authApi from "./api/authApi";
 import { isReturningSignInPopup } from "./oauthPopup";
@@ -164,6 +165,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     onSessionExpired(() => {
       startFreshSession();
       forgetScorecardDrafts();
+      forgetPendingContacts();
       setUser(null);
     });
   }, [startFreshSession]);
@@ -207,6 +209,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const session = await switchWorkspaceSession(workspaceId);
       startFreshSession();
       forgetOpenAssistant();
+      forgetPendingContacts();
       setUser(session.user);
       // Through the listening channel itself: a channel never receives its own posts, but a second
       // one of the same name in this tab does — which reloaded the switching tab too, and threw away
@@ -290,6 +293,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAccessToken(null);
     startFreshSession();
     forgetScorecardDrafts();
+    forgetPendingContacts();
     setUser(null);
   }, [startFreshSession]);
 
@@ -302,6 +306,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setAccessToken(null);
       startFreshSession();
       forgetScorecardDrafts();
+      forgetPendingContacts();
       setUser(null);
     }
   }, [startFreshSession]);
