@@ -48,8 +48,8 @@ final class RowValues {
 
     /**
      * A fraction is rounded: every field this feeds is a count or a whole-currency figure. Reads a magnitude suffix
-     * ("$1.2bn", "5k", "2.5M") — stripping it once saved a billion in revenue as 1. A range ("1001-5000") and a lone
-     * decimal comma ("1,5", which could be 1.5 or 15) are null rather than a guess.
+     * ("$1.2bn", "5k", "2.5M") — stripping it once saved a billion in revenue as 1. A range ("1001-5000"), a lone
+     * decimal comma ("1,5": 1.5 or 15) and a lone dot before three digits ("5.000": 5 or 5000) are null, not a guess.
      */
     static Long number(String value) {
         String trimmed = text(value);
@@ -97,6 +97,9 @@ final class RowValues {
                 return null;
             }
             plain = unsigned.replace(".", "");
+        } else if (LONE_DOT_THOUSANDS.matcher(unsigned).matches()) {
+            // "5.000" is five thousand in half the world and five in the other half.
+            return null;
         } else {
             plain = unsigned;
         }
@@ -206,6 +209,8 @@ final class RowValues {
             "(-?\\d[\\d.,]*)\\s*(?:(thousand|million|billion|mn|mm|bn|k|m|b)(?![a-z]))?");
 
     private static final Pattern GROUPED_BY_COMMA = Pattern.compile("^\\d{1,3}(,\\d{3})+$");
+
+    private static final Pattern LONE_DOT_THOUSANDS = Pattern.compile("^\\d{1,3}\\.\\d{3}$");
 
     private static final Pattern GROUPED_BY_DOT = Pattern.compile("^\\d{1,3}(\\.\\d{3})+$");
 

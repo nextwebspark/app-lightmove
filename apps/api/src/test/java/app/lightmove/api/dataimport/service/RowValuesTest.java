@@ -82,6 +82,8 @@ class RowValuesTest {
         assertThat(RowValues.number("1001-5000")).isNull();
         assertThat(RowValues.number("51 – 200")).isNull();
         assertThat(RowValues.number("1,5")).isNull();
+        assertThat(RowValues.number("5.000")).isNull();
+        assertThat(RowValues.number("1.234")).isNull();
         assertThat(RowValues.number("n/a")).isNull();
         assertThat(RowValues.number("   ")).isNull();
     }

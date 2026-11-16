@@ -143,6 +143,49 @@ class CandidatePoolIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("an address two differently named people share does not fold them into one")
+    void aSharedAddressDoesNotFoldTwoPeople() throws Exception {
+        String first = mandate("Shared Address Firm", "Chief Financial Officer");
+        String second = mandateInSameWorkspace("Head of Credit Risk");
+
+        JsonNode onFirst = add(first, """
+                {"fullName":"Layla Haddad","email":"office.haddad@acwa.example"}""");
+        JsonNode onSecond = add(second, """
+                {"fullName":"Omar Nasser","email":"office.haddad@acwa.example"}""");
+
+        assertThat(onSecond.get("personId").asText()).isNotEqualTo(onFirst.get("personId").asText());
+        assertThat(onSecond.get("fullName").asText()).isEqualTo("Omar Nasser");
+    }
+
+    @Test
+    @DisplayName("a role inbox is never who someone is, even under the same name")
+    void aRoleInboxIsNotAMatch() throws Exception {
+        String first = mandate("Role Inbox Firm", "Chief Financial Officer");
+        String second = mandateInSameWorkspace("Head of Credit Risk");
+
+        JsonNode onFirst = add(first, """
+                {"fullName":"Layla Haddad","email":"info@acwa.example"}""");
+        JsonNode onSecond = add(second, """
+                {"fullName":"Layla Haddad","email":"info@acwa.example","addAsNewPerson":true}""");
+
+        assertThat(onSecond.get("personId").asText()).isNotEqualTo(onFirst.get("personId").asText());
+    }
+
+    @Test
+    @DisplayName("an address still finds the person under a title, a suffix or surname-first order")
+    void anAddressFindsTheDressedName() throws Exception {
+        String first = mandate("Dressed Name Firm", "Chief Financial Officer");
+        String second = mandateInSameWorkspace("Head of Credit Risk");
+
+        JsonNode onFirst = add(first, """
+                {"fullName":"Layla Haddad","email":"layla.haddad@acwa.example"}""");
+        JsonNode onSecond = add(second, """
+                {"fullName":"Dr. Haddad, Layla PhD","email":"layla.haddad@acwa.example"}""");
+
+        assertThat(onSecond.get("personId").asText()).isEqualTo(onFirst.get("personId").asText());
+    }
+
+    @Test
     @DisplayName("a name alone never folds two people into one: asked, and added as new, they stay two")
     void aNameAloneIsNotAMatch() throws Exception {
         String first = mandate("Namesake Firm", "Chief Financial Officer");
