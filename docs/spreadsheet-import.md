@@ -253,8 +253,10 @@ email, a security audit row) and answers a different question.
 an `EditTriageCompanyRequest`, a `SaveCandidateRequest` — and hands them to `TriageCompanyService` and
 `CandidateService`. Every scope check, duplicate rule, source resolution, snapshot and audit event
 therefore stays in the one place that already owns it, and an import cannot drift from what the screen
-does. The only genuinely new seams are two reads: find a company of this project by name, find a person
-of this project by email or by name at a company. A row matching nobody on this mandate still goes
+does. The only genuinely new seams are two reads: find a company of this project by name (the same
+`preferred()` row a capture maps to, never a Declined one while another is held), find a person of this project by
+LinkedIn profile, then by a personal email whose holder's name agrees, then by name at a company — the same name rule
+as `PersonMatcher` (`docs/candidate-crm.md`). An email cell not shaped like an address ("n/a", "-", "TBC") is dropped. A row matching nobody on this mandate still goes
 through the add every door shares, so someone the workspace already knows from another mandate — by
 LinkedIn profile or email — is mapped rather than duplicated, and the file only fills what nobody
 recorded (V91, `docs/candidate-crm.md`). A **Note** cell is the one value the file never writes onto the row: it is filed

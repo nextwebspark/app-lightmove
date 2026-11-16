@@ -16,8 +16,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 /**
- * Whether the workspace already knows an executive: by LinkedIn profile, then an email unless the two name different
- * profiles (a shared inbox). Never a phone (switchboards) or a name (a silent fold no merge tool can see).
+ * Whether the workspace already knows an executive: by LinkedIn profile, then a personal email whose holder's name agrees
+ * ({@link PersonNames}) and whose profile does not differ. Never a role inbox ({@link RoleAddresses}), a phone
+ * (switchboards) or a name alone (a silent fold no merge tool can see).
  */
 @Component
 @RequiredArgsConstructor
@@ -29,6 +30,18 @@ class PersonMatcher {
     private final PersonRepository people;
 
     Optional<Person> find(UUID workspaceId, CandidateDetails details) {
+        return match(workspaceId, details, true);
+    }
+
+    /**
+     * Who holds this profile or any of these addresses, names aside: the drawer's "add them here" answer must not
+     * file one person's key onto another, so there the keys alone decide.
+     */
+    Optional<Person> keyHolderOf(UUID workspaceId, CandidateDetails details) {
+        return match(workspaceId, details, false);
+    }
+
+    private Optional<Person> match(UUID workspaceId, CandidateDetails details, boolean asIdentity) {
         String slug = LinkedInUrls.profileSlugOrNull(details.linkedinUrl());
         if (slug != null) {
             Optional<Person> byProfile = people.findByWorkspaceIdAndProfileSlug(workspaceId, slug);
@@ -38,11 +51,13 @@ class PersonMatcher {
         }
         for (ContactEntry email : details.emails()) {
             String key = CandidateContact.keyOf(ContactChannel.EMAIL, email.value());
-            if (key.isEmpty()) {
+            if (key.isEmpty() || (asIdentity && RoleAddresses.isRoleAddress(key))) {
                 continue;
             }
+            // As identity the names must agree too: an address one sheet gave two people once merged them into one.
             Optional<Person> byEmail = people.findByWorkspaceIdAndEmailKey(workspaceId, key).stream()
                     .filter(person -> slug == null || slugOf(person) == null || slug.equals(slugOf(person)))
+                    .filter(person -> !asIdentity || PersonNames.agree(person.getFullName(), details.fullName()))
                     .min(OLDEST_FIRST);
             if (byEmail.isPresent()) {
                 return byEmail;

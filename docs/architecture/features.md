@@ -93,8 +93,8 @@ profile that does not exist.
 human — profile, background, package, contact ledger, research — owned by the workspace, and a mandate's
 `Candidate` row maps that person and keeps only the mandate's own status, custom-column values and
 brief-specific AI assessment. Whichever door files someone, `PersonMatcher` first asks whether the
-workspace already knows them — by LinkedIn profile slug (stored, V95), or by an email the ledger holds unless the two
-name different profiles; never by phone (a switchboard is on everyone) and never by name alone — and a
+workspace already knows them — by LinkedIn profile slug (stored, V95), or by a personal email the ledger holds whose
+holder's name agrees, unless the two name different profiles; never a role inbox (`info@`), never by phone (a switchboard is on everyone) and never by name alone — and a
 match is **mapped, not duplicated**: what the new mandate brings only fills what nobody recorded, an
 edit through one mandate is what every other reads, and removing someone from a mandate keeps the
 person. A profile is one person's: an edit that would give a second person of the workspace the same

@@ -379,7 +379,12 @@ spelled one way. So:
 > - **Expand only.** V91 copies contacts and photos into the person tables rather than rekeying V54/V44's,
 >   and leaves the person's columns on the mandate row, because the previous revision is still serving
 >   while Flyway runs. The final cleanup migration, after Phase 4, drops them.
-> - **Matching** is profile slug, then email unless the two records name different profiles. **Phone is
+> - **Matching** is profile slug, then a personal email whose holder's name agrees (`PersonNames`: same surname,
+>   same first initial, through "Smith, John" order, titles, suffixes and name particles) and whose profile does not
+>   differ. A **role inbox** (`info@`, `hr@`, `sales@`… — `RoleAddresses`) is never a key: one sheet giving two
+>   people `info@` once merged them, the second overwriting the first's name. The drawer's "add them here" answer
+>   is still held to the keys alone (`PersonMatcher.keyHolderOf`), so it never files one person's address onto
+>   another. **Phone is
 >   not a key** — a switchboard is on every executive of a company. A name alone never matches; the
 >   possible-duplicate 409 and its dialog ship with the SPA phase that draws the dialog, so until then a
 >   name-only match simply founds a second person, which the merge tool will fold.
@@ -879,7 +884,8 @@ Scripts that touch the tables directly: `ops/dev/seed-report.sql`, `ops/eval/exp
      one pool row, two mandates in her drawer, a MAPPED line on the timeline naming who and when.
   2. Capture her with the plugin on mandate C → mapped, profile refreshed, contacts unioned, nothing typed
      lost.
-  3. Import a sheet with her email under a different spelling of the name → matched, no duplicate.
+  3. Import a sheet with her email under a different spelling of the name ("Dr. Haddad, Layla") → matched, no
+     duplicate; a sheet giving a colleague the same address, or a shared `info@`, files them as their own person.
   4. Add a namesake at the same company by hand → the possible-duplicate dialog; choose "Add as new".
   5. Write a call note in mandate A; open her from mandate B → not shown there (D1, revised); write one for
      All positions → shown on both. The Candidates page shows both, each with its chip. Log in as the client
