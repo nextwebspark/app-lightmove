@@ -1,6 +1,7 @@
 package app.lightmove.api.enrichment.candidate.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import app.lightmove.api.candidate.constant.EnrichmentVendor;
 import app.lightmove.api.candidate.model.CandidateCareerEntry;
@@ -64,6 +65,17 @@ class FallbackProfileEnricherTest {
 
         // The whole point of arming a fallback is the provider having a bad minute.
         assertThat(enricher.fetch("https://www.linkedin.com/in/x/")).contains(LIVE);
+    }
+
+    @Test
+    @DisplayName("both providers down is an outage, thrown, never a profile that does not exist")
+    void bothDownIsThrown() {
+        FallbackProfileEnricher enricher = new FallbackProfileEnricher(
+                url -> { throw new IllegalStateException("429 Too Many Requests"); },
+                url -> { throw new IllegalStateException("503 Service Unavailable"); });
+
+        assertThatThrownBy(() -> enricher.fetch("https://www.linkedin.com/in/x/"))
+                .hasMessage("503 Service Unavailable");
     }
 
     @Test

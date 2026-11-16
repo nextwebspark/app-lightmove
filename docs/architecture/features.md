@@ -72,14 +72,23 @@ routes in the app's own editor (never the door's plain `note`), and files a comp
 says why when it leaves something: a person's takes the company filed for them (`?withFiledCompany=true`, V167) only
 while it is still In universe with nobody else at it and no note on it, and a company's is refused once anyone is mapped there.
 **The add form leads with a LinkedIn lookup** (`ProfileLookupStep`, `POST …/candidates/profile-lookup`,
-`enrichment/candidate`'s `ProfileLookupService`): a pasted profile is researched exactly as a capture is (the same
-`LinkedInProfileEnricher`, name and photo included) and answered to the form before anything is saved, filling every
-field nobody typed — or answers `held` with the executive the position already maps there, whom the form opens instead.
-The research is held thirty minutes per workspace and profile slug (`LookedUpProfiles`, in memory), so the save that
-follows (`source: manual`) files the person researched — photo, career, education — and, when the form still names
-research's employer and no company row was chosen, files that employer into the universe (`captureFromResearch`,
-`source: manual`, matched to the market row by its LinkedIn page) and maps them there, all in that one write and with
-no second vendor read. A lookup the cache has lost files what the form typed, as before.
+`enrichment/candidate`'s `ProfileLookupService` over `candidate`'s `LookedUpResearch`): a pasted profile is researched
+exactly as a capture is (the same `LinkedInProfileEnricher`, name and photo included) and answered to the form before
+anything is saved, filling every field nobody typed — or answers `held` with the executive the position already maps
+there, whom the form opens instead. Before any vendor read it refuses a profile on the suppression list
+(`PERSON_SUPPRESSED`) or a known person whose processing is restricted, and answers from research already held — an
+earlier lookup, or a person the workspace researched before — at no cost. Only the latest lookup fills the form, and a
+field an earlier lookup filled is that profile's: the next answer replaces it or takes it back out.
+The research is held thirty minutes per workspace and profile slug, in memory and weighed by its photo's bytes, and is
+dropped when the person is erased. A save that says the lookup found its profile (`lookedUpProfile: true`, sent only
+while the address is still that profile — never by any other door, so a colleague's add of the same profile files
+nothing it did not look up) files the person researched — photo, career, education — onto that profile alone (a namesake
+picked in the possible-duplicate dialog gets nothing) and, when the form still names research's employer and no company
+row was chosen, files that employer into the universe (`captureFromResearch`, `source: manual`, matched to the market row
+by its LinkedIn page) and maps them there, all in that one write; the held entry is dropped after commit. A flagged save
+whose research is no longer held (past the window, or looked up on another instance) is researched behind the save, as
+a capture is, its employer still filed as `manual`. Both providers failing is an outage (`PROFILE_LOOKUP_FAILED`), not a
+profile that does not exist.
 **Every executive is a workspace person first (V91, `docs/candidate-crm.md`)**: `app_lm_person` is the
 human — profile, background, package, contact ledger, research — owned by the workspace, and a mandate's
 `Candidate` row maps that person and keeps only the mandate's own status, custom-column values and

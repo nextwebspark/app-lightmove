@@ -5,11 +5,12 @@ import app.lightmove.api.candidate.dto.HeldCandidateResponse;
 import app.lightmove.api.candidate.model.EnrichedPhoto;
 import app.lightmove.api.candidate.model.EnrichedProfile;
 import app.lightmove.api.candidate.service.CandidateService;
-import app.lightmove.api.candidate.service.LookedUpProfiles;
+import app.lightmove.api.candidate.service.LookedUpResearch;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.ratelimit.service.RateLimiter;
+import app.lightmove.api.core.text.service.SuppliedText;
 import app.lightmove.api.core.text.service.LinkedInUrls;
 import app.lightmove.api.enrichment.candidate.constant.ProfileLookupOutcome;
 import app.lightmove.api.enrichment.candidate.dto.LookedUpProfileResponse;
@@ -24,9 +25,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 /**
- * The Add form's LinkedIn lookup: the research a plugin capture runs, answered to the form before anything is saved,
- * and held ({@link LookedUpProfiles}) so the save files it without a second vendor read. Not transactional: no
- * connection is held through the vendor call.
+ * The Add form's LinkedIn lookup: the research a plugin capture runs, answered to the form before anything is saved and
+ * held ({@link LookedUpResearch}) for the save. Not transactional: no connection is held through the vendor call.
  */
 @Service
 @Slf4j
@@ -35,12 +35,12 @@ public class ProfileLookupService {
     private final LinkedInProfileEnricher enricher;
     private final CandidateService candidates;
     private final TriageCompanyReadService companies;
-    private final LookedUpProfiles lookedUp;
+    private final LookedUpResearch lookedUp;
     private final RateLimiter limiter;
     private final int lookupsPerUserPerMinute;
 
     public ProfileLookupService(LinkedInProfileEnricher enricher, CandidateService candidates,
-                                TriageCompanyReadService companies, LookedUpProfiles lookedUp, RateLimiter limiter,
+                                TriageCompanyReadService companies, LookedUpResearch lookedUp, RateLimiter limiter,
                                 LightMoveProperties properties) {
         this.enricher = enricher;
         this.candidates = candidates;
@@ -51,15 +51,21 @@ public class ProfileLookupService {
     }
 
     public ProfileLookupResponse lookUp(UUID userId, UUID workspaceId, UUID projectId, String linkedinUrl) {
-        String slug = LinkedInUrls.profileSlugOrNull(withScheme(linkedinUrl));
+        String slug = LinkedInUrls.profileSlugOrNull(SuppliedText.browsableUrlOrNull(linkedinUrl));
         if (slug == null) {
             throw ApiException.of(ErrorCode.PROFILE_LOOKUP_NOT_A_PROFILE);
         }
-        String profileUrl = "https://www.linkedin.com/in/" + slug + "/";
+        String profileUrl = LinkedInUrls.profileUrlOf(slug);
 
         Optional<HeldCandidateResponse> held = candidates.heldAt(workspaceId, projectId, profileUrl);
         if (held.isPresent()) {
             return new ProfileLookupResponse(ProfileLookupOutcome.HELD.value(), null, held.get());
+        }
+        lookedUp.refuseUnresearchable(workspaceId, profileUrl);
+
+        Optional<EnrichedProfile> onFile = lookedUp.researchOnFile(workspaceId, profileUrl);
+        if (onFile.isPresent()) {
+            return found(workspaceId, projectId, profileUrl, onFile.get());
         }
         if (!enricher.isOffered()) {
             return new ProfileLookupResponse(ProfileLookupOutcome.UNAVAILABLE.value(), null, null);
@@ -71,9 +77,13 @@ public class ProfileLookupService {
             return new ProfileLookupResponse(ProfileLookupOutcome.NOT_FOUND.value(), null, null);
         }
         lookedUp.remember(workspaceId, profileUrl, research.get());
-        UUID heldEmployerId = heldEmployerOf(workspaceId, projectId, research.get());
+        return found(workspaceId, projectId, profileUrl, research.get());
+    }
+
+    private ProfileLookupResponse found(UUID workspaceId, UUID projectId, String profileUrl, EnrichedProfile research) {
+        UUID heldEmployerId = heldEmployerOf(workspaceId, projectId, research);
         return new ProfileLookupResponse(ProfileLookupOutcome.FOUND.value(),
-                profileOf(profileUrl, research.get(), heldEmployerId), null);
+                profileOf(profileUrl, research, heldEmployerId), null);
     }
 
     private Optional<EnrichedProfile> fetch(String profileUrl) {
@@ -122,11 +132,5 @@ public class ProfileLookupService {
             return null;
         }
         return "data:" + photo.contentType() + ";base64," + Base64.getEncoder().encodeToString(photo.content());
-    }
-
-    /** A pasted "linkedin.com/in/…" has no scheme, and a URI without one has no host to check. */
-    private static String withScheme(String url) {
-        String trimmed = url == null ? "" : url.trim();
-        return trimmed.matches("(?i)^https?://.*") ? trimmed : "https://" + trimmed;
     }
 }

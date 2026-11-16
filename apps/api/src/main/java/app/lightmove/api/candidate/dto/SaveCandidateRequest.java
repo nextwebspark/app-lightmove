@@ -120,7 +120,13 @@ public record SaveCandidateRequest(
          * The same dialog's "add them here": file this workspace person rather than whoever the keys
          * would find. Read on a hand-typed add only.
          */
-        UUID existingPersonId
+        UUID existingPersonId,
+
+        /**
+         * True from the Add form when its LinkedIn lookup found this profile: the save files that research, or, when the
+         * server no longer holds it, researches the profile in the background as a capture does. Read on a hand-typed add.
+         */
+        Boolean lookedUpProfile
 ) {
 
     /** An executive found by a people search: who and where they are, everything else left to research. */
@@ -129,7 +135,7 @@ public record SaveCandidateRequest(
                                                         String locationCity) {
         return new SaveCandidateRequest(triageCompanyId, fullName, title, null, null, null, null, null, null, null,
                 linkedinUrl, locationCountry, locationCity, null, null, null, null, null, null, null, null, null,
-                null, null, null, null, null);
+                null, null, null, null, null, null);
     }
 
     /** The same write, landing at the company the server resolved for it. */
@@ -137,6 +143,6 @@ public record SaveCandidateRequest(
         return new SaveCandidateRequest(resolvedTriageCompanyId, fullName, title, seniority, status, employerName,
                 email, phone, emails, phones, linkedinUrl, locationCountry, locationCity, nationality, gender,
                 yearsExperience, summary, note, compensation, career, languages, source, sourceUrl, customFields,
-                confirmBackground, addAsNewPerson, existingPersonId);
+                confirmBackground, addAsNewPerson, existingPersonId, lookedUpProfile);
     }
 }

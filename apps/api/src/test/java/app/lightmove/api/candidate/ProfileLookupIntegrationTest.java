@@ -77,7 +77,7 @@ class ProfileLookupIntegrationTest extends FlowTestSupport {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"fullName":"Layla Haddad","title":"Group CFO","employerName":"al rawabi dairy",
-                                 "linkedinUrl":"https://www.linkedin.com/in/layla-haddad/"}"""))
+                                 "linkedinUrl":"https://www.linkedin.com/in/layla-haddad/","lookedUpProfile":true}"""))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.triageCompanyId").isNotEmpty())
                 .andExpect(jsonPath("$.companyName").value("Al Rawabi Dairy"))
@@ -115,7 +115,7 @@ class ProfileLookupIntegrationTest extends FlowTestSupport {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"fullName":"Layla Haddad","employerName":"Almarai",
-                                 "linkedinUrl":"https://www.linkedin.com/in/typed-employer/"}"""))
+                                 "linkedinUrl":"https://www.linkedin.com/in/typed-employer/","lookedUpProfile":true}"""))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.triageCompanyId").isEmpty())
                 .andExpect(jsonPath("$.companyName").value("Almarai"))
@@ -173,6 +173,136 @@ class ProfileLookupIntegrationTest extends FlowTestSupport {
         assertThat(code).isEqualTo("PROFILE_LOOKUP_FAILED");
     }
 
+    @Test
+    @DisplayName("a profile on the suppression list is refused before any vendor read")
+    void aSuppressedProfileIsRefusedBeforeResearch() throws Exception {
+        String projectId = mandate("Suppressed Profile Firm");
+        enricher.answerWith(RESEARCH);
+        mvc.perform(post("/api/v1/workspace/suppressions")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"linkedinUrl":"https://www.linkedin.com/in/objected-person","reason":"objected"}"""))
+                .andExpect(status().isCreated());
+
+        String code = codeOf(lookUp(projectId, "linkedin.com/in/objected-person")
+                .andExpect(status().isConflict())
+                .andReturn());
+        assertThat(code).isEqualTo("PERSON_SUPPRESSED");
+        assertThat(enricher.fetchedUrls()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("looking a profile up again, or one the workspace already researched, costs no vendor read")
+    void researchOnFileIsReused() throws Exception {
+        String projectId = mandate("Reused Research Firm");
+        enricher.answerWith(RESEARCH);
+        lookUp(projectId, "https://www.linkedin.com/in/asked-twice/").andExpect(status().isOk());
+        lookUp(projectId, "https://www.linkedin.com/in/asked-twice/")
+                .andExpect(jsonPath("$.outcome").value("found"))
+                .andExpect(jsonPath("$.profile.fullName").value("Layla Haddad"));
+        assertThat(enricher.fetchedUrls()).hasSize(1);
+
+        // Researched once by a plugin capture on another position: the profile is the workspace's already.
+        String otherProjectId = secondMandate("Chief Executive Officer");
+        mvc.perform(post(candidatesUrl(otherProjectId))
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fullName":"Omar Haddad","source":"extension",
+                                 "linkedinUrl":"https://www.linkedin.com/in/captured-before"}"""))
+                .andExpect(status().isCreated());
+        enricher.clear();
+
+        lookUp(projectId, "https://www.linkedin.com/in/captured-before")
+                .andExpect(jsonPath("$.outcome").value("found"))
+                .andExpect(jsonPath("$.profile.fullName").value("Omar Haddad"))
+                .andExpect(jsonPath("$.profile.title").value("Group CFO"))
+                .andExpect(jsonPath("$.profile.employerName").value("Al Rawabi Dairy"))
+                .andExpect(jsonPath("$.profile.photoDataUrl").value("data:image/jpeg;base64,/9j/AA=="));
+        assertThat(enricher.fetchedUrls()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("a save whose looked-up research is no longer held researches the profile behind it instead")
+    void aSaveThatLostTheResearchResearchesItBehind() throws Exception {
+        String projectId = mandate("Lost Research Firm");
+        enricher.answerWith(RESEARCH);
+
+        mvc.perform(post(candidatesUrl(projectId))
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fullName":"Layla Haddad","employerName":"Al Rawabi Dairy",
+                                 "linkedinUrl":"https://www.linkedin.com/in/never-held","lookedUpProfile":true}"""))
+                .andExpect(status().isCreated());
+
+        assertThat(enricher.fetchedUrls()).containsExactly("https://www.linkedin.com/in/never-held");
+        mvc.perform(get("/api/v1/projects/" + projectId + "/triage?status=inUniverse")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(jsonPath("$.companies[0].companyName").value("Al Rawabi Dairy"))
+                .andExpect(jsonPath("$.companies[0].source").value("manual"));
+    }
+
+    @Test
+    @DisplayName("a plain hand-typed add with a LinkedIn address spends no research")
+    void aPlainAddSpendsNothing() throws Exception {
+        String projectId = mandate("Plain Add Firm");
+        enricher.answerWith(RESEARCH);
+
+        mvc.perform(post(candidatesUrl(projectId))
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fullName":"Layla Haddad","linkedinUrl":"https://www.linkedin.com/in/plain-add"}"""))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.enrichedAt").isEmpty());
+        assertThat(enricher.fetchedUrls()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("research is filed only onto the profile it was read from, never onto a namesake picked instead")
+    void aNamesakeKeepsTheirOwnProfile() throws Exception {
+        String projectId = mandate("Namesake Firm");
+        String namesakePersonId = body(mvc.perform(post(candidatesUrl(projectId))
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fullName":"Layla Haddad","employerName":"Al Rawabi Dairy",
+                                 "linkedinUrl":"https://www.linkedin.com/in/the-other-layla"}"""))
+                .andExpect(status().isCreated())
+                .andReturn()).get("personId").asText();
+        String otherProjectId = secondMandate("Chief Executive Officer");
+        enricher.answerWith(RESEARCH);
+        lookUp(otherProjectId, "https://www.linkedin.com/in/layla-looked-up/").andExpect(status().isOk());
+
+        mvc.perform(post(candidatesUrl(otherProjectId))
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fullName":"Layla Haddad","employerName":"Al Rawabi Dairy",
+                                 "linkedinUrl":"https://www.linkedin.com/in/layla-looked-up/","lookedUpProfile":true,
+                                 "existingPersonId":"%s"}""".formatted(namesakePersonId)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.personId").value(namesakePersonId))
+                .andExpect(jsonPath("$.linkedinUrl").value("https://www.linkedin.com/in/the-other-layla"))
+                .andExpect(jsonPath("$.enrichedAt").isEmpty());
+    }
+
+    @Test
+    @DisplayName("lookups are budgeted per person, a paid read at a time")
+    void lookupsAreRateLimited() throws Exception {
+        String projectId = mandate("Budgeted Firm");
+        for (int lookup = 0; lookup < 20; lookup++) {
+            lookUp(projectId, "https://www.linkedin.com/in/budget-" + lookup).andExpect(status().isOk());
+        }
+
+        String code = codeOf(lookUp(projectId, "https://www.linkedin.com/in/one-too-many")
+                .andExpect(status().isTooManyRequests())
+                .andReturn());
+        assertThat(code).isEqualTo("RATE_LIMITED");
+    }
+
     private ResultActions lookUp(String projectId, String linkedinUrl) throws Exception {
         return mvc.perform(post(candidatesUrl(projectId) + "/profile-lookup")
                 .header("Authorization", "Bearer " + adminToken)
@@ -188,17 +318,21 @@ class ProfileLookupIntegrationTest extends FlowTestSupport {
         String alok = "alok@" + domain;
         createWorkspace(verifiedUser("Alok Kumar", alok), firmName);
         adminToken = login(alok);
+        return secondMandate("Head of Retail");
+    }
+
+    private String secondMandate(String positionTitle) throws Exception {
         String clientId = body(mvc.perform(post("/api/v1/clients")
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"customName":"Retail Unit"}"""))
+                                {"customName":"%s Unit"}""".formatted(positionTitle)))
                 .andReturn()).get("id").asText();
         return body(mvc.perform(post("/api/v1/projects")
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"clientId":"%s","positionTitle":"Head of Retail"}""".formatted(clientId)))
+                                {"clientId":"%s","positionTitle":"%s"}""".formatted(clientId, positionTitle)))
                 .andReturn()).get("id").asText();
     }
 }

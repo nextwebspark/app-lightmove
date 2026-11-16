@@ -21,6 +21,11 @@ public final class LinkedInUrls {
         return slugOrNull(url, PROFILE_SLUG);
     }
 
+    /** The canonical address of a member profile, as research and the stored profile spell it. */
+    public static String profileUrlOf(String profileSlug) {
+        return "https://www.linkedin.com/in/" + profileSlug + "/";
+    }
+
     /** The {@code /company/<slug>} a company page URL names, or null when it is not one. */
     public static String companySlugOrNull(String url) {
         return slugOrNull(url, COMPANY_SLUG);
