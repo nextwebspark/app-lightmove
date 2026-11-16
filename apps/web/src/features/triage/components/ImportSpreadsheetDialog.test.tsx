@@ -374,4 +374,14 @@ describe("ImportSpreadsheetDialog", () => {
 
     await waitFor(() => expect(importApi.saveTemplate).toHaveBeenCalledWith("p1"));
   });
+
+  it("holds the import while a new column has no name", async () => {
+    renderDialog();
+    await choose();
+
+    await userEvent.clear(await screen.findByLabelText(/Name of the new column for "Ethnicity"/i));
+
+    expect(screen.getByRole("button", { name: /Import 2 rows/i })).toBeDisabled();
+    expect(screen.getByText(/Name the new column/i)).toBeInTheDocument();
+  });
 });

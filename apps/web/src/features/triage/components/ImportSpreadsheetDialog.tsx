@@ -85,6 +85,9 @@ export function ImportSpreadsheetDialog({
   const [summary, setSummary] = useState<ImportSummary | null>(null);
   const [failure, setFailure] = useState<Failure | null>(null);
 
+  // A new column left nameless was dropped by the server without a word, losing that column's values.
+  const hasUnnamedNewColumn = mappings.some(isUnnamedNewColumn);
+
   const reset = () => {
     setStep("choose");
     setFile(null);
@@ -313,6 +316,7 @@ export function ImportSpreadsheetDialog({
                                   setMapping(column.index, { customLabel: event.target.value })
                                 }
                                 className="min-w-[140px] flex-1"
+                                aria-invalid={isUnnamedNewColumn(mapping) || undefined}
                               />
                               <Select
                                 aria-label={`What the new column for "${column.header}" describes`}
@@ -343,6 +347,11 @@ export function ImportSpreadsheetDialog({
                                   </option>
                                 ))}
                               </Select>
+                              {isUnnamedNewColumn(mapping) && (
+                                <p className="w-full font-mono text-meta text-u-offlimits">
+                                  Name the new column, or choose Don't import.
+                                </p>
+                              )}
                             </div>
                           )}
                       </td>
@@ -357,7 +366,7 @@ export function ImportSpreadsheetDialog({
             <Button variant="secondary" onClick={close} disabled={commit.isPending}>
               Cancel
             </Button>
-            <Button onClick={() => commit.mutate()} loading={commit.isPending}>
+            <Button onClick={() => commit.mutate()} loading={commit.isPending} disabled={hasUnnamedNewColumn}>
               Import {preview.rowCount} {preview.rowCount === 1 ? "row" : "rows"}
             </Button>
           </div>
@@ -483,6 +492,15 @@ function Tally({
     <li>
       <span className="font-semibold text-u-text">{count}</span> {count === 1 ? noun : plural} {verb}
     </li>
+  );
+}
+
+function isUnnamedNewColumn(mapping: ProposedColumnMapping): boolean {
+  return (
+    mapping.targetField === null &&
+    mapping.customFieldKey === null &&
+    mapping.customLabel !== null &&
+    mapping.customLabel.trim() === ""
   );
 }
 
