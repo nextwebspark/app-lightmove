@@ -244,6 +244,13 @@ public enum ErrorCode {
     CONTACT_LIMIT_REACHED(HttpStatus.CONFLICT,
             "A profile holds ten email addresses and ten phone numbers at most"),
 
+    /** The Add form's profile lookup reads a person's page, never a company's or a search's; refused before any spend. */
+    PROFILE_LOOKUP_NOT_A_PROFILE(HttpStatus.BAD_REQUEST,
+            "That is not a LinkedIn profile URL"),
+
+    PROFILE_LOOKUP_FAILED(HttpStatus.BAD_GATEWAY,
+            "Profile research did not answer. Try again in a moment"),
+
     /** Another person in the workspace is that LinkedIn profile; the mandate may map them instead. */
     PERSON_PROFILE_HELD(HttpStatus.CONFLICT,
             "Another candidate in this workspace already has that LinkedIn profile"),

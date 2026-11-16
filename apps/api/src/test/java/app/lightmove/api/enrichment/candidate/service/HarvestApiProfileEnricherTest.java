@@ -24,6 +24,7 @@ class HarvestApiProfileEnricherTest {
     void aFullPayloadMaps() {
         EnrichedProfile enriched = HarvestApiProfileEnricher.toEnrichedProfile(fixture().element());
 
+        assertThat(enriched.fullName()).isEqualTo("Sample Person");
         // The current position, never the profile headline — a headline is self-marketing prose.
         assertThat(enriched.title()).isEqualTo("Group CFO");
         assertThat(enriched.about()).isEqualTo("Finance leader across GCC retail and FMCG.");
@@ -54,7 +55,7 @@ class HarvestApiProfileEnricherTest {
     @DisplayName("a profile the provider found nothing on maps to an empty answer, not a crash")
     void aBareProfileMapsToEmpty() {
         HarvestApiProfile bare =
-                new HarvestApiProfile(null, null, null, null, null, null, null, null, null);
+                new HarvestApiProfile(null, null, null, null, null, null, null, null, null, null, null);
 
         EnrichedProfile enriched = HarvestApiProfileEnricher.toEnrichedProfile(bare);
 

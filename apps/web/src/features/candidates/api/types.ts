@@ -224,6 +224,8 @@ export interface AddedBy {
  * so an omitted field is a cleared field — which is what the drawer means, because it holds every one.
  */
 export interface SaveCandidatePayload {
+  /** The Add form's LinkedIn lookup found this profile: the save files that research. */
+  lookedUpProfile?: boolean;
   triageCompanyId?: string | null;
   fullName: string;
   title?: string;
@@ -785,4 +787,39 @@ export interface PersonErasurePreview {
   tasks: number;
   /** The error code the erasure would answer right now (`PERSON_ERASE_SEND_IN_FLIGHT`), or null. */
   blockedBy: string | null;
+}
+
+/** What the Add form's LinkedIn lookup answered. Only `found` carries a profile, only `held` an executive. */
+export type ProfileLookupOutcome = "found" | "notFound" | "held" | "unavailable";
+
+/** Research read off a profile, in the Add form's fields; nothing is stored until the form is saved. */
+export interface LookedUpProfile {
+  linkedinUrl: string;
+  fullName: string | null;
+  title: string | null;
+  summary: string | null;
+  employerName: string | null;
+  employerLinkedinUrl: string | null;
+  employerLogoUrl: string | null;
+  /** The company row this position already holds for the employer; null when the save files it into the universe. */
+  employerTriageCompanyId: string | null;
+  locationCity: string | null;
+  locationCountry: string | null;
+  career: CandidateCareerEntry[];
+  languages: string[];
+  /** A `data:` URL — the photo is not stored until the save. */
+  photoDataUrl: string | null;
+}
+
+/** The executive this position already maps at a profile. */
+export interface HeldCandidate {
+  candidate: Candidate;
+  addedBy: AddedBy | null;
+  companyLogoUrl: string | null;
+}
+
+export interface ProfileLookupResult {
+  outcome: ProfileLookupOutcome;
+  profile: LookedUpProfile | null;
+  held: HeldCandidate | null;
 }

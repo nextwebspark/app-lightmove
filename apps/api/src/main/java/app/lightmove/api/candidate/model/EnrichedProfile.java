@@ -9,7 +9,8 @@ import java.util.List;
 /**
  * A live profile's research, in this feature's vocabulary, with the {@code vendor} that answered (recorded, never
  * branched on). {@code title} is the current position, never the headline; the employer triplet is what gets filed
- * into the universe for an unmapped candidate.
+ * into the universe for an unmapped candidate. {@code fullName} is read only by the Add form's profile lookup, which
+ * has no page to read a name off: research never renames anyone.
  */
 public record EnrichedProfile(String title, String about, String employerName,
                               String employerLinkedinUrl, String employerLogoUrl,
@@ -17,9 +18,21 @@ public record EnrichedProfile(String title, String about, String employerName,
                               List<CandidateCareerEntry> career,
                               List<CandidateEducationEntry> education,
                               List<String> skills, List<String> languages,
-                              EnrichedPhoto photo, EnrichmentVendor vendor) {
+                              EnrichedPhoto photo, EnrichmentVendor vendor, String fullName) {
+
+    public EnrichedProfile(String title, String about, String employerName,
+                           String employerLinkedinUrl, String employerLogoUrl,
+                           String locationCity, String locationCountry,
+                           List<CandidateCareerEntry> career,
+                           List<CandidateEducationEntry> education,
+                           List<String> skills, List<String> languages,
+                           EnrichedPhoto photo, EnrichmentVendor vendor) {
+        this(title, about, employerName, employerLinkedinUrl, employerLogoUrl, locationCity, locationCountry,
+                career, education, skills, languages, photo, vendor, null);
+    }
 
     public EnrichedProfile {
+        fullName = blankToNull(fullName);
         title = blankToNull(title);
         about = blankToNull(about);
         employerName = blankToNull(employerName);
@@ -38,6 +51,6 @@ public record EnrichedProfile(String title, String about, String employerName,
 
     public EnrichedProfile withPhoto(EnrichedPhoto fetched) {
         return new EnrichedProfile(title, about, employerName, employerLinkedinUrl, employerLogoUrl,
-                locationCity, locationCountry, career, education, skills, languages, fetched, vendor);
+                locationCity, locationCountry, career, education, skills, languages, fetched, vendor, fullName);
     }
 }

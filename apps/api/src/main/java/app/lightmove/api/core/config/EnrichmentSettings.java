@@ -28,5 +28,8 @@ public record EnrichmentSettings(
          * {@code app_lm_vendor_people_search}, answers before the vendor is asked again (V87).
          * {@code companyCacheTtl}'s caution applies: Bright Data's terms decide how long holding one is fine.
          */
-        @DefaultValue("30d") Duration peopleCacheTtl
+        @DefaultValue("30d") Duration peopleCacheTtl,
+
+        /** The Add form's profile lookups one person may run a minute: each is a paid vendor read. */
+        @DefaultValue("20") int profileLookupsPerUserPerMinute
 ) {}

@@ -14,7 +14,15 @@ import * as personCrmApi from "../api/personCrmApi";
 import * as poolApi from "../api/poolApi";
 import * as scorecardApi from "../api/scorecardApi";
 import type { CandidateScorecard } from "../api/scorecardTypes";
-import type { Candidate, CandidateTag, PersonNote, PersonRecord, PersonTimelineEntry } from "../api/types";
+import type {
+  Candidate,
+  CandidateTag,
+  LookedUpProfile,
+  PersonNote,
+  ProfileLookupResult,
+  PersonRecord,
+  PersonTimelineEntry,
+} from "../api/types";
 import { MemoryRouter } from "react-router-dom";
 import { CandidateDrawer } from "./CandidateDrawer";
 import { typeInto } from "../../../test/noteEditor";
@@ -29,6 +37,7 @@ vi.mock("../../workspace/api/workspaceApi", async (importOriginal) => {
 vi.mock("../api/candidatesApi", async (importOriginal) => ({
   ...(await importOriginal<typeof candidatesApi>()),
   createCandidate: vi.fn(),
+  lookUpProfile: vi.fn(),
   updateCandidate: vi.fn(),
   changeCandidateStatus: vi.fn(),
 }));
@@ -432,6 +441,182 @@ describe("CandidateDrawer", () => {
     // toasts success and vanishes. Caught while the field is still on screen instead.
     expect(await screen.findByText(/does not look like a web address/i)).toBeInTheDocument();
     expect(candidatesApi.createCandidate).not.toHaveBeenCalled();
+  });
+
+  describe("the LinkedIn lookup", () => {
+    const research: LookedUpProfile = {
+      linkedinUrl: "https://www.linkedin.com/in/omar-haddad/",
+      fullName: "Omar Haddad",
+      title: "Group CFO",
+      summary: "Finance leader across GCC retail.",
+      employerName: "Almarai",
+      employerLinkedinUrl: "https://www.linkedin.com/company/almarai/",
+      employerLogoUrl: null,
+      employerTriageCompanyId: null,
+      locationCity: "Riyadh",
+      locationCountry: "Saudi Arabia",
+      career: [{ company: "Almarai", title: "Group CFO", period: "2021 – Present", location: null }],
+      languages: ["English", "Arabic"],
+      photoDataUrl: "data:image/jpeg;base64,AAAA",
+    };
+
+    it("fills the form from a pasted profile and posts what it filled", async () => {
+      vi.mocked(candidatesApi.lookUpProfile).mockResolvedValue({ outcome: "found", profile: research, held: null });
+      vi.mocked(candidatesApi.createCandidate).mockResolvedValue(yasmin);
+      renderDrawer({ company: null });
+
+      await userEvent.click(screen.getByLabelText(/LinkedIn profile/i));
+      await userEvent.paste("https://www.linkedin.com/in/omar-haddad/");
+
+      expect(await screen.findByText(/Saving adds Almarai to this position's universe/i)).toBeInTheDocument();
+      expect(candidatesApi.lookUpProfile).toHaveBeenCalledWith("p1", "https://www.linkedin.com/in/omar-haddad/");
+      expect(screen.getByLabelText(/Full name/i)).toHaveValue("Omar Haddad");
+
+      await userEvent.click(screen.getByRole("button", { name: /^Add executive$/i }));
+      await waitFor(() => expect(candidatesApi.createCandidate).toHaveBeenCalled());
+      const payload = vi.mocked(candidatesApi.createCandidate).mock.calls[0][1];
+      expect(payload).toMatchObject({
+        fullName: "Omar Haddad",
+        title: "Group CFO",
+        employerName: "Almarai",
+        linkedinUrl: "https://www.linkedin.com/in/omar-haddad/",
+        locationCity: "Riyadh",
+        languages: ["English", "Arabic"],
+        lookedUpProfile: true,
+      });
+      expect(payload.career).toEqual([{ company: "Almarai", title: "Group CFO", period: "2021 – Present" }]);
+    });
+
+    it("leaves what was already typed, and keeps a company row's employer", async () => {
+      vi.mocked(candidatesApi.lookUpProfile).mockResolvedValue({ outcome: "found", profile: research, held: null });
+      renderDrawer();
+
+      await userEvent.type(screen.getByLabelText(/Full name/i), "Omar Al-Haddad");
+      await userEvent.click(screen.getByLabelText(/LinkedIn profile/i));
+      await userEvent.paste("linkedin.com/in/omar-haddad");
+
+      expect(await screen.findByText(/Details filled in below — check them/i)).toBeInTheDocument();
+      expect(screen.getByLabelText(/Full name/i)).toHaveValue("Omar Al-Haddad");
+      expect(screen.getByLabelText(/^Title$/i)).toHaveValue("Group CFO");
+    });
+
+    it("opens the executive this position already maps instead of a second one", async () => {
+      const onSaved = vi.fn();
+      vi.mocked(candidatesApi.lookUpProfile).mockResolvedValue({
+        outcome: "held",
+        profile: null,
+        held: { candidate: yasmin, addedBy: null, companyLogoUrl: null },
+      });
+      renderDrawer({ onSaved });
+
+      await userEvent.click(screen.getByLabelText(/LinkedIn profile/i));
+      await userEvent.paste("https://www.linkedin.com/in/yasmin/");
+      await userEvent.click(await screen.findByRole("button", { name: "Open profile" }));
+
+      expect(onSaved).toHaveBeenCalledWith(yasmin);
+      expect(candidatesApi.createCandidate).not.toHaveBeenCalled();
+    });
+
+    it("says so when research has no such profile, and the form still takes them by hand", async () => {
+      vi.mocked(candidatesApi.lookUpProfile).mockResolvedValue({ outcome: "notFound", profile: null, held: null });
+      renderDrawer();
+
+      await userEvent.click(screen.getByLabelText(/LinkedIn profile/i));
+      await userEvent.paste("https://www.linkedin.com/in/nobody/");
+
+      expect(await screen.findByText(/couldn't read that profile/i)).toBeInTheDocument();
+      expect(screen.getByLabelText(/Full name/i)).toHaveValue("");
+    });
+
+    it("takes a first profile's details back out when the next one has none of its own", async () => {
+      const sparse: LookedUpProfile = {
+        ...research,
+        linkedinUrl: "https://www.linkedin.com/in/sparse/",
+        fullName: "Sara Sparse",
+        summary: null,
+        languages: [],
+        career: [],
+      };
+      vi.mocked(candidatesApi.lookUpProfile)
+        .mockResolvedValueOnce({ outcome: "found", profile: research, held: null })
+        .mockResolvedValueOnce({ outcome: "found", profile: sparse, held: null })
+        .mockResolvedValueOnce({ outcome: "notFound", profile: null, held: null });
+      renderDrawer({ company: null });
+
+      const field = screen.getByLabelText(/LinkedIn profile/i);
+      await userEvent.click(field);
+      await userEvent.paste("https://www.linkedin.com/in/omar-haddad/");
+      await waitFor(() => expect(screen.getByLabelText(/Languages/i)).toHaveValue("English, Arabic"));
+
+      await userEvent.clear(field);
+      await userEvent.paste("https://www.linkedin.com/in/sparse/");
+      await waitFor(() => expect(screen.getByLabelText(/Full name/i)).toHaveValue("Sara Sparse"));
+      expect(screen.getByLabelText(/Languages/i)).toHaveValue("");
+
+      await userEvent.clear(field);
+      await userEvent.paste("https://www.linkedin.com/in/nobody/");
+      await waitFor(() => expect(screen.getByLabelText(/Full name/i)).toHaveValue(""));
+      expect(screen.getByLabelText(/^Title$/i)).toHaveValue("");
+    });
+
+    it("never lets a slower, earlier answer fill the form over the latest one", async () => {
+      let answerFirst: (result: ProfileLookupResult) => void = () => {};
+      const second: LookedUpProfile = { ...research, linkedinUrl: "https://www.linkedin.com/in/second/", fullName: "Second Person" };
+      vi.mocked(candidatesApi.lookUpProfile)
+        .mockImplementationOnce(() => new Promise((resolve) => (answerFirst = resolve)))
+        .mockResolvedValueOnce({ outcome: "found", profile: second, held: null });
+      renderDrawer({ company: null });
+
+      const field = screen.getByLabelText(/LinkedIn profile/i);
+      await userEvent.click(field);
+      await userEvent.paste("https://www.linkedin.com/in/first/");
+      await userEvent.clear(field);
+      await userEvent.paste("https://www.linkedin.com/in/second/");
+      await waitFor(() => expect(screen.getByLabelText(/Full name/i)).toHaveValue("Second Person"));
+
+      answerFirst({ outcome: "found", profile: research, held: null });
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(screen.getByLabelText(/Full name/i)).toHaveValue("Second Person");
+    });
+
+    it("asks once for an address while its answer is on the way", async () => {
+      vi.mocked(candidatesApi.lookUpProfile).mockImplementation(() => new Promise(() => {}));
+      renderDrawer();
+
+      const field = screen.getByLabelText(/LinkedIn profile/i);
+      await userEvent.click(field);
+      await userEvent.paste("https://www.linkedin.com/in/omar-haddad/");
+      await userEvent.keyboard("{Enter}{Enter}");
+
+      expect(candidatesApi.lookUpProfile).toHaveBeenCalledTimes(1);
+    });
+
+    it("does not claim the research once the address is changed to someone else", async () => {
+      vi.mocked(candidatesApi.lookUpProfile).mockResolvedValue({ outcome: "found", profile: research, held: null });
+      vi.mocked(candidatesApi.createCandidate).mockResolvedValue(yasmin);
+      renderDrawer();
+
+      const field = screen.getByLabelText(/LinkedIn profile/i);
+      await userEvent.click(field);
+      await userEvent.paste("https://www.linkedin.com/in/omar-haddad/");
+      await screen.findByText(/Details filled in below/i);
+      await userEvent.clear(field);
+      await userEvent.type(field, "https://example.com/omar");
+      await userEvent.click(screen.getByRole("button", { name: /^Add executive$/i }));
+
+      await waitFor(() => expect(candidatesApi.createCandidate).toHaveBeenCalled());
+      expect(vi.mocked(candidatesApi.createCandidate).mock.calls[0][1].lookedUpProfile).toBeUndefined();
+    });
+
+    it("asks nothing for an address that is not a profile", async () => {
+      renderDrawer();
+
+      await userEvent.click(screen.getByLabelText(/LinkedIn profile/i));
+      await userEvent.paste("https://www.linkedin.com/company/almarai/");
+      await userEvent.tab();
+
+      expect(candidatesApi.lookUpProfile).not.toHaveBeenCalled();
+    });
   });
 
   it("corrects one section over the stored profile, and keeps the panel open", async () => {

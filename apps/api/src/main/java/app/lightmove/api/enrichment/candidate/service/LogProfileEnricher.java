@@ -13,4 +13,9 @@ public class LogProfileEnricher implements LinkedInProfileEnricher {
         log.debug("Enrichment is off — the profile stays as captured.");
         return Optional.empty();
     }
+
+    @Override
+    public boolean isOffered() {
+        return false;
+    }
 }

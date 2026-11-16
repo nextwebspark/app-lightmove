@@ -134,6 +134,7 @@ public class CandidateService {
     private final SuppressionGate suppression;
     private final WorkspaceAiControlsReader aiControls;
     private final WorkspaceSettingsService workspaceSettings;
+    private final LookedUpResearch lookedUp;
 
     public CandidateService(CandidateRepository candidates, PersonRepository people, PersonMatcher matcher,
                             PersonActivityRecorder activity, PersonNoteService personNotes,
@@ -146,7 +147,7 @@ public class CandidateService {
                             UserRepository users, CandidateSearchService searches,
                             CandidateRemoval removal, SuppressionGate suppression,
                             WorkspaceAiControlsReader aiControls, WorkspaceSettingsService workspaceSettings,
-                            LightMoveProperties properties) {
+                            LookedUpResearch lookedUp, LightMoveProperties properties) {
         this.candidates = candidates;
         this.people = people;
         this.matcher = matcher;
@@ -170,6 +171,7 @@ public class CandidateService {
         this.suppression = suppression;
         this.aiControls = aiControls;
         this.workspaceSettings = workspaceSettings;
+        this.lookedUp = lookedUp;
     }
 
     /**
@@ -384,6 +386,20 @@ public class CandidateService {
         UUID triageCompanyId = requests.companyOf(projectId, request, null);
         CandidateDetails details = requests.detailsOf(projectId, request.withTriageCompanyId(triageCompanyId), null);
 
+        // The Add form's lookup already bought this research: the save files it, employer into the universe included.
+        boolean lookedUpProfile = source == CandidateSource.MANUAL && Boolean.TRUE.equals(request.lookedUpProfile())
+                && isLinkedInProfileUrl(details.linkedinUrl());
+        Optional<EnrichedProfile> research = lookedUpProfile
+                ? lookedUp.heldFor(workspaceId, details.linkedinUrl())
+                : Optional.empty();
+        Optional<TriageCompanyResponse> researchedEmployer = triageCompanyId == null && research.isPresent()
+                ? lookedUp.fileEmployer(projectId, userId, research.get(), details)
+                : Optional.empty();
+        if (researchedEmployer.isPresent()) {
+            triageCompanyId = researchedEmployer.get().id();
+            details = details.employedAt(researchedEmployer.get().companyName());
+        }
+
         refuseDuplicate(projectId, triageCompanyId, details.fullName(), null);
         refuseHeldProfile(projectId, details.linkedinUrl(), null);
         suppression.refuseSuppressed(workspaceId, details.linkedinUrl(), emailsOf(details.emails()));
@@ -406,6 +422,15 @@ public class CandidateService {
                 events.publishEvent(new CandidateCapturedEvent(candidate.getId(), projectId,
                         details.linkedinUrl()));
             }
+        }
+        if (research.isPresent()) {
+            lookedUp.fileOnto(userId, workspaceId, projectId, candidate, research.get(), details.linkedinUrl());
+        } else if (lookedUpProfile && !candidate.getPerson().isResearched()) {
+            // Held no longer (past its window, or looked up on another instance): researched behind the save instead.
+            events.publishEvent(new CandidateCapturedEvent(candidate.getId(), projectId, details.linkedinUrl()));
+        }
+        if (researchedEmployer.isPresent()) {
+            stream.publish(projectId, ProjectStreamKind.COMPANY_CAPTURED);
         }
         stream.publish(projectId, ProjectStreamKind.CANDIDATE_CAPTURED);
 
@@ -917,8 +942,12 @@ public class CandidateService {
         stream.publish(projectId, ProjectStreamKind.COMPANY_CAPTURED);
     }
 
+    /** Filed as the door the person came through: a hand-typed add researched behind its save is still hand-typed. */
     private EmployerFilings capturedBy(UUID projectId, Candidate candidate) {
-        return new EmployerFilings(triage, projectId, candidate.getAddedBy(), TriageCompanySource.EXTENSION);
+        TriageCompanySource door = candidate.getSource() == CandidateSource.MANUAL
+                ? TriageCompanySource.MANUAL
+                : TriageCompanySource.EXTENSION;
+        return new EmployerFilings(triage, projectId, candidate.getAddedBy(), door);
     }
 
     private void keepPhoto(UUID personId, EnrichedProfile enriched) {
