@@ -253,8 +253,10 @@ email, a security audit row) and answers a different question.
 an `EditTriageCompanyRequest`, a `SaveCandidateRequest` — and hands them to `TriageCompanyService` and
 `CandidateService`. Every scope check, duplicate rule, source resolution, snapshot and audit event
 therefore stays in the one place that already owns it, and an import cannot drift from what the screen
-does. The only genuinely new seams are two reads: find a company of this project by name, find a person
-of this project by email or by name at a company. A row matching nobody on this mandate still goes
+does. The only genuinely new seams are two reads: find a company of this project by name (the same
+`preferred()` row a capture maps to, never a Declined one while another is held), find a person of this project by
+LinkedIn profile, then by email — only when the names share a surname, since a sheet's shared `info@` once merged two
+people — then by name at a company. An email cell not shaped like an address ("n/a", "-", "TBC") is dropped. A row matching nobody on this mandate still goes
 through the add every door shares, so someone the workspace already knows from another mandate — by
 LinkedIn profile or email — is mapped rather than duplicated, and the file only fills what nobody
 recorded (V91, `docs/candidate-crm.md`). A **Note** cell is the one value the file never writes onto the row: it is filed
@@ -273,6 +275,45 @@ Three consequences worth naming:
   counts it separately, because "12 updated" for twelve untouched snapshots would be a lie.
 - **A spreadsheet's own "status" column is never imported.** That is the sender's pipeline, not this
   mandate's, and overwriting a researcher's decision with it would undo their work.
+
+### Enrichment from LinkedIn
+
+The mapping step carries one tick box, **"I'm okay with enriching people and companies from LinkedIn"**, ticked by
+default — a product decision, against the market's habit (HubSpot, Gem and Ashby offer it unticked; most tools make it
+a separate step), so the safeguards around it carry the weight.
+
+**What it does.** After the commit, every person whose row carried a LinkedIn profile and every non-market company
+whose row carried a LinkedIn page is researched through the vendor the plugin's capture uses, and filed through
+`CandidateService.applyResearch` / `TriageCompanyService.applyEnrichment` — which fill **only what nobody recorded**,
+so the file always wins (a title the sheet gave is kept; an empty summary is filled). A company the file gave no page
+is researched from the page its person's research names, when the names agree (`CompanyResearch.namesTheSameCompany`).
+No company is ever searched for by name, and a market company keeps the market's snapshot.
+
+**Why a persisted queue, not events.** The shared `@Async` pool has no queue: past its 64 threads a listener runs on
+the publisher's thread, so one `CandidateCapturedEvent` per row would have put a big file's vendor reads back on the
+import's own request. `app_lm_import_enrichment_item` (V225) holds a row per target; `ImportEnrichmentWorker` claims a
+few per workspace per tick (`FOR UPDATE SKIP LOCKED`, inside `WorkspaceScope`), researches them side by side with no
+connection held, and finishes each in its own statement. A claim its instance never finished is taken again after
+`enrichment-stale-after`, and given up as `FAILED` after three. The dialog follows
+`GET /projects/{id}/import/enrichment/{runId}`; the grid refreshes on the `CANDIDATE_ENRICHED` / `COMPANY_ENRICHED`
+stream events the services already publish.
+
+**The limits, decided before anything is written.** The file's distinct profile and company links (in the columns the
+mapping reads them from) are counted at commit: over `lightmove.spreadsheet-import.max-auto-enrich` (250) the commit is
+refused `IMPORT_ENRICHMENT_TOO_LARGE` on field `enrich`, and past the month's fair use (`UsageKind.PROFILE_ENRICH`)
+`FAIR_USE_REACHED` — the same file imports unchanged with the box unticked. The preview sends each column's link counts
+and `allowanceLeft`, so the dialog greys the box out (unticked) over the limit, and warns over the allowance, before the
+button is pressed. The count is an upper bound: research the workspace already holds costs nothing and is filed free
+(`LookedUpResearch.researchOnFile`).
+
+**What protects the person.** The suppression list and a processing restriction are checked before every read
+(`LookedUpResearch.refuseUnresearchable`); an erased person's rows go with them (`ImportEnrichmentErasure`); finished
+rows hold a slug and our outcome only and are deleted after `enrichment-keep-for`. The box says the workspace is
+responsible for telling those people their profile was looked up (Article 14), because the workspace is the
+controller.
+
+**Not built yet.** A per-person Enrich / Re-enrich, and a workspace setting for the box's default.
+`ImportEnrichmentResearch` is written apart from the worker so the first can call it.
 
 ### Neither import method is `@Transactional`
 
@@ -333,6 +374,8 @@ every other mandate's grid.
 
 ## Out of scope
 
+- **Researching an imported company by name.** Only a LinkedIn page the file gave, or one its person's research
+  names, is ever read.
 - **Matching an imported company back to an Apollo account.** Imported companies are `source = 'CSV'`
   with `apollo_account_id` NULL, deduped by name exactly as a hand-typed company is. Fuzzy-resolving a
   spreadsheet name against 71,822 Apollo rows is its own feature with its own failure modes.
@@ -359,6 +402,10 @@ every other mandate's grid.
 - `ChatClientLoggingTest` — the log line, driven through a real `ChatClient` and the real advisor:
   model, both token counts, the finish reason, the prompt id from each call site, an unattributed
   call, a response carrying no metadata, and that no prompt or response content is ever logged.
+- `ImportEnrichmentIntegrationTest` — nothing queued unasked; only the blanks filled; the employer page a person's
+  research names; a file over the link limit refused before any write and importable unticked; progress scoped.
+- `RowValuesTest` — magnitude suffixes, ranges and decimal commas; an email placeholder is not an address; a LinkedIn
+  profile in its canonical spelling.
 - `SpreadsheetImportIntegrationTest` — companies-only, candidates-only and combined files; a re-import
   that updates rather than duplicates; a blank cell that does not clear a stored value; an unknown
   header becoming a custom column and the same header not creating a second one on the next import; a

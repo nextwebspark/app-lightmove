@@ -50,6 +50,11 @@ headers only (`send-sample-values: false`).
   recruiting; scraping a live profile on demand (HarvestAPI) is closer to the edge ⚖️.
 - *Safeguards:* the suppression list is checked at every door that files a person; a restricted person is
   refused a contact lookup and a further mapping (`people-controls-918-920.md`); enrichment providers are off unless `ENRICHMENT_PROVIDER` is set.
+- *Spreadsheet import enrichment* ⚖️: the import's box is ticked by default (a product decision), so its safeguards
+  carry the weight — it states how many profiles will be looked up, says the workspace must tell those people, refuses
+  a file of more than `max-auto-enrich` links and anything past fair use before writing, fills only empty fields, and
+  checks the suppression list and a restriction before every read. The workspace is the controller for the Article 14
+  notice this triggers.
 
 ## 3. Outreach
 
