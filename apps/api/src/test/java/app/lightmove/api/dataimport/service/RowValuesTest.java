@@ -58,4 +58,54 @@ class RowValuesTest {
         assertThat(RowValues.noticePeriod("   ")).isNull();
         assertThat(RowValues.noticePeriod(null)).isNull();
     }
+
+    @Test
+    @DisplayName("a figure is read at the magnitude the file wrote it in")
+    void magnitudeSuffixesScale() {
+        assertThat(RowValues.number("$1.2bn")).isEqualTo(1_200_000_000L);
+        assertThat(RowValues.number("1.2 bn USD")).isEqualTo(1_200_000_000L);
+        assertThat(RowValues.number("5k")).isEqualTo(5_000L);
+        assertThat(RowValues.number("2.5M")).isEqualTo(2_500_000L);
+        assertThat(RowValues.number("AED 450,000")).isEqualTo(450_000L);
+        assertThat(RowValues.number("450,000 AED")).isEqualTo(450_000L);
+        assertThat(RowValues.number("1 200 000")).isEqualTo(1_200_000L);
+        assertThat(RowValues.number("1.200.000")).isEqualTo(1_200_000L);
+        assertThat(RowValues.number("1.234,56")).isEqualTo(1_235L);
+        assertThat(RowValues.number("10,001+")).isEqualTo(10_001L);
+        assertThat(RowValues.number("3000")).isEqualTo(3_000L);
+        assertThat(RowValues.number("-12")).isEqualTo(-12L);
+    }
+
+    @Test
+    @DisplayName("a range or a lone decimal comma states no single figure, so it is not guessed at")
+    void ambiguousFiguresAreNotRecorded() {
+        assertThat(RowValues.number("1001-5000")).isNull();
+        assertThat(RowValues.number("51 – 200")).isNull();
+        assertThat(RowValues.number("1,5")).isNull();
+        assertThat(RowValues.number("n/a")).isNull();
+        assertThat(RowValues.number("   ")).isNull();
+    }
+
+    @Test
+    @DisplayName("an email cell is stored canonical, and a placeholder is not an address")
+    void emailIsAnAddressOrNothing() {
+        assertThat(RowValues.email(" Layla@ACWA.example ")).isEqualTo("layla@acwa.example");
+        assertThat(RowValues.email("mailto:layla@acwa.example")).isEqualTo("layla@acwa.example");
+        assertThat(RowValues.email("n/a")).isNull();
+        assertThat(RowValues.email("-")).isNull();
+        assertThat(RowValues.email("TBC")).isNull();
+        assertThat(RowValues.email("layla@acwa")).isNull();
+    }
+
+    @Test
+    @DisplayName("a LinkedIn profile is stored in its canonical spelling, scheme or not")
+    void linkedinProfileIsCanonical() {
+        assertThat(RowValues.linkedinProfile("linkedin.com/in/Layla-Haddad"))
+                .isEqualTo("https://www.linkedin.com/in/layla-haddad/");
+        assertThat(RowValues.linkedinProfile("https://uk.linkedin.com/in/layla-haddad?trk=x"))
+                .isEqualTo("https://www.linkedin.com/in/layla-haddad/");
+        assertThat(RowValues.linkedinProfile("see notes")).isEqualTo("see notes");
+        assertThat(RowValues.linkedinCompany("linkedin.com/company/acwa-power"))
+                .isEqualTo("https://linkedin.com/company/acwa-power");
+    }
 }

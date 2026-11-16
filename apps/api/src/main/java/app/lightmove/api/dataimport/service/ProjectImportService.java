@@ -56,6 +56,8 @@ import org.springframework.web.multipart.MultipartFile;
 @RequiredArgsConstructor
 public class ProjectImportService {
 
+    static final String ROW_RACED = "This row was being changed by someone else at the same moment. Import it again.";
+
     private final SpreadsheetReader reader;
     private final ImportTemplateWriter templateWriter;
     private final ColumnMappingProposer proposer;
@@ -111,10 +113,13 @@ public class ProjectImportService {
             tally.countRow();
             try {
                 importRow(userId, workspaceId, projectId, sheet, row, resolved, tally, httpRequest);
-            } catch (ApiException | DataAccessException e) {
-                // The internal detail reaches only the uploader. DataAccessException: a row can lose an
-                // optimistic-lock race to enrichment. Not RuntimeException — a real bug must fail loudly.
-                tally.rowFailed(rowIndex + 1, e.getMessage());
+            } catch (ApiException refused) {
+                // The internal detail reaches only the uploader. Not RuntimeException — a real bug must fail loudly.
+                tally.rowFailed(rowIndex + 1, refused.getMessage());
+            } catch (DataAccessException raced) {
+                // A row can lose an optimistic-lock race to enrichment. Never its message: that is SQL and
+                // constraint text, which reached the screen.
+                tally.rowFailed(rowIndex + 1, ROW_RACED);
             }
         }
 
@@ -259,9 +264,9 @@ public class ProjectImportService {
     private void upsertCandidate(UUID userId, UUID workspaceId, UUID projectId, UUID triageCompanyId,
                                  String companyName, String personName, RowFields fields,
                                  ImportTally tally, HttpServletRequest httpRequest) {
-        String email = fields.field(ImportTargetField.CANDIDATE_EMAIL);
-        Optional<CandidateResponse> existing =
-                candidates.findCandidateOfProject(projectId, triageCompanyId, email, personName);
+        Optional<CandidateResponse> existing = candidates.findCandidateOfProject(projectId, triageCompanyId,
+                RowValues.linkedinProfile(fields.field(ImportTargetField.CANDIDATE_LINKEDIN)),
+                RowValues.email(fields.field(ImportTargetField.CANDIDATE_EMAIL)), personName);
 
         if (existing.isEmpty()) {
             candidates.add(userId, workspaceId, projectId,

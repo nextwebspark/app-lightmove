@@ -569,6 +569,82 @@ class SpreadsheetImportIntegrationTest extends FlowTestSupport {
         assertThat(companies(admin, projectId).get("companies")).isEmpty();
     }
 
+    @Test
+    @DisplayName("a placeholder email is not an address, so it never merges two people")
+    void aPlaceholderEmailDoesNotMergePeople() throws Exception {
+        // Shipped: "n/a" was stored as an address, and row two matched row one by it and overwrote
+        // their name and title with its own.
+        String admin = adminOf("Import Placeholder Email Firm");
+        String projectId = project(admin);
+
+        JsonNode summary = importFile(admin, projectId, """
+                Company,Full Name,Job Title,Email
+                ACWA Power,Layla Haddad,CFO,n/a
+                ACWA Power,Omar Nasser,COO,n/a
+                """);
+
+        assertThat(summary.get("rowErrors")).isEmpty();
+        assertThat(summary.get("candidatesCreated").asInt()).isEqualTo(2);
+        List<String> names = new ArrayList<>();
+        candidates(admin, projectId).get("candidates").forEach(row -> names.add(row.get("fullName").asText()));
+        assertThat(names).containsExactlyInAnyOrder("Layla Haddad", "Omar Nasser");
+    }
+
+    @Test
+    @DisplayName("a shared address matches only the person whose name it was filed under")
+    void aSharedEmailDoesNotMergePeople() throws Exception {
+        String admin = adminOf("Import Shared Email Firm");
+        String projectId = project(admin);
+
+        JsonNode summary = importFile(admin, projectId, """
+                Company,Full Name,Job Title,Email
+                ACWA Power,Layla Haddad,CFO,info@acwapower.example
+                ACWA Power,Omar Nasser,COO,info@acwapower.example
+                """);
+
+        assertThat(summary.get("candidatesCreated").asInt()).isEqualTo(2);
+        assertThat(summary.get("candidatesUpdated").asInt()).isZero();
+    }
+
+    @Test
+    @DisplayName("a re-import finds the person by LinkedIn profile, however the name was respelled")
+    void reImportMatchesByLinkedInProfile() throws Exception {
+        String admin = adminOf("Import Profile Match Firm");
+        String projectId = project(admin);
+        importFile(admin, projectId, """
+                Company,Full Name,Job Title,LinkedIn
+                ACWA Power,Jon Smith,CFO,https://www.linkedin.com/in/jon-smith-acwa/
+                """);
+
+        JsonNode second = importFile(admin, projectId, """
+                Company,Full Name,Job Title,LinkedIn
+                ACWA Power,Jonathan Smith,Group CFO,linkedin.com/in/Jon-Smith-ACWA
+                """);
+
+        assertThat(second.get("rowErrors")).isEmpty();
+        assertThat(second.get("candidatesUpdated").asInt()).isEqualTo(1);
+        JsonNode person = candidates(admin, projectId).get("candidates").get(0);
+        assertThat(candidates(admin, projectId).get("totalCount").asInt()).isEqualTo(1);
+        assertThat(person.get("title").asText()).isEqualTo("Group CFO");
+        assertThat(person.get("linkedinUrl").asText()).isEqualTo("https://www.linkedin.com/in/jon-smith-acwa/");
+    }
+
+    @Test
+    @DisplayName("a revenue written with a magnitude is read at that magnitude")
+    void readsAMagnitudeSuffix() throws Exception {
+        String admin = adminOf("Import Magnitude Firm");
+        String projectId = project(admin);
+
+        importFile(admin, projectId, """
+                Company,Revenue,Headcount
+                ACWA Power,$1.2bn,5k
+                """);
+
+        JsonNode company = companies(admin, projectId).get("companies").get(0);
+        assertThat(company.get("annualRevenue").asLong()).isEqualTo(1_200_000_000L);
+        assertThat(company.get("numEmployees").asInt()).isEqualTo(5000);
+    }
+
     private JsonNode importFile(String token, String projectId, String content) throws Exception {
         JsonNode preview = body(mvc.perform(multipart("/api/v1/projects/" + projectId + "/import/preview")
                         .file(csv(content))
