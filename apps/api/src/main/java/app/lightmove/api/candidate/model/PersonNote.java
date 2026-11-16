@@ -1,5 +1,6 @@
 package app.lightmove.api.candidate.model;
 
+import app.lightmove.api.candidate.constant.NoteOutcome;
 import app.lightmove.api.candidate.constant.PersonNoteKind;
 import app.lightmove.api.common.constant.NoteFormat;
 import app.lightmove.api.core.persistence.model.BaseEntity;
@@ -79,6 +80,10 @@ public class PersonNote extends BaseEntity {
     @Column(name = "recording_id")
     private UUID recordingId;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "outcome", length = 16)
+    private NoteOutcome outcome;
+
     @Column(name = "deleted_at")
     private Instant deletedAt;
 
@@ -86,13 +91,14 @@ public class PersonNote extends BaseEntity {
     private UUID deletedBy;
 
     public static PersonNote written(Person person, UUID projectId, String projectTitle, PersonNoteKind kind,
-                                     String body, NoteFormat format, UUID author) {
+                                     NoteOutcome outcome, String body, NoteFormat format, UUID author) {
         PersonNote note = new PersonNote();
         note.workspaceId = person.getWorkspaceId();
         note.personId = person.getId();
         note.projectId = projectId;
         note.projectTitle = projectTitle;
         note.kind = kind;
+        note.outcome = outcome;
         note.body = body;
         note.bodyFormat = format;
         note.authorUserId = author;
@@ -112,8 +118,11 @@ public class PersonNote extends BaseEntity {
         return occurredAt != null ? occurredAt : getCreatedAt();
     }
 
-    public void revise(PersonNoteKind newKind, String newBody, NoteFormat newFormat, UUID editor) {
+    /** The kind and its outcome change together, so no edit leaves an outcome its kind cannot hold (V224). */
+    public void revise(PersonNoteKind newKind, NoteOutcome newOutcome, String newBody, NoteFormat newFormat,
+                       UUID editor) {
         this.kind = newKind;
+        this.outcome = newOutcome;
         this.body = newBody;
         this.bodyFormat = newFormat;
         this.editedAt = Instant.now();

@@ -129,9 +129,10 @@ class CandidateMaterialReader {
         List<String> lines = new ArrayList<>();
         int total = 0;
         for (NoteOnFile note : notes) {
-            String line = "- [%s · %s%s] %s".formatted(note.kind().promptLabel(), DAY.format(note.writtenAt()),
+            String line = "- [%s · %s%s%s] %s".formatted(note.kind().promptLabel(), DAY.format(note.writtenAt()),
                     note.aboutPosition() == null ? "" : " · about " + note.aboutPosition(),
-                    cut(ContactRedaction.redact(note.body().strip()), MAX_NOTE));
+                    note.outcome() == null ? "" : " · " + note.outcome().label(),
+                    cut(ContactRedaction.redact(note.body().strip()), MAX_NOTE)).strip();
             if (total + line.length() > MAX_NOTES) {
                 lines.add(OLDER_NOTES_LEFT_OUT);
                 break;

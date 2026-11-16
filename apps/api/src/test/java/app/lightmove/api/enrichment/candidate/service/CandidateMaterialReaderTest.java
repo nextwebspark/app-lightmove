@@ -7,6 +7,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import app.lightmove.api.candidate.constant.PersonDocumentCategory;
+import app.lightmove.api.candidate.constant.NoteOutcome;
 import app.lightmove.api.candidate.constant.PersonNoteKind;
 import app.lightmove.api.candidate.model.CandidateMaterial;
 import app.lightmove.api.candidate.model.DocumentOnFile;
@@ -58,7 +59,7 @@ class CandidateMaterialReaderTest {
     @DisplayName("a LinkedIn note reaches the model under the network's own spelling")
     void aLinkedInNoteIsLabelledLinkedIn() {
         when(material.materialOf(PROJECT, CANDIDATE)).thenReturn(new CandidateMaterial(List.of(new NoteOnFile(
-                PersonNoteKind.LINKEDIN, Instant.parse("2026-10-01T09:00:00Z"), null, "Replied to the InMail.")),
+                PersonNoteKind.LINKEDIN, Instant.parse("2026-10-01T09:00:00Z"), null, "Replied to the InMail.", null)),
                 List.of()));
 
         assertThat(reader.read(PROJECT, CANDIDATE).notes()).startsWith("- [LinkedIn · ");
@@ -68,10 +69,20 @@ class CandidateMaterialReaderTest {
     @DisplayName("a WhatsApp note reaches the model under the network's own spelling")
     void aWhatsAppNoteIsLabelledWhatsApp() {
         when(material.materialOf(PROJECT, CANDIDATE)).thenReturn(new CandidateMaterial(List.of(new NoteOnFile(
-                PersonNoteKind.WHATSAPP, Instant.parse("2026-10-01T09:00:00Z"), null, "Sent the role outline.")),
+                PersonNoteKind.WHATSAPP, Instant.parse("2026-10-01T09:00:00Z"), null, "Sent the role outline.", null)),
                 List.of()));
 
         assertThat(reader.read(PROJECT, CANDIDATE).notes()).startsWith("- [WhatsApp · ");
+    }
+
+    @Test
+    @DisplayName("a call logged by its outcome alone reaches the model as how it went")
+    void anOutcomeOnlyCallSaysHowItWent() {
+        when(material.materialOf(PROJECT, CANDIDATE)).thenReturn(new CandidateMaterial(List.of(new NoteOnFile(
+                PersonNoteKind.CALL, Instant.parse("2026-10-01T09:00:00Z"), null, "", NoteOutcome.NO_ANSWER)),
+                List.of()));
+
+        assertThat(reader.read(PROJECT, CANDIDATE).notes()).startsWith("- [Call · ").endsWith(" · No answer]");
     }
 
     @Test
@@ -79,7 +90,7 @@ class CandidateMaterialReaderTest {
     void notesOverTheBudgetAreLeftOutAndNotCounted() {
         List<NoteOnFile> notes = IntStream.range(0, 20)
                 .mapToObj(day -> new NoteOnFile(PersonNoteKind.CALL, Instant.parse("2026-10-01T09:00:00Z"), null,
-                        "Call " + day + " " + "y".repeat(1_500)))
+                        "Call " + day + " " + "y".repeat(1_500), null))
                 .toList();
         when(material.materialOf(PROJECT, CANDIDATE)).thenReturn(new CandidateMaterial(notes, List.of()));
 

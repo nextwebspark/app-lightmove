@@ -29,5 +29,7 @@ public record PersonNoteResponse(
         /** The calendar meeting a meeting's notes are about. */
         UUID meetingId,
         /** The Notetaker recording they are about, where the calendar no longer holds its meeting. */
-        UUID recordingId
+        UUID recordingId,
+        /** A {@code NoteOutcome} wire token: how the call or message went, or null where nobody said. */
+        String outcome
 ) {}
