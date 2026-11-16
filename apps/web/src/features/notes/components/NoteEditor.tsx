@@ -69,7 +69,9 @@ export function NoteEditor(props: NoteEditorProps) {
     return (
       <div className="flex min-h-0 flex-1 flex-col">
         {props.header !== undefined && <div className="flex-none">{props.header}</div>}
-        <div className={cn("flex min-h-0 flex-1 flex-col", props.header !== undefined && "mt-3")}>
+        {/* A floor, not min-h-0: on a short window the box was squeezed below its toolbar and the words spilled out
+            over the signature under it. Below the floor the dialog's body scrolls instead. */}
+        <div className={cn("flex min-h-44 flex-1 flex-col", props.header !== undefined && "mt-3")}>
           <Suspense fallback={<div aria-busy="true" className="min-h-32 flex-1" />}>
             <RichNoteEditor {...props} header={undefined} footer={undefined} />
           </Suspense>

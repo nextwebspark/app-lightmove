@@ -57,7 +57,10 @@ export function Modal({
    * inside it, which a form wrapped round the children alone could not reach.
    */
   onSubmit?: () => void;
-  /** The body does not scroll: its one child fills it and scrolls what it chooses, such as a composer's words alone. */
+  /**
+   * Its one child fills the body and scrolls what it chooses, such as a composer's words alone; the body scrolls only
+   * when the window is too short for the child's own minimum.
+   */
   fills?: boolean;
   className?: string;
 }) {
@@ -130,7 +133,7 @@ export function Modal({
           className={cn(
             "min-h-0 flex-1 px-5 pt-3 md:px-[22px]",
             fills
-              ? "flex flex-col"
+              ? "flex flex-col overflow-y-auto"
               : "overflow-y-auto [scrollbar-gutter:stable]",
             !footer && "pb-5 md:pb-[22px]",
           )}
