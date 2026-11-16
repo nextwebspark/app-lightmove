@@ -1,6 +1,7 @@
-import type { PersonNote, PersonNoteKind } from "../../candidates/api/types";
+import type { LastCall, PersonNote, PersonNoteKind } from "../../candidates/api/types";
 import { actorOf, type ActivityActor } from "../../candidates/lib/activityPresentation";
 import { timelineLines } from "../../candidates/lib/candidateActivity";
+import { outcomeLabel } from "../../candidates/lib/noteOutcomes";
 import type { ConversationEvent, ConversationGroup, ConversationMessage, ConversationRow } from "../api/conversationApi";
 import type { Meeting } from "../api/meetingApi";
 import type { OutreachRun } from "../api/runApi";
@@ -360,6 +361,13 @@ export function keyDateOf(isoInstant: string | null): string {
   const at = new Date(isoInstant);
   if (Number.isNaN(at.getTime())) return "—";
   return formatDate(at).toUpperCase();
+}
+
+/** "05 OCT 2026 · CONNECTED" — Key dates' Last call, its outcome beside the day when the call named one. */
+export function lastCallKeyDateOf(call: LastCall): string {
+  return [keyDateOf(call.at), call.outcome ? outcomeLabel(call.outcome).toUpperCase() : null]
+    .filter(Boolean)
+    .join(" · ");
 }
 
 function clockOf(at: Date): string {

@@ -15,6 +15,7 @@ function touch(overrides: Partial<ApproachTouch>): ApproachTouch {
     samePosition: false,
     byYou: false,
     positionHidden: false,
+    outcome: null,
     ...overrides,
   };
 }
@@ -37,6 +38,18 @@ describe("recent approach wording", () => {
     );
     expect(touchLine(touch({ at: "2026-11-15T09:00:00Z" }), NOW).text).toBe(
       "Sara Al-Mansour emailed · scheduled · Head of Credit Risk",
+    );
+  });
+
+  it("says how a logged call or WhatsApp message went", () => {
+    expect(touchLine(touch({ kind: "CALL_LOGGED", outcome: "voicemail" }), NOW).text).toBe(
+      "Sara Al-Mansour called (left voicemail) · 12 days ago · Head of Credit Risk",
+    );
+    expect(touchLine(touch({ kind: "WHATSAPP_LOGGED", outcome: "sent" }), NOW).text).toBe(
+      "Sara Al-Mansour sent a WhatsApp message · 12 days ago · Head of Credit Risk",
+    );
+    expect(touchLine(touch({ kind: "REPLIED", outcome: "replied", byYou: true }), NOW).text).toBe(
+      "Replied to you on WhatsApp · 12 days ago · Head of Credit Risk",
     );
   });
 

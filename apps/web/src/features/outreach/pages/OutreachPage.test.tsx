@@ -189,7 +189,7 @@ function conversation(overrides: Partial<Conversation> = {}): Conversation {
       },
     ],
     currentRun: { run: null, steps: [] },
-    keyDates: { addedAt: "2026-09-20T05:00:00Z", firstContactedAt: "2026-10-01T05:00:00Z", repliedAt: null, lastActivityAt: null },
+    keyDates: { addedAt: "2026-09-20T05:00:00Z", firstContactedAt: "2026-10-01T05:00:00Z", repliedAt: null, lastActivityAt: null, lastCall: null },
     contact: {
       emails: [{ address: "fatima@gulfports.example", kind: "work", verified: true } as never],
       phones: [],
@@ -605,6 +605,26 @@ describe("OutreachPage", () => {
     const composer = screen.getByRole("region", { name: "Reply" });
     expect(within(composer).getByText("Fatima is marked do not contact.")).toBeInTheDocument();
     expect(within(composer).queryByRole("button", { name: "Send now" })).not.toBeInTheDocument();
+  });
+
+  it("puts the newest logged call in Key dates with how it went, and no row where nobody called", async () => {
+    const open = conversation();
+    vi.mocked(conversationApi.getConversation).mockResolvedValue(
+      conversation({
+        keyDates: {
+          ...open.keyDates,
+          lastCall: { at: "2026-10-05T08:00:00Z", outcome: "connected", byUserId: "u2", byName: "Sara Al-Mansour" },
+        },
+      }),
+    );
+    const called = renderPage(OPEN);
+    expect((await screen.findAllByText("05 OCT 2026 · CONNECTED")).length).toBeGreaterThan(0);
+
+    vi.mocked(conversationApi.getConversation).mockResolvedValue(open);
+    called.unmount();
+    renderPage(OPEN);
+    expect((await screen.findAllByText("First contacted")).length).toBeGreaterThan(0);
+    expect(screen.queryByText("Last call")).not.toBeInTheDocument();
   });
 
   it("with no mailbox and nobody to open, offers one way in where the conversation goes, and no banner", async () => {

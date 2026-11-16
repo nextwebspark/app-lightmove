@@ -280,6 +280,15 @@ export type PersonNoteKind = "general" | "call" | "meeting" | "email" | "linkedi
 /** How a logged call (the first four) or WhatsApp message (the last two) went (V224). */
 export type NoteOutcome = "connected" | "voicemail" | "no_answer" | "wrong_number" | "sent" | "replied";
 
+/** The newest call anyone on the team logged with the person, on any position. Staff-only; never the words. */
+export interface LastCall {
+  at: string;
+  outcome: NoteOutcome | null;
+  byUserId: string;
+  /** Null once the author has left. */
+  byName: string | null;
+}
+
 /**
  * A note on a workspace person. Staff-only: one about a position is read there alone, one about no position
  * on every position, and the workspace's Candidates page reads them all.
@@ -380,6 +389,8 @@ export interface ApproachTouch {
   samePosition: boolean;
   byYou: boolean;
   positionHidden: boolean;
+  /** How a logged call or WhatsApp message went; null for anything else. */
+  outcome: NoteOutcome | null;
 }
 
 /**

@@ -81,6 +81,7 @@ const caution: RecentApproach = {
       samePosition: false,
       byYou: false,
       positionHidden: false,
+      outcome: null,
     },
   ],
   elsewhere: [],

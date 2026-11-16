@@ -4,7 +4,7 @@ import { messageFor } from "../../../lib/errorCodes";
 import * as personCrmApi from "../../candidates/api/personCrmApi";
 import type { NoteOutcome, PersonNoteKind } from "../../candidates/api/types";
 import { loggedToastOf } from "../../candidates/lib/noteOutcomes";
-import { CONVERSATION_KEY } from "../api/conversationApi";
+import { invalidateEveryConversation } from "../api/conversationApi";
 import { usePendingContacts } from "./pendingContactsContext";
 import type { PendingContact } from "./pendingContactStore";
 
@@ -33,7 +33,7 @@ export function useLogPendingContact(card: PendingContact) {
     onSuccess: (_note, outcome) => {
       void queryClient.invalidateQueries({ queryKey: personCrmApi.PERSON_NOTES_KEY(card.projectId, card.candidateId) });
       void queryClient.invalidateQueries({ queryKey: personCrmApi.PERSON_TIMELINE_KEY(card.projectId, card.candidateId) });
-      void queryClient.invalidateQueries({ queryKey: CONVERSATION_KEY(card.projectId, card.candidateId) });
+      invalidateEveryConversation(queryClient);
       if (outcome === "wrong_number") {
         toast(`${loggedToastOf(kind)} · Wrong number`);
         tray?.markWrongNumber(card.id);

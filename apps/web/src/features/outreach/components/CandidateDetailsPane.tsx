@@ -21,7 +21,8 @@ import { messageFor } from "../../../lib/errorCodes";
 import { pipelineColourClass, pipelineSwatchClass } from "../../candidates/lib/pipelineStatus";
 import { useClientVisibility } from "../../pipeline/lib/usePipelineWrites";
 import { CONVERSATION_KEY, type Conversation } from "../api/conversationApi";
-import { keyDateOf } from "../lib/conversationVocabulary";
+import { keyDateOf, lastCallKeyDateOf } from "../lib/conversationVocabulary";
+import { lastCallTitle } from "../../candidates/lib/lastCall";
 import { isLive, RUN_STATES, runNoteOf, sendTimeOf } from "../lib/runVocabulary";
 
 /**
@@ -193,6 +194,11 @@ export function CandidateDetailsPane({
         <DetailRow label="Last updated" mono>
           {keyDateOf(keyDates.lastActivityAt)}
         </DetailRow>
+        {keyDates.lastCall && (
+          <DetailRow label="Last call" mono>
+            <span title={lastCallTitle(keyDates.lastCall)}>{lastCallKeyDateOf(keyDates.lastCall)}</span>
+          </DetailRow>
+        )}
       </DetailBlock>
 
       <DetailBlock

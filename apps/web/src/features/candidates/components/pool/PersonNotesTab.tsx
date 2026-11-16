@@ -12,6 +12,7 @@ import { NoteEditor } from "../../../notes/components/NoteEditor";
 import { NextActionModal, type NextActionTarget } from "../../../tasks/components/NextActionModal";
 import { NOTE_MAX_STORED, NOTE_TOO_LONG, withoutMentionTokens } from "../../../tasks/lib/mentions";
 import { usePositionTeam } from "../../../tasks/lib/usePositionTeam";
+import { invalidateEveryConversation } from "../../../outreach/api/conversationApi";
 
 /**
  * The Notes tab: a plain note about a position or about the person, and the team's plain notes, pinned first. Calls,
@@ -185,7 +186,7 @@ function PoolNoteCard({ personId, note }: { personId: string; note: PersonNote }
   return <NoteCard note={note} actions={actions} teammates={note.projectId ? team.teammates : null} takesOutcome />;
 }
 
-/** A note changes the notes, the timeline and the feed; nothing else about the person. */
+/** A note changes the notes, the timeline, the feed and, through Last call, every position's conversation. */
 function useNoteRefresh(personId: string) {
   const queryClient = useQueryClient();
   return () => {
@@ -193,5 +194,6 @@ function useNoteRefresh(personId: string) {
     void queryClient.invalidateQueries({ queryKey: [...poolApi.POOL_KEY, "timeline", personId] });
     void queryClient.invalidateQueries({ queryKey: [...poolApi.POOL_KEY, "activity"] });
     void queryClient.invalidateQueries({ queryKey: [...poolApi.POOL_KEY, "page"] });
+    invalidateEveryConversation(queryClient);
   };
 }

@@ -873,7 +873,11 @@ export function CandidateProfile({
                     <Icon d={ICONS.pencil} size={13} />
                   </button>
                 </div>
-                <ContactChannels contacts={candidate.contacts} reach={phoneReach} />
+                <ContactChannels
+                  contacts={candidate.contacts}
+                  reach={phoneReach}
+                  lastCall={conversation.data?.keyDates.lastCall}
+                />
               </section>
               <NoteComposerModal
                 projectId={projectId}

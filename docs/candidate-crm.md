@@ -340,8 +340,18 @@ words. `PersonNote.revise` changes kind and outcome together. It rides `PersonNo
 (and so the Outreach timeline's note events), the `NOTE_*` timeline line's details as the live note's `outcome`, the AI
 material's note line, the workspace archive's note heading and the subject access export. A restore answers with a live
 twin only for a note with no outcome (a door's duplicate never has one), so a log that says how it went always comes
-back itself. Recently approached still counts every logged call, whatever its outcome; telling a Wrong number apart is
-Last call's (#1337, PR 4).
+back itself. Recently approached leaves out a call logged as No answer or Wrong number and ranks a WhatsApp They
+replied as a reply (`docs/recently-approached.md`).
+
+### Last call (#1337)
+
+The newest live call note on the person, on any position, whatever its outcome (`LastCallReader`): when
+(`occurred_at`, else when it was written), how it went and who logged it, never the words or the position — the same
+exposure as Recently approached. It rides the staff-only conversation read as `keyDates.lastCall`
+(`LastCallResponse`), never `CandidateResponse`, the public API or MCP. The drawer's Contact section draws it under
+the Phone row ("Last call 14 Sep · No answer · Sara Al-Mansour", the exact time in the title; `lib/lastCall.ts`), from
+the conversation it already reads for the caution, and the Outreach pane's Key dates adds a Last call row
+("05 OCT 2026 · CONNECTED") once there is one. A logged or deleted call refreshes both through `CONVERSATION_KEY`.
 
 ### Tags (Phase 4, V98): "Open to work", "Open to relocate", …
 
