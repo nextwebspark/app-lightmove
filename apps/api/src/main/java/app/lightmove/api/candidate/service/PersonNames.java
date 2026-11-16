@@ -22,6 +22,9 @@ final class PersonNames {
     private static final Set<String> PARTICLES = Set.of("al", "el", "bin", "bint", "ibn", "abu", "van", "von", "de",
             "da", "di", "du", "le", "la");
 
+    /** Only these are written glued ("AlSuwaidi"); peeling "de" or "la" would make Delaney agree with Laney. */
+    private static final Set<String> GLUED_PARTICLES = Set.of("al", "el", "bin", "ibn", "abu");
+
     private PersonNames() {
     }
 
@@ -49,7 +52,7 @@ final class PersonNames {
     }
 
     private static Set<String> surnameSpellings(String surname) {
-        return PARTICLES.stream()
+        return GLUED_PARTICLES.stream()
                 .filter(particle -> surname.startsWith(particle) && surname.length() - particle.length() >= 3)
                 .map(particle -> surname.substring(particle.length()))
                 .collect(Collectors.toCollection(() -> new HashSet<>(Set.of(surname))));

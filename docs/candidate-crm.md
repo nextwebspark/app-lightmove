@@ -402,9 +402,13 @@ spelled one way. So:
 > - **Matching** is profile slug, then a personal email whose holder's name agrees (`PersonNames`: same surname,
 >   same first initial, through "Smith, John" order, titles, suffixes and name particles) and whose profile does not
 >   differ. A **role inbox** (`info@`, `hr@`, `sales@`… — `RoleAddresses`) is never a key: one sheet giving two
->   people `info@` once merged them, the second overwriting the first's name. The drawer's "add them here" answer
->   is still held to the keys alone (`PersonMatcher.keyHolderOf`), so it never files one person's address onto
->   another. **Phone is
+>   people `info@` once merged them, the second overwriting the first's name — in either mode, so a role inbox
+>   someone else holds never refuses the drawer's "add them here" answer either. That answer is otherwise held to
+>   the keys alone (`PersonMatcher.keyHolderOf`), so it never files one person's personal address onto another.
+>   The name rule's accepted cost: a nickname ("Bob" for Robert) or a surname changed by marriage does not agree,
+>   so that person files as a second person at the same address, for the merge tool to fold. Only Arabic particles
+>   (`al`, `el`, `bin`, `ibn`, `abu`) are peeled off a glued surname; peeling "de" would make Delaney agree with
+>   Laney. **Phone is
 >   not a key** — a switchboard is on every executive of a company. A name alone never matches; the
 >   possible-duplicate 409 and its dialog ship with the SPA phase that draws the dialog, so until then a
 >   name-only match simply founds a second person, which the merge tool will fold.

@@ -51,7 +51,9 @@ class PersonMatcher {
         }
         for (ContactEntry email : details.emails()) {
             String key = CandidateContact.keyOf(ContactChannel.EMAIL, email.value());
-            if (key.isEmpty() || (asIdentity && RoleAddresses.isRoleAddress(key))) {
+            // A role inbox is never a key, in either mode: several people may now hold one, and the drawer's answer
+            // would be refused for an address that names nobody.
+            if (key.isEmpty() || RoleAddresses.isRoleAddress(key)) {
                 continue;
             }
             // As identity the names must agree too: an address one sheet gave two people once merged them into one.

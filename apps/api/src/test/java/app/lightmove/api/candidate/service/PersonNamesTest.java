@@ -27,6 +27,8 @@ class PersonNamesTest {
     void differentPeopleDoNotAgree() {
         assertThat(PersonNames.agree("Layla Haddad", "Omar Nasser")).isFalse();
         assertThat(PersonNames.agree("Layla Haddad", "Omar Haddad")).isFalse();
+        assertThat(PersonNames.agree("Tom Delaney", "Tom Laney")).isFalse();
+        assertThat(PersonNames.agree("Ann Davidson", "Ann Vidson")).isFalse();
     }
 
     @Test

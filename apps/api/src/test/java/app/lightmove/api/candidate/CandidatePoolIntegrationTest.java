@@ -172,6 +172,23 @@ class CandidatePoolIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("a role inbox someone else holds never refuses the drawer's \"add them here\" answer")
+    void aRoleInboxDoesNotRefuseTheDrawersAnswer() throws Exception {
+        String first = mandate("Role Inbox Answer Firm", "Chief Financial Officer");
+        String second = mandateInSameWorkspace("Head of Credit Risk");
+        add(first, """
+                {"fullName":"John Roe","email":"info@trading.example"}""");
+        JsonNode jane = add(first, """
+                {"fullName":"Jane Doe","employerName":"Trading Enterprises"}""");
+
+        JsonNode answered = add(second, """
+                {"fullName":"Jane Doe","employerName":"Trading Enterprises","email":"info@trading.example",
+                 "existingPersonId":"%s"}""".formatted(jane.get("personId").asText()));
+
+        assertThat(answered.get("personId").asText()).isEqualTo(jane.get("personId").asText());
+    }
+
+    @Test
     @DisplayName("an address still finds the person under a title, a suffix or surname-first order")
     void anAddressFindsTheDressedName() throws Exception {
         String first = mandate("Dressed Name Firm", "Chief Financial Officer");
