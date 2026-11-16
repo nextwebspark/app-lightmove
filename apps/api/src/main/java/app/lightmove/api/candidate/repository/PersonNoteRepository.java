@@ -1,5 +1,6 @@
 package app.lightmove.api.candidate.repository;
 
+import app.lightmove.api.candidate.constant.NoteOutcome;
 import app.lightmove.api.candidate.constant.PersonNoteKind;
 import app.lightmove.api.candidate.model.LoggedContactRow;
 import app.lightmove.api.candidate.model.NoteViewpoint;
@@ -11,6 +12,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.data.domain.Limit;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -57,26 +59,40 @@ public interface PersonNoteRepository extends JpaRepository<PersonNote, UUID> {
             """, nativeQuery = true)
     int restore(@Param("id") UUID id, @Param("workspaceId") UUID workspaceId, @Param("personId") UUID personId);
 
-    /** Every live logged touch with these people since {@code since}, on any position, without its words. */
+    /**
+     * Every live logged touch with these people since {@code since}, on any position, without its words. A log whose
+     * outcome is in {@code unanswered} never reached the person, so it is left out.
+     */
     @Query("""
             select n.personId as personId, n.projectId as projectId, n.authorUserId as authorUserId, n.kind as kind,
-                   coalesce(n.occurredAt, n.createdAt) as at
+                   n.outcome as outcome, coalesce(n.occurredAt, n.createdAt) as at
             from PersonNote n
             where n.workspaceId = :workspaceId and n.personId in :personIds and n.kind in :kinds
+              and (n.outcome is null or n.outcome not in :unanswered)
               and coalesce(n.occurredAt, n.createdAt) >= :since
             """)
     List<LoggedContactRow> findLoggedContacts(UUID workspaceId, Collection<UUID> personIds,
-                                              Collection<PersonNoteKind> kinds, Instant since);
+                                              Collection<PersonNoteKind> kinds, Collection<NoteOutcome> unanswered,
+                                              Instant since);
 
     /** The same read before {@code since}: each person's newest logged touch per teammate and position. */
     @Query(value = """
             SELECT DISTINCT ON (person_id, author_user_id, project_id) * FROM app_lm_person_note
             WHERE workspace_id = :workspaceId AND person_id IN (:personIds) AND kind IN (:kinds)
+              AND (outcome IS NULL OR outcome NOT IN (:unanswered))
               AND deleted_at IS NULL AND coalesce(occurred_at, created_at) < :since
             ORDER BY person_id, author_user_id, project_id, coalesce(occurred_at, created_at) DESC
             """, nativeQuery = true)
     List<PersonNote> findLatestLoggedContactsBefore(UUID workspaceId, Collection<UUID> personIds,
-                                                    Collection<String> kinds, Instant since);
+                                                    Collection<String> kinds, Collection<String> unanswered,
+                                                    Instant since);
+
+    @Query("""
+            select n from PersonNote n
+            where n.workspaceId = :workspaceId and n.personId = :personId and n.kind = :kind
+            order by coalesce(n.occurredAt, n.createdAt) desc, n.createdAt desc
+            """)
+    List<PersonNote> findNewestOfKind(UUID workspaceId, UUID personId, PersonNoteKind kind, Limit limit);
 
     /** The notes a viewpoint reads, pinned first and then newest first. */
     default List<PersonNote> findReadablePinnedFirst(UUID workspaceId, UUID personId, NoteViewpoint viewpoint) {

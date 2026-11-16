@@ -1,7 +1,9 @@
+import type { QueryClient } from "@tanstack/react-query";
 import { request, requestBlob } from "../../../lib/apiClient";
 import type {
   CandidateEmail,
   CandidatePhone,
+  LastCall,
   PersonNote,
   PersonTimelineEntry,
   RecentApproach,
@@ -31,6 +33,16 @@ export const CONVERSATIONS_KEY = (projectId: string, view: ConversationView, who
   [...CONVERSATIONS_KEY_PREFIX(projectId), view, who, query] as const;
 export const CONVERSATION_KEY = (projectId: string, candidateId: string) =>
   ["outreach", projectId, "conversation", candidateId] as const;
+
+/**
+ * A note changes every position's conversation with the person, not only its own: Key dates' Last call reads their
+ * calls on any position. Only the mounted ones read again; the rest on their next open.
+ */
+export function invalidateEveryConversation(queryClient: QueryClient): void {
+  void queryClient.invalidateQueries({
+    predicate: (query) => query.queryKey[0] === "outreach" && query.queryKey[2] === "conversation",
+  });
+}
 
 /** An open task as the queue and the conversation name it: what to do, by when, and who holds it. */
 export interface ConversationTask {
@@ -168,6 +180,7 @@ export interface Conversation {
     firstContactedAt: string | null;
     repliedAt: string | null;
     lastActivityAt: string | null;
+    lastCall: LastCall | null;
   };
   contact: ConversationContact;
   composer: ConversationComposer;

@@ -19,8 +19,15 @@ and `Settings.dc.html` → Meetings & email.
 | `REPLIED` | `app_lm_outreach_message`: an inbound reply, credited to the mailbox it reached |
 | `IN_SEQUENCE` | a live (`SCHEDULED`/`ACTIVE`) enrollment on another position. Ongoing, so it ignores the window |
 | `CALL_LOGGED`, `LINKEDIN_LOGGED`, `WHATSAPP_LOGGED`, `MEETING_LOGGED`, `EMAIL_LOGGED` | a live logged note of that kind (`app_lm_person_note`), dated by `occurred_at`, else when it was written |
+| `REPLIED` (logged) | a WhatsApp log whose outcome is They replied: their answer, so it ranks with an emailed reply |
+
+A logged call or WhatsApp message carries its outcome (`outcome` on the touch), and the line says it: "Sara called
+(left voicemail)", "Sara sent a WhatsApp message", "Replied to Sara on WhatsApp".
 
 These touches are left out:
+- a call logged as **No answer** or **Wrong number** (#1337): it never reached the person, so it warns nobody, in the
+  window or before it (`RecentApproachReader.UNANSWERED`, filtered in both note queries so an unanswered call never
+  hides an older one that connected). Last call still names it;
 - the caller's own touches on the position they work from, or logged on no position, which are already in their
   conversation. Their own touches on another position are kept ("You emailed …") and ask like a teammate's: people
   forget;

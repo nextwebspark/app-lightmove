@@ -81,7 +81,7 @@ function conversation(overrides: Partial<Conversation> = {}): Conversation {
     },
     openTasks: [],
     currentRun: { run: null, steps: [] },
-    keyDates: { addedAt: null, firstContactedAt: null, repliedAt: null, lastActivityAt: null },
+    keyDates: { addedAt: null, firstContactedAt: null, repliedAt: null, lastActivityAt: null, lastCall: null },
     contact: {
       emails: [{ address: "fatima@gulfports.example", kind: "work", verified: true } as never],
       phones: [],
@@ -706,7 +706,7 @@ describe("ReplyComposer", () => {
           windowDays: 90,
           touches: [
             { kind: "EMAILED", byUserId: "u2", byName: "Sara Al-Mansour", at: twelveDaysAgo, projectId: null,
-              positionTitle: null, samePosition: false, byYou: false, positionHidden: true },
+              positionTitle: null, samePosition: false, byYou: false, positionHidden: true, outcome: null },
           ],
           elsewhere: [
             { projectId: null, positionTitle: null, statusLabel: null, statusColour: null, stageLabel: "Approach",
@@ -737,7 +737,7 @@ describe("ReplyComposer", () => {
     vi.mocked(conversationApi.sendMessage).mockRejectedValue(new Error("offline"));
     const sarasEmail: ApproachTouch = { kind: "EMAILED", byUserId: "u2", byName: "Sara Al-Mansour",
       at: new Date(Date.now() - 12 * 86_400_000).toISOString(), projectId: "p2", positionTitle: "Head of Credit Risk",
-      samePosition: false, byYou: false, positionHidden: false };
+      samePosition: false, byYou: false, positionHidden: false, outcome: null };
     const approached = (touches: ApproachTouch[]) =>
       conversation({
         composer: {

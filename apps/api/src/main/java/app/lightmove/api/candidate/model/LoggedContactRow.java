@@ -1,5 +1,6 @@
 package app.lightmove.api.candidate.model;
 
+import app.lightmove.api.candidate.constant.NoteOutcome;
 import app.lightmove.api.candidate.constant.PersonNoteKind;
 import java.time.Instant;
 import java.util.UUID;
@@ -14,6 +15,8 @@ public interface LoggedContactRow {
     UUID getAuthorUserId();
 
     PersonNoteKind getKind();
+
+    NoteOutcome getOutcome();
 
     Instant getAt();
 }

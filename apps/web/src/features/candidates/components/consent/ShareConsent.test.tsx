@@ -233,7 +233,7 @@ describe("the Outreach details pane's Client visible switch", () => {
       enrichedAt: null,
     },
     contact: { emails: [], phones: [], locationCity: null, locationCountry: null, doNotContact: false },
-    keyDates: { addedAt: null, firstContactedAt: null, repliedAt: null, lastActivityAt: null },
+    keyDates: { addedAt: null, firstContactedAt: null, repliedAt: null, lastActivityAt: null, lastCall: null },
     currentRun: { run: null },
   } as unknown as Conversation;
 

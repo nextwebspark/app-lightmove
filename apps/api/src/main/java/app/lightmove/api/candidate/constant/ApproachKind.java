@@ -16,6 +16,11 @@ public enum ApproachKind {
         return this == IN_SEQUENCE;
     }
 
+    /** A logged "They replied" is their answer, so it ranks as one; any other log is the channel it was on. */
+    public static ApproachKind loggedAs(PersonNoteKind noteKind, NoteOutcome outcome) {
+        return outcome == NoteOutcome.REPLIED ? REPLIED : loggedAs(noteKind);
+    }
+
     public static ApproachKind loggedAs(PersonNoteKind noteKind) {
         return switch (noteKind) {
             case CALL -> CALL_LOGGED;
