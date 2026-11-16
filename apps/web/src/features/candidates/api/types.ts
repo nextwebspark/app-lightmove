@@ -277,6 +277,9 @@ export interface NationalityReading {
 /** What a note records, as the composer offers it. */
 export type PersonNoteKind = "general" | "call" | "meeting" | "email" | "linkedin" | "whatsapp";
 
+/** How a logged call (the first four) or WhatsApp message (the last two) went (V224). */
+export type NoteOutcome = "connected" | "voicemail" | "no_answer" | "wrong_number" | "sent" | "replied";
+
 /**
  * A note on a workspace person. Staff-only: one about a position is read there alone, one about no position
  * on every position, and the workspace's Candidates page reads them all.
@@ -306,6 +309,8 @@ export interface PersonNote {
   meetingId?: string | null;
   /** The Notetaker recording they are about, where the calendar no longer holds its meeting. */
   recordingId?: string | null;
+  /** How the call or WhatsApp message went; with one the body may be empty. */
+  outcome?: NoteOutcome | null;
 }
 
 export interface WritePersonNotePayload {
@@ -324,6 +329,8 @@ export interface WritePersonNotePayload {
   meetingId?: string | null;
   /** Or the Notetaker recording, for a call known only from it; never with a `meetingId`. */
   recordingId?: string | null;
+  /** A call's or WhatsApp log's outcome; an edit that leaves it out keeps it. */
+  outcome?: NoteOutcome | null;
 }
 
 /** One mandate a person is mapped on, with that mandate's status and who filed them there. */

@@ -308,7 +308,22 @@ Candidate details pane draw `PhoneActions`: the number dials (`tel:` with `e164`
 new tab (none for a landline or a service number), and Copy. Without a calling code the mark stays faded, and for an
 editor it opens Edit contact details. An added calling code is named on a pill and in the link's title. Do not contact,
 a reader who may not reach out on the position, and a client seat leave the number as text, its title saying why.
-The Recently approached warning before a call is deferred to the "log it" tray (#1337, PR 3).
+With a teammate's recent approach at `CAUTION` (the conversation read's `composer.recentApproach`), Call, WhatsApp
+and Copy first open `RecentApproachConfirm`, as Enrol and Reply do; `INFO` goes straight through.
+
+### The log-it tray (#1337, PR 3)
+
+Every staff press of a phone's Call, WhatsApp or Copy leaves a card in the log-it tray (`outreach/calling`): the person,
+the position the drawer or pane was opened on, the number and the press time. It is browser state only
+(`sessionStorage`, 12 hours, forgotten on sign-out), one tab and one member; nothing reaches the server until an outcome
+is tapped. The tray sits in the toast corner, clear of a docked drawer, under the toasts, and never takes focus.
+No answer and Left voicemail (a call or a Copy) and Sent a message / They replied (WhatsApp) log at once as a note with
+the outcome, an empty body and the press time; Connected and WhatsApp's Add note open `NoteComposerModal` with that
+outcome and time; Wrong number logs, then offers Fix number (the drawer's Edit contact details, `section=contact`).
+Not now (or Esc) logs nothing. A second press of the same number freshens its card; from three cards the newest shows.
+The composer's Log call and Log WhatsApp carry the same outcome chips, optional, and with one picked the note may stay
+empty; an outcome is drawn as a pill on the Outreach timeline's card and the conversation pane, and leads the
+Activity line's detail.
 
 ### Call and WhatsApp outcomes (#1337, V224)
 

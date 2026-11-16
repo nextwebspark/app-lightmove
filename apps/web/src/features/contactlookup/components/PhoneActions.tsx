@@ -3,6 +3,8 @@ import { cn } from "../../../lib/cn";
 import type { CandidatePhone } from "../../candidates/api/types";
 import { addedCallingCodeOf, dialHrefOf, offersWhatsApp, whatsappHrefOf } from "../lib/phoneLinks";
 import { isReachable, type PhoneReach } from "../lib/phoneReach";
+import { usePendingContacts } from "../../outreach/calling/pendingContactsContext";
+import { CopyContactButton } from "./CopyContactButton";
 
 export type { PhoneReach };
 
@@ -19,6 +21,7 @@ export function PhoneNumberLink({
   className?: string;
 }) {
   const href = dialHrefOf(phone);
+  const tray = usePendingContacts();
   if (!isReachable(reach) || !href) {
     return (
       <span title={textTitleOf(reach)} className={cn("min-w-0 truncate", className)}>
@@ -31,6 +34,9 @@ export function PhoneNumberLink({
       href={href}
       aria-label={`Call ${reach.personName} on ${phone.number}`}
       title={callTitleOf(phone, reach)}
+      onClick={(event) =>
+        reach.target && tray?.reachOut(event, "call", phone, reach.target, () => window.location.assign(href))
+      }
       className={cn("min-w-0 truncate hover:underline", className)}
     >
       {phone.number}
@@ -43,6 +49,7 @@ export function PhoneNumberLink({
  * calling code the mark stays, faded, and opens Edit contact details for whoever may edit.
  */
 export function WhatsAppLink({ phone, reach, size = 14 }: { phone: CandidatePhone; reach: PhoneReach; size?: number }) {
+  const tray = usePendingContacts();
   if (!isReachable(reach) || !offersWhatsApp(phone)) return null;
   const href = whatsappHrefOf(phone);
   if (!href && reach.onAddCountryCode) {
@@ -72,10 +79,39 @@ export function WhatsAppLink({ phone, reach, size = 14 }: { phone: CandidatePhon
       rel="noopener noreferrer"
       aria-label={`WhatsApp ${reach.personName}`}
       title="WhatsApp"
+      onClick={(event) =>
+        reach.target &&
+        tray?.reachOut(event, "whatsapp", phone, reach.target, () => window.open(href, "_blank", "noopener,noreferrer"))
+      }
       className="flex flex-none rounded-md p-1 transition hover:bg-u-raised"
     >
       <NetworkMark network="whatsapp" size={size} />
     </a>
+  );
+}
+
+/** Copy, which counts as a dial: whoever copies a number is about to ring it from another phone. */
+export function CopyPhoneButton({
+  phone,
+  reach,
+  size,
+  className,
+}: {
+  phone: CandidatePhone;
+  reach: PhoneReach;
+  size?: number;
+  className?: string;
+}) {
+  const tray = usePendingContacts();
+  const target = reach.target;
+  return (
+    <CopyContactButton
+      what="Phone"
+      value={phone.number}
+      size={size}
+      className={className}
+      onPress={target && tray ? (copy) => tray.reachOut(null, "copy", phone, target, copy) : undefined}
+    />
   );
 }
 

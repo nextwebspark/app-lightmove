@@ -1,4 +1,5 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { useOutletContext } from "react-router-dom";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Button, useToast } from "../../../components/ui";
@@ -16,13 +17,15 @@ import * as contactLookupApi from "../../contactlookup/api/contactLookupApi";
 import { ContactDetailsDialog } from "../../contactlookup/components/ContactDetailsDialog";
 import { ContactsReadDialog } from "../../contactlookup/components/ContactsReadDialog";
 import { ContactChannels } from "../../contactlookup/components/ContactPanel";
-import { CopyContactButton } from "../../contactlookup/components/CopyContactButton";
 import { isReachable } from "../../contactlookup/lib/phoneReach";
 import {
+  CopyPhoneButton,
   PhoneNumberLink,
   WhatsAppLink,
   type PhoneReach,
 } from "../../contactlookup/components/PhoneActions";
+import { CONVERSATION_KEY, getConversation } from "../../outreach/api/conversationApi";
+import type { ProjectOutletContext } from "../../../components/layout/ProjectLayout";
 import type { CustomColumn, CustomFieldValues } from "../../customcolumns/api/types";
 import { CustomFieldsFieldset } from "../../customcolumns/components/CustomFieldsFieldset";
 import { CandidateOutreachButtons } from "../../outreach/components/CandidateOutreachButtons";
@@ -161,6 +164,13 @@ export function CandidateProfile({
    * Whether this deployment looks contacts up. A deployment fact, not a row one, so it is read once
    * and kept — and a refused or failed read means no buttons rather than buttons that cannot work.
    */
+  const outlet = useOutletContext<ProjectOutletContext | undefined>();
+  // The Outreach tab reads the same conversation; a phone takes its Recently approached from it.
+  const conversation = useQuery({
+    queryKey: CONVERSATION_KEY(projectId, candidate.id),
+    queryFn: ({ signal }) => getConversation(projectId, candidate.id, signal),
+    enabled: canWrite,
+  });
   const lookupConfig = useQuery({
     queryKey: contactLookupApi.CONTACT_LOOKUP_CONFIG_KEY,
     queryFn: ({ signal }) => contactLookupApi.getContactLookupConfig(signal),
@@ -345,6 +355,15 @@ export function CandidateProfile({
     doNotContact,
     onSaveInternational: saveInternational.isPending ? undefined : (phone) => saveInternational.mutate(phone),
     onAddCountryCode: canWrite ? () => setContactWindow("details") : undefined,
+    target: canWrite
+      ? {
+          projectId,
+          candidateId: candidate.id,
+          personName: candidate.fullName,
+          positionTitle: outlet?.project.positionTitle ?? null,
+          approach: conversation.data?.composer.recentApproach ?? null,
+        }
+      : undefined,
   };
   const primaryPhone = candidate.contacts.phones[0];
 
@@ -455,7 +474,7 @@ export function CandidateProfile({
               <>
                 <PhoneNumberLink phone={primaryPhone} reach={phoneReach} className="transition hover:text-u-accent" />
                 <WhatsAppLink phone={primaryPhone} reach={phoneReach} size={12} />
-                {isReachable(phoneReach) && <CopyContactButton what="Phone" value={primaryPhone.number} size={11} />}
+                {isReachable(phoneReach) && <CopyPhoneButton phone={primaryPhone} reach={phoneReach} size={11} />}
               </>
             ) : undefined
           }

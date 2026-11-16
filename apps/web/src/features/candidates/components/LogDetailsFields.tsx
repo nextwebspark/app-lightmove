@@ -27,8 +27,12 @@ export const OUTSIDE_UNCAVA = "";
 
 /** Now, in the viewer's own zone: what a log is stamped with unless someone says otherwise. */
 export function logDetailsNow(meetingId: string | null = null): LogDetails {
-  const now = new Date();
-  return { date: localDateOf(now), time: localTimeOf(now), title: "", meetingId };
+  return logDetailsAt(new Date(), meetingId);
+}
+
+/** A log stamped with a moment already known, such as the press of a number it follows. */
+export function logDetailsAt(at: Date, meetingId: string | null = null): LogDetails {
+  return { date: localDateOf(at), time: localTimeOf(at), title: "", meetingId };
 }
 
 /** The request fields a log's details become; a chosen meeting brings its own time and, untyped, its title. */

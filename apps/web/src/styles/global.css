@@ -193,9 +193,13 @@ html:has(> body.dark),
   animation: dot-pop 0.28s ease both;
 }
 
+/* The log-it tray (#1337) keeps the same corner and the same clearance: over a drawer (z 97 to its 95), so a number
+   pressed there leaves a card in reach, and under a dialog (100) and the toasts (120). */
+
 /* Toasts stack in the bottom-right corner, clear of any panel docked on the right: a drawer's footer
    holds its Save and Remove, and an error that stays must never sit on the button that answers it. */
-.toast-stack {
+.toast-stack,
+.log-tray {
   --toast-clearance: 0px;
   position: fixed;
   bottom: 16px;
@@ -214,7 +218,8 @@ html:has(> body.dark),
   body:has([data-mobile-nav]) {
     --mobile-nav-clearance: calc(var(--mobile-nav-height) + env(safe-area-inset-bottom));
   }
-  body:has([data-mobile-nav]) .toast-stack {
+  body:has([data-mobile-nav]) .toast-stack,
+  body:has([data-mobile-nav]) .log-tray {
     bottom: calc(16px + var(--mobile-nav-clearance));
   }
 }
@@ -229,19 +234,20 @@ html:has(> body.dark),
 }
 
 @media (min-width: 640px) {
-  .toast-stack {
+  .toast-stack,
+  .log-tray {
     bottom: 24px;
     left: auto;
     right: max(24px, min(calc(24px + var(--toast-clearance)), calc(100vw - 384px)));
     width: 360px;
   }
-  body:has([data-edge-panel="drawer"]) .toast-stack {
+  body:has([data-edge-panel="drawer"]) :is(.toast-stack, .log-tray) {
     --toast-clearance: 430px;
   }
-  body:has([data-edge-panel="drawer-wide"]) .toast-stack {
+  body:has([data-edge-panel="drawer-wide"]) :is(.toast-stack, .log-tray) {
     --toast-clearance: 570px;
   }
-  body:has([data-edge-panel="report"]) .toast-stack {
+  body:has([data-edge-panel="report"]) :is(.toast-stack, .log-tray) {
     --toast-clearance: 384px;
   }
 }
