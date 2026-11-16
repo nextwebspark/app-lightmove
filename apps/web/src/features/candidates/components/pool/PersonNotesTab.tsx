@@ -169,12 +169,12 @@ function PoolNoteCard({ personId, note }: { personId: string; note: PersonNote }
     note,
     {
       pin: (noteId, pinned) => poolApi.pinPoolNote(personId, noteId, pinned),
-      revise: (current, body) =>
+      revise: (current, change) =>
         poolApi.revisePoolNote(personId, current.id, {
           kind: current.kind,
-          body,
           format: "markdown",
           projectId: current.projectId,
+          ...change,
         }),
       remove: (noteId) => poolApi.removePoolNote(personId, noteId),
       restore: (noteId) => poolApi.restorePoolNote(personId, noteId),
@@ -182,7 +182,7 @@ function PoolNoteCard({ personId, note }: { personId: string; note: PersonNote }
     useNoteRefresh(personId),
   );
   const team = usePositionTeam(note.projectId);
-  return <NoteCard note={note} actions={actions} teammates={note.projectId ? team.teammates : null} />;
+  return <NoteCard note={note} actions={actions} teammates={note.projectId ? team.teammates : null} takesOutcome />;
 }
 
 /** A note changes the notes, the timeline and the feed; nothing else about the person. */

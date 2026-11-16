@@ -1,4 +1,14 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { ICONS, Icon } from "../layout/Icon";
 import { cn } from "../../lib/cn";
 
@@ -15,6 +25,7 @@ export interface ToastFn {
 }
 
 export const TOAST_LIMIT = 3;
+const STACK_GAP_PX = 12;
 export const TOAST_DURATION_MS = 4_000;
 export const TOAST_WITH_UNDO_DURATION_MS = 6_000;
 
@@ -49,6 +60,13 @@ export function useToast(): ToastFn {
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const nextId = useRef(0);
+  const stack = useRef<HTMLDivElement>(null);
+
+  // How far what shares the corner (the log-it tray) rises to stay clear of the stack: its height and a gap, or nothing.
+  useLayoutEffect(() => {
+    const height = stack.current ? stack.current.offsetHeight + STACK_GAP_PX : 0;
+    document.documentElement.style.setProperty("--toast-stack-height", `${height}px`);
+  }, [toasts]);
 
   const dismiss = useCallback((id: number) => setToasts((current) => current.filter((t) => t.id !== id)), []);
 
@@ -76,7 +94,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     <ToastContext.Provider value={toast}>
       {children}
       {toasts.length > 0 && (
-        <div className="toast-stack z-[120] flex flex-col gap-3">
+        <div ref={stack} className="toast-stack z-[120] flex flex-col gap-3">
           {toasts.map((item) => (
             <ToastCard key={item.id} item={item} onDismiss={dismiss} />
           ))}

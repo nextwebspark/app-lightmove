@@ -10,12 +10,28 @@ import { usePositionTeam } from "../../tasks/lib/usePositionTeam";
 import { CONVERSATION_KEY } from "../../outreach/api/conversationApi";
 import * as personCrmApi from "../api/personCrmApi";
 import * as poolApi from "../api/poolApi";
-import type { PersonNote, PersonNoteKind } from "../api/types";
+import type { NoteOutcome, PersonNote, PersonNoteKind } from "../api/types";
 import { isContactNote, notePlaceholderOf, PLAIN_NOTE_KIND } from "../lib/noteKinds";
+import { loggedToastOf, outcomesOf } from "../lib/noteOutcomes";
 import { useNoteCardActions } from "../lib/useNoteCardActions";
 import type { Meeting } from "../../outreach/api/meetingApi";
-import { isLogInFuture, LogDetailsFields, logDetailsNow, logPayloadOf, type LogDetails } from "./LogDetailsFields";
-import { NoteCard, NoteKindPicker, NoteScopePicker, noteAnchorOf, type NoteCardLead, type NoteScope } from "./NoteParts";
+import {
+  isLogInFuture,
+  LogDetailsFields,
+  logDetailsAt,
+  logDetailsNow,
+  logPayloadOf,
+  type LogDetails,
+} from "./LogDetailsFields";
+import {
+  NoteCard,
+  NoteKindPicker,
+  NoteOutcomePicker,
+  NoteScopePicker,
+  noteAnchorOf,
+  type NoteCardLead,
+  type NoteScope,
+} from "./NoteParts";
 
 /**
  * The shared person in a position's drawer — where else they are mapped, the notes on them, and what
@@ -161,6 +177,8 @@ export function PositionNoteComposer({
   kindChoices,
   pastMeetings = [],
   presetMeetingId = null,
+  presetOutcome = null,
+  presetOccurredAt = null,
   title = "New note",
   presentation = "inline",
   onExpandChange,
@@ -175,6 +193,10 @@ export function PositionNoteComposer({
   pastMeetings?: readonly Meeting[];
   /** The meeting a Log meeting notes on a call opens on. */
   presetMeetingId?: string | null;
+  /** The outcome a log opens with: Connected, from the log-it tray. */
+  presetOutcome?: NoteOutcome | null;
+  /** When the logged call or message happened, if known: the press of the number it follows. */
+  presetOccurredAt?: string | null;
   /** The larger view's title. */
   title?: string;
   /** In a dialog the composer is the dialog's whole body: no frame of its own, and room to write. */
@@ -194,7 +216,16 @@ export function PositionNoteComposer({
   const thisPosition = positions.data?.find((row) => row.projectId === projectId)?.positionTitle;
   const [kind, setKind] = useState<PersonNoteKind>(initialKind);
   const logs = kindChoices !== undefined && kindChoices.length > 0;
-  const [details, setDetails] = useState<LogDetails>(() => logDetailsNow(presetMeetingId));
+  const freshDetails = () =>
+    presetOccurredAt ? logDetailsAt(new Date(presetOccurredAt), presetMeetingId) : logDetailsNow(presetMeetingId);
+  const [details, setDetails] = useState<LogDetails>(freshDetails);
+  const [outcome, setOutcome] = useState<NoteOutcome | null>(presetOutcome);
+  const outcomes = logs ? outcomesOf(kind) : null;
+  const chosenOutcome = outcomes?.some((option) => option.value === outcome) ? outcome : null;
+  const changeKind = (next: PersonNoteKind) => {
+    setKind(next);
+    if (!outcomesOf(next)?.some((option) => option.value === outcome)) setOutcome(null);
+  };
   const [scope, setScope] = useState<NoteScope>("position");
   const [draft, setDraft] = useState("");
   const forEveryPosition = scope === "everywhere";
@@ -220,11 +251,13 @@ export function PositionNoteComposer({
           format: "markdown",
           ...(forEveryPosition ? { allPositions: true } : {}),
           ...(logs ? logPayloadOf(kind === "meeting" ? details : { ...details, meetingId: null }) : {}),
+          ...(chosenOutcome ? { outcome: chosenOutcome } : {}),
         },
       ),
     onSuccess: (note, thenNextAction) => {
       setDraft("");
-      setDetails(logDetailsNow(presetMeetingId));
+      setDetails(freshDetails());
+      setOutcome(presetOutcome);
       void queryClient.invalidateQueries({
         queryKey: personCrmApi.PERSON_NOTES_KEY(projectId, candidateId),
       });
@@ -235,6 +268,8 @@ export function PositionNoteComposer({
       if (thenNextAction && onSetNextAction) {
         toast("Note saved");
         onSetNextAction(taskNoteOf(note));
+      } else if (note.outcome) {
+        toast(loggedToastOf(note.kind));
       } else {
         toast(note.projectId ? "Note saved" : "Note saved — your team sees it on every position");
       }
@@ -242,7 +277,7 @@ export function PositionNoteComposer({
     },
     onError: (error) => toast.error(messageFor(error)),
   });
-  const canSave = body.length > 0 && !tooLong && !saving.isPending && !(logs && isLogInFuture(details, kind));
+  const canSave = (body.length > 0 || chosenOutcome !== null) && !tooLong && !saving.isPending && !(logs && isLogInFuture(details, kind));
   const save = () => canSave && saving.mutate(false);
 
   const isDialog = presentation === "dialog";
@@ -254,7 +289,13 @@ export function PositionNoteComposer({
         onChange={setDraft}
         teammates={forEveryPosition ? null : team.teammates}
         ariaLabel="New note"
-        placeholder={kindChoices && kindChoices.length > 1 ? "What was said, and what happens next…" : notePlaceholderOf(kind)}
+        placeholder={
+          chosenOutcome
+            ? "Optional — what was said, and what happens next…"
+            : kindChoices && kindChoices.length > 1
+              ? "What was said, and what happens next…"
+              : notePlaceholderOf(kind)
+        }
         onSubmit={save}
         submitLabel="Save note"
         canSubmit={canSave}
@@ -267,9 +308,14 @@ export function PositionNoteComposer({
           logs ? (
             <>
               {kindChoices.length > 1 && (
-                <NoteKindPicker value={kind} onChange={setKind} kinds={kindChoices} label="What you are logging" />
+                <NoteKindPicker value={kind} onChange={changeKind} kinds={kindChoices} label="What you are logging" />
               )}
               <LogDetailsFields kind={kind} pastMeetings={pastMeetings} value={details} onChange={setDetails} />
+              {outcomes && (
+                <div className="mt-2.5">
+                  <NoteOutcomePicker kind={kind} value={chosenOutcome} onChange={setOutcome} />
+                </div>
+              )}
             </>
           ) : undefined
         }
@@ -331,8 +377,12 @@ export function PositionNoteCard({
     note,
     {
       pin: (noteId, pinned) => personCrmApi.pinPersonNote(projectId, candidateId, noteId, pinned),
-      revise: (current, body) =>
-        personCrmApi.revisePersonNote(projectId, candidateId, current.id, { kind: current.kind, body, format: "markdown" }),
+      revise: (current, change) =>
+        personCrmApi.revisePersonNote(projectId, candidateId, current.id, {
+          kind: current.kind,
+          format: "markdown",
+          ...change,
+        }),
       remove: (noteId) => personCrmApi.removePersonNote(projectId, candidateId, noteId),
       restore: (noteId) => personCrmApi.restorePersonNote(projectId, candidateId, noteId),
     },
@@ -356,6 +406,7 @@ export function PositionNoteCard({
       showsKindMark={showsKindMark}
       lead={lead}
       namesPosition={false}
+      takesOutcome
     />
   );
 }
