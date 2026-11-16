@@ -13,4 +13,7 @@ public interface DeletedPersonNoteRow {
     UUID getProjectId();
 
     String getBody();
+
+    /** A {@code NoteOutcome} name, or null. */
+    String getOutcome();
 }

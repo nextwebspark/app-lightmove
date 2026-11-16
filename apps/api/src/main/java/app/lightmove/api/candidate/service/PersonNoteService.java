@@ -1,5 +1,6 @@
 package app.lightmove.api.candidate.service;
 
+import app.lightmove.api.candidate.constant.NoteOutcome;
 import app.lightmove.api.candidate.constant.PersonActivityKind;
 import app.lightmove.api.candidate.constant.PersonNoteKind;
 import app.lightmove.api.candidate.dto.PersonNoteResponse;
@@ -94,8 +95,9 @@ public class PersonNoteService {
                 throw ApiException.of(ErrorCode.NOT_FOUND);
             }
         }
+        NoteOutcome outcome = loggedNotes.outcomeOf(request, kind, null, request.bodyText());
         NoteOccurrence occurrence = loggedNotes.occurrenceOf(request, kind, workspaceId, aboutProjectId, personId);
-        PersonNote note = save(person, aboutProjectId, kind, request.body().strip(), formatOf(request), userId,
+        PersonNote note = save(person, aboutProjectId, kind, outcome, request.bodyText(), formatOf(request), userId,
                 occurrence);
         mentions.keep(note, userId);
         audit.event(ProjectEventType.PERSON_NOTE_ADDED).actor(userId).workspace(workspaceId)
@@ -114,9 +116,11 @@ public class PersonNoteService {
         loggedNotes.refuseLoggedEmail(kind, note.getKind());
         NoteOccurrence current = new NoteOccurrence(note.getOccurredAt(), note.getTitle(), note.getMeetingId(),
                 note.getRecordingId());
+        String body = request.bodyTextOr(note.getBody());
+        NoteOutcome outcome = loggedNotes.outcomeOf(request, kind, note.getOutcome(), body);
         NoteOccurrence occurrence = loggedNotes.revisedOccurrence(current, request, kind, workspaceId,
                 note.getProjectId(), personId);
-        note.revise(kind, request.body().strip(), formatOf(request), userId);
+        note.revise(kind, outcome, body, formatOf(request), userId);
         note.placeAt(occurrence);
         mentions.keep(note, userId);
         audit.event(ProjectEventType.PERSON_NOTE_EDITED).actor(userId).workspace(workspaceId)
@@ -132,7 +136,8 @@ public class PersonNoteService {
         Person person = people.requireInWorkspace(personId, workspaceId);
         PersonNote note = requireEditable(userId, workspaceId, personId, viewpoint, noteId);
         activity.record(person, note.getProjectId(), userId, PersonActivityKind.NOTE_REMOVED,
-                PersonActivityDetails.of("noteId", note.getId()).and("kind", note.getKind()));
+                PersonActivityDetails.of("noteId", note.getId()).and("kind", note.getKind())
+                        .and("outcome", note.getOutcome()));
         note.discard(userId, clock.instant());
         audit.event(ProjectEventType.PERSON_NOTE_REMOVED).actor(userId).workspace(workspaceId)
                 .target(PERSON_TARGET, personId).from(httpRequest)
@@ -144,7 +149,7 @@ public class PersonNoteService {
      * Takes a delete back while the note is still held. Its mentions were never dropped, so nobody is told twice.
      * A note already live answers as it is, so a second press of Undo, or two at once, records one restore; and
      * where a door has filed the same words again since under the same author, that copy answers and the deleted one is
-     * left to the purge.
+     * left to the purge. A door files no outcome, so a log that says how it went is always restored itself.
      */
     @Transactional
     public PersonNoteResponse restore(UUID userId, UUID workspaceId, UUID personId, NoteViewpoint viewpoint,
@@ -160,8 +165,10 @@ public class PersonNoteService {
         if (!deleted.getAuthorUserId().equals(userId) && !mayEditAny(userId, workspaceId)) {
             throw ApiException.of(ErrorCode.PERSON_NOTE_NOT_YOURS);
         }
-        PersonNote twin = notes.findFirstByWorkspaceIdAndPersonIdAndProjectIdAndBodyAndAuthorUserId(workspaceId,
-                personId, deleted.getProjectId(), deleted.getBody(), deleted.getAuthorUserId()).orElse(null);
+        PersonNote twin = deleted.getOutcome() != null ? null
+                : notes.findFirstByWorkspaceIdAndPersonIdAndProjectIdAndBodyAndAuthorUserIdAndOutcomeIsNull(
+                        workspaceId, personId, deleted.getProjectId(), deleted.getBody(), deleted.getAuthorUserId())
+                        .orElse(null);
         if (twin != null) {
             return asItStands(userId, workspaceId, twin);
         }
@@ -170,7 +177,8 @@ public class PersonNoteService {
         }
         PersonNote note = notes.requireReadable(noteId, workspaceId, personId, viewpoint);
         activity.record(person, note.getProjectId(), userId, PersonActivityKind.NOTE_RESTORED,
-                PersonActivityDetails.of("noteId", note.getId()).and("kind", note.getKind()));
+                PersonActivityDetails.of("noteId", note.getId()).and("kind", note.getKind())
+                        .and("outcome", note.getOutcome()));
         audit.event(ProjectEventType.PERSON_NOTE_RESTORED).actor(userId).workspace(workspaceId)
                 .target(PERSON_TARGET, personId).from(httpRequest)
                 .detail("noteId", noteId.toString())
@@ -210,7 +218,8 @@ public class PersonNoteService {
                 person.getId(), candidate.getProjectId(), text)) {
             return;
         }
-        save(person, candidate.getProjectId(), PersonNoteKind.GENERAL, text, NoteFormat.PLAIN, userId);
+        save(person, candidate.getProjectId(), PersonNoteKind.GENERAL, null, text, NoteFormat.PLAIN, userId,
+                NoteOccurrence.NONE);
     }
 
     /**
@@ -222,24 +231,19 @@ public class PersonNoteService {
         Person person = people.requireInWorkspace(personId, workspaceId);
         UUID aboutProjectId = projectId != null && candidates.existsByProjectIdAndPersonId(projectId, personId)
                 ? projectId : null;
-        return save(person, aboutProjectId, PersonNoteKind.MEETING, markdown.strip(), NoteFormat.MARKDOWN, authorId)
-                .getId();
+        return save(person, aboutProjectId, PersonNoteKind.MEETING, null, markdown.strip(), NoteFormat.MARKDOWN,
+                authorId, NoteOccurrence.NONE).getId();
     }
 
-    private PersonNote save(Person person, UUID projectId, PersonNoteKind kind, String body, NoteFormat format,
-                            UUID author) {
-        return save(person, projectId, kind, body, format, author, NoteOccurrence.NONE);
-    }
-
-    private PersonNote save(Person person, UUID projectId, PersonNoteKind kind, String body, NoteFormat format,
-                            UUID author, NoteOccurrence occurrence) {
+    private PersonNote save(Person person, UUID projectId, PersonNoteKind kind, NoteOutcome outcome, String body,
+                            NoteFormat format, UUID author, NoteOccurrence occurrence) {
         String title = projectId == null ? null
                 : projects.findById(projectId).map(Project::getPositionTitle).orElse(null);
-        PersonNote written = PersonNote.written(person, projectId, title, kind, body, format, author);
+        PersonNote written = PersonNote.written(person, projectId, title, kind, outcome, body, format, author);
         written.placeAt(occurrence);
         PersonNote note = notes.save(written);
         activity.record(person, projectId, author, PersonActivityKind.NOTE_ADDED,
-                PersonActivityDetails.of("noteId", note.getId()).and("kind", kind));
+                PersonActivityDetails.of("noteId", note.getId()).and("kind", kind).and("outcome", outcome));
         return note;
     }
 
@@ -287,6 +291,7 @@ public class PersonNoteService {
                 note.getProjectId(), note.getProjectTitle(), note.getAuthorUserId(),
                 author == null ? null : author.getFullName(), author == null ? null : author.getAvatarUrl(),
                 note.getCreatedAt(), note.getEditedAt(), editor == null ? null : editor.getFullName(), editable,
-                note.happenedAt(), note.getTitle(), note.getMeetingId(), note.getRecordingId());
+                note.happenedAt(), note.getTitle(), note.getMeetingId(), note.getRecordingId(),
+                note.getOutcome() == null ? null : note.getOutcome().value());
     }
 }

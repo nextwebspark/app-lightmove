@@ -39,11 +39,11 @@ public interface PersonNoteRepository extends JpaRepository<PersonNote, UUID> {
      * A live note by the same author in the same words about the same position: the copy a door filed after the
      * original was deleted. Another author's note in the same words is theirs, never a stand-in for this one.
      */
-    Optional<PersonNote> findFirstByWorkspaceIdAndPersonIdAndProjectIdAndBodyAndAuthorUserId(UUID workspaceId,
-            UUID personId, UUID projectId, String body, UUID authorUserId);
+    Optional<PersonNote> findFirstByWorkspaceIdAndPersonIdAndProjectIdAndBodyAndAuthorUserIdAndOutcomeIsNull(
+            UUID workspaceId, UUID personId, UUID projectId, String body, UUID authorUserId);
 
     @Query(value = """
-            SELECT author_user_id AS authorUserId, project_id AS projectId, body
+            SELECT author_user_id AS authorUserId, project_id AS projectId, body, outcome
             FROM app_lm_person_note
             WHERE id = :id AND workspace_id = :workspaceId AND person_id = :personId AND deleted_at IS NOT NULL
             """, nativeQuery = true)
