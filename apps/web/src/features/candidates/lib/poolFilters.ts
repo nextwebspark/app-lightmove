@@ -42,8 +42,6 @@ export const NO_POOL_FILTERS: PoolFilters = {
 /** The column filters typed rather than ticked, held apart so a keystroke waits for the debounce. */
 export type PoolTextFilters = Pick<PoolFilters, "name" | "title" | "company">;
 
-export const NO_POOL_TEXT_FILTERS: PoolTextFilters = { name: "", title: "", company: "" };
-
 export const NOBODY = "nobody";
 export const NO_SENIORITY = "none";
 const STAGE_PREFIX = "stage:";

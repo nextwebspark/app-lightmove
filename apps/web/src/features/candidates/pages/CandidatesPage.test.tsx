@@ -340,6 +340,36 @@ describe("CandidatesPage", () => {
     expect(screen.getByRole("button", { name: "Filter, 3 applied" })).toBeInTheDocument();
   });
 
+  it("keeps a typed column filter in force across a visit to Activity", async () => {
+    renderPage();
+    const grid = await screen.findByRole("table", { name: "Candidates" });
+    await screen.findAllByText("Fatima Al Mazrouei");
+    await userEvent.click(within(grid).getByRole("button", { name: "Company column menu" }));
+    await userEvent.type(screen.getByRole("textbox", { name: "Filter by company" }), "Aldar");
+    await waitFor(() =>
+      expect(poolApi.listPool).toHaveBeenLastCalledWith(
+        expect.objectContaining({ company: "Aldar" }),
+        0,
+        50,
+        expect.anything(),
+      ),
+    );
+    await userEvent.keyboard("{Escape}");
+
+    await userEvent.click(screen.getByRole("radio", { name: "Activity" }));
+    await userEvent.click(await screen.findByRole("radio", { name: "People" }));
+    await screen.findByRole("table", { name: "Candidates" });
+    // Past the debounce, which is where an empty box used to write the filter away.
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    expect(poolApi.listPool).toHaveBeenLastCalledWith(
+      expect.objectContaining({ company: "Aldar" }),
+      0,
+      50,
+      expect.anything(),
+    );
+    expect(screen.getByRole("button", { name: "Filter, 1 applied" })).toBeInTheDocument();
+  });
+
   it("offers stage and status as one Status list, a stage as every status under it", async () => {
     renderPage();
     await screen.findAllByText("Fatima Al Mazrouei");

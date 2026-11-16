@@ -4,7 +4,6 @@ import app.lightmove.api.candidate.dto.AssignPersonOwnerRequest;
 import app.lightmove.api.candidate.dto.BulkAssignOwnerRequest;
 import app.lightmove.api.candidate.dto.BulkPeopleChangeResponse;
 import app.lightmove.api.candidate.dto.BulkTagPeopleRequest;
-import app.lightmove.api.candidate.dto.CandidatePoolQueryRequest;
 import app.lightmove.api.candidate.dto.CandidatePoolResponse;
 import app.lightmove.api.candidate.dto.CandidatePoolSizeResponse;
 import app.lightmove.api.candidate.dto.DoNotContactRequest;
@@ -16,6 +15,7 @@ import app.lightmove.api.candidate.dto.PersonTimelineResponse;
 import app.lightmove.api.candidate.dto.PinPersonNoteRequest;
 import app.lightmove.api.candidate.dto.WritePersonNoteRequest;
 import app.lightmove.api.candidate.model.NoteViewpoint;
+import app.lightmove.api.candidate.model.PoolCriteria;
 import app.lightmove.api.candidate.model.StoredPhoto;
 import app.lightmove.api.candidate.service.CandidatePoolService;
 import app.lightmove.api.candidate.service.PersonNoteService;
@@ -64,7 +64,7 @@ public class CandidatePoolController {
     private final PersonTimelineService timeline;
     private final CandidatePoolService pool;
 
-    /** A page of the workspace's people; every filter is optional, as {@link CandidatePoolQueryRequest} reads them. */
+    /** A page of the workspace's people; every filter is optional, as {@link PoolCriteria#read} reads them. */
     @GetMapping
     @RequireWorkspacePermission(WorkspaceAction.CANDIDATE_POOL_MANAGE)
     public CandidatePoolResponse list(@AuthenticationPrincipal AuthPrincipal principal,
@@ -72,7 +72,7 @@ public class CandidatePoolController {
                                       @RequestParam(required = false) Integer page,
                                       @RequestParam(required = false) Integer size) {
         return pool.list(principal.userId(), principal.requireWorkspaceId(),
-                CandidatePoolQueryRequest.from(params).toCriteria(), page, size);
+                PoolCriteria.read(params), page, size);
     }
 
     /** Everything recorded across the workspace's people, newest first; each filter is optional. */

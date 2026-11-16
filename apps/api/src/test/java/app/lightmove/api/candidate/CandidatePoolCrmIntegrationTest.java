@@ -112,6 +112,16 @@ class CandidatePoolCrmIntegrationTest extends FlowTestSupport {
         assertThat(namesOf(pool(Map.of("activity", "week")))).hasSize(3);
         assertThat(namesOf(pool(Map.of("activity", "never")))).isEmpty();
         assertThat(namesOf(pool(Map.of("owner", List.of("nobody", adminId))))).hasSize(3);
+        db.update("""
+                update app_lm_project_candidate set status_id = (
+                    select s.id from app_lm_workspace_candidate_status s
+                    join app_lm_project p on p.workspace_id = s.workspace_id
+                    where p.id = ?::uuid and s.key = 'interested')
+                where person_id = ?::uuid""", cfo, fatima);
+        assertThat(namesOf(pool(Map.of("pipelineStage", "interested")))).containsExactly("Fatima Al Mazrouei");
+        assertThat(namesOf(pool(Map.of("status", "identified"))))
+                .containsExactlyInAnyOrder("Rajesh Menon", "Omar Haddad");
+        // One Status filter: a status or a stage, never a status that must also sit in the stage.
         assertThat(namesOf(pool(Map.of("position", List.of(cfo), "status", List.of("identified"),
                 "pipelineStage", List.of("interested"))))).hasSize(3);
 
@@ -135,6 +145,8 @@ class CandidatePoolCrmIntegrationTest extends FlowTestSupport {
         assertThat(namesOf(pool(Map.of("sort", "added", "direction", "asc"))).getFirst()).isEqualTo("Rajesh Menon");
 
         mvc.perform(get("/api/v1/candidates").param("experience", "lots").header("Authorization", "Bearer " + admin))
+                .andExpect(status().isBadRequest());
+        mvc.perform(get("/api/v1/candidates").param("added", "never").header("Authorization", "Bearer " + admin))
                 .andExpect(status().isBadRequest());
         mvc.perform(get("/api/v1/candidates").param("position", "nope").header("Authorization", "Bearer " + admin))
                 .andExpect(status().isBadRequest());

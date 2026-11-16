@@ -1,6 +1,5 @@
 package app.lightmove.api.dataexport.controller;
 
-import app.lightmove.api.candidate.dto.CandidatePoolQueryRequest;
 import app.lightmove.api.candidate.dto.ExportPeopleRequest;
 import app.lightmove.api.candidate.model.PoolCriteria;
 import app.lightmove.api.core.security.model.AuthPrincipal;
@@ -42,7 +41,7 @@ public class CandidatePoolExportController {
                                          @RequestParam MultiValueMap<String, String> params,
                                          HttpServletRequest httpRequest) {
         return csvOf(exports.people(principal.userId(), principal.requireWorkspaceId(),
-                CandidatePoolQueryRequest.from(params).toCriteria(), List.of(), httpRequest));
+                PoolCriteria.read(params), List.of(), httpRequest));
     }
 
     /** Exactly the people ticked. */

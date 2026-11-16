@@ -28,7 +28,7 @@ import {
   poolColumnsFor,
   poolTableFeatures,
 } from "../../lib/poolColumns";
-import { NO_POOL_TEXT_FILTERS, poolColumnFilters, type PoolTextFilters } from "../../lib/poolFilters";
+import { poolColumnFilters, type PoolTextFilters } from "../../lib/poolFilters";
 import { usePipelineCatalog } from "../../../workspace/lib/usePipelineCatalog";
 import { usePoolLookups } from "../../lib/usePoolLookups";
 import { AddToPositionDialog } from "./AddToPositionDialog";
@@ -74,7 +74,13 @@ export function PeopleView({
   const paging = useGridPaging(50);
   const { catalog } = usePipelineCatalog();
   const [query, setQuery] = useState(filters.q);
-  const [textFilters, setTextFilters] = useState<PoolTextFilters>(NO_POOL_TEXT_FILTERS);
+  // Seeded from the page's filters, as the search is: switching to Activity unmounts this view, and a box
+  // starting empty would have its debounce write the empty value back over the filter still in force.
+  const [textFilters, setTextFilters] = useState<PoolTextFilters>(() => ({
+    name: filters.name,
+    title: filters.title,
+    company: filters.company,
+  }));
   const [isFullscreen, toggleFullscreen] = useFullscreen();
   const [rowSelection, setRowSelection] = useState<RowSelectionState>(NOTHING_SELECTED);
   const [asCards] = useState(isBelowTableWidth);

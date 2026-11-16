@@ -64,16 +64,26 @@ public class PersonPoolQuery {
      * position naming one recorded, else the first career post naming one. Searching mappings alone missed
      * everyone whose company came from research — the row said "Aldar", the search for it found nobody.
      */
+    /** Research's employer: the first career post naming a company. */
+    private static final String CAREER_EMPLOYER = """
+            (SELECT c.entry ->> 'company'
+             FROM jsonb_array_elements(CASE WHEN jsonb_typeof(p.profile -> 'career') = 'array'
+                                            THEN p.profile -> 'career' ELSE '[]'::jsonb END)
+                  WITH ORDINALITY AS c(entry, ord)
+             WHERE btrim(coalesce(c.entry ->> 'company', '')) <> ''
+             ORDER BY c.ord LIMIT 1)""";
+
+    /**
+     * The employer the Company column draws ({@code PersonEmployerResolver.employerOf}): the company the newest
+     * position naming one recorded, else {@link #CAREER_EMPLOYER}. Searching mappings alone missed everyone whose
+     * company came from research — the row said "Mubadala", the search for it found nobody. The free-text search
+     * needs only the career half, since any mapping's company already matches it.
+     */
     private static final String EMPLOYER = """
             COALESCE((SELECT m.company_name FROM app_lm_project_candidate m
                       WHERE m.person_id = p.id AND btrim(coalesce(m.company_name, '')) <> ''
                       ORDER BY m.created_at DESC, m.id DESC LIMIT 1),
-                     (SELECT c.entry ->> 'company'
-                      FROM jsonb_array_elements(CASE WHEN jsonb_typeof(p.profile -> 'career') = 'array'
-                                                     THEN p.profile -> 'career' ELSE '[]'::jsonb END)
-                           WITH ORDINALITY AS c(entry, ord)
-                      WHERE btrim(coalesce(c.entry ->> 'company', '')) <> ''
-                      ORDER BY c.ord LIMIT 1))""";
+                     %s)""".formatted(CAREER_EMPLOYER);
 
     private static final String HOLDS_CONTACT =
             "EXISTS (SELECT 1 FROM app_lm_person_contact k WHERE k.person_id = p.id AND k.channel IN (%s))";
@@ -158,7 +168,7 @@ public class PersonPoolQuery {
                                 WHERE m.person_id = p.id AND m.company_name ILIKE :like)
                      OR EXISTS (SELECT 1 FROM app_lm_person_contact k
                                 WHERE k.person_id = p.id AND k.channel = 'EMAIL' AND k.value_key LIKE :emailLike))"""
-                    .formatted(EMPLOYER));
+                    .formatted(CAREER_EMPLOYER));
         }
         if (criteria.name() != null) {
             params.put("nameLike", likeOf(criteria.name()));
@@ -293,8 +303,9 @@ public class PersonPoolQuery {
     /** {@code column} inside the band's window; the days are the enum's own constants, never request input. */
     private static String recencyClause(String column, PoolRecencyBand band) {
         return switch (band) {
-            case PAST_WEEK, PAST_MONTH, PAST_QUARTER -> column + " >= now() - make_interval(days => " + band.days() + ")";
-            case OLDER -> column + " < now() - make_interval(days => " + band.days() + ")";
+            case PAST_WEEK, PAST_MONTH, PAST_QUARTER ->
+                    column + " >= now() - make_interval(days => " + band.windowDays() + ")";
+            case OLDER -> column + " < now() - make_interval(days => " + PoolRecencyBand.PAST_QUARTER.windowDays() + ")";
             case NEVER -> column + " IS NULL";
         };
     }

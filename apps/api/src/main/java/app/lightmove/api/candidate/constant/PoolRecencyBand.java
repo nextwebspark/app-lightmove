@@ -7,7 +7,8 @@ import lombok.experimental.Accessors;
 
 /**
  * How long ago something happened — a person's latest activity, or when they were added. The windows are
- * cumulative ("in the past month" includes the past week); {@link #NEVER} is nothing recorded at all.
+ * cumulative ("in the past month" includes the past week); {@link #OLDER} is anything before the quarter's
+ * window and {@link #NEVER} nothing recorded at all.
  */
 @Getter
 @Accessors(fluent = true)
@@ -17,12 +18,11 @@ public enum PoolRecencyBand implements ApiValueEnum {
     PAST_WEEK("week", 7),
     PAST_MONTH("month", 30),
     PAST_QUARTER("quarter", 90),
-
-    /** Longer ago than {@link #PAST_QUARTER}. */
-    OLDER("older", 90),
-
-    NEVER("never", 0);
+    OLDER("older", null),
+    NEVER("never", null);
 
     private final String value;
-    private final int days;
+
+    /** The window's length; null for the two bands that are not a window. */
+    private final Integer windowDays;
 }
