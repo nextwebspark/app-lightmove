@@ -51,6 +51,10 @@ const HEALTH_STYLES: Record<ProjectHealth, { label: string; icon: HealthGlyph; t
   DONE: { label: "Complete", icon: "checkCircle", tone: "text-u-text3", tint: "bg-u-raised" },
 };
 
+export function healthLabel(health: ProjectHealth): string {
+  return HEALTH_STYLES[health].label;
+}
+
 /** Badge variant — headers, overview cards and drawers. */
 export function HealthPill({ health }: { health: ProjectHealth }) {
   const { label, icon, tone, tint } = HEALTH_STYLES[health];

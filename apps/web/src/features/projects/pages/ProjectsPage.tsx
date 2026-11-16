@@ -5,12 +5,15 @@ import { PageHeader } from "../../../components/layout/PageHeader";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Button, buttonClassName, EmptyState, TableSkeleton } from "../../../components/ui";
 import { ColumnPicker, hideableColumnsOf } from "../../../components/ui/ColumnPicker";
+import { healthLabel } from "../../../components/ui/Badge";
+import { GridFilterButton } from "../../../components/ui/GridFilters";
 import { ListToolbar } from "../../../components/ui/ListToolbar";
 import { PaginationBar } from "../../../components/ui/PaginationBar";
 import { useColumnVisibility } from "../../../lib/useColumnVisibility";
 import { EMPTY_GRID_LAYOUT, layoutColumnsOf, useGridLayout } from "../../../lib/useGridLayout";
 import { useGridPaging } from "../../../lib/useGridPaging";
 import { useGridSort, WORKSPACE_SCOPE } from "../../../lib/useGridSort";
+import { useLocalGridFilters, type LocalGridFilterSpec } from "../../../lib/useLocalGridFilters";
 import { useAuth } from "../../auth/AuthProvider";
 import { isPureClient } from "../../auth/roles";
 import * as clientsApi from "../../clients/api/clientsApi";
@@ -18,6 +21,7 @@ import { liveClients } from "../../clients/lib/filtering";
 import * as workspaceApi from "../../workspace/api/workspaceApi";
 import { useWorkspaceVocabulary } from "../../workspace/lib/vocabulary";
 import * as projectsApi from "../api/projectsApi";
+import type { Project } from "../api/types";
 import { MyTasksCard } from "../../tasks/components/MyTasksCard";
 import { NewProjectModal } from "../components/NewProjectModal";
 import { ProjectDrawer } from "../components/ProjectDrawer";
@@ -28,7 +32,7 @@ import {
   projectColumns,
   type ProjectSortField,
 } from "../lib/projectColumns";
-import { CHIPS, filterProjects, isActive, type ChipKey } from "../lib/filtering";
+import { CHIPS, filterProjects, isActive, isArchived, type ChipKey } from "../lib/filtering";
 import { useAddressedSearch } from "../../../lib/useAddressedSearch";
 
 const PROJECT_LAYOUT_COLUMNS = layoutColumnsOf(projectColumns);
@@ -39,6 +43,17 @@ const CHIP_KEYS: ChipKey[] = CHIPS.map((candidate) => candidate.key);
 const DEFAULT_CHIP: ChipKey = "active";
 
 const DEFAULT_PROJECT_SORT = { field: "target", direction: "asc" } as const;
+
+const PROJECT_COLUMN_FILTERS: LocalGridFilterSpec<Project>[] = [
+  {
+    id: "health",
+    label: "Health",
+    valuesOf: (project) => (isArchived(project) ? [] : [project.health]),
+    labelOf: (health) => healthLabel(health as Project["health"]),
+    order: ["OK", "RISK", "OFF", "DONE"],
+  },
+  { id: "team", label: "Team", valuesOf: (project) => project.team.map((seat) => seat.fullName) },
+];
 
 /**
  * The workspace home: the mandate list under My/All views, with the search box, stage chips and
@@ -92,10 +107,17 @@ export function ProjectsPage({ view }: { view: "my" | "all" }) {
 
   const myMemberId = members.find((m) => m.userId === user?.id)?.memberId;
 
-  const rows = useMemo(
+  const searched = useMemo(
     () => filterProjects(projects, { view: clientOnly ? "all" : view, myMemberId, chip, query }),
     [projects, view, clientOnly, myMemberId, chip, query],
   );
+  const {
+    rows,
+    filters: columnFilters,
+    inForce: columnFiltered,
+    key: columnFilterKey,
+    clear: clearColumnFilters,
+  } = useLocalGridFilters(searched, PROJECT_COLUMN_FILTERS);
 
   // Narrowing the list returns to the first page — staying on page 4 of a filter that now matches
   // two mandates shows an empty grid over a non-empty result — and a list that shrank under the
@@ -103,13 +125,13 @@ export function ProjectsPage({ view }: { view: "my" | "all" }) {
   const { reset: resetPage, clampTo } = paging;
   useEffect(() => {
     resetPage();
-  }, [resetPage, view, chip, query, sort]);
+  }, [resetPage, view, chip, query, sort, columnFilterKey]);
   useEffect(() => {
     clampTo(rows.length);
   }, [clampTo, rows.length]);
 
   const openProject = projects.find((p) => p.id === openProjectId) ?? null;
-  const filtered = query.trim() !== "" || chip !== DEFAULT_CHIP;
+  const filtered = query.trim() !== "" || chip !== DEFAULT_CHIP || columnFiltered;
   const unfilteredCount = useMemo(
     () => filterProjects(projects, { view: clientOnly ? "all" : view, myMemberId, chip: "allstages", query: "" }).length,
     [projects, view, clientOnly, myMemberId],
@@ -229,6 +251,7 @@ export function ProjectsPage({ view }: { view: "my" | "all" }) {
           chips={chips}
           activeChip={chip}
           onChipChange={setChip}
+          filter={<GridFilterButton filters={columnFilters} />}
           trailing={
             <ColumnPicker
               columns={HIDEABLE_PROJECT_COLUMNS}
@@ -261,7 +284,10 @@ export function ProjectsPage({ view }: { view: "my" | "all" }) {
           openCount={projects.filter(isActive).length}
           archivedCount={archivedCount}
           filtered={filtered}
-          onClearFilters={clearFilters}
+          onClearFilters={() => {
+            clearFilters();
+            clearColumnFilters();
+          }}
           onShowAllStages={() => setChip("allstages")}
           onShowArchived={() => setChip("archived")}
         />
@@ -279,6 +305,7 @@ export function ProjectsPage({ view }: { view: "my" | "all" }) {
             onPaginationChange={paging.onPaginationChange}
             emptyMessage="No positions match."
             onOpen={setOpenProjectId}
+            columnFilters={columnFilters}
           />
           <PaginationBar
             page={paging.page}

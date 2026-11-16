@@ -72,12 +72,8 @@ function Harness({
   onEditColumn,
   data = DATA,
   groupBy,
-  menuOnHeaderClick,
   onDeleteColumn,
-  clearFiltersColumnId,
 }: {
-  menuOnHeaderClick?: boolean;
-  clearFiltersColumnId?: string;
   onDeleteColumn?: (columnId: string) => void;
   onLayout?: (layout: GridLayout) => void;
   columnFilters?: Record<string, DataGridColumnFilter>;
@@ -115,16 +111,16 @@ function Harness({
         onLayout?.(next);
       }}
       columnFilters={columnFilters}
-      clearFiltersColumnId={clearFiltersColumnId}
       onEditColumn={onEditColumn}
       onDeleteColumn={onDeleteColumn}
       groupBy={groupBy}
-      menuOnHeaderClick={menuOnHeaderClick}
     />
   );
 }
 
 const headers = () => screen.getAllByRole("columnheader").map((cell) => cell.textContent);
+
+const menuButton = (label: string) => screen.getByRole("button", { name: `${label} column menu` });
 
 const cellFor = (id: string) =>
   screen.getAllByRole("columnheader").find((cell) => cell.dataset.columnId === id)!;
@@ -166,7 +162,7 @@ describe("DataGrid columns", () => {
     render(<Harness />);
     expect(headers()).toEqual(["Company", "Sector", "Revenue"]);
 
-    await userEvent.click(screen.getByRole("button", { name: "Sector" }));
+    menuButton("Sector").focus();
     await userEvent.keyboard("{Alt>}{ArrowRight}{/Alt}");
 
     expect(headers()).toEqual(["Company", "Revenue", "Sector"]);
@@ -175,7 +171,7 @@ describe("DataGrid columns", () => {
   it("keeps the pinned column first, because a row must not scroll away from its own name", async () => {
     render(<Harness />);
 
-    await userEvent.click(screen.getByRole("button", { name: "Company" }));
+    menuButton("Company").focus();
     await userEvent.keyboard("{Alt>}{ArrowRight}{/Alt}");
 
     expect(headers()[0]).toBe("Company");
@@ -184,7 +180,7 @@ describe("DataGrid columns", () => {
   it("will not move a column onto the pinned one's place", async () => {
     render(<Harness />);
 
-    await userEvent.click(screen.getByRole("button", { name: "Sector" }));
+    menuButton("Sector").focus();
     await userEvent.keyboard("{Alt>}{ArrowLeft}{/Alt}");
 
     expect(headers()).toEqual(["Company", "Sector", "Revenue"]);
@@ -221,7 +217,7 @@ describe("DataGrid columns", () => {
   it("drops a column where the pointer let it go", async () => {
     stubLayout();
     render(<Harness />);
-    const header = screen.getByRole("button", { name: "Sector" });
+    const header = menuButton("Sector");
 
     await userEvent.pointer([
       { target: header, keys: "[MouseLeft>]", coords: { x: 312, y: 10 } },
@@ -232,10 +228,10 @@ describe("DataGrid columns", () => {
     expect(headers()).toEqual(["Company", "Revenue", "Sector"]);
   });
 
-  it("does not sort the column a drag just moved", async () => {
+  it("neither sorts nor opens the menu of the column a drag just moved", async () => {
     stubLayout();
     render(<Harness />);
-    const header = screen.getByRole("button", { name: "Sector" });
+    const header = menuButton("Sector");
 
     await userEvent.pointer([
       { target: header, keys: "[MouseLeft>]", coords: { x: 100, y: 10 } },
@@ -244,9 +240,10 @@ describe("DataGrid columns", () => {
     ]);
 
     expect(onSort).not.toHaveBeenCalled();
+    expect(screen.queryByRole("button", { name: "Sort ascending" })).not.toBeInTheDocument();
   });
 
-  it("takes the pointer only once a drag really starts, so a press still reaches the sort", async () => {
+  it("takes the pointer only once a drag really starts, so a press still opens the menu", async () => {
     // A captured pointer retargets the click that follows it away from the button, and capturing on
     // every pointerdown silently cost every sort on the grid. jsdom cannot retarget a click, so the
     // guard is the capture itself: pressing must not take the pointer, dragging must.
@@ -258,10 +255,12 @@ describe("DataGrid columns", () => {
       value: capture,
     });
     render(<Harness />);
-    const header = screen.getByRole("button", { name: "Sector" });
+    const header = menuButton("Sector");
 
     await userEvent.click(header);
     expect(capture).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "Sort ascending" })).toBeInTheDocument();
+    await userEvent.keyboard("{Escape}");
 
     await userEvent.pointer([
       { target: header, keys: "[MouseLeft>]", coords: { x: 312, y: 10 } },
@@ -271,9 +270,9 @@ describe("DataGrid columns", () => {
     expect(capture).toHaveBeenCalled();
   });
 
-  it("does not eat the pinned column's sort after some other column was dragged", async () => {
+  it("does not eat the pinned column's menu after some other column was dragged", async () => {
     // The pinned column starts no reorder of its own, so a suppression flag only a movable header
-    // could clear left Company needing two clicks to sort once anything had been moved.
+    // could clear left Company needing two clicks once anything had been moved.
     stubLayout();
     render(<Harness />);
     const sector = cellFor("sector");
@@ -283,9 +282,9 @@ describe("DataGrid columns", () => {
     fireEvent.pointerDown(sector, { clientX: 312, pointerId: 1, buttons: 1 });
     fireEvent.pointerMove(sector, { clientX: 450, pointerId: 1, buttons: 1 });
     fireEvent.pointerUp(sector, { clientX: 450, pointerId: 1 });
-    await userEvent.click(screen.getByRole("button", { name: "Company" }));
+    await userEvent.click(menuButton("Company"));
 
-    expect(onSort).toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "Sort ascending" })).toBeInTheDocument();
   });
 
   it("drops a press that ended before the threshold, rather than arming the next hover", async () => {
@@ -309,21 +308,10 @@ describe("DataGrid columns", () => {
     // 17 of the Strategy grid's 24 columns are unsortable; the shortcut lived on the sort button,
     // so those were mouse-only.
     render(<Harness />);
-    const revenue = screen
-      .getAllByRole("columnheader")
-      .find((cell) => cell.dataset.columnId === "revenue");
-    revenue?.focus();
+    menuButton("Revenue").focus();
     await userEvent.keyboard("{Alt>}{ArrowLeft}{/Alt}");
 
     expect(headers()).toEqual(["Company", "Revenue", "Sector"]);
-  });
-
-  it("still sorts on an ordinary click", async () => {
-    render(<Harness />);
-
-    await userEvent.click(screen.getByRole("button", { name: "Sector" }));
-
-    expect(onSort).toHaveBeenCalled();
   });
 
   it("leaves the pinned header stuck, though a resize handle needs its cell positioned", () => {
@@ -390,7 +378,7 @@ describe("DataGrid header menu — Filter by", () => {
 
   it("offers a Filter by section, pre-filled with the current value, only for a column with one", async () => {
     const onChange = vi.fn();
-    render(<Harness columnFilters={{ sector: { value: "Ener", onChange, "aria-label": "Filter by sector" } }} />);
+    render(<Harness columnFilters={{ sector: { label: "Sector", value: "Ener", onChange, "aria-label": "Filter by sector" } }} />);
 
     await userEvent.click(screen.getByRole("button", { name: "Sector column menu" }));
 
@@ -403,7 +391,7 @@ describe("DataGrid header menu — Filter by", () => {
 
   it("narrows as you type", async () => {
     const onChange = vi.fn();
-    render(<Harness columnFilters={{ sector: { value: "", onChange, "aria-label": "Filter by sector" } }} />);
+    render(<Harness columnFilters={{ sector: { label: "Sector", value: "", onChange, "aria-label": "Filter by sector" } }} />);
 
     await userEvent.click(screen.getByRole("button", { name: "Sector column menu" }));
     // The harness's filter value never changes (onChange is a plain spy), so each keystroke re-renders
@@ -415,7 +403,7 @@ describe("DataGrid header menu — Filter by", () => {
 
   it("closes on Enter, without touching the already-applied value", async () => {
     const onChange = vi.fn();
-    render(<Harness columnFilters={{ sector: { value: "Energy", onChange, "aria-label": "Filter by sector" } }} />);
+    render(<Harness columnFilters={{ sector: { label: "Sector", value: "Energy", onChange, "aria-label": "Filter by sector" } }} />);
 
     await userEvent.click(screen.getByRole("button", { name: "Sector column menu" }));
     screen.getByRole("textbox", { name: "Filter by sector" }).focus();
@@ -437,7 +425,7 @@ describe("DataGrid header menu — a checkbox filter", () => {
     render(
       <Harness
         columnFilters={{
-          sector: { kind: "check", options: SECTOR_OPTIONS, selected: ["energy"], onChange, "aria-label": "Filter by sector" },
+          sector: { kind: "check", label: "Sector", options: SECTOR_OPTIONS, selected: ["energy"], onChange, "aria-label": "Filter by sector" },
         }}
       />,
     );
@@ -454,7 +442,7 @@ describe("DataGrid header menu — a checkbox filter", () => {
     render(
       <Harness
         columnFilters={{
-          sector: { kind: "check", options: SECTOR_OPTIONS, selected: ["energy"], onChange, "aria-label": "Filter by sector" },
+          sector: { kind: "check", label: "Sector", options: SECTOR_OPTIONS, selected: ["energy"], onChange, "aria-label": "Filter by sector" },
         }}
       />,
     );
@@ -475,7 +463,7 @@ describe("DataGrid header menu — a checkbox filter", () => {
     const { rerender } = render(
       <Harness
         columnFilters={{
-          sector: { kind: "check", options: SECTOR_OPTIONS, selected: [], onChange, "aria-label": "Filter by sector" },
+          sector: { kind: "check", label: "Sector", options: SECTOR_OPTIONS, selected: [], onChange, "aria-label": "Filter by sector" },
         }}
       />,
     );
@@ -484,7 +472,7 @@ describe("DataGrid header menu — a checkbox filter", () => {
     rerender(
       <Harness
         columnFilters={{
-          sector: { kind: "check", options: SECTOR_OPTIONS, selected: ["energy"], onChange, "aria-label": "Filter by sector" },
+          sector: { kind: "check", label: "Sector", options: SECTOR_OPTIONS, selected: ["energy"], onChange, "aria-label": "Filter by sector" },
         }}
       />,
     );
@@ -503,12 +491,12 @@ describe("DataGrid header menu — clearing filters", () => {
   it("draws a ✕ in a text filter only while it holds text, and clears it with the caret kept in the box", async () => {
     const onChange = vi.fn();
     const { rerender } = render(
-      <Harness columnFilters={{ sector: { value: "", onChange, "aria-label": "Filter by sector" } }} />,
+      <Harness columnFilters={{ sector: { label: "Sector", value: "", onChange, "aria-label": "Filter by sector" } }} />,
     );
     await userEvent.click(screen.getByRole("button", { name: "Sector column menu" }));
     expect(screen.queryByRole("button", { name: "Clear filter" })).not.toBeInTheDocument();
 
-    rerender(<Harness columnFilters={{ sector: { value: "Ener", onChange, "aria-label": "Filter by sector" } }} />);
+    rerender(<Harness columnFilters={{ sector: { label: "Sector", value: "Ener", onChange, "aria-label": "Filter by sector" } }} />);
     await userEvent.click(screen.getByRole("button", { name: "Clear filter" }));
 
     expect(onChange).toHaveBeenCalledWith("");
@@ -519,6 +507,7 @@ describe("DataGrid header menu — clearing filters", () => {
     const onChange = vi.fn();
     const filter = (selected: string[]): DataGridColumnFilter => ({
       kind: "check",
+      label: "Sector",
       options: SECTOR_OPTIONS,
       selected,
       onChange,
@@ -534,31 +523,14 @@ describe("DataGrid header menu — clearing filters", () => {
     expect(onChange).toHaveBeenCalledWith([]);
   });
 
-  it("shows Clear all filters only while a filter is in force, and resets every filter with it", async () => {
-    const onText = vi.fn();
-    const onCheck = vi.fn();
-    const filters = (text: string, selected: string[]): Record<string, DataGridColumnFilter> => ({
-      name: { value: text, onChange: onText, "aria-label": "Filter by name" },
-      sector: { kind: "check", options: SECTOR_OPTIONS, selected, onChange: onCheck, "aria-label": "Filter by sector" },
-    });
-    const { rerender } = render(<Harness columnFilters={filters("", [])} />);
+  it("draws no Clear all filters in any column header, since the toolbar's Filter button owns it", () => {
+    render(
+      <Harness
+        columnFilters={{ name: { label: "Company", value: "Aca", onChange: vi.fn(), "aria-label": "Filter by name" } }}
+      />,
+    );
+
     expect(screen.queryByRole("button", { name: "Clear all filters" })).not.toBeInTheDocument();
-
-    rerender(<Harness columnFilters={filters("Aca", ["tech"])} />);
-    await userEvent.click(screen.getByRole("button", { name: "Clear all filters" }));
-
-    expect(onText).toHaveBeenCalledWith("");
-    expect(onCheck).toHaveBeenCalledWith([]);
-  });
-
-  it("puts Clear all filters in the header of the column it is given", () => {
-    const filters: Record<string, DataGridColumnFilter> = {
-      name: { value: "Aca", onChange: vi.fn(), "aria-label": "Filter by name" },
-    };
-    render(<Harness columnFilters={filters} clearFiltersColumnId="sector" menuOnHeaderClick />);
-
-    expect(within(cellFor("sector")).getByRole("button", { name: "Clear all filters" })).toBeInTheDocument();
-    expect(within(cellFor("revenue")).queryByRole("button", { name: "Clear all filters" })).not.toBeInTheDocument();
   });
 });
 
@@ -682,7 +654,7 @@ describe("DataGrid header menu — opened from the whole header", () => {
   beforeEach(() => vi.resetAllMocks());
 
   it("opens the column's menu from a click on its name, and that click sorts nothing", async () => {
-    render(<Harness menuOnHeaderClick />);
+    render(<Harness />);
 
     await userEvent.click(screen.getByRole("button", { name: "Sector column menu" }));
 
@@ -693,7 +665,7 @@ describe("DataGrid header menu — opened from the whole header", () => {
 
   it("opens no menu when the press was a drag that moved the column", async () => {
     stubLayout();
-    render(<Harness menuOnHeaderClick />);
+    render(<Harness />);
     const header = screen.getByRole("button", { name: "Sector column menu" });
 
     await userEvent.pointer([
@@ -708,7 +680,7 @@ describe("DataGrid header menu — opened from the whole header", () => {
 
   it("hides a built-in column, and deletes only a mandate's own", async () => {
     const onDeleteColumn = vi.fn();
-    render(<Harness menuOnHeaderClick columnDefs={columnsWithCustom} onDeleteColumn={onDeleteColumn} />);
+    render(<Harness columnDefs={columnsWithCustom} onDeleteColumn={onDeleteColumn} />);
 
     await userEvent.click(screen.getByRole("button", { name: "Sector column menu" }));
     expect(screen.queryByRole("button", { name: "Delete column" })).not.toBeInTheDocument();
@@ -726,7 +698,7 @@ describe("DataGrid header menu — opened from the whole header", () => {
       helper.accessor("name", { id: "name", header: "Company", meta: { share: 22, min: 230 } }),
       helper.accessor("revenue", { id: "revenue", header: "Revenue", meta: { share: 11, min: 120, sortKind: "number" } }),
     ]);
-    render(<Harness menuOnHeaderClick columnDefs={typed} />);
+    render(<Harness columnDefs={typed} />);
 
     await userEvent.click(screen.getByRole("button", { name: "Revenue column menu" }));
 

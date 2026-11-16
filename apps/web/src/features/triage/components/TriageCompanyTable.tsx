@@ -194,8 +194,6 @@ export function TriageCompanyTable({
       errorMessage="That list could not be loaded. Refresh, or check you still have access to this mandate."
       emptyMessage={emptyMessage}
       columnFilters={columnFilters}
-      clearFiltersColumnId="actions"
-      menuOnHeaderClick
       onEditColumn={
         onEditColumn &&
         ((gridColumnId: string) => {

@@ -4,15 +4,19 @@ import { PageHeader } from "../../../components/layout/PageHeader";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Button, EmptyState } from "../../../components/ui";
 import { ColumnPicker, hideableColumnsOf } from "../../../components/ui/ColumnPicker";
+import { GridFilterButton } from "../../../components/ui/GridFilters";
 import { PaginationBar } from "../../../components/ui/PaginationBar";
 import { useColumnVisibility } from "../../../lib/useColumnVisibility";
 import { EMPTY_GRID_LAYOUT, layoutColumnsOf, useGridLayout } from "../../../lib/useGridLayout";
 import { useGridPaging } from "../../../lib/useGridPaging";
 import { useGridSort, WORKSPACE_SCOPE } from "../../../lib/useGridSort";
+import { titleCase } from "../../../lib/format";
+import { useLocalGridFilters, type LocalGridFilterSpec } from "../../../lib/useLocalGridFilters";
 import { useAuth } from "../../auth/AuthProvider";
 import * as projectsApi from "../../projects/api/projectsApi";
 import { isActive } from "../../projects/lib/filtering";
 import * as workspaceApi from "../api/workspaceApi";
+import type { Member } from "../api/types";
 import { InviteModal } from "../components/InviteModal";
 import { PendingInvitations } from "../components/MemberManagement";
 import { MembersList } from "../components/MembersList";
@@ -29,6 +33,16 @@ const HIDEABLE_MEMBER_COLUMNS = hideableColumnsOf(memberColumns);
 const TEAM_SUBTITLE = "each position has its own lead";
 
 const DEFAULT_MEMBER_SORT = { field: "name", direction: "asc" } as const;
+
+const MEMBER_COLUMN_FILTERS: LocalGridFilterSpec<Member>[] = [
+  {
+    id: "roles",
+    label: "Workspace role",
+    valuesOf: (member) => member.roles,
+    labelOf: titleCase,
+    order: ["ADMIN", "MEMBER", "CLIENT"],
+  },
+];
 
 /**
  * The one roster: who's here, their workspace role and how many positions they carry, and the invitations still
@@ -78,13 +92,20 @@ export function TeamPage() {
     [activeCountByMember],
   );
 
+  const {
+    rows,
+    filters: columnFilters,
+    inForce: columnFiltered,
+    key: columnFilterKey,
+  } = useLocalGridFilters(members, MEMBER_COLUMN_FILTERS);
+
   const { reset: resetPage, clampTo } = paging;
   useEffect(() => {
     resetPage();
-  }, [resetPage, sort]);
+  }, [resetPage, sort, columnFilterKey]);
   useEffect(() => {
-    clampTo(members.length);
-  }, [clampTo, members.length]);
+    clampTo(rows.length);
+  }, [clampTo, rows.length]);
 
   // A refused roster falls back to the [] default, and the header would then report "0 members" — a
   // count the caller was never allowed to read, stated as fact. Say what happened instead.
@@ -120,19 +141,24 @@ export function TeamPage() {
         }
       />
 
-      <div className="mb-3.5 hidden justify-end md:flex">
-        <ColumnPicker
-          columns={HIDEABLE_MEMBER_COLUMNS}
-          visibility={columnVisibility}
-          defaults={MEMBER_COLUMN_VISIBILITY}
-          onChange={setColumnVisibility}
-          onResetLayout={() => setLayout(EMPTY_GRID_LAYOUT)}
-        />
+      <div className="mb-3.5 flex items-center gap-2.5">
+        <GridFilterButton filters={columnFilters} resultLabel={`${rows.length} of ${members.length} members`} />
+        <div className="ms-auto hidden md:flex">
+          <ColumnPicker
+            columns={HIDEABLE_MEMBER_COLUMNS}
+            visibility={columnVisibility}
+            defaults={MEMBER_COLUMN_VISIBILITY}
+            onChange={setColumnVisibility}
+            onResetLayout={() => setLayout(EMPTY_GRID_LAYOUT)}
+          />
+        </div>
       </div>
 
       <div className="flex flex-col gap-3">
         <MembersList
-          members={members}
+          members={rows}
+          columnFilters={columnFilters}
+          filtered={columnFiltered}
           activeCount={activeCount}
           canManage={isAdmin}
           sort={sort}
@@ -147,7 +173,7 @@ export function TeamPage() {
         <PaginationBar
           page={paging.page}
           size={paging.size}
-          totalCount={members.length}
+          totalCount={rows.length}
           onPage={paging.setPage}
           onSize={paging.setSize}
           autoHide

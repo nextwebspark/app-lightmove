@@ -1,4 +1,5 @@
 import type { ColumnVisibilityState } from "@tanstack/react-table";
+import type { ReactNode } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { ColumnPicker, type HideableColumn } from "../../../components/ui/ColumnPicker";
 import { Popover } from "../../../components/ui/Popover";
@@ -21,6 +22,7 @@ export function TemplateToolbar({
   scope,
   query,
   onQuery,
+  filter,
   hideableColumns,
   columnVisibility,
   onColumnVisibilityChange,
@@ -33,6 +35,8 @@ export function TemplateToolbar({
   scope: TemplateScope;
   query: string;
   onQuery: (query: string) => void;
+  /** The grid's Filter button, beside the search. */
+  filter?: ReactNode;
   hideableColumns: HideableColumn[];
   columnVisibility: ColumnVisibilityState;
   onColumnVisibilityChange: (visibility: ColumnVisibilityState) => void;
@@ -54,6 +58,8 @@ export function TemplateToolbar({
           className="w-full bg-transparent font-sans text-[13px] text-u-text outline-none placeholder:text-u-text3"
         />
       </label>
+
+      {filter}
 
       <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
         <Popover

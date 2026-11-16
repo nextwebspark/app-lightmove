@@ -17,6 +17,7 @@ export function ListToolbar<TChip extends string>({
   chips,
   activeChip,
   onChipChange,
+  filter,
   trailing,
 }: {
   query: string;
@@ -28,6 +29,8 @@ export function ListToolbar<TChip extends string>({
   chips: readonly { key: TChip; label: string; count?: number; separated?: boolean }[];
   activeChip: TChip;
   onChipChange: (chip: TChip) => void;
+  /** The grid's Filter button, beside the search at every width — the card stack below `md` filters too. */
+  filter?: ReactNode;
   /** The grid's own controls — the Columns menu. Shown only where the grid is, from `md` up. */
   trailing?: ReactNode;
 }) {
@@ -45,6 +48,8 @@ export function ListToolbar<TChip extends string>({
           className="w-full bg-transparent font-mono text-[13px] text-u-text outline-none placeholder:text-u-text3"
         />
       </label>
+
+      {filter}
 
       <div className="flex flex-wrap gap-1.5">
         {chips.map(({ key, label, count, separated }) => (

@@ -776,7 +776,7 @@ describe("TriageStagePage", () => {
     expect(screen.getAllByText("ACWA Power")).toHaveLength(1);
   });
 
-  it("clears the executive filter from the ✕ in its box, and every column filter from the Actions header", async () => {
+  it("clears the executive filter from the ✕ in its box, and every column filter from the toolbar's Filter button", async () => {
     vi.mocked(candidatesApi.getCandidates).mockImplementation(async (_project, scope) =>
       peopleOf(scope.unmapped ? [] : [yasmin, { ...yasmin, id: "c3", fullName: "Alok Kumar" }]),
     );
@@ -795,10 +795,33 @@ describe("TriageStagePage", () => {
 
     await userEvent.type(screen.getByRole("textbox", { name: "Filter by executive name" }), "Alok");
     await waitFor(() => expect(screen.queryByText("Yasmin El-Sayed")).not.toBeInTheDocument());
-    await userEvent.click(within(grid).getByRole("button", { name: "Clear all filters" }));
+    expect(screen.getByRole("button", { name: "Filter, 1 applied" })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Clear all filters" }));
 
     await waitFor(() => expect(screen.getByText("Yasmin El-Sayed")).toBeInTheDocument());
     expect(screen.queryByRole("button", { name: "Clear all filters" })).not.toBeInTheDocument();
+  });
+
+  it("adds a Status filter from the toolbar's Filter panel, and the button then counts it", async () => {
+    vi.mocked(candidatesApi.getCandidates).mockImplementation(async (_project, scope) =>
+      peopleOf(scope.unmapped ? [] : [yasmin, { ...yasmin, id: "c2", status: "interested" }]),
+    );
+    renderStage();
+    await screen.findByRole("table", { name: /In universe companies/i });
+    await screen.findAllByText("Yasmin El-Sayed");
+
+    await userEvent.click(screen.getByRole("button", { name: "Filter" }));
+    await userEvent.click(screen.getByRole("button", { name: "Add filter" }));
+    await userEvent.click(
+      within(screen.getByRole("group", { name: "Choose a column to filter" })).getByRole("button", { name: "Status" }),
+    );
+    await userEvent.click(await screen.findByRole("checkbox", { name: "Interested" }));
+
+    await waitFor(() =>
+      expect(vi.mocked(triageApi.getTriageCompanies).mock.calls.at(-1)?.[6]).toEqual(["interested"]),
+    );
+    expect(screen.getByRole("button", { name: "Filter, 1 applied" })).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: "Interested" })).toBeChecked();
   });
 
   it("offers no Status checkbox at all when the grid holds at most one status", async () => {

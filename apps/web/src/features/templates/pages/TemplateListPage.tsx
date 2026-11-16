@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { FullscreenButton, useToast } from "../../../components/ui";
 import { hideableColumnsOf } from "../../../components/ui/ColumnPicker";
+import { GridFilterButton } from "../../../components/ui/GridFilters";
 import { PaginationBar } from "../../../components/ui/PaginationBar";
 import { cn } from "../../../lib/cn";
 import { messageFor } from "../../../lib/errorCodes";
@@ -11,14 +12,16 @@ import { FULLSCREEN_PANEL, useFullscreen } from "../../../lib/useFullscreen";
 import { EMPTY_GRID_LAYOUT, layoutColumnsOf, useGridLayout } from "../../../lib/useGridLayout";
 import { useGridPaging } from "../../../lib/useGridPaging";
 import { useGridSort, WORKSPACE_SCOPE } from "../../../lib/useGridSort";
+import { useLocalGridFilters, type LocalGridFilterSpec } from "../../../lib/useLocalGridFilters";
+import { SENIORITY_LABELS, SENIORITY_TIERS } from "../../../lib/seniority";
 import { POSITION_TEMPLATES_KEY } from "../../position/api/positionApi";
 import * as templateApi from "../api/templateAdminApi";
 import type { TemplateOverview, TemplateScope } from "../api/types";
 import { ImportTemplatesDialog } from "../components/ImportTemplatesDialog";
 import { TemplatesList } from "../components/TemplatesList";
 import { TemplateToolbar } from "../components/TemplateToolbar";
-import { filterTemplates } from "../lib/filtering";
-import { SCOPE_COPY } from "../lib/labels";
+import { filterTemplates, reviserOf } from "../lib/filtering";
+import { DISCIPLINE_LABELS, DISCIPLINES, SCOPE_COPY } from "../lib/labels";
 import {
   TEMPLATE_COLUMN_VISIBILITY,
   TEMPLATE_COLUMNS,
@@ -78,12 +81,14 @@ function TemplateList({ scope }: { scope: TemplateScope }) {
     queryFn: ({ signal }) => templateApi.listTemplates(scope, signal),
   });
 
-  const rows = useMemo(() => filterTemplates(templates ?? [], query), [templates, query]);
+  const searched = useMemo(() => filterTemplates(templates ?? [], query), [templates, query]);
+  const columnFilterSpecs = useMemo(() => templateColumnFilters(scope), [scope]);
+  const { rows, filters: columnFilters, key: columnFilterKey } = useLocalGridFilters(searched, columnFilterSpecs);
 
   const { reset: resetPage, clampTo } = paging;
   useEffect(() => {
     resetPage();
-  }, [resetPage, query, sort]);
+  }, [resetPage, query, sort, columnFilterKey]);
   useEffect(() => {
     clampTo(rows.length);
   }, [clampTo, rows.length]);
@@ -125,6 +130,7 @@ function TemplateList({ scope }: { scope: TemplateScope }) {
         scope={scope}
         query={query}
         onQuery={setQuery}
+        filter={<GridFilterButton filters={columnFilters} />}
         hideableColumns={HIDEABLE_COLUMNS[scope]}
         columnVisibility={columnVisibility}
         onColumnVisibilityChange={setColumnVisibility}
@@ -154,6 +160,7 @@ function TemplateList({ scope }: { scope: TemplateScope }) {
           isToggling={visibility.isPending}
           onToggle={(template) => visibility.mutate(template)}
           onOpen={(template) => navigate(`${path}/${encodeURIComponent(template.code)}`)}
+          columnFilters={columnFilters}
         />
         <PaginationBar
           page={paging.page}
@@ -173,6 +180,33 @@ function TemplateList({ scope }: { scope: TemplateScope }) {
       />
     </div>
   );
+}
+
+function templateColumnFilters(scope: TemplateScope): LocalGridFilterSpec<TemplateOverview>[] {
+  return [
+    {
+      id: "discipline",
+      label: "Discipline",
+      valuesOf: (template) => [template.discipline],
+      labelOf: (discipline) => DISCIPLINE_LABELS[discipline as TemplateOverview["discipline"]],
+      order: DISCIPLINES,
+    },
+    {
+      id: "seniority",
+      label: "Seniority",
+      valuesOf: (template) => [template.seniority],
+      labelOf: (seniority) => SENIORITY_LABELS[seniority as TemplateOverview["seniority"]],
+      order: SENIORITY_TIERS,
+    },
+    {
+      id: "revisedBy",
+      label: "Revised by",
+      valuesOf: (template) => {
+        const reviser = reviserOf(scope, template);
+        return reviser ? [reviser] : [];
+      },
+    },
+  ];
 }
 
 /** Whether a firm can pick it now: archiving or hiding takes it out of the picker, and that is what Undo undoes. */

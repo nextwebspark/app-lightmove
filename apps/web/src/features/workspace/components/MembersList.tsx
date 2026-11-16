@@ -1,6 +1,6 @@
 import type { ColumnVisibilityState, OnChangeFn, PaginationState } from "@tanstack/react-table";
 import { Avatar } from "../../../components/ui";
-import { DataGrid } from "../../../components/ui/DataGrid";
+import { DataGrid, type DataGridColumnFilter } from "../../../components/ui/DataGrid";
 import { useDataGridTable } from "../../../lib/useDataGridTable";
 import type { GridLayout } from "../../../lib/useGridLayout";
 import type { GridSort } from "../../../lib/useGridSort";
@@ -28,6 +28,8 @@ export function MembersList({
   onLayoutChange,
   pagination,
   onPaginationChange,
+  columnFilters,
+  filtered = false,
 }: {
   members: Member[];
   /** How many mandates a member carries — a fact about the project list, which the roster does not carry. */
@@ -42,6 +44,9 @@ export function MembersList({
   onLayoutChange: (layout: GridLayout) => void;
   pagination: PaginationState;
   onPaginationChange: OnChangeFn<PaginationState>;
+  columnFilters?: Record<string, DataGridColumnFilter>;
+  /** A column filter is in force, so an empty grid means "no match" rather than "no one yet". */
+  filtered?: boolean;
 }) {
   const { user } = useAuth();
   const table = useDataGridTable<typeof memberTableFeatures, Member, MemberSortField>({
@@ -72,7 +77,8 @@ export function MembersList({
       loading={false}
       error={false}
       errorMessage="The roster could not be loaded. Refresh, or check you still have access."
-      emptyMessage="No one is on the roster yet."
+      emptyMessage={filtered ? "No members match these filters." : "No one is on the roster yet."}
+      columnFilters={columnFilters}
       renderCard={(member) => (
         <MemberCard
           member={member}
