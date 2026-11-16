@@ -302,7 +302,7 @@ function OpenComposer({
   });
 
   return (
-    <section aria-label="Reply" className="flex min-h-0 flex-1 flex-col">
+    <section aria-label="Reply" className="flex min-h-fit flex-1 flex-col">
       <div className="mb-1 flex flex-none flex-wrap items-center gap-x-3 gap-y-1">
         <span className="inline-flex items-center gap-1.5 text-body font-semibold text-u-text">
           <Icon d={ICONS.mail} size={14} className="text-u-accent" />
@@ -413,7 +413,8 @@ function OpenComposer({
                 }}
               />
             )}
-            <div className="mt-1 flex flex-wrap items-center gap-2">
+            {/* Stuck to the dialog's foot: on a short window the body scrolls, and Send must not scroll away with it. */}
+            <div className="sticky bottom-0 z-10 mt-1 flex flex-wrap items-center gap-2 bg-u-surface pb-2 pt-1">
               <AttachButton
                 projectId={projectId}
                 candidateId={candidateId}
