@@ -5,6 +5,7 @@ import app.lightmove.api.enrichment.importrun.constant.ImportEnrichmentOutcome;
 import app.lightmove.api.enrichment.importrun.model.ClaimedEnrichmentItem;
 import app.lightmove.api.enrichment.importrun.model.ImportEnrichmentProgress;
 import app.lightmove.api.enrichment.importrun.model.ImportEnrichmentTarget;
+import java.sql.PreparedStatement;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.Collection;
@@ -55,15 +56,21 @@ class ImportEnrichmentItemStore {
                 });
     }
 
-    /** One row more, added while the run is under way: a company first learned from its person's research. */
-    boolean queueOne(ClaimedEnrichmentItem from, ImportEnrichmentTarget target) {
+    /**
+     * One row more, added while the run is under way — a company first learned from its person's research — and only
+     * while the run holds fewer than {@code runCeiling} rows, so a follow-on cannot carry a run past the import's cap.
+     */
+    boolean queueOne(ClaimedEnrichmentItem from, ImportEnrichmentTarget target, int runCeiling) {
         return jdbc.update("""
                         INSERT INTO app_lm_import_enrichment_item
                             (workspace_id, project_id, run_id, requested_by, kind, target_id, linkedin_slug)
-                        VALUES (?, ?, ?, ?, ?, ?, ?)
+                        SELECT ?, ?, ?, ?, ?, ?, ?
+                        WHERE (SELECT count(*) FROM app_lm_import_enrichment_item
+                               WHERE workspace_id = ? AND run_id = ?) < ?
                         ON CONFLICT (run_id, kind, target_id) DO NOTHING
                         """, from.workspaceId(), from.projectId(), from.runId(), from.requestedBy(),
-                target.kind().name(), target.targetId(), target.linkedinSlug()) > 0;
+                target.kind().name(), target.targetId(), target.linkedinSlug(),
+                from.workspaceId(), from.runId(), runCeiling) > 0;
     }
 
     /** Oldest first, skipping rows another instance holds; a claim its instance never finished is taken again. */
@@ -112,6 +119,7 @@ class ImportEnrichmentItemStore {
                 counts.getOrDefault(ImportEnrichmentOutcome.ALREADY_RESEARCHED, 0),
                 counts.getOrDefault(ImportEnrichmentOutcome.NOT_FOUND, 0),
                 counts.getOrDefault(ImportEnrichmentOutcome.REFUSED, 0),
+                counts.getOrDefault(ImportEnrichmentOutcome.OVER_ALLOWANCE, 0),
                 counts.getOrDefault(ImportEnrichmentOutcome.UNAVAILABLE, 0),
                 counts.getOrDefault(ImportEnrichmentOutcome.FAILED, 0));
     }
@@ -130,17 +138,17 @@ class ImportEnrichmentItemStore {
                 """, workspaceId, Timestamp.from(before));
     }
 
-    /** An erased person's rows, by slug and by the mandates' rows that mapped them. */
+    /** An erased person's rows, by slug and by the mandates' rows that mapped them, in one statement. */
     void erasePerson(UUID workspaceId, String profileSlug, Collection<UUID> candidateIds) {
-        if (profileSlug != null) {
-            jdbc.update("""
+        jdbc.update(connection -> {
+            PreparedStatement statement = connection.prepareStatement("""
                     DELETE FROM app_lm_import_enrichment_item
-                    WHERE workspace_id = ? AND kind = 'PERSON' AND linkedin_slug = ?
-                    """, workspaceId, profileSlug);
-        }
-        candidateIds.forEach(candidateId -> jdbc.update("""
-                DELETE FROM app_lm_import_enrichment_item
-                WHERE workspace_id = ? AND kind = 'PERSON' AND target_id = ?
-                """, workspaceId, candidateId));
+                    WHERE workspace_id = ? AND kind = 'PERSON' AND (linkedin_slug = ? OR target_id = ANY (?))
+                    """);
+            statement.setObject(1, workspaceId);
+            statement.setString(2, profileSlug);
+            statement.setArray(3, connection.createArrayOf("uuid", candidateIds.toArray()));
+            return statement;
+        });
     }
 }

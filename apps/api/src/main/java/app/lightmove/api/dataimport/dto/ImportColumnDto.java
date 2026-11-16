@@ -9,7 +9,6 @@ public record ImportColumnDto(
         String valueShape,
         List<String> sampleValues,
         ProposedColumnMappingDto mapping,
-        /** Distinct LinkedIn profile and company links in the column, counted here: what enriching it would read. */
         int linkedinProfileCount,
         int linkedinCompanyCount
 ) {}

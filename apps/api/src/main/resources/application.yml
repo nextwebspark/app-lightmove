@@ -579,6 +579,8 @@ lightmove:
     enrichment-parallelism: ${SPREADSHEET_IMPORT_ENRICHMENT_PARALLELISM:4}
     enrichment-stale-after: ${SPREADSHEET_IMPORT_ENRICHMENT_STALE_AFTER:10m}
     enrichment-keep-for: ${SPREADSHEET_IMPORT_ENRICHMENT_KEEP_FOR:30d}
+    # Daily, apart from the drain: a workspace that never imports again must still lose its finished rows.
+    enrichment-purge: ${SPREADSHEET_IMPORT_ENRICHMENT_PURGE:0 17 3 * * *}
     # Checked server-side, but only as a coarse filter: browsers disagree about what a .csv is and
     # several send application/vnd.ms-excel for one, so the reader decides the real format from the
     # bytes. Hence octet-stream is allowed here and would not be for a document upload.

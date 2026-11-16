@@ -15,6 +15,7 @@ import app.lightmove.api.candidate.constant.EnrichmentVendor;
 import app.lightmove.api.candidate.model.CandidateCareerEntry;
 import app.lightmove.api.candidate.model.EnrichedProfile;
 import app.lightmove.api.enrichment.company.model.VendorCompanyRecord;
+import app.lightmove.api.enrichment.importrun.service.ImportEnrichmentPurge;
 import app.lightmove.api.enrichment.importrun.service.ImportEnrichmentWorker;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -48,6 +49,7 @@ class ImportEnrichmentIntegrationTest extends FlowTestSupport {
     @Autowired private RecordingProfileEnricher profiles;
     @Autowired private RecordingCompanyEnricher companies;
     @Autowired private ImportEnrichmentWorker worker;
+    @Autowired private ImportEnrichmentPurge purge;
 
     @BeforeEach
     void freshVendors() {
@@ -159,6 +161,30 @@ class ImportEnrichmentIntegrationTest extends FlowTestSupport {
                 .andReturn());
         assertThat(progress.get("total").asInt()).isEqualTo(1);
         assertThat(progress.get("done").asBoolean()).isFalse();
+    }
+
+    @Test
+    @DisplayName("a finished row past its keep-for is purged in a workspace that never imports again")
+    void finishedRowsArePurgedInAnIdleWorkspace() throws Exception {
+        String admin = adminOf("Enrich Purge Firm");
+        String projectId = project(admin);
+        UUID workspaceId = db.queryForObject("SELECT workspace_id FROM app_lm_project WHERE id = ?::uuid",
+                UUID.class, projectId);
+        insertFinished(workspaceId, projectId, "old-person", "now() - interval '31 days'");
+        insertFinished(workspaceId, projectId, "recent-person", "now() - interval '1 day'");
+
+        purge.purge();
+
+        assertThat(db.queryForList("SELECT linkedin_slug FROM app_lm_import_enrichment_item WHERE workspace_id = ?",
+                String.class, workspaceId)).containsExactly("recent-person");
+    }
+
+    private void insertFinished(UUID workspaceId, String projectId, String slug, String finishedAt) {
+        db.update("""
+                INSERT INTO app_lm_import_enrichment_item
+                    (workspace_id, project_id, run_id, kind, target_id, linkedin_slug, status, finished_at)
+                VALUES (?, ?::uuid, gen_random_uuid(), 'PERSON', gen_random_uuid(), ?, 'RESEARCHED', %s)
+                """.formatted(finishedAt), workspaceId, projectId, slug);
     }
 
     private void drainUntilDone(String token, String projectId, String runId) throws Exception {

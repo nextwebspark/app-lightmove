@@ -10,6 +10,8 @@ import java.util.function.Function;
 /** The LinkedIn profiles and company pages a sheet names, read exactly as the importer stores them. */
 final class LinkedInLinks {
 
+    private static final String LINKEDIN = "linkedin";
+
     private LinkedInLinks() {
     }
 
@@ -35,11 +37,26 @@ final class LinkedInLinks {
             return slugs;
         }
         for (List<String> row : sheet.rows()) {
-            String slug = slugOf.apply(sheet.cell(row, columnIndex));
+            String cell = sheet.cell(row, columnIndex);
+            // A substring check before any URL parse: nearly every column is names, titles or numbers, and a preview
+            // reads every column of up to 5,000 rows.
+            String slug = mentionsLinkedIn(cell) ? slugOf.apply(cell) : null;
             if (slug != null) {
                 slugs.add(slug);
             }
         }
         return slugs;
+    }
+
+    private static boolean mentionsLinkedIn(String cell) {
+        if (cell == null) {
+            return false;
+        }
+        for (int at = 0; at + LINKEDIN.length() <= cell.length(); at++) {
+            if (cell.regionMatches(true, at, LINKEDIN, 0, LINKEDIN.length())) {
+                return true;
+            }
+        }
+        return false;
     }
 }

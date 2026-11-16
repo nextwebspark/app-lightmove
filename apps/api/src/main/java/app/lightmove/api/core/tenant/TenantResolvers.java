@@ -151,6 +151,12 @@ public class TenantResolvers {
                 Timestamp.from(staleBefore));
     }
 
+    /** A finished import-enrichment row past its keep-for (V225): the retention purge's walk. */
+    public List<UUID> workspacesWithImportEnrichmentExpired(Instant finishedBefore) {
+        return workspaces("SELECT * FROM app_lm_workspaces_with_import_enrichment_expired(?)",
+                Timestamp.from(finishedBefore));
+    }
+
     public List<UUID> workspacesWithNotificationEmailsDue(Instant at) {
         return workspaces("SELECT * FROM app_lm_workspaces_with_notification_emails_due(?)", Timestamp.from(at));
     }

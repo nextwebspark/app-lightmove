@@ -13,6 +13,8 @@ public enum ImportEnrichmentOutcome {
     NOT_FOUND,
     /** Suppressed or restricted: researching them again would itself be processing. */
     REFUSED,
+    /** Fair use ran out before this read. */
+    OVER_ALLOWANCE,
     /** No provider is configured any more, or the row's target has gone. */
     UNAVAILABLE,
     FAILED;
