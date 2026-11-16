@@ -514,7 +514,9 @@ table. `OVER_ALLOWANCE` is a row whose paid read fair use refused at the worker.
 `app_lm_workspaces_with_import_enrichment_due` is the worker's V191-style resolver and
 `app_lm_workspaces_with_import_enrichment_expired` the daily purge's (`ImportEnrichmentPurge`, apart from the drain, so a
 workspace that never imports again still loses its rows). Finished rows go after
-`lightmove.spreadsheet-import.enrichment-keep-for`, an erased person's at once.
+`lightmove.spreadsheet-import.enrichment-keep-for`, an erased person's at once. It also adds `PROFILE_ENRICH` to
+`app_lm_usage_event_kind_chk`: without it every enrichment record was refused and swallowed by `UsageRecorder`, so the
+fair-use ceiling never saw a lookup.
 V195 adds `app_lm_workspace_suppression` (`kind` `PROFILE_SLUG | EMAIL`, a keyed `value_hash` unique per workspace and
 kind, the `key_id` it was taken under, `reason` `ERASED | OBJECTED | MANUAL`, an admin's `note`), forced row-level security
 in the same migration.

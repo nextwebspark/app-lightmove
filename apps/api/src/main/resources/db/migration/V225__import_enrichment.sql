@@ -76,3 +76,10 @@ END
 $$;
 
 REVOKE ALL ON FUNCTION app_lm_workspaces_with_import_enrichment_expired(timestamptz) FROM PUBLIC;
+
+-- An import's paid LinkedIn read is metered for fair use as PROFILE_ENRICH. Without it in the list every record was
+-- refused by this check, which UsageRecorder logs and swallows, so enrichment was never counted against the ceiling.
+ALTER TABLE app_lm_usage_event DROP CONSTRAINT app_lm_usage_event_kind_chk;
+ALTER TABLE app_lm_usage_event ADD CONSTRAINT app_lm_usage_event_kind_chk
+    CHECK (kind IN ('PEOPLE_SEARCH_PAGE', 'SOURCING_RUN', 'AI_ENRICH', 'PROFILE_ENRICH', 'OUTREACH_OPENER',
+                    'ASSISTANT_ASK'));
