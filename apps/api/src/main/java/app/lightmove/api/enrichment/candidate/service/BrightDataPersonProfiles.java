@@ -43,7 +43,8 @@ public final class BrightDataPersonProfiles {
                 namesOf(person.skills()),
                 namesOf(person.languages()),
                 null,
-                vendor);
+                vendor,
+                unmasked(person.name()));
     }
 
     /** A flat entry's {@code title} is the position; grouped entries nest them; a masked record may have only {@code position}. */

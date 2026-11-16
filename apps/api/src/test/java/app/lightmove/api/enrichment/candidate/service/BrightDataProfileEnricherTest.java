@@ -28,6 +28,7 @@ class BrightDataProfileEnricherTest {
 
         // The current position, never the "position" field's "Title - Company" mashup.
         assertThat(enriched.title()).isEqualTo("Chief Executive Officer");
+        assertThat(enriched.fullName()).isEqualTo("Sample Person");
         assertThat(enriched.about()).isEqualTo("Retail leader across the GCC.");
         assertThat(enriched.employerName()).isEqualTo("RetailCo");
         assertThat(enriched.employerLinkedinUrl()).isEqualTo("https://www.linkedin.com/company/retailco/");

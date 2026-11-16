@@ -10,4 +10,9 @@ import java.util.Optional;
 public interface LinkedInProfileEnricher {
 
     Optional<EnrichedProfile> fetch(String linkedinUrl);
+
+    /** False when no provider is configured: the Add form's lookup then says so rather than "not found". */
+    default boolean isOffered() {
+        return true;
+    }
 }

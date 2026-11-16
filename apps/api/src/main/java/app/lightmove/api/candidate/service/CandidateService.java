@@ -134,6 +134,7 @@ public class CandidateService {
     private final SuppressionGate suppression;
     private final WorkspaceAiControlsReader aiControls;
     private final WorkspaceSettingsService workspaceSettings;
+    private final LookedUpProfiles lookedUp;
 
     public CandidateService(CandidateRepository candidates, PersonRepository people, PersonMatcher matcher,
                             PersonActivityRecorder activity, PersonNoteService personNotes,
@@ -146,7 +147,7 @@ public class CandidateService {
                             UserRepository users, CandidateSearchService searches,
                             CandidateRemoval removal, SuppressionGate suppression,
                             WorkspaceAiControlsReader aiControls, WorkspaceSettingsService workspaceSettings,
-                            LightMoveProperties properties) {
+                            LookedUpProfiles lookedUp, LightMoveProperties properties) {
         this.candidates = candidates;
         this.people = people;
         this.matcher = matcher;
@@ -170,6 +171,7 @@ public class CandidateService {
         this.suppression = suppression;
         this.aiControls = aiControls;
         this.workspaceSettings = workspaceSettings;
+        this.lookedUp = lookedUp;
     }
 
     /**
@@ -384,6 +386,23 @@ public class CandidateService {
         UUID triageCompanyId = requests.companyOf(projectId, request, null);
         CandidateDetails details = requests.detailsOf(projectId, request.withTriageCompanyId(triageCompanyId), null);
 
+        // The Add form's profile lookup already bought this research: its employer lands in the universe and the
+        // person is filed researched, in this one write, rather than as a capture paying for it again.
+        Optional<EnrichedProfile> research = source == CandidateSource.MANUAL
+                ? lookedUp.find(workspaceId, details.linkedinUrl())
+                : Optional.empty();
+        boolean filesResearchedEmployer = triageCompanyId == null && research.isPresent()
+                && isResearchedEmployer(research.get(), details);
+        if (filesResearchedEmployer) {
+            EnrichedProfile found = research.get();
+            TriageCompanyResponse employer = triage.captureFromResearch(projectId, userId,
+                    CapturedCompanyDetails.employerNamed(found.employerName(), found.employerLinkedinUrl(),
+                            found.employerLogoUrl()),
+                    TriageCompanySource.MANUAL);
+            triageCompanyId = employer.id();
+            details = details.employedAt(employer.companyName());
+        }
+
         refuseDuplicate(projectId, triageCompanyId, details.fullName(), null);
         refuseHeldProfile(projectId, details.linkedinUrl(), null);
         suppression.refuseSuppressed(workspaceId, details.linkedinUrl(), emailsOf(details.emails()));
@@ -407,6 +426,10 @@ public class CandidateService {
                         details.linkedinUrl()));
             }
         }
+        research.ifPresent(found -> fileLookedUpResearch(userId, workspaceId, projectId, candidate, found));
+        if (filesResearchedEmployer) {
+            stream.publish(projectId, ProjectStreamKind.COMPANY_CAPTURED);
+        }
         stream.publish(projectId, ProjectStreamKind.CANDIDATE_CAPTURED);
 
         audit.projectEvent(ProjectEventType.CANDIDATE_ADDED, userId, workspaceId, projectId, httpRequest)
@@ -415,6 +438,29 @@ public class CandidateService {
                 .detail("mappedExisting", filed.personWasKnown())
                 .record();
         return responses.toDto(candidate);
+    }
+
+    /**
+     * Research names the employer the form saved, unless somebody typed another: a stated employer outranks the
+     * vendor's, as {@link #mapToEmployer} holds.
+     */
+    private static boolean isResearchedEmployer(EnrichedProfile research, CandidateDetails details) {
+        return research.employerName() != null && details.employerName() != null
+                && research.employerName().equalsIgnoreCase(details.employerName().trim());
+    }
+
+    /** The looked-up research onto a person nobody researched yet, then the brief's own assessment, as a capture's. */
+    private void fileLookedUpResearch(UUID userId, UUID workspaceId, UUID projectId, Candidate candidate,
+                                      EnrichedProfile research) {
+        Person person = candidate.getPerson();
+        if (!person.isResearched()) {
+            person.enrich(research);
+            keepPhoto(person.getId(), research);
+            activity.record(candidate, userId, PersonActivityKind.RESEARCHED,
+                    PersonActivityDetails.of("vendor", research.vendor()));
+        }
+        events.publishEvent(new CandidateAiEnrichRequested(candidate.getId(), projectId, workspaceId, userId,
+                AiEnrichTrigger.CAPTURE));
     }
 
     /**

@@ -4,6 +4,7 @@ import type {
   CandidatesPage,
   CandidateStatus,
   NationalityReading,
+  ProfileLookupResult,
   SaveCandidatePayload,
   SaveContactsPayload,
 } from "./types";
@@ -114,6 +115,14 @@ export function createCandidate(
   return request<Candidate>(`/projects/${projectId}/candidates`, {
     method: "POST",
     body: candidate,
+  });
+}
+
+/** Reads a LinkedIn profile for the Add form; a body, so the address stays out of request logs. */
+export function lookUpProfile(projectId: string, linkedinUrl: string): Promise<ProfileLookupResult> {
+  return request<ProfileLookupResult>(`/projects/${projectId}/candidates/profile-lookup`, {
+    method: "POST",
+    body: { linkedinUrl },
   });
 }
 

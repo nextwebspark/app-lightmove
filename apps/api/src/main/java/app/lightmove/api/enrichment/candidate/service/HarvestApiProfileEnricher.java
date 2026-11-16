@@ -82,7 +82,7 @@ public class HarvestApiProfileEnricher implements LinkedInProfileEnricher {
                 enriched.employerLinkedinUrl(), enriched.employerLogoUrl(), enriched.locationCity(),
                 enriched.locationCountry(), enriched.career(), enriched.education(),
                 enriched.skills(), enriched.languages(),
-                photos.fetchOrNull(photoUrl), EnrichmentVendor.HARVESTAPI);
+                photos.fetchOrNull(photoUrl), EnrichmentVendor.HARVESTAPI, enriched.fullName());
     }
 
     static EnrichedProfile toEnrichedProfile(HarvestApiProfile profile) {
@@ -106,7 +106,14 @@ public class HarvestApiProfileEnricher implements LinkedInProfileEnricher {
                 profile.languages() == null ? List.of()
                         : profile.languages().stream().map(HarvestApiLanguage::name).toList(),
                 null,
-                EnrichmentVendor.HARVESTAPI);
+                EnrichmentVendor.HARVESTAPI,
+                fullNameOf(profile));
+    }
+
+    private static String fullNameOf(HarvestApiProfile profile) {
+        String first = profile.firstName() == null ? "" : profile.firstName().trim();
+        String last = profile.lastName() == null ? "" : profile.lastName().trim();
+        return (first + " " + last).trim();
     }
 
     private static HarvestApiExperience currentPositionOf(HarvestApiProfile profile) {
@@ -170,7 +177,7 @@ public class HarvestApiProfileEnricher implements LinkedInProfileEnricher {
     /** {@code error} is an object on a failure payload, so it is typed as whatever arrived. */
     record HarvestApiEnvelope(HarvestApiProfile element, Object error) {}
 
-    record HarvestApiProfile(String about, HarvestApiLocation location,
+    record HarvestApiProfile(String firstName, String lastName, String about, HarvestApiLocation location,
                              List<HarvestApiExperience> currentPosition,
                              List<HarvestApiExperience> experience,
                              List<HarvestApiEducation> education,

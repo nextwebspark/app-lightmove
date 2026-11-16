@@ -123,6 +123,8 @@ export type ApiErrorCode =
   | "CONTACT_LOOKUP_NO_CREDITS"
   | "CONTACT_LOOKUP_FAILED"
   | "CONTACT_LOOKUP_NO_PROFILE"
+  | "PROFILE_LOOKUP_NOT_A_PROFILE"
+  | "PROFILE_LOOKUP_FAILED"
   | "CONTACT_LIMIT_REACHED"
   | "INSUFFICIENT_CREDITS"
   | "FAIR_USE_REACHED"
@@ -353,6 +355,8 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   CONTACT_LOOKUP_NO_CREDITS: "Your workspace has used this period's contact lookup credits. Ask an admin to top them up.",
   CONTACT_LOOKUP_FAILED: "Contact lookup didn't respond — the provider may be busy. Try again in a minute.",
   CONTACT_LOOKUP_NO_PROFILE: "Add this person's LinkedIn profile URL first.",
+  PROFILE_LOOKUP_NOT_A_PROFILE: "That isn't a LinkedIn profile link — it should look like linkedin.com/in/…",
+  PROFILE_LOOKUP_FAILED: "We couldn't reach LinkedIn research just now. Try again in a moment, or fill in their details below.",
   CONTACT_LIMIT_REACHED: "A profile holds ten email addresses and ten phone numbers at most.",
   INSUFFICIENT_CREDITS: "Your workspace is out of contact credits. Nothing was spent.",
   FAIR_USE_REACHED: "Your team has reached this month's fair use for this feature.",

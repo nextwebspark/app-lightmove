@@ -28,13 +28,13 @@ import {
   CareerFields,
   CompensationFields,
   ContactEntriesFields,
-  LinkedInUrlField,
   IdentityFields,
   NoteFields,
   StatusField,
   SummaryFields,
 } from "./CandidateFieldGroups";
 import { PossibleDuplicateDialog } from "./PossibleDuplicateDialog";
+import { ProfileLookupStep } from "./ProfileLookupStep";
 
 /** An add the server paused on: the payload as sent, and the people of that name at that employer. */
 interface PausedAdd {
@@ -49,9 +49,9 @@ export interface CandidateCompanyContext {
 }
 
 /**
- * A new executive, as one form with every section open. Opened from a company's row the employer is that company,
- * read-only (the server ignores a typed one); from the toolbar it is free text and the row lands unmapped. Mounted fresh
- * on each open.
+ * A new executive, as one form with every section open, led by a LinkedIn lookup that fills it. Opened from a
+ * company's row the employer is that company, read-only (the server ignores a typed one); from the toolbar it is free
+ * text, and lands in the universe when it is the employer the lookup found. Mounted fresh on each open.
  */
 export function AddCandidateForm({
   projectId,
@@ -145,7 +145,7 @@ export function AddCandidateForm({
         <p className="mt-1 pe-8 font-mono text-[11.5px] text-u-text3">
           {company
             ? `At ${company.companyName}`
-            : "Not tied to a company in this mandate's universe — name their employer below."}
+            : "Paste their LinkedIn profile to fill this in — their employer joins this position's universe."}
         </p>
       </div>
 
@@ -163,13 +163,19 @@ export function AddCandidateForm({
         <div className="min-h-0 flex-1 overflow-y-auto px-5 pt-4">
           <FormError message={submitError} />
 
+          <ProfileLookupStep
+            projectId={projectId}
+            form={form}
+            employerLocked={company !== null}
+            onOpenExisting={onSaved}
+          />
+
           <Section title="Identity">
             <IdentityFields
               register={register}
               errors={formState.errors}
               control={form.control}
               employerLocked={company !== null}
-              autoFocus
               statusField={<StatusField control={form.control} errors={formState.errors} />}
             />
           </Section>
@@ -189,7 +195,6 @@ export function AddCandidateForm({
                 <ContactEntriesFields channel="phone" />
               </div>
             </div>
-            <LinkedInUrlField register={register} error={formState.errors.linkedinUrl?.message} />
           </Section>
 
           <Section title="Background">

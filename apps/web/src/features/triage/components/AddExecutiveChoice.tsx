@@ -48,7 +48,7 @@ export function AddExecutiveChoice({
           <Choice
             icon={ICONS.userPlus}
             label="Add manually"
-            hint="Type in someone you already know"
+            hint="Paste their LinkedIn profile, or type them in"
             onSelect={() => {
               close();
               onAddByHand(company);
