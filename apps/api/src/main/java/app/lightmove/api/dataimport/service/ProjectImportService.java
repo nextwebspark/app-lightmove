@@ -90,14 +90,15 @@ public class ProjectImportService {
         List<ImportColumnDto> columns = new ArrayList<>(sheet.columns().size());
         for (int index = 0; index < sheet.columns().size(); index++) {
             SheetColumn column = sheet.columns().get(index);
+            LinkedInLinks.ColumnLinkCounts links = LinkedInLinks.countsIn(sheet, column.index());
             columns.add(new ImportColumnDto(
                     column.index(),
                     column.header(),
                     column.valueShape().name().toLowerCase(Locale.ROOT),
                     column.sampleValues(),
                     toDto(proposed.mappings().get(index)),
-                    LinkedInLinks.profileSlugsIn(sheet, column.index()).size(),
-                    LinkedInLinks.companySlugsIn(sheet, column.index()).size()));
+                    links.profiles(),
+                    links.companies()));
         }
         return new ImportPreviewResponse(
                 FileNameSanitizer.sanitize(file.getOriginalFilename(), "import"),

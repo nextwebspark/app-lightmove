@@ -58,7 +58,8 @@ headers only (`send-sample-values: false`).
   the box states how many profiles and companies will be looked up and that the workspace must tell those people
   (Art. 14 — the workspace is the controller); a file of more than `max-auto-enrich` (250) links is never enriched
   automatically and the box greys itself out; fair use is checked at the commit and again before every paid read;
-  research fills only empty fields; the suppression list and a processing restriction are checked before every read;
+  research fills only empty fields, and no AI inference follows it (unlike a plugin capture's); the suppression list and
+  a processing restriction are checked before every read;
   queue rows hold a slug and an outcome only, purged daily after 30 days and at once on erasure. A workspace-level
   default switch (so an EU/UK firm can choose unticked) is the follow-up if this is revisited.
 

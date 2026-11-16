@@ -68,7 +68,7 @@ class ImportEnrichmentIntegrationTest extends FlowTestSupport {
                 Company,Full Name,LinkedIn
                 ACWA Power,Layla Haddad,https://www.linkedin.com/in/layla-haddad/
                 """, false, status().isOk());
-        worker.drain();
+        drainOnce(worker);
 
         assertThat(summary.get("enrichment").isNull()).isTrue();
         assertThat(profiles.fetchedUrls()).isEmpty();
@@ -164,6 +164,78 @@ class ImportEnrichmentIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("erasing a person deletes their enrichment rows, by profile and by mandate row")
+    void erasureDeletesThePersonsRows() throws Exception {
+        String admin = adminOf("Enrich Erasure Firm");
+        String projectId = project(admin);
+        importFile(admin, projectId, """
+                Full Name,LinkedIn
+                Layla Haddad,https://www.linkedin.com/in/layla-haddad-erased/
+                """, true, status().isOk());
+        String personId = candidates(admin, projectId).get("candidates").get(0).get("personId").asText();
+        assertThat(rowsFor("layla-haddad-erased")).isEqualTo(1);
+
+        mvc.perform(post("/api/v1/candidates/" + personId + "/erase")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"confirmName":"Layla Haddad","suppress":false}"""))
+                .andExpect(status().isNoContent());
+
+        assertThat(rowsFor("layla-haddad-erased")).isZero();
+    }
+
+    @Test
+    @DisplayName("a stale company record is bought again and metered; a fresh cached miss costs nothing")
+    void companyReadsAreMeteredOnlyWhenTheVendorIsAsked() throws Exception {
+        String admin = adminOf("Enrich Company Meter Firm");
+        String projectId = project(admin);
+        UUID workspaceId = db.queryForObject("SELECT workspace_id FROM app_lm_project WHERE id = ?::uuid",
+                UUID.class, projectId);
+        String staleSlug = "stale-co-" + UUID.randomUUID().toString().substring(0, 8);
+        String missSlug = "missing-co-" + UUID.randomUUID().toString().substring(0, 8);
+        String file = """
+                Company,Company LinkedIn
+                Stale Holdings,https://www.linkedin.com/company/%s
+                """.formatted(staleSlug);
+
+        companies.answerWith(page(staleSlug, "Stale Holdings", 120));
+        drainUntilDone(admin, projectId, importFile(admin, projectId, file, true, status().isOk())
+                .get("enrichment").get("runId").asText());
+        db.update("UPDATE app_lm_vendor_company SET fetched_at = now() - interval '400 days' WHERE linkedin_slug = ?",
+                staleSlug);
+        drainUntilDone(admin, projectId, importFile(admin, projectId, file, true, status().isOk())
+                .get("enrichment").get("runId").asText());
+
+        assertThat(companies.fetchedSlugs()).containsExactly(staleSlug, staleSlug);
+        assertThat(paidReads(workspaceId)).isEqualTo(2);
+
+        companies.clear();
+        String missFile = """
+                Company,Company LinkedIn
+                Missing Trading,https://www.linkedin.com/company/%s
+                """.formatted(missSlug);
+        drainUntilDone(admin, projectId, importFile(admin, projectId, missFile, true, status().isOk())
+                .get("enrichment").get("runId").asText());
+        drainUntilDone(admin, projectId, importFile(admin, projectId, missFile, true, status().isOk())
+                .get("enrichment").get("runId").asText());
+
+        assertThat(companies.fetchedSlugs()).containsExactly(missSlug);
+        assertThat(paidReads(workspaceId)).isEqualTo(3);
+    }
+
+    private int rowsFor(String slug) {
+        return db.queryForObject("SELECT count(*) FROM app_lm_import_enrichment_item WHERE linkedin_slug = ?",
+                Integer.class, slug);
+    }
+
+    private long paidReads(UUID workspaceId) {
+        return db.queryForObject("""
+                SELECT coalesce(sum(units), 0) FROM app_lm_usage_event WHERE workspace_id = ? AND kind = 'PROFILE_ENRICH'
+                """, Long.class, workspaceId);
+    }
+
+    @Test
     @DisplayName("a finished row past its keep-for is purged in a workspace that never imports again")
     void finishedRowsArePurgedInAnIdleWorkspace() throws Exception {
         String admin = adminOf("Enrich Purge Firm");
@@ -188,8 +260,8 @@ class ImportEnrichmentIntegrationTest extends FlowTestSupport {
     }
 
     private void drainUntilDone(String token, String projectId, String runId) throws Exception {
-        for (int pass = 0; pass < 5; pass++) {
-            worker.drain();
+        for (int pass = 0; pass < 10; pass++) {
+            drainOnce(worker);
             JsonNode progress = body(mvc.perform(get("/api/v1/projects/" + projectId + "/import/enrichment/" + runId)
                             .header("Authorization", "Bearer " + token))
                     .andExpect(status().isOk())
@@ -198,7 +270,15 @@ class ImportEnrichmentIntegrationTest extends FlowTestSupport {
                 return;
             }
         }
-        throw new AssertionError("The enrichment run did not finish in five passes");
+        throw new AssertionError("The enrichment run did not finish in ten passes");
+    }
+
+    /** The drain hands its reads to the pool and returns; a test waits for them before reading the outcome. */
+    static void drainOnce(ImportEnrichmentWorker worker) throws InterruptedException {
+        worker.drain();
+        for (int wait = 0; wait < 500 && !worker.isIdle(); wait++) {
+            Thread.sleep(10);
+        }
     }
 
     private JsonNode importFile(String token, String projectId, String content, boolean enrich,

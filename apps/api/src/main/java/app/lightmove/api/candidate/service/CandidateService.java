@@ -590,6 +590,19 @@ public class CandidateService {
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void applyResearch(UUID projectId, UUID candidateId, EnrichedProfile enriched) {
+        fileResearch(projectId, candidateId, enriched, true);
+    }
+
+    /**
+     * {@link #applyResearch} with no AI background run after it: an import's enrichment box consents to LinkedIn
+     * research, not to inference, which stays a press of Suggest with AI.
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void applyResearchWithoutAi(UUID projectId, UUID candidateId, EnrichedProfile enriched) {
+        fileResearch(projectId, candidateId, enriched, false);
+    }
+
+    private void fileResearch(UUID projectId, UUID candidateId, EnrichedProfile enriched, boolean requestsAi) {
         candidates.findByIdAndProjectId(candidateId, projectId).ifPresentOrElse(candidate -> {
             Person person = candidate.getPerson();
             if (person.isProcessingRestricted()) {
@@ -609,9 +622,11 @@ public class CandidateService {
             mapToEmployer(projectId, candidate, CapturedCompanyDetails.employerNamed(enriched.employerName(),
                     enriched.employerLinkedinUrl(), enriched.employerLogoUrl()), capturedBy(projectId, candidate));
             stream.publish(projectId, ProjectStreamKind.CANDIDATE_ENRICHED);
-            projects.findById(projectId).ifPresent(project -> events.publishEvent(
-                    new CandidateAiEnrichRequested(candidateId, projectId, project.getWorkspaceId(),
-                            candidate.getAddedBy(), AiEnrichTrigger.CAPTURE)));
+            if (requestsAi) {
+                projects.findById(projectId).ifPresent(project -> events.publishEvent(
+                        new CandidateAiEnrichRequested(candidateId, projectId, project.getWorkspaceId(),
+                                candidate.getAddedBy(), AiEnrichTrigger.CAPTURE)));
+            }
         }, () -> log.info("Candidate {} was removed before its research landed", candidateId));
     }
 

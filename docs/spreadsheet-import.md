@@ -282,6 +282,10 @@ The mapping step carries one tick box, **"I'm okay with enriching people and com
 default — a product decision, against the market's habit (HubSpot, Gem and Ashby offer it unticked; most tools make it
 a separate step), so the safeguards around it carry the weight.
 
+**No AI follows.** Research is filed with `CandidateService.applyResearchWithoutAi`: an import's box consents to
+LinkedIn research, so the background inference a plugin capture starts (gender, nationality, seniority) is not run for
+imported people; it stays a press of Suggest with AI.
+
 **What it does.** After the commit, every person whose row carried a LinkedIn profile and every non-market company
 whose row carried a LinkedIn page is researched through the vendor the plugin's capture uses, and filed through
 `CandidateService.applyResearch` / `TriageCompanyService.applyEnrichment` — which fill **only what nobody recorded**,
@@ -305,7 +309,12 @@ refused `IMPORT_ENRICHMENT_TOO_LARGE` on field `enrich`, and past the month's fa
 `FAIR_USE_REACHED` — the same file imports unchanged with the box unticked. **The commit's check is not the last word**:
 a follow-on company read and a second import checked against the same headroom would slip past it, so the worker checks
 fair use again before every paid read (a refused row is `OVER_ALLOWANCE`), and a follow-on row is queued only while
-its run holds fewer than `max-auto-enrich` rows. The preview sends each column's link counts
+its run holds fewer than `max-auto-enrich` rows. The recheck is soft, as every fair-use check here is: check and record
+are two statements, so near the ceiling the reads in flight (`enrichment-parallelism` per instance) may each pass
+before any records. A read is metered only when the vendor was asked — `ProfileResearch` and `CompanyResearch.read`
+say so, the latter by the same fresh-cache rule that serves the record, so a fresh cached miss is free and a stale
+record is bought and counted — and a read whose vendor call throws is not metered (the row ends `FAILED`): an
+under-count, chosen over charging a read that may not have been billed. The preview sends each column's link counts
 and `allowanceLeft`, so the dialog greys the box out (unticked) over the limit, and warns over the allowance, before the
 button is pressed. The count is an upper bound: research the workspace already holds costs nothing and is filed free
 (`LookedUpResearch.researchOnFile`).

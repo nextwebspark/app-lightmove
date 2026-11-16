@@ -31,6 +31,30 @@ final class LinkedInLinks {
         return slugsIn(sheet, columnIndex, LinkedInLinks::companySlugOf);
     }
 
+    /** Both counts in one pass over the column: the preview reads every column of up to 5,000 rows. */
+    static ColumnLinkCounts countsIn(ParsedSheet sheet, int columnIndex) {
+        Set<String> profiles = new HashSet<>();
+        Set<String> companies = new HashSet<>();
+        for (List<String> row : sheet.rows()) {
+            String cell = sheet.cell(row, columnIndex);
+            if (!mentionsLinkedIn(cell)) {
+                continue;
+            }
+            String profile = profileSlugOf(cell);
+            if (profile != null) {
+                profiles.add(profile);
+            } else {
+                String company = companySlugOf(cell);
+                if (company != null) {
+                    companies.add(company);
+                }
+            }
+        }
+        return new ColumnLinkCounts(profiles.size(), companies.size());
+    }
+
+    record ColumnLinkCounts(int profiles, int companies) {}
+
     private static Set<String> slugsIn(ParsedSheet sheet, int columnIndex, Function<String, String> slugOf) {
         Set<String> slugs = new HashSet<>();
         if (columnIndex < 0) {

@@ -86,8 +86,8 @@ class ImportEnrichmentAllowanceIntegrationTest extends FlowTestSupport {
                 Agthia Group,Sara Khan,https://www.linkedin.com/in/sara-khan/
                 Agthia Group,Ali Saleh,https://www.linkedin.com/in/ali-saleh/
                 """);
-        for (int pass = 0; pass < 5; pass++) {
-            worker.drain();
+        for (int pass = 0; pass < 10; pass++) {
+            ImportEnrichmentIntegrationTest.drainOnce(worker);
         }
 
         assertThat(profiles.fetchedUrls().size() + companies.fetchedSlugs().size()).isLessThanOrEqualTo(3);
