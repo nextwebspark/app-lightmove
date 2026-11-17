@@ -1,5 +1,5 @@
 import type { AnyExtension, Editor, JSONContent } from "@tiptap/core";
-import { lazy, Suspense, useState, type MutableRefObject, type ReactNode } from "react";
+import { lazy, Suspense, type MutableRefObject, type ReactNode } from "react";
 import { cn } from "../../../lib/cn";
 import type { TeammateOption } from "../../tasks/lib/team";
 import type { NoteFormat } from "../lib/noteFormat";
@@ -58,6 +58,8 @@ export interface NoteEditorProps {
    */
   fillsDialog?: boolean;
   onExpandChange?: (expanded: boolean) => void;
+  /** Filling a dialog that opens already expanded, so Expand's control reads as Collapse from the start. */
+  startsExpanded?: boolean;
   /** Set while the editor is loaded, for a bar outside it — the Insert variables — that types into it. */
   editorRef?: MutableRefObject<NoteEditorHandle | null>;
   /** Fixed for the editor's life: it decides the schema the stored Markdown is read with. */
@@ -68,33 +70,17 @@ export interface NoteEditorProps {
 
 /** The note editor, loaded on first use so a page that never writes a note never downloads it. */
 export function NoteEditor(props: NoteEditorProps) {
-  const [isLarge, setIsLarge] = useState(false);
   if (props.fillsDialog) {
-    const { onExpandChange } = props;
     // Header and footer stay outside the lazy boundary: a Subject typed while the editor loads keeps its focus.
     return (
       <div className="flex min-h-fit flex-1 flex-col">
         {props.header !== undefined && <div className="flex-none">{props.header}</div>}
         {/* A floor, not min-h-0: on a short window the box was squeezed below its toolbar and the words spilled out
-            over the signature under it. Below the floor the dialog's body scrolls instead; the ceiling keeps long
-            words scrolling in the box, not the whole dialog, until Expand gives the dialog a size of its own. */}
-        <div
-          className={cn(
-            "flex min-h-44 flex-1 flex-col",
-            !isLarge && "max-h-[45dvh]",
-            props.header !== undefined && "mt-3",
-          )}
-        >
+            over the signature under it. Below the floor the dialog's body scrolls instead. Size containment: long
+            words grew the box past the dialog's fixed height and the whole dialog scrolled, its actions out of reach. */}
+        <div className={cn("flex min-h-44 flex-1 flex-col [contain:size]", props.header !== undefined && "mt-3")}>
           <Suspense fallback={<div aria-busy="true" className="min-h-32 flex-1" />}>
-            <RichNoteEditor
-              {...props}
-              header={undefined}
-              footer={undefined}
-              onExpandChange={(expanded) => {
-                setIsLarge(expanded);
-                onExpandChange?.(expanded);
-              }}
-            />
+            <RichNoteEditor {...props} header={undefined} footer={undefined} />
           </Suspense>
         </div>
         {/* `contents`: the footer's own children are this column's, so one of them can stick to the dialog's foot. */}
