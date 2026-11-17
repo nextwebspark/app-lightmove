@@ -463,6 +463,7 @@ function PersonDrawerBody({
         {tab === "positions" && (
           <PositionsSection
             title="Positions"
+            personName={person.fullName}
             positions={person.positions}
             onSetNextAction={setNextActionOn}
             action={

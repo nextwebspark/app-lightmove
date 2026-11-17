@@ -1,4 +1,4 @@
-import type { CandidatePipelineStage } from "../../candidates/api/types";
+import type { CandidatePipelineStage, ExitReasonChoice } from "../../candidates/api/types";
 import type { PipelineCatalog, PipelineStage, PipelineStatus } from "../../workspace/api/types";
 import type { PipelineRankMove, PipelineRow } from "../api/types";
 import { formatShortDate } from "../../../lib/datetime";
@@ -23,6 +23,8 @@ export interface BoardPlacement {
   status: string | null;
   move: PipelineRankMove | null;
   rows: PipelineRow[];
+  /** Why they left, for a move to a way out that offers reasons; asked once the card is dropped. */
+  reason?: ExitReasonChoice | null;
 }
 
 /**

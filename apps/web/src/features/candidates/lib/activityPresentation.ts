@@ -62,6 +62,7 @@ const FAMILY_OF: Record<PersonActivityKind, ActivityFamily> = {
   MAPPED: "pipeline",
   UNMAPPED: "pipeline",
   STATUS_CHANGED: "pipeline",
+  EXIT_REASON_CHANGED: "pipeline",
   TRIAGE_STATUS_CHANGED: "pipeline",
   CLIENT_VISIBILITY_CHANGED: "pipeline",
   NEXT_ACTION_SET: "tasks",
@@ -176,6 +177,7 @@ export function iconOf(entry: PersonTimelineEntry): string | null {
     case "UNMAPPED":
       return ICONS.userX;
     case "STATUS_CHANGED":
+    case "EXIT_REASON_CHANGED":
       return ICONS.pipeline;
     case "TRIAGE_STATUS_CHANGED":
       return ICONS.triage;
@@ -312,6 +314,8 @@ export function verbOf(entry: PersonTimelineEntry): string {
       return `removed them from ${entry.projectTitle ?? "this position"}`;
     case "STATUS_CHANGED":
       return "moved the status";
+    case "EXIT_REASON_CHANGED":
+      return "changed why they left";
     case "TRIAGE_STATUS_CHANGED":
       return `moved them to ${triageStageLabel(details.to)}`;
     case "CLIENT_VISIBILITY_CHANGED":
@@ -458,7 +462,7 @@ export interface NoteEdit {
 /** What a card shows under its first line; the dialog then shows the rest. */
 export type ActivityPreview =
   | { type: "note"; excerpt: string | null; noteKind: string; aboutThePerson: boolean; edited: NoteEdit | null }
-  | { type: "status"; from: string | null; to: string; cause: string | null }
+  | { type: "status"; from: string | null; to: string; cause: string | null; reason: string | null }
   | { type: "changes"; changes: FieldChange[]; hidden: number }
   | { type: "fields"; labels: string[] }
   | { type: "meeting"; startsAt: string; previousStartsAt: string | null; cancelled: boolean }
@@ -515,6 +519,12 @@ export function previewOf(entry: PersonTimelineEntry): ActivityPreview | null {
         from: details.from ? statusLabel(details.from, details.fromLabel) : null,
         to: statusLabel(details.to, details.toLabel),
         cause: automationCauseOf(entry),
+        reason: details.reason ?? null,
+      };
+    case "EXIT_REASON_CHANGED":
+      return {
+        type: "fields",
+        labels: [details.fromReason ? `${details.fromReason} → ${details.reason}` : `Why: ${details.reason}`],
       };
     case "PROFILE_EDITED":
     case "UPDATED_FROM_CALL": {

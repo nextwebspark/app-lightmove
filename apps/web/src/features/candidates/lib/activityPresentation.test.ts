@@ -217,9 +217,16 @@ describe("activity presentation", () => {
 
     it("shows a status move by the labels it was written with, or the built-in label of an older line", () => {
       expect(previewOf(line(1, "STATUS_CHANGED", { details: { from: "a", to: "b", fromLabel: "First call", toLabel: "Met" } })))
-        .toEqual({ type: "status", from: "First call", to: "Met", cause: null });
+        .toEqual({ type: "status", from: "First call", to: "Met", cause: null, reason: null });
       expect(previewOf(line(1, "STATUS_CHANGED", { details: { to: "engaged" } })))
         .toMatchObject({ type: "status", from: null, to: "Engaged" });
+    });
+
+    it("says why someone left, on the move and when the reason changes", () => {
+      expect(previewOf(line(1, "STATUS_CHANGED", { details: { to: "notInterested", reason: "Compensation" } })))
+        .toMatchObject({ type: "status", reason: "Compensation" });
+      expect(previewOf(line(1, "EXIT_REASON_CHANGED", { details: { reason: "Timing", fromReason: "Compensation" } })))
+        .toEqual({ type: "fields", labels: ["Compensation → Timing"] });
     });
 
     it("lists two changes and counts the rest; an older edit with only field names lists those", () => {

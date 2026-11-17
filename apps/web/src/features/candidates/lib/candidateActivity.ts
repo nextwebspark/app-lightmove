@@ -145,9 +145,20 @@ function phraseOf(
     case "STATUS_CHANGED":
       return {
         text: `marked${them} ${statusLabel(details.to, details.toLabel)} on ${where}`,
-        detail: details.from
-          ? `${statusLabel(details.from, details.fromLabel)} → ${statusLabel(details.to, details.toLabel)}`
-          : null,
+        detail:
+          [
+            details.from
+              ? `${statusLabel(details.from, details.fromLabel)} → ${statusLabel(details.to, details.toLabel)}`
+              : null,
+            details.reason ? `Why: ${details.reason}` : null,
+          ]
+            .filter(Boolean)
+            .join(" · ") || null,
+      };
+    case "EXIT_REASON_CHANGED":
+      return {
+        text: `changed why${them || " they"} left ${where}`,
+        detail: details.fromReason ? `${details.fromReason} → ${details.reason}` : `Why: ${details.reason}`,
       };
     case "TRIAGE_STATUS_CHANGED": {
       const to = triageStageLabel(details.to);

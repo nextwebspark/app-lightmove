@@ -4,6 +4,7 @@ import app.lightmove.api.candidate.constant.ConsentPurpose;
 import app.lightmove.api.candidate.constant.LawfulBasis;
 import app.lightmove.api.candidate.dto.DoNotContactResponse;
 import app.lightmove.api.candidate.dto.PersonConsentResponse;
+import app.lightmove.api.candidate.dto.CandidateExitReasonResponse;
 import app.lightmove.api.candidate.dto.PersonPositionResponse;
 import app.lightmove.api.candidate.dto.PersonPrivacyResponse;
 import app.lightmove.api.candidate.dto.PersonRecordResponse;
@@ -60,6 +61,7 @@ public class PersonRecordService {
     private final WorkspaceAccess workspaceAccess;
     private final PersonEmployerResolver employers;
     private final CandidateResponseMapper responses;
+    private final CandidateExitReasons exitReasons;
     private final CandidatePrivacySettingsService privacySettings;
     private final PersonConsentStore consentStore;
     private final Clock clock;
@@ -134,6 +136,8 @@ public class PersonRecordService {
                 .stream().collect(Collectors.toMap(Project::getId, Function.identity()));
         Set<UUID> workable = projectAccess.projectsWithAction(userId, workspaceId, projectIds,
                 ProjectAction.WORK_EXECUTE);
+        Map<UUID, CandidateExitReasonResponse> why = exitReasons.givenTo(workspaceId, mapped).stream()
+                .collect(Collectors.toMap(CandidateExitReasonResponse::candidateId, Function.identity()));
         Comparator<Candidate> order = currentProjectId == null
                 ? Comparator.comparing(Candidate::getCreatedAt).reversed()
                 : Comparator.comparing((Candidate row) -> !row.getProjectId().equals(currentProjectId));
@@ -148,7 +152,7 @@ public class PersonRecordService {
                             row.getSource().value(), workable.contains(row.getProjectId()),
                             row.getStatus().getLabel(), row.getStatus().getColour().value(),
                             CandidateResponseMapper.stageOf(row.getStatus()), row.getStatusChangedAt(),
-                            mandate != null && mandate.isArchived());
+                            mandate != null && mandate.isArchived(), why.get(row.getId()));
                 })
                 .toList();
     }

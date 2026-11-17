@@ -513,6 +513,14 @@ someone left from is their status's stage. The seed now labels `outOfScope` **No
 Shortlist (`withdrewShortlist`) and Offer (`withdrewOffer`). An existing workspace gained those two only where it still
 runs V163's shape (its own `withdrew` a way out under the `INTERESTED` stage), on a live stage, under a key it does not
 hold; nothing existing was renamed.
+V228 records why a mandate's candidate left: `app_lm_project_candidate.exit_reason_id` (one of the workspace's
+reasons, no `ON DELETE`: a held reason is retired, never deleted), `exit_note` (≤ 500, never blank),
+`exit_reason_set_at`, `exit_reason_set_by`, a check keeping the last three empty without a reason. Held only while the
+status is out of process: any status move clears it (`Candidate.moveTo`), and the status pill's PATCH asks a new one
+of a way out that offers reasons. Other doors (a whole-record save, an automation, an import) move without one, which
+reads "Not given". Changed in place by `PUT …/candidates/{id}/exit-reason`, a timeline line of its own
+(`EXIT_REASON_CHANGED`, added to the kind check). Staff-only: on the Pipeline rows, the person's positions and `GET
+…/candidates/exit-reasons` (`WORK_EXECUTE`), never on `CandidateResponse`.
 V227 adds the reasons for leaving the process: `app_lm_workspace_exit_reason` (a workspace's list — key, label ≤ 60
 unique per workspace case ignored, `requires_note` for Other, position, retired never deleted) and
 `app_lm_workspace_status_exit_reason`, which out-of-process statuses offer each reason (a status offering none asks for

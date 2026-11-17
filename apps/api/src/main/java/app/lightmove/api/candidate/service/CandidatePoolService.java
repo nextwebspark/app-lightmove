@@ -309,7 +309,7 @@ public class CandidatePoolService {
                             row.getAddedBy(), null, row.getCreatedAt(), row.getSource().value(), false,
                             row.getStatus().getLabel(), row.getStatus().getColour().value(),
                             CandidateResponseMapper.stageOf(row.getStatus()), row.getStatusChangedAt(),
-                            mandate != null && mandate.isArchived());
+                            mandate != null && mandate.isArchived(), null);
                 })
                 .toList();
     }
