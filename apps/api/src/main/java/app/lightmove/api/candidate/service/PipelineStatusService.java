@@ -8,6 +8,7 @@ import app.lightmove.api.candidate.model.CandidateStatusDefinition;
 import app.lightmove.api.candidate.model.PipelineCatalog;
 import app.lightmove.api.candidate.repository.CandidateStageRepository;
 import app.lightmove.api.candidate.repository.CandidateStatusDefinitionRepository;
+import app.lightmove.api.candidate.repository.ExitReasonRepository;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -32,6 +33,7 @@ public class PipelineStatusService {
     private final CandidateStatusDefinitionRepository statuses;
     private final PipelineDefaultMarks defaults;
     private final PipelineEditAudit audit;
+    private final ExitReasonRepository exitReasons;
 
     @Transactional
     public PipelineCatalogResponse createStatus(UUID userId, UUID workspaceId, CreatePipelineStatusRequest request,
@@ -144,6 +146,7 @@ public class PipelineStatusService {
         }
         status.markOutOfProcess(out);
         if (!out) {
+            exitReasons.withdrawFromStatus(status.getId());
             defaults.claimIfFree(catalog, status);
         }
     }

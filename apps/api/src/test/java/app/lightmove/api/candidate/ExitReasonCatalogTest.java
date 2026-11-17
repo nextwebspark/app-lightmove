@@ -73,7 +73,8 @@ class ExitReasonCatalogTest extends PipelineFlowSupport {
                 {"label":"Visa","requiresNote":true,"statusIds":["%s"]}""".formatted(notInterested)));
 
         JsonNode visa = reasonIn(reasons, "visa");
-        assertThat(labelsOf(reasons).getLast()).isEqualTo("Visa");
+        assertThat(labelsOf(reasons)).as("the starting list is there before the first write lands")
+                .hasSize(14).endsWith("Other", "Visa");
         assertThat(visa.get("requiresNote").asBoolean()).isTrue();
         assertThat(offeredAt(reasons, catalog, "notInterested")).contains("Visa");
 
@@ -84,6 +85,34 @@ class ExitReasonCatalogTest extends PipelineFlowSupport {
                 .as("a status in process asks for no reason").isEqualTo("VALIDATION_FAILED");
         assertThat(codeOf(write(admin, "POST", REASONS, """
                 {"label":"   "}"""))).isEqualTo("VALIDATION_FAILED");
+    }
+
+    @Test
+    @DisplayName("an admin whose first call is a write still finds the whole starting list")
+    void aFirstWriteFindsTheStartingList() throws Exception {
+        JsonNode reasons = body(write(admin, "POST", REASONS, """
+                {"label":"Notice period"}"""));
+
+        assertThat(labelsOf(reasons)).hasSize(14).startsWith("Location").endsWith("Other", "Notice period");
+        assertThat(offeredAt(reasons, catalog(), "withdrewOffer")).containsExactly("Compensation", "Another offer",
+                "Other");
+    }
+
+    @Test
+    @DisplayName("a status brought back into process offers no reason, even once it is a way out again")
+    void aStatusBackInProcessOffersNoReason() throws Exception {
+        JsonNode catalog = catalog();
+        String notInterested = statusIn(catalog, "notInterested").get("id").asText();
+        assertThat(offeredAt(reasons(admin), catalog, "notInterested")).isNotEmpty();
+
+        write(admin, "PATCH", PIPELINE + "/statuses/" + notInterested, """
+                {"outOfProcess":false}""");
+        assertThat(offeredAt(reasons(admin), catalog, "notInterested")).isEmpty();
+
+        write(admin, "PATCH", PIPELINE + "/statuses/" + notInterested, """
+                {"outOfProcess":true}""");
+        assertThat(offeredAt(reasons(admin), catalog, "notInterested"))
+                .as("its reasons are ticked again by an admin, never restored on their own").isEmpty();
     }
 
     @Test

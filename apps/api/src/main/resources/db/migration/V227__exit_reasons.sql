@@ -50,9 +50,9 @@ CREATE POLICY app_lm_tenant ON app_lm_workspace_status_exit_reason
     WITH CHECK (EXISTS (SELECT 1 FROM app_lm_workspace_exit_reason parent
                         WHERE parent.id = app_lm_workspace_status_exit_reason.reason_id));
 
--- The starting list ALAC Partners worked out, linked by status key to the ways out it belongs to, and only where that
--- status is still a live way out. A workspace already holding any reason is left alone, so this runs once per
--- workspace: here for every workspace whose pipeline exists, and on a first read of the reasons for the rest.
+-- The starting list, linked by status key to the ways out it belongs to, and only where that status is still a live way
+-- out. A workspace already holding any reason is left alone, so this runs once per workspace: here for every workspace
+-- whose pipeline exists, and within the pipeline's own seed for every workspace seeded later.
 CREATE FUNCTION app_lm_seed_exit_reasons(target_workspace uuid) RETURNS void
     LANGUAGE plpgsql AS $$
 BEGIN
@@ -105,3 +105,62 @@ $$;
 SELECT app_lm_seed_exit_reasons(workspace.id)
 FROM app_lm_workspace workspace
 WHERE EXISTS (SELECT 1 FROM app_lm_workspace_candidate_stage stage WHERE stage.workspace_id = workspace.id);
+
+-- A workspace's pipeline and its reasons are seeded together from here on, whichever door seeds the pipeline first.
+CREATE OR REPLACE FUNCTION app_lm_seed_candidate_pipeline(target_workspace uuid) RETURNS void
+    LANGUAGE plpgsql AS $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM app_lm_workspace_candidate_stage WHERE workspace_id = target_workspace) THEN
+        RETURN;
+    END IF;
+
+    INSERT INTO app_lm_workspace_candidate_stage (workspace_id, key, label, colour, position, system_key)
+    VALUES (target_workspace, 'identified', 'Research', 'NEUTRAL', 1, 'IDENTIFIED'),
+           (target_workspace, 'contacted', 'Approach', 'VIOLET', 2, 'CONTACTED'),
+           (target_workspace, 'interested', 'Assessment', 'SIGNAL', 3, 'INTERESTED'),
+           (target_workspace, 'qualified', 'Shortlist', 'ADJACENT', 4, 'QUALIFIED'),
+           (target_workspace, 'shortlisted', 'Offer', 'VIOLET', 5, 'SHORTLISTED')
+    ON CONFLICT DO NOTHING;
+
+    INSERT INTO app_lm_workspace_candidate_status
+        (workspace_id, stage_id, key, label, colour, position, is_default, system_key, out_of_process)
+    SELECT target_workspace, stage.id, seed.key, seed.label, seed.colour, seed.position, seed.is_default,
+           seed.system_key, seed.out_of_process
+    FROM (VALUES ('identified', 'identified', 'Identified', 'NEUTRAL', 1, true, 'IDENTIFIED', false),
+                 ('identified', 'outOfScope', 'Not approached', 'NEUTRAL', 2, false, 'OUT_OF_SCOPE', true),
+                 ('identified', 'offLimits', 'Off-limits', 'NEUTRAL', 3, false, 'OFF_LIMITS', true),
+                 ('identified', 'source', 'Source', 'NEUTRAL', 4, false, NULL, false),
+                 ('contacted', 'contacted', 'Awaiting reply', 'ACCENT', 1, true, 'CONTACTED', false),
+                 ('contacted', 'engaged', 'Confirming interest', 'ACCENT', 2, false, 'ENGAGED', false),
+                 ('contacted', 'callBeingArranged', 'Call being arranged', 'VIOLET', 3, false, NULL, false),
+                 ('contacted', 'callArranged', 'Call arranged', 'VIOLET', 4, false, NULL, false),
+                 ('contacted', 'notInterested', 'Not interested', 'VIOLET', 5, false, 'NOT_INTERESTED', true),
+                 ('contacted', 'unresponsive', 'Unresponsive', 'VIOLET', 6, false, NULL, true),
+                 ('interested', 'interested', 'Screening arranged', 'SIGNAL', 1, true, 'INTERESTED', false),
+                 ('interested', 'screenedOut', 'Screened-out', 'SIGNAL', 2, false, NULL, true),
+                 ('interested', 'interviewBeingArranged', 'Interview being arranged', 'SIGNAL', 3, false, NULL, false),
+                 ('interested', 'interviewArranged', 'Interview arranged', 'SIGNAL', 4, false, NULL, false),
+                 ('interested', 'notProgressed', 'Not progressed', 'SIGNAL', 5, false, NULL, true),
+                 ('interested', 'recommended', 'Recommended', 'SIGNAL', 6, false, NULL, false),
+                 ('interested', 'hold', 'Hold', 'SIGNAL', 7, false, NULL, false),
+                 ('interested', 'withdrew', 'Withdrew', 'SIGNAL', 8, false, NULL, true),
+                 ('qualified', 'presentedAwaitingFeedback', 'Presented – awaiting feedback', 'ADJACENT', 1, false, NULL, false),
+                 ('qualified', 'clientInterviewBeingArranged', 'Client interview being arranged', 'ADJACENT', 2, false, NULL, false),
+                 ('qualified', 'clientInterviewArranged', 'Client interview arranged', 'ADJACENT', 3, false, NULL, false),
+                 ('qualified', 'shortlisted', 'Shortlisted', 'ADJACENT', 4, true, NULL, false),
+                 ('qualified', 'clientRejected', 'Client rejected', 'ADJACENT', 5, false, NULL, true),
+                 ('qualified', 'withdrewShortlist', 'Withdrew', 'ADJACENT', 6, false, NULL, true),
+                 ('shortlisted', 'references', 'References', 'VIOLET', 1, true, NULL, false),
+                 ('shortlisted', 'clientRejectedAfterReferences', 'Client rejected after references', 'VIOLET', 2, false, NULL, true),
+                 ('shortlisted', 'offerExtended', 'Offer extended', 'VIOLET', 3, false, NULL, false),
+                 ('shortlisted', 'declinedOffer', 'Declined offer', 'VIOLET', 4, false, NULL, true),
+                 ('shortlisted', 'placed', 'Placed', 'VIOLET', 5, false, NULL, false),
+                 ('shortlisted', 'withdrewOffer', 'Withdrew', 'VIOLET', 6, false, NULL, true))
+             AS seed(stage_key, key, label, colour, position, is_default, system_key, out_of_process)
+    JOIN app_lm_workspace_candidate_stage stage
+        ON stage.workspace_id = target_workspace AND stage.key = seed.stage_key
+    ON CONFLICT DO NOTHING;
+
+    PERFORM app_lm_seed_exit_reasons(target_workspace);
+END;
+$$;

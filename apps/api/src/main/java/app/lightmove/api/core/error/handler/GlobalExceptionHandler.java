@@ -261,6 +261,8 @@ public class GlobalExceptionHandler {
             case "app_lm_workspace_candidate_stage_label_uk", "app_lm_workspace_candidate_stage_key_uk",
                  "app_lm_workspace_candidate_status_stage_label_uk", "app_lm_workspace_candidate_status_key_uk" ->
                     ErrorCode.PIPELINE_LABEL_TAKEN;
+            case "app_lm_workspace_exit_reason_label_uk", "app_lm_workspace_exit_reason_key_uk" ->
+                    ErrorCode.EXIT_REASON_TAKEN;
             // Two presses adding one person to one position: the second finds them already there.
             case "app_lm_project_candidate_person_uk" -> ErrorCode.CANDIDATE_ALREADY_MAPPED;
             // Two Starts racing one person onto a position: one live sequence per person per position.

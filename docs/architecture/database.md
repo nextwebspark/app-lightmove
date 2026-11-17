@@ -519,7 +519,9 @@ unique per workspace case ignored, `requires_note` for Other, position, retired 
 none). Both forced RLS, the link through its reason. Staff-only: served by `GET /workspace/pipeline/reasons`
 (`staffOnly`), never on the catalog a client seat reads. `app_lm_seed_exit_reasons` seeds the starting list linked by
 status key to live ways out only, once per workspace: V227 ran it for every workspace with a pipeline, and
-`ExitReasonService.catalog` runs it on the first read for the rest.
+`app_lm_seed_candidate_pipeline` now calls it, so a pipeline seeded by any door brings its reasons. A status brought
+back into process loses its links (`ExitReasonRepository.withdrawFromStatus`), so a reason is only ever offered out of
+process.
 V225 adds `app_lm_import_enrichment_item` (`docs/spreadsheet-import.md`): one row per person or company a spreadsheet
 import asked to have researched from LinkedIn — `kind` `PERSON | COMPANY`, the candidate's or triage company's id in
 `target_id` (no foreign key: two tables), the profile or company slug, `status` from `QUEUED` through `RUNNING` to one

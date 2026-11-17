@@ -10,6 +10,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.Table;
 import java.time.Instant;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
@@ -50,6 +51,7 @@ public class ExitReason extends BaseEntity {
     @Column(name = "created_by", updatable = false)
     private UUID createdBy;
 
+    @Getter(AccessLevel.NONE)
     @ElementCollection(fetch = FetchType.LAZY)
     @CollectionTable(name = "app_lm_workspace_status_exit_reason", joinColumns = @JoinColumn(name = "reason_id"))
     @Column(name = "status_id", nullable = false)
@@ -65,6 +67,11 @@ public class ExitReason extends BaseEntity {
         reason.position = position;
         reason.createdBy = createdBy;
         return reason;
+    }
+
+    /** Read-only: {@link #offerAt} is the one way to change which statuses offer it. */
+    public Set<UUID> getStatusIds() {
+        return Collections.unmodifiableSet(statusIds);
     }
 
     public void rename(String newLabel) {

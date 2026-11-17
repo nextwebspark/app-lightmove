@@ -19,8 +19,8 @@ import org.testcontainers.utility.DockerImageName;
 
 /**
  * V227: every workspace whose pipeline exists gets the starting reasons, each linked only to the live ways out it
- * belongs to; a workspace with no pipeline yet gets none until its first read seeds them, and a second seed adds
- * nothing. Its own container, stopped at V226 to seed, for {@code CandidatePersonBackfillMigrationTest}'s reason.
+ * belongs to; a workspace with no pipeline yet gets them with its pipeline's seed, whichever door seeds it, and a second
+ * seed adds nothing. Its own container, stopped at V226 to seed, for {@code CandidatePersonBackfillMigrationTest}'s reason.
  */
 class ExitReasonMigrationTest {
 
@@ -55,7 +55,6 @@ class ExitReasonMigrationTest {
 
                 try (Statement statement = connection.createStatement()) {
                     statement.execute("SELECT app_lm_seed_candidate_pipeline('%s')".formatted(NO_PIPELINE));
-                    statement.execute("SELECT app_lm_seed_exit_reasons('%s')".formatted(NO_PIPELINE));
                     statement.execute("SELECT app_lm_seed_exit_reasons('%s')".formatted(NO_PIPELINE));
                 }
                 assertThat(count(connection, "SELECT count(*) FROM app_lm_workspace_exit_reason WHERE workspace_id = ?",
