@@ -19,7 +19,7 @@ import { ICONS } from "../lib/icons";
 import { shortWhen } from "../lib/shortWhen";
 import { NoteComposer } from "../notes/components/NoteComposer";
 import { NotesSection } from "../notes/components/NotesSection";
-import { CheckingPosition, RefusalNote } from "./panelStates";
+import { CheckingPosition, HeldCheckFailed, RefusalNote } from "./panelStates";
 import type { SubjectPanelProps } from "./subjectPanelProps";
 import { DEFAULT_NOTE_KIND } from "../notes/lib/noteKinds";
 
@@ -38,7 +38,8 @@ export function CompanyPanel({ page, projects, user }: SubjectPanelProps) {
   const { settings } = useCaptureSettings();
 
   useEffect(() => setFiled(null), [projectId]);
-  useCloseAfterSave(Boolean(filed), settings.closesAfterSave);
+  // A note that did not land is waiting on the record for a retry; closing would throw it away.
+  useCloseAfterSave(Boolean(filed) && !filed?.unsentNote, settings.closesAfterSave);
 
   if (!project) {
     return null;
@@ -71,6 +72,7 @@ export function CompanyPanel({ page, projects, user }: SubjectPanelProps) {
         queryClient.setQueryData(heldCompanyKey(project.id, linkedinUrl, readName), capture.filed);
       }}
       onHeldElsewhere={() => void held.refetch()}
+      onRecheck={held.isError ? () => void held.refetch() : null}
     />
   );
 }
@@ -80,9 +82,12 @@ function CompanyForm({
   projects,
   onFiled,
   onHeldElsewhere,
+  onRecheck,
 }: SubjectPanelProps & {
   onFiled: (capture: FiledCapture<TriagedCompany>) => void;
   onHeldElsewhere: () => void;
+  /** Set when the position could not be asked whether it already holds the company. */
+  onRecheck: (() => void) | null;
 }) {
   const project = projects.selectedProject!;
   const capture = useCaptureCompany();
@@ -129,6 +134,7 @@ function CompanyForm({
   return (
     <>
       <div className="min-h-0 flex-1 overflow-y-auto p-3.5">
+        {onRecheck && <HeldCheckFailed onRetry={onRecheck} />}
         <SubjectCard
           shape="company"
           name={companyName}

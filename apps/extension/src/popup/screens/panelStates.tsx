@@ -22,10 +22,26 @@ export function CheckingPosition() {
   );
 }
 
+/**
+ * The position could not be asked whether it already has this page's subject. The form stays usable — a save the
+ * position would refuse says so — but it must not pass for "not on this position".
+ */
+export function HeldCheckFailed({ onRetry }: { onRetry: () => void }) {
+  return (
+    <div role="alert" className="mb-3 flex items-center justify-between gap-2 rounded-[8px] border border-u-border px-2.5 py-2 text-[12px] leading-[1.5] text-u-text2">
+      Couldn't check whether this position already has them.
+      <button type="button" onClick={onRetry} className="flex-none font-semibold text-u-accent hover:underline">
+        Retry
+      </button>
+    </div>
+  );
+}
+
 const REFUSAL_COPY: Record<string, string> = {
   CANDIDATE_ALREADY_MAPPED:
     "This position already has someone matching this profile — by their email, or their name at the same employer.",
-  TRIAGE_COMPANY_ALREADY_HELD: "This position already holds a company by that name.",
+  PERSON_PROFILE_HELD: "This profile was added a moment ago, by you or a colleague. Open the position to see them.",
+  TRIAGE_COMPANY_ALREADY_HELD: "This position already holds this company, by its LinkedIn page or its name.",
   PERSON_SUPPRESSED: "This person is on your workspace's suppression list, so they can't be added.",
   PERSON_PROCESSING_RESTRICTED:
     "Processing is restricted for this person, so they can't be added to a position until it is lifted in Uncava.",

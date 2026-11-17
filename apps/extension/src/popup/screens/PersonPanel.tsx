@@ -25,7 +25,7 @@ import { NoteComposer } from "../notes/components/NoteComposer";
 import type { NoteScope } from "../notes/components/NoteParts";
 import { NotesSection } from "../notes/components/NotesSection";
 import { teammatesOf } from "../notes/lib/teammates";
-import { CheckingPosition, RefusalNote } from "./panelStates";
+import { CheckingPosition, HeldCheckFailed, RefusalNote } from "./panelStates";
 import type { SubjectPanelProps } from "./subjectPanelProps";
 import { DEFAULT_NOTE_KIND } from "../notes/lib/noteKinds";
 
@@ -52,7 +52,8 @@ export function PersonPanel({ page, projects, user }: SubjectPanelProps) {
     setFiledAt(null);
   }, [projectId]);
 
-  useCloseAfterSave(Boolean(filed), settings.closesAfterSave);
+  // A note or tag that did not land is waiting on the record for a retry; closing would throw it away.
+  useCloseAfterSave(Boolean(filed) && isFiledWhole(filed), settings.closesAfterSave);
 
   // Research is waited on for a minute — the poll's own window — and then the record stops saying it is coming.
   useEffect(() => {
@@ -73,6 +74,7 @@ export function PersonPanel({ page, projects, user }: SubjectPanelProps) {
         held={held.data}
         user={user}
         projectId={project.id}
+        heldAtUrl={linkedinUrl}
         positionTitle={project.positionTitle}
         team={project.team}
         filed={filed?.filed.id === held.data.candidate.id ? filed : null}
@@ -91,6 +93,7 @@ export function PersonPanel({ page, projects, user }: SubjectPanelProps) {
       page={page}
       projects={projects}
       user={user}
+      onRecheck={held.isError ? () => void held.refetch() : null}
       onFiled={(capture) => {
         setFiled(capture);
         setFiledAt(Date.now());
@@ -116,9 +119,12 @@ function PersonForm({
   user,
   onFiled,
   onHeldElsewhere,
+  onRecheck,
 }: SubjectPanelProps & {
   onFiled: (capture: FiledCapture<CapturedCandidate>) => void;
   onHeldElsewhere: () => void;
+  /** Set when the position could not be asked whether it already has them. */
+  onRecheck: (() => void) | null;
 }) {
   const project = projects.selectedProject!;
   const capture = useCapturePerson();
@@ -162,7 +168,7 @@ function PersonForm({
       {
         onSuccess: onFiled,
         onError: (refusal) => {
-          if (refusal.code === "CANDIDATE_ALREADY_MAPPED") onHeldElsewhere();
+          if (isHeldElsewhere(refusal.code)) onHeldElsewhere();
         },
       },
     );
@@ -171,6 +177,7 @@ function PersonForm({
   return (
     <>
       <div className="min-h-0 flex-1 overflow-y-auto p-3.5">
+        {onRecheck && <HeldCheckFailed onRetry={onRecheck} />}
         <SubjectCard
           shape="person"
           name={fullName}
@@ -194,6 +201,7 @@ function PersonForm({
             onCreate={(label) => tagCatalog.create.mutate(label, { onSuccess: (tag) => setTagIds((held) => [...held, tag.id]) })}
             isCreating={tagCatalog.create.isPending}
           />
+          <TagCreateError error={tagCatalog.create.error} />
         </FieldSection>
 
         <FieldSection label="Note" hint="Optional · your team only">
@@ -213,9 +221,8 @@ function PersonForm({
       </div>
 
       <footer className="flex flex-none flex-col gap-2 border-t border-u-border px-3.5 py-3">
-        {capture.error && capture.error.code !== "CANDIDATE_ALREADY_MAPPED" && <RefusalNote refusal={capture.error} />}
-        {capture.error?.code === "CANDIDATE_ALREADY_MAPPED" && (
-          <RefusalNote refusal={capture.error} projectId={project.id} />
+        {capture.error && (
+          <RefusalNote refusal={capture.error} projectId={isHeldElsewhere(capture.error.code) ? project.id : undefined} />
         )}
         <Button type="button" size="md" className="w-full" disabled={!canSave} loading={capture.isPending} onClick={save}>
           <Icon d={ICONS.plus} />
@@ -231,6 +238,7 @@ function PersonRecord({
   held,
   user,
   projectId,
+  heldAtUrl,
   positionTitle,
   team,
   filed,
@@ -240,6 +248,8 @@ function PersonRecord({
   held: HeldCandidate;
   user: WorkspaceUser;
   projectId: string;
+  /** The address the record was looked up at, which the cache is keyed on — not always how the row spells it. */
+  heldAtUrl: string | null;
   positionTitle: string;
   team: SubjectPanelProps["projects"]["projects"][number]["team"];
   filed: FiledCapture<CapturedCandidate> | null;
@@ -257,7 +267,9 @@ function PersonRecord({
   const changeStatus = useMutation({
     mutationFn: (status: string) => askOrThrow({ kind: "changeCandidateStatus", projectId, candidateId: candidate.id, status }),
     onSuccess: (updated) => {
-      if (candidate.linkedinUrl) cache.setPerson(projectId, candidate.linkedinUrl, { ...held, candidate: updated });
+      // Keyed on the row's own spelling, a person filed elsewhere as linkedin.com/in/x kept showing the old status.
+      const keyUrl = heldAtUrl ?? candidate.linkedinUrl;
+      if (keyUrl) cache.setPerson(projectId, keyUrl, { ...held, candidate: updated });
     },
   });
 
@@ -339,6 +351,7 @@ function PersonRecord({
             isCreating={tagCatalog.create.isPending}
             disabled={personTags.toggle.isPending}
           />
+          <TagCreateError error={tagCatalog.create.error} />
           {filed && filed.untaggedTagIds.length > 0 && (
             <p role="alert" className="mt-1.5 text-note text-u-offlimits">
               Some tags were not added. Add them again above.
@@ -356,6 +369,23 @@ function PersonRecord({
       </div>
     </>
   );
+}
+
+/** Both say the position has them already — the second from a save that raced another for the same profile. */
+function isHeldElsewhere(code: string): boolean {
+  return code === "CANDIDATE_ALREADY_MAPPED" || code === "PERSON_PROFILE_HELD";
+}
+
+function isFiledWhole(capture: FiledCapture<CapturedCandidate> | null): boolean {
+  return capture !== null && !capture.unsentNote && capture.untaggedTagIds.length === 0;
+}
+
+function TagCreateError({ error }: { error: Error | null }) {
+  return error ? (
+    <p role="alert" className="mt-1.5 text-note text-u-offlimits">
+      That tag was not created. {error.message}
+    </p>
+  ) : null;
 }
 
 /** The name, the status if one was chosen, and the URLs the page cannot lie about — the note and tags follow it. */
