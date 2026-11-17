@@ -506,6 +506,13 @@ scan's V191-style resolver; the activity and notification kind lists gain the co
 V224 adds `app_lm_person_note.outcome` (#1337): how a logged call (`CONNECTED | VOICEMAIL | NO_ANSWER | WRONG_NUMBER`)
 or WhatsApp message (`SENT | REPLIED`) went, each value checked against its kind, and lets the body be empty once an
 outcome says what happened (`app_lm_person_note_body_chk`, V142's limit kept). Company notes take none.
+V226 makes a status's name unique within its stage rather than the workspace
+(`app_lm_workspace_candidate_status_stage_label_uk`, case ignored; its key stays unique per workspace, since the public
+API, MCP and the plugin speak keys), so a way out such as Withdrew is one status per stage it can happen at and where
+someone left from is their status's stage. The seed now labels `outOfScope` **Not approached** and adds Withdrew to
+Shortlist (`withdrewShortlist`) and Offer (`withdrewOffer`). An existing workspace gained those two only where it still
+runs V163's shape (its own `withdrew` a way out under the `INTERESTED` stage), on a live stage, under a key it does not
+hold; nothing existing was renamed.
 V225 adds `app_lm_import_enrichment_item` (`docs/spreadsheet-import.md`): one row per person or company a spreadsheet
 import asked to have researched from LinkedIn — `kind` `PERSON | COMPANY`, the candidate's or triage company's id in
 `target_id` (no foreign key: two tables), the profile or company slug, `status` from `QUEUED` through `RUNNING` to one

@@ -1,11 +1,12 @@
 import { findStatus, offeredStatusLabel, statusLabelOf } from "../../candidates/lib/pipelineStatus";
-import type { PipelineCatalog } from "../../workspace/api/types";
+import type { PipelineCatalog, PipelineStage } from "../../workspace/api/types";
 
 const STAGE_PREFIX = "stage:";
 
 /**
  * The Status column's header filter: the statuses the mapped executives actually hold, under their stage,
- * and the stage itself as one tick wherever it holds more than one of them.
+ * and the stage itself as one tick wherever it holds more than one of them — or where the one it holds shares
+ * its name with a status of another stage (Withdrew at Assessment and at Offer), so the heading tells them apart.
  */
 export function executiveStatusOptions(
   catalog: PipelineCatalog,
@@ -15,7 +16,7 @@ export function executiveStatusOptions(
   for (const stage of catalog.stages) {
     const held = stage.statuses.filter((status) => seen.has(status.key));
     if (held.length === 0) continue;
-    const grouped = held.length > 1;
+    const grouped = held.length > 1 || held.some((status) => namedElsewhere(catalog, stage, status.label));
     if (grouped) options.push({ value: STAGE_PREFIX + stage.key, label: `All ${stage.label}` });
     for (const status of held) options.push({ value: status.key, label: offeredStatusLabel(stage, status), indent: grouped });
   }
@@ -37,4 +38,11 @@ export function statusKeysOf(choice: readonly string[], catalog: PipelineCatalog
     stage?.statuses.forEach((status) => keys.add(status.key));
   }
   return [...keys];
+}
+
+function namedElsewhere(catalog: PipelineCatalog, own: PipelineStage, label: string): boolean {
+  const name = label.toLowerCase();
+  return catalog.stages.some(
+    (stage) => stage.key !== own.key && stage.statuses.some((status) => status.label.toLowerCase() === name),
+  );
 }

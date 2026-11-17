@@ -40,7 +40,7 @@ public class PipelineStatusService {
         CandidateStage stage = stages.requireInWorkspace(request.stageId(), workspaceId);
         PipelineRules.refuseRetiredStage(stage);
         String label = request.label().strip();
-        statuses.findByLabel(workspaceId, label).ifPresent(existing -> {
+        statuses.findByLabelInStage(workspaceId, stage.getId(), label).ifPresent(existing -> {
             throw ApiException.of(existing.isRetired() ? ErrorCode.PIPELINE_STATUS_RETIRED : ErrorCode.PIPELINE_LABEL_TAKEN);
         });
         String key = PipelineRules.freeKey(label, "status",
@@ -73,7 +73,9 @@ public class PipelineStatusService {
             flag(catalog, status, request.outOfProcess());
         }
         if (request.stageId() != null && !request.stageId().equals(status.getStage().getId())) {
-            move(catalog, status, stages.requireInWorkspace(request.stageId(), workspaceId));
+            CandidateStage target = stages.requireInWorkspace(request.stageId(), workspaceId);
+            refuseLabelTakenIn(workspaceId, target, status.getLabel(), status);
+            move(catalog, status, target);
         }
         if (Boolean.TRUE.equals(request.isDefault()) && !status.isDefaultOfStage()) {
             makeDefault(catalog, status);
@@ -118,12 +120,17 @@ public class PipelineStatusService {
         if (label.isEmpty()) {
             throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "label", "A status needs a name");
         }
-        statuses.findByLabel(workspaceId, label)
+        refuseLabelTakenIn(workspaceId, status.getStage(), label, status);
+        status.rename(label);
+    }
+
+    private void refuseLabelTakenIn(UUID workspaceId, CandidateStage stage, String label,
+                                    CandidateStatusDefinition status) {
+        statuses.findByLabelInStage(workspaceId, stage.getId(), label)
                 .filter(existing -> !existing.getId().equals(status.getId()))
                 .ifPresent(existing -> {
                     throw ApiException.of(ErrorCode.PIPELINE_LABEL_TAKEN);
                 });
-        status.rename(label);
     }
 
     /** Taking a status out moves everyone at it to Inactive at once; its stage's default is never taken out. */
