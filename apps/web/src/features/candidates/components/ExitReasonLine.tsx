@@ -147,13 +147,14 @@ export function ExitReasonLine({
       {noting && (
         <ExitReasonDialog
           name={name}
-          wayOut={wayOut.label}
-          reasons={offered}
-          editing
+          stageLabel={null}
+          ways={[wayOut]}
+          initialWayId={wayOut.id}
+          reasonsOf={() => offered}
+          purpose={{ kind: "change", onSave: (choice) => change.mutate(choice) }}
           initial={noting}
           saving={change.isPending}
           onCancel={() => setNoting(null)}
-          onConfirm={(choice) => change.mutate(choice)}
         />
       )}
     </ReasonLabel>

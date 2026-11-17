@@ -88,6 +88,19 @@ describe("useChangeCandidateStatus", () => {
     });
   });
 
+  it("fills in the way out picked, which the dialog still lets them correct", async () => {
+    renderMover("notInterested");
+    await userEvent.click(await screen.findByRole("button", { name: "Move" }));
+
+    const wayOut = await screen.findByRole("combobox", { name: "Way out" });
+    expect(wayOut).toHaveDisplayValue("Not interested");
+    await userEvent.selectOptions(wayOut, "Unresponsive");
+    expect(screen.getByText("Unresponsive asks for no reason.")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Move to Unresponsive" }));
+
+    expect(candidatesApi.changeCandidateStatus).toHaveBeenCalledWith("p1", "c1", "unresponsive", null);
+  });
+
   it("sends nothing when the question is cancelled", async () => {
     renderMover("notInterested");
     await userEvent.click(await screen.findByRole("button", { name: "Move" }));

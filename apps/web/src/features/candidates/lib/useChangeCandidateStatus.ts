@@ -34,9 +34,9 @@ export function useChangeCandidateStatus(projectId: string, onSaved: (saved: Can
 
   const request = (args: ChangeCandidateStatus, options?: { onSettled?: () => void }) =>
     void prompt.ask(
-      args.name,
-      args.status,
-      (reason) => change.mutate({ ...args, reason }, { onSettled: options?.onSettled }),
+      { name: args.name, statusKey: args.status },
+      // The dialog may have changed the way out: the status sent is the one it confirmed.
+      (status, reason) => change.mutate({ ...args, status, reason }, { onSettled: options?.onSettled }),
       options?.onSettled,
     );
 
