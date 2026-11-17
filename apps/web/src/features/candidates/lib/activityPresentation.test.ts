@@ -217,7 +217,7 @@ describe("activity presentation", () => {
 
     it("shows a status move by the labels it was written with, or the built-in label of an older line", () => {
       expect(previewOf(line(1, "STATUS_CHANGED", { details: { from: "a", to: "b", fromLabel: "First call", toLabel: "Met" } })))
-        .toEqual({ type: "status", from: "First call", to: "Met", cause: null, reason: null });
+        .toEqual({ type: "status", from: "First call", to: "Met", toKey: "b", cause: null, reason: null });
       expect(previewOf(line(1, "STATUS_CHANGED", { details: { to: "engaged" } })))
         .toMatchObject({ type: "status", from: null, to: "Engaged" });
     });

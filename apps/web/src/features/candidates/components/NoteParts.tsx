@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
+import { ActionMenu, MenuItem } from "../../../components/ui/ActionMenu";
 import { Avatar } from "../../../components/ui/Avatar";
 import { Button } from "../../../components/ui";
 import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
@@ -265,6 +266,9 @@ export function NoteCard({
   };
 
   const outcomePill = note.outcome && <NoteOutcomePill outcome={note.outcome} />;
+  // A timeline's call or message logged with only how it went reads as one line: the outcome is what was said.
+  const isOutcomeOnly = lead !== null && !editing && note.outcome != null && !note.body.trim();
+  const footerNamesScope = Boolean(note.projectTitle && namesPosition) || note.projectId === null;
   const pinnedMark = note.pinned && (
     <span className="flex items-center gap-0.5 font-mono text-[10px] font-semibold uppercase tracking-[0.06em] text-u-accent">
       <Icon d={ICONS.pin} size={10} />
@@ -302,7 +306,29 @@ export function NoteCard({
           className="animate-note-flash pointer-events-none absolute -inset-px rounded-[inherit] border border-transparent"
         />
       )}
-      {lead ? (
+      {isOutcomeOnly && lead && note.outcome ? (
+        <div className="flex items-center gap-2.5">
+          {lead.mark}
+          <span className="min-w-0 flex-1 truncate text-body">
+            <span className="font-semibold text-u-text">{lead.heading}</span>
+            <span className="text-u-text2"> · {outcomeLabel(note.outcome)}</span>
+          </span>
+          {pinnedMark}
+          <span className="flex flex-none items-center gap-1.5">
+            <Avatar id={note.authorUserId} name={authorName} src={note.authorAvatarUrl} size="xs" title={authorName} />
+            <span className="sr-only">{authorName}</span>
+            {when}
+          </span>
+          {actions && (
+            <NoteActionMenu
+              note={note}
+              actions={actions}
+              onEdit={startEditing}
+              onRemove={() => setConfirmingRemove(true)}
+            />
+          )}
+        </div>
+      ) : lead ? (
         <div className="flex items-start gap-2.5">
           {lead.mark}
           <div className="min-w-0 flex-1">
@@ -391,44 +417,47 @@ export function NoteCard({
         )}
         </>
       )}
-      <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[11px] text-u-text3">
-        {note.projectTitle && namesPosition ? (
-          <span>About {note.projectTitle}</span>
-        ) : (
-          note.projectId === null && <span>All positions</span>
-        )}
-        {note.editedAt && (
-          <span title={formatFull(note.editedAt) ?? undefined}>Edited by {note.editedByName ?? "someone"}</span>
-        )}
-        {actions && (
-          <span className="-my-1 ms-auto flex items-center gap-0.5">
-            <NoteActionButton
-              label={note.pinned ? "Unpin" : "Pin"}
-              icon={ICONS.pin}
-              active={note.pinned}
-              onClick={actions.onPin}
-              disabled={actions.busy}
-            />
-            {note.editable && !editing && (
+      {(!isOutcomeOnly || footerNamesScope || note.editedAt) && (
+        <div
+          className={cn(
+            "flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[11px] text-u-text3",
+            isOutcomeOnly ? "mt-1 ps-[42px]" : "mt-1.5",
+          )}
+        >
+          {footerNamesScope && <span>{note.projectTitle && namesPosition ? `About ${note.projectTitle}` : "All positions"}</span>}
+          {note.editedAt && (
+            <span title={formatFull(note.editedAt) ?? undefined}>Edited by {note.editedByName ?? "someone"}</span>
+          )}
+          {actions && !isOutcomeOnly && (
+            <span className="-my-1 ms-auto flex items-center gap-0.5">
               <NoteActionButton
-                label="Edit"
-                icon={ICONS.pencil}
-                onClick={startEditing}
+                label={note.pinned ? "Unpin" : "Pin"}
+                icon={ICONS.pin}
+                active={note.pinned}
+                onClick={actions.onPin}
                 disabled={actions.busy}
               />
-            )}
-            {note.editable && (
-              <NoteActionButton
-                label="Delete"
-                icon={ICONS.trash}
-                danger
-                onClick={() => setConfirmingRemove(true)}
-                disabled={actions.busy}
-              />
-            )}
-          </span>
-        )}
-      </div>
+              {note.editable && !editing && (
+                <NoteActionButton
+                  label="Edit"
+                  icon={ICONS.pencil}
+                  onClick={startEditing}
+                  disabled={actions.busy}
+                />
+              )}
+              {note.editable && (
+                <NoteActionButton
+                  label="Delete"
+                  icon={ICONS.trash}
+                  danger
+                  onClick={() => setConfirmingRemove(true)}
+                  disabled={actions.busy}
+                />
+              )}
+            </span>
+          )}
+        </div>
+      )}
       <NoteReaderModal
         open={reading}
         onClose={() => setReading(false)}
@@ -468,6 +497,62 @@ export function NoteCard({
         </ConfirmDialog>
       )}
     </li>
+  );
+}
+
+function NoteActionMenu({
+  note,
+  actions,
+  onEdit,
+  onRemove,
+}: {
+  note: NoteCardNote;
+  actions: NoteCardActions;
+  onEdit: () => void;
+  onRemove: () => void;
+}) {
+  return (
+    <ActionMenu label="Note options" width={180}>
+      {(close) => (
+        <>
+          <MenuItem
+            icon={ICONS.pin}
+            disabled={actions.busy}
+            onSelect={() => {
+              close();
+              actions.onPin();
+            }}
+          >
+            {note.pinned ? "Unpin" : "Pin"}
+          </MenuItem>
+          {note.editable && (
+            <MenuItem
+              icon={ICONS.pencil}
+              disabled={actions.busy}
+              onSelect={() => {
+                close();
+                onEdit();
+              }}
+            >
+              Edit
+            </MenuItem>
+          )}
+          {note.editable && (
+            <MenuItem
+              icon={ICONS.trash}
+              tone="danger"
+              disabled={actions.busy}
+              onSelect={() => {
+                close();
+                onRemove();
+              }}
+            >
+              Delete
+            </MenuItem>
+          )}
+        </>
+      )}
+    </ActionMenu>
   );
 }
 

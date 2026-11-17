@@ -462,7 +462,7 @@ export interface NoteEdit {
 /** What a card shows under its first line; the dialog then shows the rest. */
 export type ActivityPreview =
   | { type: "note"; excerpt: string | null; noteKind: string; aboutThePerson: boolean; edited: NoteEdit | null }
-  | { type: "status"; from: string | null; to: string; cause: string | null; reason: string | null }
+  | { type: "status"; from: string | null; to: string; toKey: string; cause: string | null; reason: string | null }
   | { type: "changes"; changes: FieldChange[]; hidden: number }
   | { type: "fields"; labels: string[] }
   | { type: "meeting"; startsAt: string; previousStartsAt: string | null; cancelled: boolean }
@@ -518,6 +518,7 @@ export function previewOf(entry: PersonTimelineEntry): ActivityPreview | null {
         type: "status",
         from: details.from ? statusLabel(details.from, details.fromLabel) : null,
         to: statusLabel(details.to, details.toLabel),
+        toKey: details.to ?? "",
         cause: automationCauseOf(entry),
         reason: details.reason ?? null,
       };

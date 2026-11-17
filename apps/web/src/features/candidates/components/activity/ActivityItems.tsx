@@ -2,6 +2,9 @@ import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { Icon, ICONS } from "../../../../components/layout/Icon";
 import { cn } from "../../../../lib/cn";
 import { NoteText } from "../../../notes/components/NoteText";
+import { usePipelineCatalog } from "../../../workspace/lib/usePipelineCatalog";
+import { isOutOfProcess } from "../../lib/pipelineStatus";
+import { NoteOutcomePill } from "../NoteParts";
 import type { FieldChange, PersonNote, PersonTimelineEntry } from "../../api/types";
 import {
   actorOf,
@@ -212,18 +215,21 @@ function NoteQuickView({
   }, [note.body]);
   return (
     <span className="flex flex-col gap-1.5">
+      {note.outcome && <NoteOutcomePill outcome={note.outcome} className="self-start" />}
       {/* Inert: a note's links and checklist boxes are not controls inside a card that is itself one button. */}
-      <span
-        ref={box}
-        inert
-        className={cn(
-          "pointer-events-none block max-h-[5.4rem] overflow-hidden text-u-text",
-          "[&_h2]:mt-0 [&_h2]:text-body [&_h3]:mt-0 [&_ul]:my-0.5 [&_ol]:my-0.5 [&_.note-prose]:text-u-text",
-          isCut && "[mask-image:linear-gradient(to_bottom,black_60%,transparent)]",
-        )}
-      >
-        <NoteText body={note.body} format={note.format} className="text-body" />
-      </span>
+      {note.body.trim() && (
+        <span
+          ref={box}
+          inert
+          className={cn(
+            "pointer-events-none block max-h-[5.4rem] overflow-hidden text-u-text",
+            "[&_h2]:mt-0 [&_h2]:text-body [&_h3]:mt-0 [&_ul]:my-0.5 [&_ol]:my-0.5 [&_.note-prose]:text-u-text",
+            isCut && "[mask-image:linear-gradient(to_bottom,black_60%,transparent)]",
+          )}
+        >
+          <NoteText body={note.body} format={note.format} className="text-body" />
+        </span>
+      )}
       {isCut && <span className="text-note font-medium text-u-accent">Read the whole note</span>}
       <NoteChips aboutThePerson={aboutThePerson} edited={edited} />
     </span>
@@ -246,7 +252,7 @@ export function PreviewOf({ preview, taskState = "open" }: { preview: ActivityPr
         <span className="flex flex-wrap items-center gap-1.5 text-note text-u-text3">
           {preview.from && <StatusPill label={preview.from} />}
           {preview.from && <Icon d={ICONS.arrowRight} size={13} className="text-u-text3" />}
-          <StatusPill label={preview.to} isCurrent />
+          <StatusPill label={preview.to} statusKey={preview.toKey} isCurrent />
           {preview.cause && <span>{preview.cause}</span>}
           {preview.reason && <span>Why: {preview.reason}</span>}
         </span>
@@ -378,12 +384,27 @@ export function ChangeLine({ change }: { change: FieldChange }) {
   );
 }
 
-export function StatusPill({ label, isCurrent = false }: { label: string; isCurrent?: boolean }) {
+/** The status a move landed on reads green, or red where it took them out of process. */
+export function StatusPill({
+  label,
+  statusKey,
+  isCurrent = false,
+}: {
+  label: string;
+  statusKey?: string;
+  isCurrent?: boolean;
+}) {
+  const { catalog } = usePipelineCatalog();
+  const isOut = isCurrent && statusKey !== undefined && isOutOfProcess(statusKey, catalog);
   return (
     <span
       className={cn(
         "inline-flex items-center rounded-full px-2 py-px text-note font-medium",
-        isCurrent ? "bg-u-direct-tint text-u-direct" : "bg-u-raised text-u-text2",
+        isOut
+          ? "bg-u-offlimits-tint text-u-offlimits"
+          : isCurrent
+            ? "bg-u-direct-tint text-u-direct"
+            : "bg-u-raised text-u-text2",
       )}
     >
       {label}
