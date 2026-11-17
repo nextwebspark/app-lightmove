@@ -85,7 +85,7 @@ jobs:
             for f in target/surefire-reports/TEST-*.xml; do
               grep -m1 -o '<testsuite [^>]*>' "$f" | sed -E 's/.* time="([^"]*)".* tests="([0-9]+)".*/\1 \2/'
             done | awk '{t+=$1; n+=$2; c++} END {printf "Total: %.0f s across %d classes, %d tests\n", t, c, n}'
-          } >> "$GITHUB_STEP_SUMMARY"
+          } | tee -a "$GITHUB_STEP_SUMMARY"
 
   web:
     name: Web
