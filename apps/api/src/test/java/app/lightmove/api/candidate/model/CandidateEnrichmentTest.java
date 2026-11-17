@@ -74,21 +74,21 @@ class CandidateEnrichmentTest {
     }
 
     @Test
-    @DisplayName("a URL corrected to another person forgets the old profile's research, and a respelling keeps it")
-    void aCorrectedProfileForgetsTheOldResearch() {
+    @DisplayName("a corrected address keeps the old research until the new one lands, then that replaces it")
+    void aCorrectedProfileKeepsItsResearchUntilTheNewOneLands() {
         Person person = captured(details("Sample Person", null, null, null, null, null));
         person.enrich(RESEARCH);
 
-        person.describe(atProfile("https://www.linkedin.com/in/sample-profile/?trk=public"), ContactSource.MANUAL);
-        assertThat(person.isResearched()).isTrue();
-        assertThat(person.getProfile().education()).hasSize(1);
-
         person.describe(atProfile("https://www.linkedin.com/in/another-person"), ContactSource.MANUAL);
-        assertThat(person.isResearched()).isFalse();
-        assertThat(person.getEnrichedBy()).isNull();
-        assertThat(person.getProfile().education()).isEmpty();
-        assertThat(person.getProfile().skills()).isEmpty();
-        assertThat(person.getProfile().employer()).isNull();
+        assertThat(person.isResearched()).isTrue();
+        assertThat(person.getProfile().education()).extracting(CandidateEducationEntry::school).containsExactly("AUC");
+
+        person.replaceResearch(new EnrichedProfile(null, null, null, null, null, null, null, List.of(),
+                List.of(new CandidateEducationEntry("LBS", "MSc", "2015")), List.of("Treasury"), List.of(), null,
+                EnrichmentVendor.HARVESTAPI));
+        assertThat(person.getProfile().education()).extracting(CandidateEducationEntry::school).containsExactly("LBS");
+        assertThat(person.getProfile().skills()).containsExactly("Treasury");
+        assertThat(person.getEnrichedBy()).isEqualTo(EnrichmentVendor.HARVESTAPI);
         // What the drawer itself edits is the researcher's, and stays.
         assertThat(person.getProfile().languages()).containsExactly("English", "Arabic");
     }

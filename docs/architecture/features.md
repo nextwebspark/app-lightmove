@@ -109,8 +109,10 @@ person. A profile is one person's: an edit that would give a second person of th
 LinkedIn profile is refused (`PERSON_PROFILE_HELD`). A section's save replays the stored profile but never its status
 (the status a save repeats is no move, so a retired one they hold refuses nothing), at most 25 career posts and 20
 languages (research keeps its most recent to the same), and an unchanged employer at no company does not map them
-beside a namesake already there; a URL corrected to another profile forgets the old one's schools, skills, photo and
-research mark and researches the new one. Each save is announced (`candidate-edited`, a company's `company-edited`), and
+beside a namesake already there; a researched person's address corrected in the drawer to another human's
+(two different vanity profiles; a member-id address is never another person) researches the new profile without an AI
+run, and its schools, skills, photo and research mark replace the old ones only once that research lands, so a typo
+or a failed lookup loses nothing; a spreadsheet's address asks for no research. Each save is announced (`candidate-edited`, a company's `company-edited`), and
 renaming a company renames it on everyone mapped there (`TriageCompanyRenamed`). The people controls below (the suppression list, erasure,
 restriction and the candidate retention review) are offered only where `lightmove.data-protection.enabled`
 (`DATA_PROTECTION_ENABLED`, off by default, read by the SPA from `GET /data-protection/config`; the four controllers are `@ConditionalOnProperty` on it)

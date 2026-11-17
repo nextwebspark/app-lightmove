@@ -41,13 +41,17 @@ const IPV4 = /^\d{1,3}(?:\.\d{1,3}){3}$/;
  * an IPv4 address, or a bracketed IPv6 literal.
  */
 function parsesAsServerUri(candidate: string): boolean {
-  if (URI_ILLEGAL.test(candidate)) return false;
+  if (URI_ILLEGAL.test(candidate) || (candidate.match(/#/g) ?? []).length > 1) return false;
   const afterScheme = candidate.slice(candidate.indexOf("://") + 3);
   const authority = afterScheme.split(/[/?#]/, 1)[0];
-  const hostAndPort = authority.slice(authority.lastIndexOf("@") + 1);
+  // Brackets are a query's or a fragment's to carry, and an IPv6 host's; in a path or a login they refuse the URI.
+  const path = afterScheme.slice(authority.length).split(/[?#]/, 1)[0];
+  const login = authority.split("@");
+  if (/[[\]]/.test(path) || login.length > 2 || (login.length === 2 && /[[\]]/.test(login[0]))) return false;
+  const hostAndPort = login[login.length - 1];
   if (hostAndPort.startsWith("[")) return /^\[[0-9A-Fa-f:.]+\](?::\d*)?$/.test(hostAndPort);
   const host = hostAndPort.replace(/:\d*$/, "").replace(/\.$/, "");
-  if (IPV4.test(host)) return true;
+  if (IPV4.test(host)) return host.split(".").every((octet) => Number(octet) <= 255);
   const labels = host.split(".");
   return labels.every((label) => HOST_LABEL.test(label)) && /^[A-Za-z]/.test(labels[labels.length - 1]);
 }

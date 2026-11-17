@@ -31,11 +31,6 @@ public record CandidateProfile(List<CandidateCareerEntry> career, List<String> l
         return new CandidateProfile(List.of(), List.of(), List.of(), List.of(), null, null);
     }
 
-    /** The drawer's own components, with research's taken back out: the profile it read is not this person's. */
-    public CandidateProfile forgettingResearch() {
-        return new CandidateProfile(career, languages, List.of(), List.of(), null, null);
-    }
-
     /** The drawer edits what it renders; the components it has never heard of ride along untouched. */
     public CandidateProfile keepingEnrichmentOf(CandidateProfile existing) {
         return new CandidateProfile(career, languages, existing.education(), existing.skills(),

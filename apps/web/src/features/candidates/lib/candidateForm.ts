@@ -177,7 +177,7 @@ export const candidateSchema = z.object({
         location: z.string().nullable().optional(),
       }),
     )
-    .max(CAREER_POSTS_PER_PROFILE, "A career history holds 25 posts at most"),
+    .max(CAREER_POSTS_PER_PROFILE, `A career history holds ${CAREER_POSTS_PER_PROFILE} posts at most`),
 });
 
 /** A figure typed with the thousands separators the field shows it with — "420,000" is 420000. */

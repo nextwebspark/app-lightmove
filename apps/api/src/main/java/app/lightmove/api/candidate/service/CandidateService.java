@@ -512,11 +512,10 @@ public class CandidateService {
         // The person is the workspace's: an edit made through this mandate is what every other mandate
         // mapping them now reads.
         boolean wasResearched = person.isResearched();
+        String previousUrl = person.getLinkedinUrl();
         ContactChannelSizes contactsBefore = requests.channelSizesOf(person);
         person.describe(details, door);
-        if (wasResearched && !person.isResearched()) {
-            correctedProfiles.researchAgain(candidate, details.linkedinUrl());
-        }
+        correctedProfiles.researchIfCorrected(candidate, wasResearched, previousUrl, door);
         if (claim == ProfileClaim.SHARED) {
             person.yieldProfileKey();
         }
@@ -1026,6 +1025,30 @@ public class CandidateService {
             default -> TriageCompanySource.EXTENSION;
         };
         return new EmployerFilings(triage, projectId, candidate.getAddedBy(), door);
+    }
+
+    /**
+     * The research of a corrected profile, which replaces the old one's — no AI run follows: correcting an address
+     * asked for research, not inference. Skipped when the address was corrected again while research ran.
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void applyCorrectedResearch(UUID projectId, UUID candidateId, String researchedUrl,
+                                       EnrichedProfile enriched) {
+        candidates.findByIdAndProjectId(candidateId, projectId).ifPresent(candidate -> {
+            Person person = candidate.getPerson();
+            String held = LinkedInUrls.profileSlugOrNull(person.getLinkedinUrl());
+            if (person.isProcessingRestricted() || held == null
+                    || !held.equalsIgnoreCase(LinkedInUrls.profileSlugOrNull(researchedUrl))) {
+                return;
+            }
+            person.replaceResearch(enriched);
+            photos.findByPersonId(person.getId()).ifPresent(photos::delete);
+            photos.flush();
+            keepPhoto(person.getId(), enriched);
+            activity.record(candidate, candidate.getAddedBy(), PersonActivityKind.RESEARCHED,
+                    PersonActivityDetails.of("vendor", enriched.vendor()));
+            stream.publish(projectId, ProjectStreamKind.CANDIDATE_ENRICHED);
+        });
     }
 
     private void keepPhoto(UUID personId, EnrichedProfile enriched) {

@@ -255,10 +255,7 @@ public class Person extends BaseEntity {
         this.title = details.title();
         confirmIfChanged(BackgroundField.SENIORITY, seniorityLevel, details.seniority());
         this.seniorityLevel = details.seniority();
-        boolean anotherPage = pointsAtAnotherProfile(details.linkedinUrl());
-        boolean anotherPerson = anotherPage && LinkedInUrls.profileSlugOrNull(linkedinUrl) != null
-                && LinkedInUrls.profileSlugOrNull(details.linkedinUrl()) != null;
-        if (anotherPage) {
+        if (pointsAtAnotherProfile(details.linkedinUrl())) {
             linkedinUrlLocked = false;
             emailsLookedUpAt = null;
             phonesLookedUpAt = null;
@@ -273,10 +270,6 @@ public class Person extends BaseEntity {
         // languages), and a wholesale overwrite here silently wiped enrichment's fields on the first
         // edit after a capture was enriched.
         this.profile = details.profile().keepingEnrichmentOf(this.profile);
-        if (anotherPerson) {
-            // The old profile's research, kept, read as this person's and stopped the new one from being researched.
-            forgetResearch();
-        }
         remember(ContactChannel.EMAIL, details.emails(), door);
         remember(ContactChannel.PHONE, details.phones(), door);
     }
@@ -351,11 +344,6 @@ public class Person extends BaseEntity {
      */
     public void adoptPublicProfile(String vanityUrl) {
         recordLinkedinUrl(vanityUrl);
-    }
-
-    private void forgetResearch() {
-        this.profile = profile.forgettingResearch();
-        this.enrichedBy = null;
     }
 
     /** Another person of the workspace holds this profile; the merge tool is what folds the two. */
@@ -544,6 +532,17 @@ public class Person extends BaseEntity {
                 enriched.skills(),
                 Instant.now().toString(),
                 employer != null ? employer : profile.employer());
+    }
+
+    /**
+     * Research of the profile a researcher corrected the address to: it replaces what research said of the old one,
+     * where {@link #enrich} would only fill gaps. What the researcher typed (title, summary, location, career,
+     * languages) stays theirs.
+     */
+    public void replaceResearch(EnrichedProfile enriched) {
+        this.enrichedBy = enriched.vendor();
+        this.profile = new CandidateProfile(profile.career(), profile.languages(), enriched.education(),
+                enriched.skills(), Instant.now().toString(), ResearchedEmployerMark.of(enriched));
     }
 
     public boolean isResearched() {
