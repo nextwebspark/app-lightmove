@@ -140,6 +140,7 @@ public class CandidateService {
     private final WorkspaceAiControlsReader aiControls;
     private final WorkspaceSettingsService workspaceSettings;
     private final LookedUpResearch lookedUp;
+    private final CorrectedProfileResearch correctedProfiles;
 
     public CandidateService(CandidateRepository candidates, PersonRepository people, PersonMatcher matcher,
                             PersonActivityRecorder activity, PersonNoteService personNotes,
@@ -153,7 +154,8 @@ public class CandidateService {
                             UserRepository users, CandidateSearchService searches,
                             CandidateRemoval removal, SuppressionGate suppression,
                             WorkspaceAiControlsReader aiControls, WorkspaceSettingsService workspaceSettings,
-                            LookedUpResearch lookedUp, LightMoveProperties properties) {
+                            LookedUpResearch lookedUp, CorrectedProfileResearch correctedProfiles,
+                            LightMoveProperties properties) {
         this.candidates = candidates;
         this.people = people;
         this.matcher = matcher;
@@ -179,6 +181,7 @@ public class CandidateService {
         this.aiControls = aiControls;
         this.workspaceSettings = workspaceSettings;
         this.lookedUp = lookedUp;
+        this.correctedProfiles = correctedProfiles;
     }
 
     /**
@@ -507,21 +510,25 @@ public class CandidateService {
         boolean confirmBackground = Boolean.TRUE.equals(request.confirmBackground());
         candidate.remapTo(triageCompanyId, triageStatusOfCompany(projectId, triageCompanyId));
         candidate.describe(details);
-        // A whole-record save that names a status moves them like the status pill does, line and all; one
-        // that names none (a re-imported sheet) leaves them where they stand.
-        if (request.status() != null && !request.status().isBlank()) {
+        // Naming the status they hold is no move: a retired one, re-checked, refused every edit of whoever held it.
+        if (request.status() != null && !request.status().isBlank()
+                && !request.status().strip().equals(candidate.getStatus().getStatusKey())) {
             moveTo(candidate, userId, pipeline.requireOfferable(workspaceId, request.status()));
         }
         // The person is the workspace's: an edit made through this mandate is what every other mandate
         // mapping them now reads.
+        boolean wasResearched = person.isResearched();
+        String previousUrl = person.getLinkedinUrl();
+        ContactChannelSizes contactsBefore = requests.channelSizesOf(person);
         person.describe(details, door);
+        correctedProfiles.researchIfCorrected(candidate, wasResearched, previousUrl, door);
         if (claim == ProfileClaim.SHARED) {
             person.yieldProfileKey();
         }
         if (confirmBackground) {
             person.confirmBackground();
         }
-        requests.refuseOverfullChannels(person);
+        requests.refuseOverfullChannels(person, contactsBefore);
         candidate.describeCustomFields(customColumns.applyTo(projectId, CustomColumnTarget.CANDIDATE,
                 candidate.getCustomFields(), request.customFields()));
         List<Map<String, String>> changed = changes.after(person);
@@ -530,6 +537,7 @@ public class CandidateService {
                 .and(ProfileChanges.DETAIL_KEY, changed.isEmpty() ? null : changed));
         // A note sent with an edit (a re-imported sheet's Note column) is filed as a note, once.
         personNotes.fileFromDoor(candidate, userId, details.note());
+        stream.publish(projectId, ProjectStreamKind.CANDIDATE_EDITED);
 
         audit.projectEvent(ProjectEventType.CANDIDATE_UPDATED, userId, workspaceId, projectId, httpRequest)
                 .detail("candidateId", candidateId.toString())
@@ -561,6 +569,7 @@ public class CandidateService {
             reason = exitReasons.requireForMove(workspaceId, to, request.reasonId(), request.note());
         }
         moveTo(candidate, userId, to, reason, request.note());
+        stream.publish(projectId, ProjectStreamKind.CANDIDATE_EDITED);
 
         var event = audit.projectEvent(ProjectEventType.CANDIDATE_UPDATED, userId, workspaceId, projectId,
                         httpRequest)
@@ -1077,6 +1086,30 @@ public class CandidateService {
         return new EmployerFilings(triage, projectId, candidate.getAddedBy(), door);
     }
 
+    /**
+     * The research of a corrected profile, which replaces the old one's — no AI run follows: correcting an address
+     * asked for research, not inference. Skipped when the address was corrected again while research ran.
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void applyCorrectedResearch(UUID projectId, UUID candidateId, String researchedUrl,
+                                       EnrichedProfile enriched) {
+        candidates.findByIdAndProjectId(candidateId, projectId).ifPresent(candidate -> {
+            Person person = candidate.getPerson();
+            String held = LinkedInUrls.profileSlugOrNull(person.getLinkedinUrl());
+            if (person.isProcessingRestricted() || held == null
+                    || !held.equalsIgnoreCase(LinkedInUrls.profileSlugOrNull(researchedUrl))) {
+                return;
+            }
+            person.replaceResearch(enriched);
+            photos.findByPersonId(person.getId()).ifPresent(photos::delete);
+            photos.flush();
+            keepPhoto(person.getId(), enriched);
+            activity.record(candidate, candidate.getAddedBy(), PersonActivityKind.RESEARCHED,
+                    PersonActivityDetails.of("vendor", enriched.vendor()));
+            stream.publish(projectId, ProjectStreamKind.CANDIDATE_ENRICHED);
+        });
+    }
+
     private void keepPhoto(UUID personId, EnrichedProfile enriched) {
         if (enriched.photo() == null || photos.existsByPersonId(personId)) {
             return;
@@ -1226,6 +1259,7 @@ public class CandidateService {
         if (known.isPresent() && known.get().isProcessingRestricted()) {
             throw ApiException.of(ErrorCode.PERSON_PROCESSING_RESTRICTED);
         }
+        ContactChannelSizes contactsBefore = known.map(requests::channelSizesOf).orElse(ContactChannelSizes.NONE);
         Person person = known.orElseGet(() -> people.save(Person.founded(workspaceId, userId, source, details)));
         if (known.isPresent()) {
             person.fillFrom(details, ContactSource.ofDoor(source));
@@ -1233,7 +1267,7 @@ public class CandidateService {
         if (source == CandidateSource.EXTENSION) {
             person.lockProfileUrl(details.linkedinUrl());
         }
-        requests.refuseOverfullChannels(person);
+        requests.refuseOverfullChannels(person, contactsBefore);
         Candidate candidate = candidates.save(Candidate.mapped(projectId, userId, triageCompanyId,
                 triageStatusOfCompany(projectId, triageCompanyId), person, source, status, details));
         activity.record(candidate, userId,

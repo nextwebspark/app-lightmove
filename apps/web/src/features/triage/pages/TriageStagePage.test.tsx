@@ -1963,6 +1963,35 @@ describe("TriageStagePage", () => {
     );
   });
 
+  it("edits a company twice without the second save writing back what the first one changed", async () => {
+    const gulf = { ...acwa, id: "u2", apolloAccountId: null, source: "manual" as const,
+      companyName: "Gulf Industrial", numEmployees: 400, addedByUserId: "u-alok", addedByName: "Alok Kumar" };
+    vi.mocked(triageApi.getTriageCompanies).mockResolvedValue(pageOf({ companies: [gulf] }));
+    // A write answers none of the staff reads' fields.
+    vi.mocked(triageApi.editTriageCompany).mockResolvedValueOnce({ ...gulf, numEmployees: 2400, addedByUserId: null, addedByName: null });
+    renderStage();
+
+    await userEvent.click(await screen.findByRole("button", { name: /Open Gulf Industrial/i }));
+    const panel = await screen.findByRole("dialog", { name: /Gulf Industrial/i });
+    await userEvent.click(within(panel).getByRole("button", { name: /Edit Gulf Industrial/i }));
+    await userEvent.clear(within(panel).getByLabelText(/^Employees$/i));
+    await userEvent.type(within(panel).getByLabelText(/^Employees$/i), "2400");
+    await userEvent.click(within(panel).getByRole("button", { name: /Save changes/i }));
+    await waitFor(() => expect(triageApi.editTriageCompany).toHaveBeenCalledTimes(1));
+
+    vi.mocked(triageApi.editTriageCompany).mockResolvedValueOnce({ ...gulf, numEmployees: 2400, website: "https://gulf.example" });
+    await userEvent.click(await within(panel).findByRole("button", { name: /Edit Gulf Industrial/i }));
+    expect(within(panel).getByLabelText(/^Employees$/i)).toHaveValue("2400");
+    await userEvent.type(within(panel).getByLabelText(/^Website$/i), "gulf.example");
+    await userEvent.click(within(panel).getByRole("button", { name: /Save changes/i }));
+
+    await waitFor(() => expect(triageApi.editTriageCompany).toHaveBeenCalledTimes(2));
+    expect(vi.mocked(triageApi.editTriageCompany).mock.calls[1][2]).toEqual(
+      expect.objectContaining({ numEmployees: 2400, website: "gulf.example" }),
+    );
+    expect(within(panel).getByText(/Alok Kumar/)).toBeInTheDocument();
+  });
+
   it("gives a client representative the company panel and none of its controls", async () => {
     const authApi = await import("../../auth/api/authApi");
     vi.mocked(authApi.me).mockResolvedValue(representative);

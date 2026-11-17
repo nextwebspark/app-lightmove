@@ -31,6 +31,17 @@ public final class LinkedInUrls {
         return slug != null && MEMBER_ID_SLUG.matcher(slug).matches();
     }
 
+    /**
+     * Whether a profile address moved from one human to another: two vanity slugs that differ. A member-id address and
+     * a vanity one name the same human as often as not, so that change is never taken for another person.
+     */
+    public static boolean namesAnotherPerson(String previousUrl, String newUrl) {
+        String previous = profileSlugOrNull(previousUrl);
+        String next = profileSlugOrNull(newUrl);
+        return previous != null && next != null && !previous.equalsIgnoreCase(next)
+                && !isMemberIdSlug(previous) && !isMemberIdSlug(next);
+    }
+
     /** The canonical address of a member profile, as research and the stored profile spell it. */
     public static String profileUrlOf(String profileSlug) {
         return "https://www.linkedin.com/in/" + profileSlug + "/";

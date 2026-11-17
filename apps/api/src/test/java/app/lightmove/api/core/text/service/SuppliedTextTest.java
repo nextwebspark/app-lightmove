@@ -2,8 +2,11 @@ package app.lightmove.api.core.text.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.io.InputStream;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 
 class SuppliedTextTest {
 
@@ -30,5 +33,18 @@ class SuppliedTextTest {
         assertThat(SuppliedText.browsableUrlOrNull("http://acme.com/x")).isEqualTo("http://acme.com/x");
         assertThat(SuppliedText.browsableUrlOrNull("javascript:alert(1)")).isNull();
         assertThat(SuppliedText.browsableUrlOrNull("  ")).isNull();
+    }
+
+    @Test
+    @DisplayName("every shared sample is kept or dropped as the SPA's toBrowsableUrl says, so the two cannot drift")
+    void browsableUrlSamplesTheSpaShares() throws Exception {
+        JsonNode samples;
+        try (InputStream file = getClass().getResourceAsStream("/browsable-urls.json")) {
+            samples = new ObjectMapper().readTree(file);
+        }
+        assertThat(samples.size()).isGreaterThan(10);
+        samples.forEach(sample -> assertThat(SuppliedText.browsableUrlOrNull(sample.get("input").asText()))
+                .as(sample.get("input").asText())
+                .isEqualTo(sample.get("kept").isNull() ? null : sample.get("kept").asText()));
     }
 }

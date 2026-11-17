@@ -9,6 +9,7 @@ import app.lightmove.api.candidate.constant.ContactSource;
 import app.lightmove.api.candidate.constant.EnrichmentVendor;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.IntStream;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -40,6 +41,19 @@ class CandidateContactLedgerTest {
         assertThat(work.getStatus()).isEqualTo("Verified");
         assertThat(work.getSource()).isEqualTo(ContactSource.CONTACTOUT);
         assertThat(person.hasFoundEmails()).isTrue();
+    }
+
+    @Test
+    @DisplayName("a lookup fills a channel up to what a profile holds and no further")
+    void aLookupStopsAtTheChannelsCap() {
+        Person person = typedBy(CandidateSource.MANUAL, "as.we.met@them.example");
+
+        person.recordFoundEmails(found(IntStream.rangeClosed(1, 12)
+                .mapToObj(index -> new CandidateEmail("found" + index + "@retailco.example", CandidateEmail.WORK, null))
+                .toArray(CandidateEmail[]::new)));
+
+        assertThat(person.emailContacts()).hasSize(Person.MOST_CONTACTS_PER_CHANNEL);
+        assertThat(person.emailContacts()).extracting(CandidateContact::getValue).contains("as.we.met@them.example");
     }
 
     @Test

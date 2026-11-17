@@ -34,6 +34,7 @@ import app.lightmove.api.triagecompany.model.TriageCompany;
 import app.lightmove.api.triagecompany.model.TriageCompanyCapturedEvent;
 import app.lightmove.api.triagecompany.model.TriageCompanyMoved;
 import app.lightmove.api.triagecompany.model.TriageCompanyRemoved;
+import app.lightmove.api.triagecompany.model.TriageCompanyRenamed;
 import app.lightmove.api.triagecompany.model.TriageCompanyWorked;
 import app.lightmove.api.triagecompany.repository.TriageCompanyRepository;
 import app.lightmove.api.triagecompany.repository.TriageCompanyWriter;
@@ -507,9 +508,14 @@ public class TriageCompanyService {
             throw ApiException.of(ErrorCode.TRIAGE_COMPANY_ALREADY_HELD);
         }
 
+        String nameBefore = company.getCompanyName();
         company.describe(details);
         company.describeCustomFields(customColumns.applyTo(
                 projectId, CustomColumnTarget.COMPANY, company.getCustomFields(), request.customFields()));
+        if (!company.getCompanyName().equals(nameBefore)) {
+            events.publishEvent(new TriageCompanyRenamed(projectId, triageCompanyId, company.getCompanyName()));
+        }
+        stream.publish(projectId, ProjectStreamKind.COMPANY_EDITED);
 
         audit.projectEvent(ProjectEventType.TRIAGE_COMPANY_EDITED, userId, workspaceId, projectId, httpRequest)
                 .detail("triageCompanyId", triageCompanyId.toString())

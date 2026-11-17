@@ -413,7 +413,23 @@ describe("PipelineStagesPage", () => {
     expect(within(dialog).getByText("12 candidates")).toBeInTheDocument();
     expect(within(dialog).getByText("No candidates")).toBeInTheDocument();
     expect(within(dialog).getByText("An outreach email is sent → Contacted")).toBeInTheDocument();
-    await userEvent.click(within(dialog).getByRole("button", { name: "Retire stage and statuses" }));
+    // Nobody is moved off a status by retiring it: while anyone holds one, the retire is not offered.
+    expect(within(dialog).getByRole("alert")).toHaveTextContent(
+      "12 candidates are still on these statuses. Move them to another status before retiring them.",
+    );
+    expect(within(dialog).getByRole("button", { name: "Retire stage and statuses" })).toBeDisabled();
+    await userEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+
+    vi.mocked(pipelineApi.stageRetirePreview).mockResolvedValue({
+      statuses: [
+        { statusId: "status-contacted", label: "Contacted", holders: 0 },
+        { statusId: "status-followUpSent", label: "Follow-up sent", holders: 0 },
+      ],
+      automations: [],
+    });
+    await choose(card("Contacted"), "Contacted stage options", "Retire stage");
+    const emptied = await screen.findByRole("dialog", { name: "Retire Contacted and its 4 statuses?" });
+    await userEvent.click(within(emptied).getByRole("button", { name: "Retire stage and statuses" }));
     await waitFor(() =>
       expect(pipelineApi.updateStage).toHaveBeenCalledWith("stage-contacted", { retired: true, retireStatuses: true }),
     );

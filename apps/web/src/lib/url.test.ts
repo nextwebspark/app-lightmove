@@ -28,6 +28,22 @@ describe("toBrowsableUrl", () => {
     expect(toBrowsableUrl("javascript:alert(1)")).toBeNull();
   });
 
+  it("keeps and drops every shared sample exactly as the server's browsableUrlOrNull does", async () => {
+    // The server's SuppliedTextTest reads the same file, so a rule changed on one side alone fails a build. Read at test
+    // time, as timeZones.test.ts reads the API's list, relative to apps/web where vitest runs.
+    const fs = (await import(/* @vite-ignore */ `node:${"fs"}`)) as {
+      readFileSync: (path: string, encoding: "utf8") => string;
+    };
+    const samples = JSON.parse(fs.readFileSync("../api/src/test/resources/browsable-urls.json", "utf8")) as {
+      input: string;
+      kept: string | null;
+    }[];
+    expect(samples.length).toBeGreaterThan(10);
+    for (const sample of samples) {
+      expect(toBrowsableUrl(sample.input), sample.input).toBe(sample.kept);
+    }
+  });
+
   it("treats absent as absent", () => {
     expect(toBrowsableUrl(null)).toBeNull();
     expect(toBrowsableUrl(undefined)).toBeNull();
