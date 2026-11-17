@@ -25,23 +25,30 @@ describe("a LinkedIn company page against the chosen position", () => {
   let requests: Request[] = [];
   let heldAnswer: unknown = null;
   let undoAnswer: unknown = { ok: true, value: null };
+  let captureAnswer: unknown = null;
+  let heldThroughMarket: unknown = null;
 
   beforeEach(() => {
     requests = [];
     heldAnswer = null;
     undoAnswer = { ok: true, value: null };
+    captureAnswer = null;
+    heldThroughMarket = null;
     installChromeStub().answer((raw) => {
       const request = raw as Request;
       requests.push(request);
       switch (request.kind) {
         case "heldCompany":
-          return { ok: true, value: heldAnswer };
+          if (request.throughMarket && heldThroughMarket === "fails") {
+            return { ok: false, code: "UNEXPECTED_RESPONSE", message: "The workspace answered 503." };
+          }
+          return { ok: true, value: request.throughMarket ? heldThroughMarket : heldAnswer };
         case "listNotes":
           return { ok: true, value: [] };
         case "readSettings":
           return { ok: true, value: { defaultProjectId: null, closesAfterSave: false } };
         case "captureCompany":
-          return { ok: true, value: triaged({ addedByName: null }) };
+          return captureAnswer ?? { ok: true, value: triaged({ addedByName: null }) };
         case "removeTriageCompany":
           return undoAnswer;
         default:
@@ -61,6 +68,33 @@ describe("a LinkedIn company page against the chosen position", () => {
     expect(await screen.findByText("Added to the universe")).toBeDefined();
     const filed = requests.find((each) => each.kind === "captureCompany") as unknown as { capture: Record<string, unknown> };
     expect(filed.capture).toMatchObject({ status: "inUniverse", companyName: "ACWA Power", source: "extension" });
+  });
+
+  // Capture matched the page to a market row the position held under the market's name; the page's own slug and
+  // name found nothing, so the refusal had no record to open.
+  it("opens the market row a refused save names, asking through the market only then", async () => {
+    captureAnswer = { ok: false, code: "TRIAGE_COMPANY_ALREADY_HELD", message: "held" };
+    heldThroughMarket = triaged({ companyName: "ACWA Power Company" });
+    renderPanel(<CompanyPanel page={COMPANY_PAGE} projects={PROJECTS} user={USER} />);
+
+    const add = await screen.findByRole("button", { name: /Add to universe/ });
+    expect(requests.some((each) => each.kind === "heldCompany" && each.throughMarket)).toBe(false);
+    fireEvent.click(add);
+
+    expect(await screen.findByText("Already in this position's universe")).toBeDefined();
+    expect(requests.some((each) => each.kind === "heldCompany" && each.throughMarket)).toBe(true);
+  });
+
+  it("falls back to the plain re-check when asking through the market fails", async () => {
+    captureAnswer = { ok: false, code: "TRIAGE_COMPANY_ALREADY_HELD", message: "held" };
+    heldThroughMarket = "fails";
+    renderPanel(<CompanyPanel page={COMPANY_PAGE} projects={PROJECTS} user={USER} />);
+
+    const add = await screen.findByRole("button", { name: /Add to universe/ });
+    heldAnswer = triaged();
+    fireEvent.click(add);
+
+    expect(await screen.findByText("Already in this position's universe")).toBeDefined();
   });
 
   it("opens a company the position holds on its record, its logo and who filed it", async () => {

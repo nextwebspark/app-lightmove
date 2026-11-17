@@ -11,6 +11,7 @@ function personRead(fullName: string | null, pageUrl = PROFILE_URL): PageSubject
     company: { companyName: null, linkedinUrl: null },
     pageUrl,
     declaredUrl: null,
+    documentTitle: null,
   };
 }
 
@@ -81,7 +82,7 @@ describe("reading the page the panel is looking at", () => {
 
     expect(read.person.fullName).toBe("Bilal Nasser");
     expect(page.injections()).toBe(3);
-    expect(page.stored()).toEqual({ tabId: 1, pageKey: "person:bilal-nasser", name: "Bilal Nasser" });
+    expect(page.stored()).toEqual({ tabId: 1, pageKey: "person:bilal-nasser", name: "Bilal Nasser", title: null });
   });
 
   it("stops as soon as the tab has moved on again, rather than waiting out a page nobody is on", async () => {
@@ -145,5 +146,37 @@ describe("choosing which tab to read", () => {
     });
 
     expect(read.pageKey).toBe("person:amira-haddad");
+  });
+
+  // The focused window is whichever the consultant touched last; a panel docked in another one read that window's
+  // profile and offered to file it.
+  it("reads the panel's own window when it names one, never the focused one", async () => {
+    const byWindow: Record<number, chrome.tabs.Tab> = {
+      7: { id: 3, url: "https://www.linkedin.com/in/amira-haddad/", active: true } as chrome.tabs.Tab,
+      9: { id: 5, url: "https://www.linkedin.com/in/bilal-nasser/", active: true } as chrome.tabs.Tab,
+    };
+    const queryTabs = vi.fn(async (query: chrome.tabs.QueryInfo) =>
+      query.windowId !== undefined ? [byWindow[query.windowId]] : [byWindow[9]],
+    );
+
+    const key = await activePageKey({ ...deps(), queryTabs }, 7);
+    const read = await readActivePage(
+      { ...deps({ reads: [personRead("Amira Haddad", "https://www.linkedin.com/in/amira-haddad/")] }), queryTabs },
+      7,
+    );
+
+    expect(key.pageKey).toBe("person:amira-haddad");
+    expect(read.pageKey).toBe("person:amira-haddad");
+  });
+
+  it("answers off LinkedIn for the panel's window rather than borrowing another window's profile", async () => {
+    const queryTabs = vi.fn(async (query: chrome.tabs.QueryInfo) =>
+      query.windowId === 7
+        ? [{ id: 2, url: "https://mail.example.com/", active: true } as chrome.tabs.Tab]
+        : [{ id: 5, url: "https://www.linkedin.com/in/bilal-nasser/", active: true } as chrome.tabs.Tab],
+    );
+
+    expect((await activePageKey({ ...deps(), queryTabs }, 7)).pageKey).toBe("offsite");
+    await expect(readActivePage({ ...deps(), queryTabs }, 7)).rejects.toThrow(/LinkedIn only/);
   });
 });

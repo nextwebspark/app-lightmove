@@ -177,9 +177,9 @@ async function handle(message: ExtensionRequest): Promise<unknown> {
     case "openConnectPage":
       return openConnectPage();
     case "readActivePage":
-      return readActivePage(activePageDeps);
+      return readActivePage(activePageDeps, message.windowId ?? null);
     case "activePageKey":
-      return activePageKey(activePageDeps);
+      return activePageKey(activePageDeps, message.windowId ?? null);
     case "listProjects":
       return listProjects(api);
     case "captureCompany":
@@ -198,7 +198,7 @@ async function handle(message: ExtensionRequest): Promise<unknown> {
     case "heldCandidate":
       return heldCandidate(api, message.projectId, message.linkedinUrl);
     case "heldCompany":
-      return heldCompany(api, message.projectId, message.linkedinUrl, message.name);
+      return heldCompany(api, message.projectId, message.linkedinUrl, message.name, message.throughMarket ?? false);
     case "readCandidate":
       return readCandidate(api, message.projectId, message.candidateId);
     case "candidatePhoto":

@@ -335,6 +335,14 @@ public class Person extends BaseEntity {
         profileSlug = LinkedInUrls.profileSlugOrNull(url);
     }
 
+    /**
+     * Research named the vanity address of a profile captured at its member-id address: the same page, so the person is
+     * kept at the address every later capture and lookup will use. The plugin's lock carries over with it.
+     */
+    public void adoptPublicProfile(String vanityUrl) {
+        recordLinkedinUrl(vanityUrl);
+    }
+
     /** Another person of the workspace holds this profile; the merge tool is what folds the two. */
     public void yieldProfileKey() {
         profileSlug = null;

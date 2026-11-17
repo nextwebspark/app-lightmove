@@ -60,6 +60,7 @@ import app.lightmove.api.core.security.repository.UserRepository;
 import app.lightmove.api.core.stream.ProjectStreamKind;
 import app.lightmove.api.core.stream.ProjectStreamPublisher;
 import app.lightmove.api.core.text.model.SearchText;
+import app.lightmove.api.core.text.service.LikePatterns;
 import app.lightmove.api.core.text.service.LinkedInUrls;
 import app.lightmove.api.customcolumn.constant.CustomColumnTarget;
 import app.lightmove.api.customcolumn.service.CustomColumnService;
@@ -294,7 +295,7 @@ public class CandidateService {
             return Optional.empty();
         }
         return candidatesAtProfile(projectId, slug).stream()
-                .findFirst()
+                .min(Comparator.comparing(Candidate::getCreatedAt))
                 .map(held -> new HeldCandidateResponse(responses.toDto(held), adderOf(projectId, held.getId()),
                         employerResolver.logoOfMapping(workspaceId, held)));
     }
@@ -389,7 +390,9 @@ public class CandidateService {
 
     /** LIKE narrows; the exact slug decides — "jon-smith" must not answer for "jon-smith-acwa". */
     private List<Candidate> candidatesAtProfile(UUID projectId, String slug) {
-        return candidates.findByProjectIdAndProfileSlugLike(projectId, slug).stream()
+        return candidates.findByProjectIdAndProfileSlugLike(projectId, slug, LikePatterns.escape(slug),
+                        LikePatterns.escape(LinkedInUrls.percentEncodedSlug(slug)))
+                .stream()
                 .filter(held -> slug.equals(LinkedInUrls.profileSlugOrNull(held.getPerson().getLinkedinUrl())))
                 .toList();
     }
@@ -416,7 +419,7 @@ public class CandidateService {
             details = details.employedAt(researchedEmployer.get().companyName());
         }
 
-        refuseDuplicate(projectId, triageCompanyId, details.fullName(), null);
+        refuseDuplicate(projectId, triageCompanyId, details.fullName(), details.linkedinUrl(), null);
         refuseHeldProfile(projectId, details.linkedinUrl(), null);
         suppression.refuseSuppressed(workspaceId, details.linkedinUrl(), emailsOf(details.emails()));
 
@@ -487,7 +490,7 @@ public class CandidateService {
         UUID triageCompanyId = requests.companyOf(projectId, request, candidate);
         CandidateDetails details = requests.detailsOf(projectId, request.withTriageCompanyId(triageCompanyId),
                 candidate.getTriageCompanyId());
-        refuseDuplicate(projectId, triageCompanyId, details.fullName(), candidateId);
+        refuseDuplicate(projectId, triageCompanyId, details.fullName(), details.linkedinUrl(), candidateId);
         refuseHeldProfile(projectId, details.linkedinUrl(), candidateId);
         ProfileClaim claim = matcher.claimOf(workspaceId, details.linkedinUrl(), person);
         if (claim == ProfileClaim.HELD) {
@@ -631,6 +634,36 @@ public class CandidateService {
     }
 
     /**
+     * A person captured at LinkedIn's member-id address ({@code /in/ACoAA…}) takes the vanity address research named,
+     * so the next capture or lookup by that address finds them rather than founding a second person. Left alone when
+     * the workspace already holds the vanity profile as somebody else: folding two people is the merge tool's.
+     *
+     * <p>Its own transaction, run once the research has committed: a capture founding the vanity profile between the
+     * lookup and this write trips V95's unique index, and that must cost the address change, never the research.
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void adoptPublicProfile(UUID projectId, UUID candidateId, EnrichedProfile enriched) {
+        candidates.findByIdAndProjectId(candidateId, projectId)
+                .ifPresent(candidate -> adoptPublicProfile(candidate.getPerson(), enriched));
+    }
+
+    private void adoptPublicProfile(Person person, EnrichedProfile enriched) {
+        String held = LinkedInUrls.profileSlugOrNull(person.getLinkedinUrl());
+        String vanity = LinkedInUrls.profileSlugOrNull(enriched.publicProfileUrl());
+        if (!LinkedInUrls.isMemberIdSlug(held) || vanity == null || LinkedInUrls.isMemberIdSlug(vanity)) {
+            return;
+        }
+        Optional<Person> holder = people.findByWorkspaceIdAndProfileSlug(person.getWorkspaceId(), vanity);
+        if (holder.isPresent() && !holder.get().getId().equals(person.getId())) {
+            log.info("Person {} keeps its member-id address: person {} holds the public profile", person.getId(),
+                    holder.get().getId());
+            return;
+        }
+        // Spelled as the plugin stores a captured address, so the column never holds two spellings of one profile.
+        person.adoptPublicProfile(LinkedInUrls.profileUrlOf(LinkedInUrls.percentEncodedSlug(vanity)));
+    }
+
+    /**
      * A vendor search hit filed and researched in one write (no vendor call, no {@code CandidateCapturedEvent}); the
      * employer is captured in the same transaction so a refused person leaves no company behind. {@code REQUIRES_NEW}
      * for {@link #applyResearch}'s reason: called from an {@code AFTER_COMMIT} callback.
@@ -651,7 +684,7 @@ public class CandidateService {
             details = details.employedAt(employer.companyName());
         }
 
-        refuseDuplicate(projectId, triageCompanyId, details.fullName(), null);
+        refuseDuplicate(projectId, triageCompanyId, details.fullName(), details.linkedinUrl(), null);
         refuseHeldProfile(projectId, details.linkedinUrl(), null);
 
         Filed filed = file(userId, workspaceId, projectId, triageCompanyId, filing.source(),
@@ -958,11 +991,12 @@ public class CandidateService {
         FiledCompany row = filings.rowFor(employer);
         TriageCompanyResponse company = row.company();
 
+        String slug = LinkedInUrls.profileSlugOrNull(candidate.getPerson().getLinkedinUrl());
         boolean nameHeldThere = candidates
                 .findByProjectIdAndTriageCompanyIdAndPersonFullNameIgnoreCase(
                         projectId, company.id(), candidate.getPerson().getFullName())
                 .stream()
-                .anyMatch(other -> !other.getId().equals(candidate.getId()));
+                .anyMatch(other -> !other.getId().equals(candidate.getId()) && !isAnotherProfile(other, slug));
         if (nameHeldThere) {
             log.info("Leaving candidate {} unmapped — {} already maps that name", candidate.getId(),
                     company.companyName());
@@ -1054,16 +1088,31 @@ public class CandidateService {
      * row being edited. Both finders carry the project id: scoping by company alone would make this 409 an oracle for
      * another workspace's company ids.
      */
-    private void refuseDuplicate(UUID projectId, UUID triageCompanyId, String fullName, UUID selfId) {
+    private void refuseDuplicate(UUID projectId, UUID triageCompanyId, String fullName, String linkedinUrl,
+                                 UUID selfId) {
         List<Candidate> sameName = triageCompanyId == null
                 ? candidates.findByProjectIdAndTriageCompanyIdIsNullAndPersonFullNameIgnoreCase(projectId, fullName)
                 : candidates.findByProjectIdAndTriageCompanyIdAndPersonFullNameIgnoreCase(
                         projectId, triageCompanyId, fullName);
 
-        boolean held = sameName.stream().anyMatch(other -> !other.getId().equals(selfId));
+        String slug = LinkedInUrls.profileSlugOrNull(linkedinUrl);
+        boolean held = sameName.stream()
+                .anyMatch(other -> !other.getId().equals(selfId) && !isAnotherProfile(other, slug));
         if (held) {
             throw ApiException.of(ErrorCode.CANDIDATE_ALREADY_MAPPED);
         }
+    }
+
+    /**
+     * Two vanity profiles are two people, whatever they are called: the name rule exists for rows nobody can tell
+     * apart, and a plugin capture is never mapped when it lands, so it refused every namesake of an unmapped capture.
+     * A member-id address ({@code /in/ACoAA…}) is no such proof — it may be the same human's vanity profile seen from
+     * Sales Navigator, which only research can pair — so the name rule still holds against it.
+     */
+    private static boolean isAnotherProfile(Candidate other, String slug) {
+        String otherSlug = LinkedInUrls.profileSlugOrNull(other.getPerson().getLinkedinUrl());
+        return slug != null && otherSlug != null && !slug.equals(otherSlug)
+                && !LinkedInUrls.isMemberIdSlug(slug) && !LinkedInUrls.isMemberIdSlug(otherSlug);
     }
 
     /**
@@ -1071,16 +1120,6 @@ public class CandidateService {
      * capture (no company) against a first since mapped to its employer, leaving a duplicate "Not in universe" line.
      * {@code selfId} is the row being edited.
      */
-    private AddedByResponse adderOf(UUID projectId, UUID candidateId) {
-        return candidates.findAttributionByProjectIdAndIdIn(projectId, List.of(candidateId)).stream()
-                .map(CandidateAttribution::getAddedBy)
-                .filter(Objects::nonNull)
-                .findFirst()
-                .flatMap(users::findById)
-                .map(adder -> new AddedByResponse(adder.getId(), adder.getFullName(), adder.getAvatarUrl()))
-                .orElse(null);
-    }
-
     private void refuseHeldProfile(UUID projectId, String linkedinUrl, UUID selfId) {
         String slug = LinkedInUrls.profileSlugOrNull(linkedinUrl);
         if (slug == null) {
@@ -1091,6 +1130,16 @@ public class CandidateService {
         if (held) {
             throw ApiException.of(ErrorCode.CANDIDATE_ALREADY_MAPPED);
         }
+    }
+
+    private AddedByResponse adderOf(UUID projectId, UUID candidateId) {
+        return candidates.findAttributionByProjectIdAndIdIn(projectId, List.of(candidateId)).stream()
+                .map(CandidateAttribution::getAddedBy)
+                .filter(Objects::nonNull)
+                .findFirst()
+                .flatMap(users::findById)
+                .map(adder -> new AddedByResponse(adder.getId(), adder.getFullName(), adder.getAvatarUrl()))
+                .orElse(null);
     }
 
     /**

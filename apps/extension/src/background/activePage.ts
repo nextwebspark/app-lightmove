@@ -46,8 +46,8 @@ const POLL_EVERY_MS = 150;
 const SETTLE_ATTEMPTS = 20;
 
 /** Which page the panel is looking at, answered without injecting anything. */
-export async function activePageKey(deps: ActivePageDeps): Promise<ActivePageKey> {
-  const tab = await tabToRead(deps);
+export async function activePageKey(deps: ActivePageDeps, windowId: number | null = null): Promise<ActivePageKey> {
+  const tab = await tabToRead(deps, windowId);
   return { pageKey: tabPageKeyOf(tab?.url), sourceUrl: tab?.url ?? "" };
 }
 
@@ -55,8 +55,8 @@ export async function activePageKey(deps: ActivePageDeps): Promise<ActivePageKey
  * Reads the LinkedIn tab the extension was invoked on. The URL (from the address bar's slug) always captures,
  * even when the DOM yields nothing; anything richer than name + URL is server-side enrichment.
  */
-export async function readActivePage(deps: ActivePageDeps): Promise<ReadPageResult> {
-  const tab = await tabToRead(deps);
+export async function readActivePage(deps: ActivePageDeps, windowId: number | null = null): Promise<ReadPageResult> {
+  const tab = await tabToRead(deps, windowId);
   if (!tab?.id) {
     throw new LinkedInOnlyError();
   }
@@ -130,7 +130,7 @@ async function readWhenSettled(
       if (name) {
         // Only a settled read is remembered. Recording a blank would let the next read fall through
         // to "nothing against it" and hand the stale name straight back.
-        await deps.lastRead.set({ tabId, pageKey, name });
+        await deps.lastRead.set({ tabId, pageKey, name, title: read.documentTitle });
       }
       return read;
     }
@@ -149,10 +149,15 @@ function withoutName(read: PageSubject): PageSubject {
 }
 
 /**
- * The tab to read. `currentWindow` can resolve to detached DevTools with no readable tab, so fall back to the
- * most recently touched LinkedIn tab; null means none is open, not an error.
+ * The tab to read: the panel's own window's when it names one — the focused window is whichever the consultant
+ * touched last, not the one the panel sits in. Without one, `currentWindow` can resolve to detached DevTools with no
+ * readable tab, so fall back to the most recently touched LinkedIn tab; null means none is open, not an error.
  */
-async function tabToRead(deps: ActivePageDeps): Promise<chrome.tabs.Tab | null> {
+async function tabToRead(deps: ActivePageDeps, windowId: number | null): Promise<chrome.tabs.Tab | null> {
+  if (windowId !== null) {
+    const [inPanelWindow] = await deps.queryTabs({ active: true, windowId });
+    return inPanelWindow && isCapturableTab(inPanelWindow) ? inPanelWindow : null;
+  }
   const [inCurrent] = await deps.queryTabs({ active: true, currentWindow: true });
   if (inCurrent?.id && isCapturableTab(inCurrent)) {
     return inCurrent;

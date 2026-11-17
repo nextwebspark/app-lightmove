@@ -13,6 +13,7 @@ import app.lightmove.api.core.text.service.LinkedInUrls;
 import app.lightmove.api.core.text.service.SuppliedText;
 import app.lightmove.api.project.repository.ProjectRepository;
 import app.lightmove.api.strategy.constant.SortDirection;
+import app.lightmove.api.strategy.service.ApolloCompanyQueryService;
 import app.lightmove.api.triagecompany.constant.TriageCompanySortField;
 import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
 import app.lightmove.api.triagecompany.dto.TriageCompaniesResponse;
@@ -64,6 +65,7 @@ public class TriageCompanyReadService {
     private static final Pattern EXECUTIVE_STATUS_KEY = Pattern.compile("^[a-z][A-Za-z0-9]{0,39}$");
 
     private final TriageCompanyRepository triaged;
+    private final ApolloCompanyQueryService market;
     private final ProjectRepository projects;
     private final LightMoveProperties properties;
     private final MappedExecutiveLookup executives;
@@ -434,24 +436,35 @@ public class TriageCompanyReadService {
 
     /**
      * The company this position already holds for a LinkedIn page, if any: what the plugin asks before it offers to
-     * file one. The page's slug first, then the name {@code capture} refuses a second row under.
+     * file one. The page's slug first, then the name. {@code throughMarket} adds the market row {@code capture}
+     * resolves the page to — every row {@code capture} would refuse as held — and is asked only after such a refusal:
+     * it scans the whole Apollo universe, which every page view would otherwise pay for.
      */
     @Transactional(readOnly = true)
     public Optional<TriageCompanyResponse> heldAt(UUID workspaceId, UUID projectId, String linkedinUrl,
-                                                  String companyName) {
+                                                  String companyName, boolean throughMarket) {
         projects.requireInWorkspace(projectId, workspaceId);
         Optional<TriageCompany> held = Optional.empty();
         String slug = LinkedInUrls.companySlugOrNull(linkedinUrl);
         if (slug != null) {
-            held = triaged.findByProjectIdAndCompanySlugLike(projectId, slug).stream()
-                    .filter(company -> slug.equals(LinkedInUrls.companySlugOrNull(company.getCompanyLinkedinUrl())))
-                    .findFirst();
+            held = TriageCompanyService.atCompanySlug(triaged, projectId, slug).stream().findFirst();
         }
-        if (held.isEmpty() && companyName != null && !companyName.isBlank()) {
-            held = triaged.findByProjectIdAndCompanyNameIgnoreCase(projectId, companyName.trim()).stream().findFirst();
+        String name = companyName == null || companyName.isBlank() ? null : companyName.trim();
+        if (held.isEmpty() && name != null) {
+            held = heldByName(projectId, name);
+        }
+        if (held.isEmpty() && throughMarket && (slug != null || name != null)) {
+            held = market.matchEmployer(slug, name).flatMap(row -> triaged
+                    .findByProjectIdAndApolloAccountId(projectId, row.apolloAccountId())
+                    .or(() -> heldByName(projectId, row.companyName())));
         }
         return held.map(company -> TriageCompanyResponseMapper.toDto(company, null,
                 addersOf(List.of(company)).get(company.getAddedBy())));
+    }
+
+    private Optional<TriageCompany> heldByName(UUID projectId, String name) {
+        List<TriageCompany> byName = triaged.findByProjectIdAndCompanyNameIgnoreCase(projectId, name);
+        return byName.isEmpty() ? Optional.empty() : Optional.of(TriageCompanyService.preferred(byName));
     }
 
     /** Every company id at one stage, unpaged: what holds a search to a stage. */
