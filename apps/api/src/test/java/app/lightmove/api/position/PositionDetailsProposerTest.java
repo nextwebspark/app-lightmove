@@ -6,7 +6,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
-import app.lightmove.api.RecordingEmailSender;
 import app.lightmove.api.TestLlmCallPolicy;
 import app.lightmove.api.TestWorkspaceScopes;
 import app.lightmove.api.core.config.LightMoveProperties;
@@ -40,7 +39,6 @@ import org.springframework.ai.chat.prompt.ChatOptions;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.google.genai.GoogleGenAiChatOptions;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Import;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.http.MediaType;
 import org.springframework.util.StreamUtils;
@@ -57,7 +55,6 @@ import org.springframework.util.StreamUtils;
  * a test {@link ChatModel}, exactly as the import proposer's test builds its own {@code ChatClient}.
  */
 @IntegrationTest
-@Import(RecordingEmailSender.Config.class)
 class PositionDetailsProposerTest extends FlowTestSupport {
 
     @Autowired HeuristicBriefReader heuristics;
