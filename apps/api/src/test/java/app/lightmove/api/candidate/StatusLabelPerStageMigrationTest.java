@@ -21,7 +21,8 @@ import org.testcontainers.utility.DockerImageName;
 
 /**
  * V226: a status's name is unique within its stage, and Withdrew joins Shortlist and Offer — in a workspace founded
- * from then, and in an existing one only where it still runs V163's shape, on a live stage, under a key nobody holds,
+ * from then, and in an existing one only where it still runs V163's shape (a live Withdrew under Assessment), on a
+ * live stage, under a key nobody holds,
  * and with nothing renamed. Its own container, stopped at V225 to seed, for
  * {@code CandidatePersonBackfillMigrationTest}'s reason.
  */
@@ -32,6 +33,7 @@ class StatusLabelPerStageMigrationTest {
     private static final UUID KEY_TAKEN = UUID.fromString("00000000-0000-0000-0000-0000000226b2");
     private static final UUID OFFER_RETIRED = UUID.fromString("00000000-0000-0000-0000-0000000226b3");
     private static final UUID NO_ASSESSMENT_WITHDREW = UUID.fromString("00000000-0000-0000-0000-0000000226b4");
+    private static final UUID WITHDREW_RETIRED = UUID.fromString("00000000-0000-0000-0000-0000000226b6");
     private static final UUID FOUNDED_LATER = UUID.fromString("00000000-0000-0000-0000-0000000226b5");
 
     @Test
@@ -61,6 +63,9 @@ class StatusLabelPerStageMigrationTest {
                 assertThat(withdrewKeys(connection, OFFER_RETIRED))
                         .containsExactly("interested:withdrew:8", "qualified:withdrewShortlist:6");
                 assertThat(withdrewKeys(connection, NO_ASSESSMENT_WITHDREW)).isEmpty();
+                assertThat(withdrewKeys(connection, WITHDREW_RETIRED))
+                        .as("an admin retired Withdrew: it is not offered again at Shortlist or Offer")
+                        .containsExactly("interested:withdrew:8");
 
                 try (Statement statement = connection.createStatement()) {
                     statement.execute("""
@@ -95,10 +100,12 @@ class StatusLabelPerStageMigrationTest {
                     VALUES ('%s', 'Current Firm', 'current-firm', 'example.com', '%s'),
                            ('%s', 'Key Taken Firm', 'key-taken-firm', 'example.com', '%s'),
                            ('%s', 'Offer Retired Firm', 'offer-retired-firm', 'example.com', '%s'),
-                           ('%s', 'Reshaped Firm', 'reshaped-firm', 'example.com', '%s')"""
+                           ('%s', 'Reshaped Firm', 'reshaped-firm', 'example.com', '%s'),
+                           ('%s', 'Retired Withdrew Firm', 'retired-withdrew-firm', 'example.com', '%s')"""
                     .formatted(CURRENT, USER, KEY_TAKEN, USER, OFFER_RETIRED, USER,
-                            NO_ASSESSMENT_WITHDREW, USER));
-            for (UUID workspace : List.of(CURRENT, KEY_TAKEN, OFFER_RETIRED, NO_ASSESSMENT_WITHDREW)) {
+                            NO_ASSESSMENT_WITHDREW, USER, WITHDREW_RETIRED, USER));
+            for (UUID workspace : List.of(CURRENT, KEY_TAKEN, OFFER_RETIRED, NO_ASSESSMENT_WITHDREW,
+                    WITHDREW_RETIRED)) {
                 statement.execute("SELECT app_lm_seed_candidate_pipeline('%s')".formatted(workspace));
             }
             statement.execute("""
@@ -107,6 +114,9 @@ class StatusLabelPerStageMigrationTest {
             statement.execute("""
                     DELETE FROM app_lm_workspace_candidate_status
                     WHERE workspace_id = '%s' AND key = 'withdrew'""".formatted(NO_ASSESSMENT_WITHDREW));
+            statement.execute("""
+                    UPDATE app_lm_workspace_candidate_status SET retired_at = now()
+                    WHERE workspace_id = '%s' AND key = 'withdrew'""".formatted(WITHDREW_RETIRED));
         }
         addStatus(connection, KEY_TAKEN, "shortlisted", "withdrewOffer", "Withdrew offer");
     }

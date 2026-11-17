@@ -1,4 +1,4 @@
-import { findStatus, offeredStatusLabel, statusLabelOf } from "../../candidates/lib/pipelineStatus";
+import { findStatus, liveStages, liveStatuses, offeredStatusLabel, statusLabelOf } from "../../candidates/lib/pipelineStatus";
 import type { PipelineCatalog, PipelineStage } from "../../workspace/api/types";
 
 const STAGE_PREFIX = "stage:";
@@ -42,7 +42,7 @@ export function statusKeysOf(choice: readonly string[], catalog: PipelineCatalog
 
 function namedElsewhere(catalog: PipelineCatalog, own: PipelineStage, label: string): boolean {
   const name = label.toLowerCase();
-  return catalog.stages.some(
-    (stage) => stage.key !== own.key && stage.statuses.some((status) => status.label.toLowerCase() === name),
+  return liveStages(catalog).some(
+    (stage) => stage.key !== own.key && liveStatuses(stage).some((status) => status.label.toLowerCase() === name),
   );
 }

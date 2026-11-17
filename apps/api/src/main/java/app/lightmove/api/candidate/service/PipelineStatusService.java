@@ -63,18 +63,20 @@ public class PipelineStatusService {
                                                 UpdatePipelineStatusRequest request, HttpServletRequest httpRequest) {
         PipelineCatalog catalog = catalogs.catalogOf(workspaceId);
         CandidateStatusDefinition status = statuses.requireInWorkspace(statusId, workspaceId);
-        if (request.label() != null) {
-            rename(workspaceId, status, request.label());
+        CandidateStage target = request.stageId() == null || request.stageId().equals(status.getStage().getId())
+                ? null : stages.requireInWorkspace(request.stageId(), workspaceId);
+        String label = request.label() == null ? status.getLabel() : requireLabel(request.label());
+        if (request.label() != null || target != null) {
+            refuseLabelTakenIn(workspaceId, target == null ? status.getStage() : target, label, status);
         }
+        status.rename(label);
         if (request.colour() != null) {
             status.recolour(PipelineRules.requireColour(request.colour()));
         }
         if (request.outOfProcess() != null && request.outOfProcess() != status.isOutOfProcess()) {
             flag(catalog, status, request.outOfProcess());
         }
-        if (request.stageId() != null && !request.stageId().equals(status.getStage().getId())) {
-            CandidateStage target = stages.requireInWorkspace(request.stageId(), workspaceId);
-            refuseLabelTakenIn(workspaceId, target, status.getLabel(), status);
+        if (target != null) {
             move(catalog, status, target);
         }
         if (Boolean.TRUE.equals(request.isDefault()) && !status.isDefaultOfStage()) {
@@ -115,13 +117,12 @@ public class PipelineStatusService {
         return PipelineCatalogMapper.toResponse(catalogs.catalogOf(workspaceId));
     }
 
-    private void rename(UUID workspaceId, CandidateStatusDefinition status, String requested) {
+    private static String requireLabel(String requested) {
         String label = requested.strip();
         if (label.isEmpty()) {
             throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "label", "A status needs a name");
         }
-        refuseLabelTakenIn(workspaceId, status.getStage(), label, status);
-        status.rename(label);
+        return label;
     }
 
     private void refuseLabelTakenIn(UUID workspaceId, CandidateStage stage, String label,

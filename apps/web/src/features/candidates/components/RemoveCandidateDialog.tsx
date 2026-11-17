@@ -5,8 +5,8 @@ import type { Candidate } from "../api/types";
 import { statusLabelOf } from "../lib/pipelineStatus";
 
 /**
- * Confirms removing an executive from the mandate: only this mandate's row goes, the Research way out (seeded as
- * Not approached, under whatever name the workspace gave it) is offered as the alternative, and when they are alone at their company an unticked box offers to remove the company too.
+ * Confirms removing an executive from the mandate: only this mandate's row goes, the Research way out is offered
+ * as the alternative, and when they are alone at their company an unticked box offers to remove the company too.
  */
 export function RemoveCandidateDialog({
   candidate,
@@ -52,7 +52,7 @@ function RemoveCandidateConfirmation({
 }) {
   const [withCompany, setWithCompany] = useState(false);
   const { catalog } = usePipelineCatalog();
-  const notApproached = statusLabelOf("outOfScope", catalog);
+  const outOfScopeLabel = statusLabelOf("outOfScope", catalog);
 
   return (
     <Modal open onClose={onCancel} title={`Remove ${candidate.fullName}?`}>
@@ -61,7 +61,7 @@ function RemoveCandidateConfirmation({
         compensation go with it.
       </p>
       <p className="mt-2.5 text-[13px]/[1.6] text-u-text3">
-        If they are simply not right for this brief, set their status to {notApproached} instead. The map
+        If they are simply not right for this brief, set their status to {outOfScopeLabel} instead. The map
         keeps the work, and the next mandate sees they were already found.
       </p>
       {offersCompany && (

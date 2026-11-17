@@ -98,6 +98,14 @@ class CandidatePipelineCatalogTest extends PipelineFlowSupport {
                 {"label":"Withdrew","stageId":"%s"}""".formatted(offer)))).isEqualTo("PIPELINE_LABEL_TAKEN");
         assertThat(keysOf(stageIn(catalog(), "interested").get("statuses")))
                 .as("a refused write moves nothing").contains("screenedOut");
+
+        String approach = stageIn(catalog, "contacted").get("id").asText();
+        catalog = body(write(admin, "PATCH", PIPELINE + "/statuses/" + screenedOut, """
+                {"label":"Withdrew","stageId":"%s"}""".formatted(approach)));
+        assertThat(statusIn(catalog, "screenedOut").get("label").asText())
+                .as("renamed and moved at once, its new name checked against the stage it lands in")
+                .isEqualTo("Withdrew");
+        assertThat(keysOf(stageIn(catalog, "contacted").get("statuses"))).contains("screenedOut");
     }
 
     @Test

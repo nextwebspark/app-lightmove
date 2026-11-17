@@ -34,6 +34,16 @@ describe("the Status column's filter", () => {
     ]);
   });
 
+  it("never tells a status apart from a retired one of the same name", () => {
+    const catalog = aCurrentCatalog();
+    const offer = catalog.stages.find((stage) => stage.key === "shortlisted")!;
+    offer.statuses.push({ ...offer.statuses[0], id: "old-withdrew", key: "oldWithdrew", label: "Withdrew", retired: true, isDefault: false });
+
+    expect(executiveStatusOptions(catalog, new Set(["withdrew"]))).toEqual([
+      { value: "withdrew", label: "Withdrew · Out of process", indent: false },
+    ]);
+  });
+
   it("sends a ticked stage as every status under it", () => {
     expect(statusKeysOf(["stage:contacted", "offLimits"], aSeededCatalog()).sort()).toEqual(
       ["callBooked", "contacted", "engaged", "followUpSent", "offLimits"].sort(),

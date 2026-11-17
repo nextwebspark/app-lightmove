@@ -6,8 +6,8 @@ DROP INDEX app_lm_workspace_candidate_status_label_uk;
 CREATE UNIQUE INDEX app_lm_workspace_candidate_status_stage_label_uk
     ON app_lm_workspace_candidate_status (stage_id, lower(label));
 
--- The starting catalog as ALAC Partners now words it: Research's way out reads Not approached (its key and system
--- key unchanged), and Withdrew is offered at Shortlist and Offer as well as Assessment.
+-- The starting catalog: Research's way out reads Not approached (its key and system key unchanged), and Withdrew is
+-- offered at Shortlist and Offer as well as Assessment.
 CREATE OR REPLACE FUNCTION app_lm_seed_candidate_pipeline(target_workspace uuid) RETURNS void
     LANGUAGE plpgsql AS $$
 BEGIN
@@ -64,7 +64,7 @@ BEGIN
 END;
 $$;
 
--- An existing workspace gains the two only where it still runs V163's shape — its own Withdrew a way out under
+-- An existing workspace gains the two only where it still runs V163's shape — its own Withdrew a live way out under
 -- Assessment — and only on a live Shortlist or Offer stage holding no status of that name, under a key nobody holds.
 -- A catalog an admin reshaped otherwise is left as it stands, and nothing is renamed.
 INSERT INTO app_lm_workspace_candidate_status
@@ -80,7 +80,7 @@ WHERE EXISTS (
         SELECT 1 FROM app_lm_workspace_candidate_status withdrew
         JOIN app_lm_workspace_candidate_stage assessment ON assessment.id = withdrew.stage_id
         WHERE withdrew.workspace_id = stage.workspace_id
-          AND withdrew.key = 'withdrew' AND withdrew.out_of_process
+          AND withdrew.key = 'withdrew' AND withdrew.out_of_process AND withdrew.retired_at IS NULL
           AND assessment.system_key = 'INTERESTED')
   AND NOT EXISTS (
         SELECT 1 FROM app_lm_workspace_candidate_status named
