@@ -8,7 +8,8 @@ export const EXIT_NOTE_LIMIT = 500;
 /**
  * Moving someone out of process (`PositionExitReasonDialog.dc.html`): one dialog wherever it starts — the status
  * picker, a drop on the board's Out of process band, or the drawer's Why line. Way out, then Reason, then a note for a
- * reason that asks for one. The Reason row is always drawn, so choosing a way out never moves the dialog. Staff-only.
+ * reason that asks for one. A stage with one way out states it rather than offering a choice of one. The Reason row is
+ * always drawn, so choosing a way out never moves the dialog. Staff-only.
  */
 export function ExitReasonDialog({
   name,
@@ -85,20 +86,30 @@ export function ExitReasonDialog({
       }
     >
       <Field label="Way out">
-        <Select
-          aria-label="Way out"
-          value={wayId}
-          disabled={editing}
-          onChange={(event) => handleWay(event.target.value)}
-          autoFocus={!way}
-        >
-          {!way && <option value="">Choose a way out</option>}
-          {ways.map((option) => (
-            <option key={option.id} value={option.id}>
-              {option.label}
-            </option>
-          ))}
-        </Select>
+        {ways.length === 1 ? (
+          // One way out is no choice: it is stated, in the same place and at the same height a choice would take.
+          <span
+            aria-label="Way out"
+            className="block w-full truncate rounded-u-control border border-u-border bg-u-surface px-3 py-2.5 font-mono text-body text-u-text"
+          >
+            {ways[0].label}
+          </span>
+        ) : (
+          <Select
+            aria-label="Way out"
+            value={wayId}
+            disabled={editing}
+            onChange={(event) => handleWay(event.target.value)}
+            autoFocus={!way}
+          >
+            {!way && <option value="">Choose a way out</option>}
+            {ways.map((option) => (
+              <option key={option.id} value={option.id}>
+                {option.label}
+              </option>
+            ))}
+          </Select>
+        )}
       </Field>
       {/* The hint always holds a line, so picking a way out changes words, never the dialog's height. */}
       <Field

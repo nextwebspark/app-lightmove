@@ -782,6 +782,28 @@ describe("PipelineView", () => {
       expect(within(screen.getByRole("region", { name: "Approach" })).getByText("Amal Haddad")).toBeInTheDocument();
     });
 
+    it("asks only why for a drop on a stage with one way out, which it takes without asking", async () => {
+      const clientRejected = current.stages.flatMap((stage) => stage.statuses).find((status) => status.key === "clientRejected")!;
+      vi.mocked(catalogApi.exitReasons).mockResolvedValue({
+        reasons: [{ id: "senior", key: "senior", label: "Senior", requiresNote: false, position: 1, retired: false, statusIds: [clientRejected.id] }],
+      });
+      vi.mocked(candidatesApi.changeCandidateStatus).mockReturnValue(new Promise(() => {}));
+      renderView();
+      await screen.findByRole("region", { name: "Approach" });
+
+      dropOn("Amal Haddad", screen.getByRole("group", { name: "Out of process · Shortlist" }));
+
+      const dialog = within(await screen.findByRole("dialog", { name: "Why did Amal Haddad leave?" }));
+      expect(dialog.queryByRole("combobox", { name: "Way out" })).not.toBeInTheDocument();
+      expect(dialog.getByLabelText("Way out")).toHaveTextContent("Client rejected");
+      await userEvent.selectOptions(dialog.getByRole("combobox", { name: "Reason" }), "Senior");
+      await userEvent.click(dialog.getByRole("button", { name: "Move to Client rejected" }));
+
+      await waitFor(() =>
+        expect(candidatesApi.changeCandidateStatus).toHaveBeenCalledWith("p1", "a", "clientRejected", { reasonId: "senior", note: null }),
+      );
+    });
+
     it("gives a card dropped in a cell with one way out that way out at once", async () => {
       vi.mocked(candidatesApi.changeCandidateStatus).mockReturnValue(new Promise(() => {}));
       renderView();
