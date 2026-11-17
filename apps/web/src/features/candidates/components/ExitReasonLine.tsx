@@ -151,11 +151,10 @@ export function ExitReasonLine({
           ways={[wayOut]}
           initialWayId={wayOut.id}
           reasonsOf={() => offered}
-          editing
+          purpose={{ kind: "change", onSave: (choice) => change.mutate(choice) }}
           initial={noting}
           saving={change.isPending}
           onCancel={() => setNoting(null)}
-          onConfirm={(_way, choice) => choice && change.mutate(choice)}
         />
       )}
     </ReasonLabel>

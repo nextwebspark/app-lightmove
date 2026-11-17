@@ -92,9 +92,12 @@ export function useExitReasonPrompt(): {
         setAsking(null);
         asking.cancel?.();
       }}
-      onConfirm={(way, choice) => {
-        setAsking(null);
-        asking.proceed(way.key, choice);
+      purpose={{
+        kind: "move",
+        onConfirm: (way, choice) => {
+          setAsking(null);
+          asking.proceed(way.key, choice);
+        },
       }}
     />
   );

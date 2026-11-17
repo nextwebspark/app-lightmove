@@ -6,6 +6,14 @@ import type { ExitReasonChoice } from "../api/types";
 export const EXIT_NOTE_LIMIT = 500;
 
 /**
+ * What saving does: a move out of process lands on a way out, with a reason where it asks for one; a change keeps
+ * the way out and always saves a reason.
+ */
+export type ExitDialogPurpose =
+  | { kind: "move"; onConfirm: (way: PipelineStatus, choice: ExitReasonChoice | null) => void }
+  | { kind: "change"; onSave: (choice: ExitReasonChoice) => void };
+
+/**
  * Moving someone out of process (`PositionExitReasonDialog.dc.html`): one dialog wherever it starts — the status
  * picker, a drop on the board's Out of process band, or the drawer's Why line. Way out, then Reason, then a note for a
  * reason that asks for one. A stage with one way out states it rather than offering a choice of one. The Reason row is
@@ -17,11 +25,10 @@ export function ExitReasonDialog({
   ways,
   initialWayId = null,
   reasonsOf,
-  editing = false,
+  purpose,
   initial = null,
   saving = false,
   onCancel,
-  onConfirm,
 }: {
   name: string;
   /** The stage whose ways out are offered: "Moving them out of process at Approach." */
@@ -31,13 +38,12 @@ export function ExitReasonDialog({
   initialWayId?: string | null;
   /** The live reasons a way out offers, in the list's order. */
   reasonsOf: (way: PipelineStatus) => ExitReason[];
-  /** Changes the reason of someone already out of process: their way out stays. */
-  editing?: boolean;
+  purpose: ExitDialogPurpose;
   initial?: ExitReasonChoice | null;
   saving?: boolean;
   onCancel: () => void;
-  onConfirm: (way: PipelineStatus, choice: ExitReasonChoice | null) => void;
 }) {
+  const editing = purpose.kind === "change";
   const [wayId, setWayId] = useState(initialWayId ?? (ways.length === 1 ? ways[0].id : ""));
   const [reasonId, setReasonId] = useState(initial?.reasonId ?? "");
   const [note, setNote] = useState(initial?.note ?? "");
@@ -47,7 +53,8 @@ export function ExitReasonDialog({
   const reason = reasons.find((candidate) => candidate.id === reasonId) ?? null;
   const asksReason = reasons.length > 0;
   const needsNote = reason?.requiresNote === true;
-  const ready = way !== null && (!asksReason || reason !== null) && (!needsNote || note.trim() !== "");
+  const reasonRequired = editing || asksReason;
+  const ready = way !== null && (!reasonRequired || reason !== null) && (!needsNote || note.trim() !== "");
 
   const handleWay = (nextId: string) => {
     setWayId(nextId);
@@ -57,7 +64,9 @@ export function ExitReasonDialog({
   };
   const handleSubmit = () => {
     if (!ready || saving || !way) return;
-    onConfirm(way, reason ? { reasonId: reason.id, note: note.trim() || null } : null);
+    const choice = reason ? { reasonId: reason.id, note: note.trim() || null } : null;
+    if (purpose.kind === "move") purpose.onConfirm(way, choice);
+    else if (choice) purpose.onSave(choice);
   };
 
   const subtitle = editing
@@ -87,8 +96,9 @@ export function ExitReasonDialog({
     >
       <Field label="Way out">
         {ways.length === 1 ? (
-          // One way out is no choice: it is stated, in the same place and at the same height a choice would take.
           <span
+            role="textbox"
+            aria-readonly="true"
             aria-label="Way out"
             className="block w-full truncate rounded-u-control border border-u-border bg-u-surface px-3 py-2.5 font-mono text-body text-u-text"
           >
@@ -98,7 +108,6 @@ export function ExitReasonDialog({
           <Select
             aria-label="Way out"
             value={wayId}
-            disabled={editing}
             onChange={(event) => handleWay(event.target.value)}
             autoFocus={!way}
           >

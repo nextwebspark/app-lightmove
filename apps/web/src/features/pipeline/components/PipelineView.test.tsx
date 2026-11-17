@@ -795,7 +795,7 @@ describe("PipelineView", () => {
 
       const dialog = within(await screen.findByRole("dialog", { name: "Why did Amal Haddad leave?" }));
       expect(dialog.queryByRole("combobox", { name: "Way out" })).not.toBeInTheDocument();
-      expect(dialog.getByLabelText("Way out")).toHaveTextContent("Client rejected");
+      expect(dialog.getByRole("textbox", { name: "Way out" })).toHaveTextContent("Client rejected");
       await userEvent.selectOptions(dialog.getByRole("combobox", { name: "Reason" }), "Senior");
       await userEvent.click(dialog.getByRole("button", { name: "Move to Client rejected" }));
 
