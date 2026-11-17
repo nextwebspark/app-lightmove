@@ -1,6 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
+import { Icon, ICONS } from "../../../components/layout/Icon";
 import { useToast } from "../../../components/ui";
+import { Popover } from "../../../components/ui/Popover";
 import { cn } from "../../../lib/cn";
 import { messageFor } from "../../../lib/errorCodes";
 import { formatInstantDate } from "../../../lib/format";
@@ -30,6 +32,7 @@ export function ExitReasonLine({
   given,
   canChange,
   onChanged,
+  variant = "line",
   className,
 }: {
   projectId: string;
@@ -39,6 +42,8 @@ export function ExitReasonLine({
   given: CandidateExitReason | null;
   canChange: boolean;
   onChanged?: (saved: CandidateExitReason) => void;
+  /** `pill` sits beside the status picker in the drawer header, in the picker's own shape. */
+  variant?: "line" | "pill";
   className?: string;
 }) {
   const queryClient = useQueryClient();
@@ -95,6 +100,106 @@ export function ExitReasonLine({
     });
   };
 
+  const valueText = (
+    <span
+      className={cn(
+        "truncate",
+        given ? "text-u-text" : "italic text-u-text3",
+      )}
+    >
+      {given?.label ?? "Not given"}
+    </span>
+  );
+  const picker = canChange && (
+    <select
+      aria-label={`Why ${name} left`}
+      value={given?.reasonId ?? ""}
+      disabled={change.isPending}
+      onChange={(event) => handlePick(event.target.value)}
+      className="absolute inset-0 cursor-pointer opacity-0"
+    >
+      {!given && <option value="">Not given</option>}
+      {offered.map((option) => (
+        <option key={option.id} value={option.id}>
+          {option.label}
+        </option>
+      ))}
+    </select>
+  );
+  // A native select fires nothing for the option already chosen, so a held note gets its own way back in.
+  const editNote = canChange && given?.requiresNote && (
+    <button
+      type="button"
+      disabled={change.isPending}
+      onClick={() => setNoting({ reasonId: given.reasonId, note: given.note })}
+      className="flex-none rounded px-1 font-mono text-meta text-u-accent hover:bg-u-surface"
+    >
+      Edit note
+    </button>
+  );
+  const dialog = noting && (
+    <ExitReasonDialog
+      name={name}
+      stageLabel={null}
+      ways={[wayOut]}
+      initialWayId={wayOut.id}
+      reasonsOf={() => offered}
+      purpose={{ kind: "change", onSave: (choice) => change.mutate(choice) }}
+      initial={noting}
+      saving={change.isPending}
+      onCancel={() => setNoting(null)}
+    />
+  );
+
+  if (variant === "pill") {
+    const pillContent = (open: boolean) => (
+      <>
+        <span className="flex-none font-normal text-u-text3">Reason</span>
+        {valueText}
+        {canChange && (
+          <Icon
+            d={ICONS.chevronDown}
+            size={12}
+            className={cn("flex-none text-u-text3 transition-transform", open && "rotate-180")}
+          />
+        )}
+      </>
+    );
+    return (
+      <span className={cn("flex min-w-0 items-center gap-1.5", className)} title={hover}>
+        {canChange ? (
+          <Popover
+            label={`Why ${name} left: ${given?.label ?? "Not given"}`}
+            hasPopup="listbox"
+            placement="auto"
+            width={280}
+            disabled={change.isPending}
+            triggerClassName={REASON_PILL}
+            trigger={pillContent}
+          >
+            {(close) => (
+              <ReasonList
+                label={`Why ${name} left`}
+                options={offered}
+                heldId={given?.reasonId ?? null}
+                onPick={(reasonId) => {
+                  close();
+                  if (reasonId !== given?.reasonId || offered.find((option) => option.id === reasonId)?.requiresNote) {
+                    handlePick(reasonId);
+                  }
+                }}
+              />
+            )}
+          </Popover>
+        ) : (
+          <span className={REASON_PILL}>{pillContent(false)}</span>
+        )}
+        {editNote}
+        {dialog}
+      </span>
+    );
+  }
+
   return (
     <ReasonLabel className={className}>
       {canChange ? (
@@ -102,62 +207,68 @@ export function ExitReasonLine({
           className="relative inline-flex min-w-0 items-center gap-1 rounded px-1 hover:bg-u-surface"
           title={hover}
         >
-          <span
-            className={cn(
-              "truncate",
-              given ? "text-u-text" : "italic text-u-text3",
-            )}
-          >
-            {given?.label ?? "Not given"}
-          </span>
+          {valueText}
           <span aria-hidden className="text-u-text3">
             ▾
           </span>
-          <select
-            aria-label={`Why ${name} left`}
-            value={given?.reasonId ?? ""}
-            disabled={change.isPending}
-            onChange={(event) => handlePick(event.target.value)}
-            className="absolute inset-0 cursor-pointer opacity-0"
-          >
-            {!given && <option value="">Not given</option>}
-            {offered.map((option) => (
-              <option key={option.id} value={option.id}>
-                {option.label}
-              </option>
-            ))}
-          </select>
+          {picker}
         </span>
       ) : (
         <span className="truncate text-u-text" title={hover}>
           {given?.label}
         </span>
       )}
-      {/* A native select fires nothing for the option already chosen, so a held note gets its own way back in. */}
-      {canChange && given?.requiresNote && (
-        <button
-          type="button"
-          disabled={change.isPending}
-          onClick={() => setNoting({ reasonId: given.reasonId, note: given.note })}
-          className="flex-none rounded px-1 text-u-accent hover:bg-u-surface"
-        >
-          Edit note
-        </button>
-      )}
-      {noting && (
-        <ExitReasonDialog
-          name={name}
-          stageLabel={null}
-          ways={[wayOut]}
-          initialWayId={wayOut.id}
-          reasonsOf={() => offered}
-          purpose={{ kind: "change", onSave: (choice) => change.mutate(choice) }}
-          initial={noting}
-          saving={change.isPending}
-          onCancel={() => setNoting(null)}
-        />
-      )}
+      {editNote}
+      {dialog}
     </ReasonLabel>
+  );
+}
+
+/** The status picker's trigger, so the two read as one pair. */
+const REASON_PILL =
+  "inline-flex h-7 min-w-0 max-w-full items-center gap-1.5 rounded-u-control border border-u-border-strong bg-u-surface px-2 text-meta font-medium text-u-text transition hover:border-u-text3 disabled:cursor-not-allowed disabled:opacity-40";
+
+/** The status picker's rows: the held one ticked, the rest a hover away. */
+function ReasonList({
+  label,
+  options,
+  heldId,
+  onPick,
+}: {
+  label: string;
+  options: ExitReason[];
+  heldId: string | null;
+  onPick: (reasonId: string) => void;
+}) {
+  return (
+    <div role="listbox" aria-label={label} className="flex flex-col">
+      {options.map((option) => {
+        const isHeld = option.id === heldId;
+        return (
+          <div
+            key={option.id}
+            role="option"
+            aria-selected={isHeld}
+            tabIndex={0}
+            onClick={() => onPick(option.id)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                onPick(option.id);
+              }
+            }}
+            className={cn(
+              "flex cursor-pointer items-center gap-2 rounded-u-control px-2 py-1.5 text-note text-u-text2 outline-none hover:bg-u-raised hover:text-u-text focus-visible:bg-u-raised",
+              isHeld && "font-medium text-u-text",
+            )}
+          >
+            <span className="min-w-0 flex-1 truncate">{option.label}</span>
+            {isHeld && <Icon d={ICONS.check} size={13} className="flex-none text-u-accent" />}
+          </div>
+        );
+      })}
+      {options.length === 0 && <p className="px-2 py-3 text-note text-u-text3">No reasons offered</p>}
+    </div>
   );
 }
 

@@ -450,19 +450,21 @@ export function CandidateProfile({
           }
           fullName={candidate.fullName}
           linkedinUrl={candidate.linkedinUrl}
-          nameAction={
+          nameAction={pencil("identity", "details")}
+          title={candidate.title}
+          processLine={
             <>
-              <span aria-hidden className="mx-0.5 h-4 w-px flex-none bg-u-border-strong" />
               {canWrite ? (
                 <StatusPicker
                   value={candidate.status}
                   currentLabel={candidate.statusLabel}
                   aria-label="Status"
+                  size="sm"
                   disabled={changeStatus.isPending}
                   onChange={(status) =>
                     changeStatus.mutate({ candidateId: candidate.id, name: candidate.fullName, status, previous: candidate.status })
                   }
-                  className="h-7"
+                  className="min-w-[140px] max-w-[60%]"
                 />
               ) : (
                 <DetailPill
@@ -470,23 +472,21 @@ export function CandidateProfile({
                   className={statusStyle(candidate.status, candidate).className}
                 />
               )}
-              {pencil("identity", "details")}
+              {canWrite && isOutOfProcess(candidate.status, catalog) ? (
+                <ExitReasonLine
+                  variant="pill"
+                  projectId={projectId}
+                  candidateId={candidate.id}
+                  name={candidate.fullName}
+                  statusKey={candidate.status}
+                  given={exitReasons.data?.find((given) => given.candidateId === candidate.id) ?? null}
+                  canChange
+                  className="min-w-0"
+                />
+              ) : (
+                <StageLine candidate={candidate} />
+              )}
             </>
-          }
-          title={candidate.title}
-          statusLine={
-            canWrite && isOutOfProcess(candidate.status, catalog) ? (
-              <ExitReasonLine
-                projectId={projectId}
-                candidateId={candidate.id}
-                name={candidate.fullName}
-                statusKey={candidate.status}
-                given={exitReasons.data?.find((given) => given.candidateId === candidate.id) ?? null}
-                canChange
-              />
-            ) : (
-              <StageLine candidate={candidate} />
-            )
           }
           contacts={candidate.contacts}
           onEditContacts={canWrite ? () => setContactWindow("details") : undefined}
@@ -1213,7 +1213,7 @@ function StageLine({ candidate }: { candidate: Candidate }) {
     ? Math.max(0, Math.floor((Date.now() - new Date(candidate.statusChangedAt).getTime()) / 86_400_000))
     : null;
   return (
-    <span className="truncate font-mono text-meta text-u-text3">
+    <span className="min-w-0 truncate font-mono text-meta text-u-text3">
       {candidate.pipelineStage.label}
       {days !== null && ` · ${days === 1 ? "1 day" : `${days} days`} at this status`}
     </span>

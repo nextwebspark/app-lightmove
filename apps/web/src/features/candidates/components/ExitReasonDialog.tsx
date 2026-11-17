@@ -89,7 +89,7 @@ export function ExitReasonDialog({
             Cancel
           </Button>
           <Button type="submit" size="md" disabled={!ready} loading={saving}>
-            {editing ? "Save reason" : way ? `Move to ${way.label}` : "Move out of process"}
+            Done
           </Button>
         </>
       }

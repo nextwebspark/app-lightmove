@@ -42,7 +42,7 @@ function given(extra: Partial<CandidateExitReason> = {}): CandidateExitReason {
   };
 }
 
-function renderLine(held: CandidateExitReason | null) {
+function renderLine(held: CandidateExitReason | null, variant: "line" | "pill" = "line") {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   client.setQueryData(pipelineApi.PIPELINE_CATALOG_KEY, catalog);
   return render(
@@ -55,6 +55,7 @@ function renderLine(held: CandidateExitReason | null) {
           statusKey="notInterested"
           given={held}
           canChange
+          variant={variant}
         />
       </ToastProvider>
     </QueryClientProvider>,
@@ -82,6 +83,16 @@ describe("ExitReasonLine", () => {
     expect(screen.queryByRole("button", { name: "Edit note" })).not.toBeInTheDocument();
   });
 
+  it("picks a reason from the drawer's pill in the status picker's own list", async () => {
+    renderLine(null, "pill");
+
+    await userEvent.click(await screen.findByRole("button", { name: "Why Layla Haddad left: Not given" }));
+    await userEvent.click(await screen.findByRole("option", { name: "Timing" }));
+
+    expect(candidatesApi.changeExitReason).toHaveBeenCalledWith("p1", "c1", { reasonId: "timing", note: null });
+    expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+  });
+
   it("reopens a held reason's note, which the select alone cannot, and saves the corrected note", async () => {
     renderLine(given());
     await userEvent.click(await screen.findByRole("button", { name: "Edit note" }));
@@ -91,7 +102,7 @@ describe("ExitReasonLine", () => {
     expect(note).toHaveValue("Moving to Riyadh");
     await userEvent.clear(note);
     await userEvent.type(note, "Back to Dubai next year");
-    await userEvent.click(screen.getByRole("button", { name: "Save reason" }));
+    await userEvent.click(screen.getByRole("button", { name: "Done" }));
 
     expect(candidatesApi.changeExitReason).toHaveBeenCalledWith("p1", "c1", {
       reasonId: "other",
