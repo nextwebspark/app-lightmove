@@ -34,13 +34,26 @@ export const CONVERSATIONS_KEY = (projectId: string, view: ConversationView, who
 export const CONVERSATION_KEY = (projectId: string, candidateId: string) =>
   ["outreach", projectId, "conversation", candidateId] as const;
 
+/** Whose note changed: the person, or their row on a position, whose cached conversation names the person. */
+export type NoteSubject = { personId: string } | { projectId: string; candidateId: string };
+
 /**
- * A note changes every position's conversation with the person, not only its own: Key dates' Last call reads their
- * calls on any position. Only the mounted ones read again; the rest on their next open.
+ * A note changes the person's conversation on every position, not only its own: Key dates' Last call reads their
+ * calls on any position. Nobody else's is touched. A person no cached conversation names refreshes them all, and a
+ * conversation still loading is refreshed too. Only mounted ones read again; the rest on their next open.
  */
-export function invalidateEveryConversation(queryClient: QueryClient): void {
+export function invalidateConversationsOf(queryClient: QueryClient, subject: NoteSubject): void {
+  const personId =
+    "personId" in subject
+      ? subject.personId
+      : queryClient.getQueryData<Conversation>(CONVERSATION_KEY(subject.projectId, subject.candidateId))?.executive
+          .personId;
   void queryClient.invalidateQueries({
-    predicate: (query) => query.queryKey[0] === "outreach" && query.queryKey[2] === "conversation",
+    predicate: (query) => {
+      if (query.queryKey[0] !== "outreach" || query.queryKey[2] !== "conversation") return false;
+      const held = (query.state.data as Conversation | undefined)?.executive.personId;
+      return personId === undefined || held === undefined || held === personId;
+    },
   });
 }
 

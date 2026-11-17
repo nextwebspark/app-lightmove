@@ -2,6 +2,7 @@ package app.lightmove.api.candidate.repository;
 
 import app.lightmove.api.candidate.constant.NoteOutcome;
 import app.lightmove.api.candidate.constant.PersonNoteKind;
+import app.lightmove.api.candidate.model.LastCallRow;
 import app.lightmove.api.candidate.model.LoggedContactRow;
 import app.lightmove.api.candidate.model.NoteViewpoint;
 import app.lightmove.api.candidate.model.PersonNote;
@@ -87,12 +88,16 @@ public interface PersonNoteRepository extends JpaRepository<PersonNote, UUID> {
                                                     Collection<String> kinds, Collection<String> unanswered,
                                                     Instant since);
 
+    /** The person's newest live calls on any position, each with its author's name, in one read and without words. */
     @Query("""
-            select n from PersonNote n
-            where n.workspaceId = :workspaceId and n.personId = :personId and n.kind = :kind
+            select coalesce(n.occurredAt, n.createdAt) as at, n.outcome as outcome, n.authorUserId as byUserId,
+                   u.fullName as byName
+            from PersonNote n left join User u on u.id = n.authorUserId
+            where n.workspaceId = :workspaceId and n.personId = :personId
+              and n.kind = app.lightmove.api.candidate.constant.PersonNoteKind.CALL
             order by coalesce(n.occurredAt, n.createdAt) desc, n.createdAt desc
             """)
-    List<PersonNote> findNewestOfKind(UUID workspaceId, UUID personId, PersonNoteKind kind, Limit limit);
+    List<LastCallRow> findNewestCalls(UUID workspaceId, UUID personId, Limit limit);
 
     /** The notes a viewpoint reads, pinned first and then newest first. */
     default List<PersonNote> findReadablePinnedFirst(UUID workspaceId, UUID personId, NoteViewpoint viewpoint) {

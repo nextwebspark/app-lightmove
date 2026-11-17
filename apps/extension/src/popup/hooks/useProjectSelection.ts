@@ -14,7 +14,7 @@ const RECENT_KEY = ["extension", "recentProjects"] as const;
 export function useProjectSelection() {
   const queryClient = useQueryClient();
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
-  const { settings } = useCaptureSettings();
+  const { settings, hasReadSettings } = useCaptureSettings();
 
   const projects = useQuery<ProjectSummary[]>({
     queryKey: ["extension", "projects"],
@@ -43,19 +43,24 @@ export function useProjectSelection() {
     },
   });
 
-  const live = useMemo(() => (projects.data ?? []).filter((project) => !project.archivedAt), [projects.data]);
+  // Staff browse every mandate but file only into those they work: an unseated member was offered — and defaulted
+  // into — positions whose every save came back "not on that position's team". `undefined` is an older API.
+  const live = useMemo(
+    () => (projects.data ?? []).filter((project) => !project.archivedAt && project.viewerCanWork !== false),
+    [projects.data],
+  );
 
-  // Chooses the default once both answers are in, and only while nothing is selected — so a
+  // Chooses the default once every answer is in, and only while nothing is selected — so a
   // consultant who has already picked a position never has it changed under them by a late query.
   useEffect(() => {
-    if (selectedProjectId || !live.length) {
+    if (selectedProjectId || !live.length || lastUsed.isPending || !hasReadSettings) {
       return;
     }
     const preferred = [settings.defaultProjectId, lastUsed.data]
       .map((wanted) => live.find((project) => project.id === wanted))
       .find(Boolean);
     setSelectedProjectId(preferred?.id ?? live[0].id);
-  }, [live, lastUsed.data, settings.defaultProjectId, selectedProjectId]);
+  }, [live, lastUsed.data, lastUsed.isPending, hasReadSettings, settings.defaultProjectId, selectedProjectId]);
 
   const selectProject = (projectId: string) => {
     setSelectedProjectId(projectId);

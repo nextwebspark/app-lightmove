@@ -102,7 +102,7 @@ public class ProfileLookupService {
         if (research.employerName() == null) {
             return null;
         }
-        return companies.heldAt(workspaceId, projectId, research.employerLinkedinUrl(), research.employerName())
+        return companies.heldAt(workspaceId, projectId, research.employerLinkedinUrl(), research.employerName(), false)
                 .map(TriageCompanyResponse::id)
                 .orElse(null);
     }

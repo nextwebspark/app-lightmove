@@ -309,6 +309,70 @@ class CandidateEnrichmentIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("research maps the person to the company the position holds for that LinkedIn page, whatever it is called")
+    void researchMapsToTheCompanyHeldForItsPage() throws Exception {
+        String projectId = mandate("Held Page Firm");
+        // The market does not carry it, so the consultant's capture is a hand-shaped row under the page's own name.
+        String heldId = body(mvc.perform(post(triageUrl(projectId) + "/capture")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"companyName":"Rawabi","source":"extension",
+                                 "companyLinkedinUrl":"https://www.linkedin.com/company/alrawabi/"}"""))
+                .andExpect(status().isCreated())
+                .andReturn()).get("id").asText();
+        enricher.answerWith(RESEARCH);
+
+        capture(projectId, "Sample Person", "sample-profile");
+
+        // Research spells the employer "Al Rawabi Dairy"; a second company under that name used to take the person.
+        assertThat(companiesInUniverse(projectId)).hasSize(1);
+        assertThat(firstCandidateOf(projectId).get("triageCompanyId").asText()).isEqualTo(heldId);
+    }
+
+    @Test
+    @DisplayName("a capture at LinkedIn's member-id address takes the vanity address research names")
+    void aMemberIdCaptureTakesTheVanityAddress() throws Exception {
+        String projectId = mandate("Member Id Firm");
+        enricher.answerWith(RESEARCH.withPublicProfileUrl("https://www.linkedin.com/in/sample-profile/"));
+
+        String candidateId = capture(projectId, "Sample Person", "ACoAAB1234567890abcdefGHIJ");
+
+        // Found at the address every later visit to their profile uses, and never filed a second time from it.
+        mvc.perform(get(candidatesUrl(projectId) + "/held")
+                        .param("linkedinUrl", "https://www.linkedin.com/in/sample-profile/")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.candidate.id").value(candidateId));
+        mvc.perform(post(candidatesUrl(projectId))
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fullName":"Sample Person","source":"extension",
+                                 "linkedinUrl":"https://www.linkedin.com/in/sample-profile/"}"""))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("CANDIDATE_ALREADY_MAPPED"));
+    }
+
+    @Test
+    @DisplayName("a member-id capture keeps its address when the vanity profile is already somebody else's")
+    void aMemberIdCaptureLeavesAHeldVanityAlone() throws Exception {
+        String projectId = mandate("Member Id Held Firm");
+        enricher.answerWith(RESEARCH);
+        capture(projectId, "Sample Person", "sample-profile");
+        String otherPosition = mandateInSameWorkspace("Chief Operating Officer");
+        enricher.answerWith(RESEARCH.withPublicProfileUrl("https://www.linkedin.com/in/sample-profile/"));
+
+        String candidateId = capture(otherPosition, "Sample Person", "ACoAAB1234567890abcdefGHIJ");
+
+        // Two people of the workspace now name one profile: the merge tool folds them, research never steals a key.
+        assertThat(body(mvc.perform(get(candidatesUrl(otherPosition) + "/" + candidateId)
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andReturn()).get("linkedinUrl").asText()).containsIgnoringCase("/in/ACoAAB1234567890abcdefGHIJ");
+    }
+
+    @Test
     @DisplayName("undoing a capture keeps a company the position already held")
     void undoingACaptureKeepsACompanyThePositionAlreadyHeld() throws Exception {
         String projectId = mandate("Undo Held Firm");

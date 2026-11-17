@@ -91,6 +91,7 @@ public class BrightDataProfileEnricher implements LinkedInProfileEnricher {
 
     private EnrichedProfile withPhoto(BrightDataPerson person) {
         return BrightDataPersonProfiles.toEnrichedProfile(person)
-                .withPhoto(photos.fetchOrNull(person.usableAvatarUrl()));
+                .withPhoto(photos.fetchOrNull(person.usableAvatarUrl()))
+                .withPublicProfileUrl(person.profileUrl());
     }
 }

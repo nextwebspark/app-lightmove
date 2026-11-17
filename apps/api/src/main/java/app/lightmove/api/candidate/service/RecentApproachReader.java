@@ -60,7 +60,7 @@ public class RecentApproachReader {
             BinaryOperator.maxBy(Comparator.comparing(PersonTouch::at));
 
     private static final Comparator<PersonTouch> REPLY_THEN_ONGOING_THEN_NEWEST = Comparator
-            .comparing((PersonTouch touch) -> touch.kind() != ApproachKind.REPLIED)
+            .comparing((PersonTouch touch) -> !touch.kind().isReply())
             .thenComparing(touch -> !touch.kind().isOngoing())
             .thenComparing(PersonTouch::at, Comparator.reverseOrder());
 
@@ -146,14 +146,10 @@ public class RecentApproachReader {
         return touch.at() != null && !ownHere && !(touch.kind().isOngoing() && here);
     }
 
-    /**
-     * One line per teammate, channel and position, so one sequence's steps never crowd out the rest of the team. A
-     * reply logged from WhatsApp is its own channel beside an emailed one.
-     */
+    /** One line per teammate, channel and position, so one sequence's steps never crowd out the rest of the team. */
     private static List<PersonTouch> newestOfEachApproach(List<PersonTouch> touches) {
         return touches.stream()
-                .collect(Collectors.toMap(touch -> new ApproachKey(touch.byUserId(), touch.projectId(), touch.kind(),
-                                touch.kind() == ApproachKind.REPLIED && touch.outcome() != null),
+                .collect(Collectors.toMap(touch -> new ApproachKey(touch.byUserId(), touch.projectId(), touch.kind()),
                         Function.identity(), NEWER))
                 .values().stream().sorted(REPLY_THEN_ONGOING_THEN_NEWEST).limit(MAX_TOUCHES).toList();
     }
@@ -216,7 +212,7 @@ public class RecentApproachReader {
         return new RecentApproachResponse(RecentApproachTier.NONE, windowDays, List.of(), List.of(), null);
     }
 
-    private record ApproachKey(UUID byUserId, UUID projectId, ApproachKind kind, boolean loggedReply) {}
+    private record ApproachKey(UUID byUserId, UUID projectId, ApproachKind kind) {}
 
     private record TouchNaming(UUID callerId, UUID currentProjectId, Map<UUID, Project> mandates,
                                PositionVisibility visibility, Map<UUID, String> names) {

@@ -112,7 +112,9 @@ public class ProjectService {
         Set<UUID> readAsClient = projectAccess.projectsReadAsClient(userId, workspaceId,
                 all.stream().map(Project::getId).toList());
         Assembly assembly = assemblyFor(workspaceId, all, readAsClient);
-        return all.stream().map(project -> toResponse(project, assembly)).toList();
+        return all.stream()
+                .map(project -> toResponse(project, assembly, !readAsClient.contains(project.getId())))
+                .toList();
     }
 
     /** The client drawer's mandates, fully assembled. The registry is staff's, so every count is whole. */
@@ -329,6 +331,10 @@ public class ProjectService {
     }
 
     private ProjectResponse toResponse(Project project, Assembly assembly) {
+        return toResponse(project, assembly, null);
+    }
+
+    private ProjectResponse toResponse(Project project, Assembly assembly, Boolean viewerCanWork) {
         List<TeamMemberResponse> team = assembly.seatsByProject()
                 .getOrDefault(project.getId(), List.of()).stream()
                 .flatMap(seat -> {
@@ -372,7 +378,8 @@ public class ProjectService {
                 mappedCompanies,
                 project.getCreatedAt(),
                 project.getArchivedAt(),
-                archiver == null ? null : archiver.getFullName());
+                archiver == null ? null : archiver.getFullName(),
+                viewerCanWork);
     }
 
     private List<AttachedRepresentativeResponse> attachedRepresentativesOf(Project project, Assembly assembly) {

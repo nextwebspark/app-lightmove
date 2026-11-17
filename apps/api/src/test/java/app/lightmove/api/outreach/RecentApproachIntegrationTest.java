@@ -298,7 +298,7 @@ class RecentApproachIntegrationTest extends FlowTestSupport {
         loggedOutcome(yaraId, creditRiskSearch, "WHATSAPP", "REPLIED", Duration.ofDays(6));
 
         JsonNode touches = composerApproach().get("touches");
-        assertThat(touches.at("/0/kind").asText()).isEqualTo("REPLIED");
+        assertThat(touches.at("/0/kind").asText()).isEqualTo("WHATSAPP_REPLIED");
         assertThat(touches.at("/0/outcome").asText()).isEqualTo("replied");
         assertThat(touches.at("/1/kind").asText()).isEqualTo("CALL_LOGGED");
         assertThat(touches.at("/1/outcome").asText()).isEqualTo("connected");
@@ -314,7 +314,7 @@ class RecentApproachIntegrationTest extends FlowTestSupport {
         assertThat(touches).hasSize(2);
         assertThat(touches.at("/0/kind").asText()).isEqualTo("REPLIED");
         assertThat(touches.at("/0/outcome").isNull()).isTrue();
-        assertThat(touches.at("/1/kind").asText()).isEqualTo("REPLIED");
+        assertThat(touches.at("/1/kind").asText()).isEqualTo("WHATSAPP_REPLIED");
         assertThat(touches.at("/1/outcome").asText()).isEqualTo("replied");
     }
 

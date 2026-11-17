@@ -7,6 +7,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../../../components/ui/Toast";
 import { ApiRequestError } from "../../../lib/apiClient";
 import * as contactLookupApi from "../../contactlookup/api/contactLookupApi";
+import * as conversationApi from "../../outreach/api/conversationApi";
 import * as notetakerApi from "../../outreach/api/notetakerApi";
 import type { NotetakerRecording } from "../../outreach/api/notetakerApi";
 import * as candidatesApi from "../api/candidatesApi";
@@ -82,6 +83,11 @@ vi.mock("../../projects/api/projectsApi", async (importOriginal) => ({
 vi.mock("../../outreach/api/notetakerApi", async (importOriginal) => ({
   ...(await importOriginal<typeof notetakerApi>()),
   getNotetaker: vi.fn(),
+}));
+
+vi.mock("../../outreach/api/conversationApi", async (importOriginal) => ({
+  ...(await importOriginal<typeof conversationApi>()),
+  getConversation: vi.fn(),
 }));
 
 // The copilot itself streams a live call; here it only has to say which call it is and report what it holds.
@@ -1594,6 +1600,27 @@ describe("CandidateDrawer", () => {
 
     await userEvent.click(within(contact).getByRole("button", { name: "Edit contact details" }));
     expect(await screen.findByRole("dialog", { name: /Contact details/ })).toBeInTheDocument();
+  });
+
+  it("says who last called under Phone, even for someone with no phone on record", async () => {
+    vi.mocked(conversationApi.getConversation).mockResolvedValue({
+      keyDates: {
+        addedAt: null,
+        firstContactedAt: null,
+        repliedAt: null,
+        lastActivityAt: null,
+        lastCall: { at: "2026-09-14T08:30:00Z", outcome: "wrong_number", byUserId: "u2", byName: "Sara Al-Mansour" },
+      },
+      composer: { recentApproach: null },
+      events: [],
+      truncated: false,
+    } as unknown as conversationApi.Conversation);
+    renderDrawer({ candidate: yasmin, company: null, focusSection: "outreach" });
+
+    const panel = await screen.findByRole("tabpanel", { name: "Outreach" });
+    const contact = within(panel).getByRole("region", { name: "Contact" });
+    expect(await within(contact).findByText(/^Last call .* · Wrong number · Sara Al-Mansour$/)).toBeInTheDocument();
+    expect(within(contact).queryByRole("link", { name: /^Call / })).not.toBeInTheDocument();
   });
 
   it("opens the contact details window for a bounce, on the tab the viewer reads", async () => {

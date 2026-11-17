@@ -10,6 +10,7 @@ function profileRead(overrides: Partial<PageSubject> & { fullName?: string | nul
     company: { companyName: null, linkedinUrl: null },
     pageUrl: "https://www.linkedin.com/in/bilal-nasser/",
     declaredUrl: null,
+    documentTitle: null,
     ...rest,
   };
 }
@@ -37,6 +38,22 @@ describe("deciding whether a read describes the page it was taken at", () => {
     expect(settleEvidenceOf(profileRead(), previous)).toBe("displaced");
   });
 
+  it("refuses the previous profile still on screen when its tab title has not moved on either", () => {
+    const previous = { pageKey: "person:amira-haddad", name: "Amira Haddad", title: "Amira Haddad - CFO - Acme | LinkedIn" };
+    const read = profileRead({ documentTitle: "Amira Haddad - CFO - Acme | LinkedIn" });
+
+    expect(settleEvidenceOf(read, previous)).toBe("displaced");
+  });
+
+  // Two namesakes back to back blanked the second's name and left Add disabled: the name alone cannot tell them
+  // apart, and the title LinkedIn rewrites once the new page mounts can.
+  it("accepts a namesake once the tab title names a different page", () => {
+    const previous = { pageKey: "person:amira-haddad", name: "Amira Haddad", title: "Amira Haddad - CFO - Acme | LinkedIn" };
+    const read = profileRead({ documentTitle: "Amira Haddad - Partner - Zenith Law | LinkedIn" });
+
+    expect(settleEvidenceOf(read, previous)).toBe("settled");
+  });
+
   it("accepts the same name read again at the same page, so a title blink is not a navigation", () => {
     const previous = { pageKey: "person:bilal-nasser", name: "Amira Haddad" };
 
@@ -56,6 +73,7 @@ describe("deciding whether a read describes the page it was taken at", () => {
       company: { companyName: "Al Rawabi", linkedinUrl: null },
       pageUrl: "https://www.linkedin.com/company/zenith/",
       declaredUrl: null,
+      documentTitle: null,
     };
 
     expect(settleEvidenceOf(read, { pageKey: "company:al-rawabi", name: "Al Rawabi" })).toBe("displaced");

@@ -28,6 +28,7 @@ export function useCaptureSettings() {
 
   return {
     settings: settings.data ?? DEFAULT_CAPTURE_SETTINGS,
+    hasReadSettings: !settings.isPending,
     update: save.mutate,
   };
 }

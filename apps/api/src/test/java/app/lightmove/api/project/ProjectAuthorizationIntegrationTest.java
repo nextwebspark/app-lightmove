@@ -2,6 +2,7 @@ package app.lightmove.api.project;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -97,6 +98,19 @@ class ProjectAuthorizationIntegrationTest extends FlowTestSupport {
                         .content("""
                                 {"role":"RESEARCHER"}"""))
                 .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("the list says whose positions the caller can work, which the plugin files into alone")
+    void theListSaysWhichPositionsTheCallerWorks() throws Exception {
+        Fixture f = fixture("Workable Matrix Firm");
+        String sara = login(f.saraEmail);
+        String omar = login(omarEmailOf(f));
+        seat(f.admin, f.projectId, f.omarId, "RESEARCHER");
+
+        assertThat(viewerCanWork(sara, f.projectId)).isFalse();
+        assertThat(viewerCanWork(omar, f.projectId)).isTrue();
+        assertThat(viewerCanWork(f.admin, f.projectId)).isTrue();
     }
 
     @Test
@@ -235,6 +249,21 @@ class ProjectAuthorizationIntegrationTest extends FlowTestSupport {
 
         return new Fixture(admin, clientId, projectId, sara, memberIdOf(admin, sara),
                 memberIdOf(admin, omar));
+    }
+
+    private boolean viewerCanWork(String token, String projectId) throws Exception {
+        for (var listed : body(mvc.perform(get("/api/v1/projects").header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andReturn())) {
+            if (listed.get("id").asText().equals(projectId)) {
+                return listed.get("viewerCanWork").asBoolean();
+            }
+        }
+        throw new AssertionError("position not listed");
+    }
+
+    private String omarEmailOf(Fixture f) {
+        return f.saraEmail.replace("sara@", "omar@");
     }
 
     private void seat(String leadToken, String projectId, String memberId, String role)

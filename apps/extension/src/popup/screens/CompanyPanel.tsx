@@ -12,14 +12,14 @@ import { SubjectCard } from "../components/SubjectCard";
 import { useCaptureCompany, useUndoCapture, type FiledCapture } from "../hooks/useCaptureSequence";
 import { useCaptureSettings } from "../hooks/useCaptureSettings";
 import { useCloseAfterSave } from "../hooks/useCloseAfterSave";
-import { heldCompanyKey, useHeldCompany } from "../hooks/useHeldRecord";
+import { heldCompanyKey, useHeldCache, useHeldCompany } from "../hooks/useHeldRecord";
 import { useSeededField } from "../hooks/useSeededField";
 import { cn } from "../lib/cn";
 import { ICONS } from "../lib/icons";
 import { shortWhen } from "../lib/shortWhen";
 import { NoteComposer } from "../notes/components/NoteComposer";
 import { NotesSection } from "../notes/components/NotesSection";
-import { CheckingPosition, RefusalNote } from "./panelStates";
+import { CheckingPosition, HeldCheckFailed, RefusalNote } from "./panelStates";
 import type { SubjectPanelProps } from "./subjectPanelProps";
 import { DEFAULT_NOTE_KIND } from "../notes/lib/noteKinds";
 
@@ -35,10 +35,21 @@ export function CompanyPanel({ page, projects, user }: SubjectPanelProps) {
   const [filed, setFiled] = useState<FiledCapture<TriagedCompany> | null>(null);
   const held = useHeldCompany(projectId, linkedinUrl, readName);
   const queryClient = useQueryClient();
+  const heldCache = useHeldCache();
   const { settings } = useCaptureSettings();
 
   useEffect(() => setFiled(null), [projectId]);
-  useCloseAfterSave(Boolean(filed), settings.closesAfterSave);
+
+  // A refusal can come from the market row capture matched — the page's own slug and name find nothing — so the
+  // position is asked again through the market. Nothing found there, or the ask failing, falls back to the plain
+  // re-check, whose own failure shows the Retry line rather than leaving the refusal with nothing to open.
+  const handleHeldElsewhere = async () => {
+    if (!projectId) return;
+    const opened = await heldCache.recheckCompanyThroughMarket(projectId, linkedinUrl, readName).catch(() => false);
+    if (!opened) void held.refetch();
+  };
+  // A note that did not land is waiting on the record for a retry; closing would throw it away.
+  useCloseAfterSave(Boolean(filed) && !filed?.unsentNote, settings.closesAfterSave);
 
   if (!project) {
     return null;
@@ -70,7 +81,8 @@ export function CompanyPanel({ page, projects, user }: SubjectPanelProps) {
         setFiled(capture);
         queryClient.setQueryData(heldCompanyKey(project.id, linkedinUrl, readName), capture.filed);
       }}
-      onHeldElsewhere={() => void held.refetch()}
+      onHeldElsewhere={() => void handleHeldElsewhere()}
+      onRecheck={held.isError ? () => void held.refetch() : null}
     />
   );
 }
@@ -80,9 +92,12 @@ function CompanyForm({
   projects,
   onFiled,
   onHeldElsewhere,
+  onRecheck,
 }: SubjectPanelProps & {
   onFiled: (capture: FiledCapture<TriagedCompany>) => void;
   onHeldElsewhere: () => void;
+  /** Set when the position could not be asked whether it already holds the company. */
+  onRecheck: (() => void) | null;
 }) {
   const project = projects.selectedProject!;
   const capture = useCaptureCompany();
@@ -129,6 +144,7 @@ function CompanyForm({
   return (
     <>
       <div className="min-h-0 flex-1 overflow-y-auto p-3.5">
+        {onRecheck && <HeldCheckFailed subject="company" onRetry={onRecheck} />}
         <SubjectCard
           shape="company"
           name={companyName}

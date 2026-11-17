@@ -19,6 +19,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import tools.jackson.databind.JsonNode;
 
 /**
@@ -203,6 +205,85 @@ class CompanyCaptureResolutionIntegrationTest extends FlowTestSupport {
                 .andExpect(status().isCreated());
 
         assertThat(companyEnricher.fetchedSlugs()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("a page the position holds under another name is refused as held, and the lookup opens it")
+    void aPageHeldUnderAnotherNameIsHeld() throws Exception {
+        String projectId = mandate("Held Page Capture Firm");
+        String heldId = captureCompany(projectId, "Rawabi", "https://www.linkedin.com/company/alrawabi/");
+
+        mvc.perform(post(captureUrl(projectId))
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"companyName":"Al Rawabi Dairy Company","source":"extension",
+                                 "companyLinkedinUrl":"https://www.linkedin.com/company/alrawabi/about/"}"""))
+                .andExpect(status().isConflict());
+
+        assertThat(heldAt(projectId, "https://www.linkedin.com/company/alrawabi/", "Al Rawabi Dairy Company"))
+                .isEqualTo(heldId);
+    }
+
+    @Test
+    @DisplayName("a company page with a non-ASCII slug is found again under its percent-encoded address")
+    void aNonAsciiCompanyPageIsFoundAsHeld() throws Exception {
+        String projectId = mandate("Encoded Company Firm");
+        String encoded = "https://www.linkedin.com/company/%C3%A9nergie-verte/";
+        String heldId = captureCompany(projectId, "Énergie Verte", encoded);
+
+        assertThat(heldAt(projectId, encoded, null)).isEqualTo(heldId);
+    }
+
+    // Capture matched the page to a market row whose name the position already held, and refused it; the lookup only
+    // knew the page's own name, answered "not held", and the plugin had no record to open.
+    @Test
+    @DisplayName("a capture refused for the market row's name has that row to open")
+    void aRefusalByTheMarketNameIsFoundByTheLookup() throws Exception {
+        String projectId = mandate("Market Name Firm");
+        String heldId = captureCompany(projectId, "Acme Gulf Holdings", null);
+        universe.company("a9", "Acme Gulf Holdings").linkedin("http://www.linkedin.com/company/acme-gulf").insert();
+
+        mvc.perform(post(captureUrl(projectId))
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"companyName":"Acme Gulf","source":"extension",
+                                 "companyLinkedinUrl":"https://www.linkedin.com/company/acme-gulf/"}"""))
+                .andExpect(status().isConflict());
+
+        // Asked through the market only after that refusal: a page view does not pay for a scan of the universe.
+        assertThat(heldAt(projectId, "https://www.linkedin.com/company/acme-gulf/", "Acme Gulf")).isNull();
+        assertThat(heldAt(projectId, "https://www.linkedin.com/company/acme-gulf/", "Acme Gulf", true))
+                .isEqualTo(heldId);
+    }
+
+    private String captureCompany(String projectId, String companyName, String linkedinUrl) throws Exception {
+        String page = linkedinUrl == null ? "" : ",\"companyLinkedinUrl\":\"%s\"".formatted(linkedinUrl);
+        return body(mvc.perform(post(captureUrl(projectId))
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"companyName\":\"%s\",\"source\":\"extension\"%s}"
+                                .formatted(companyName, page)))
+                .andExpect(status().isCreated())
+                .andReturn()).get("id").asText();
+    }
+
+    /** The id the plugin's lookup answers with, or null for its 204. */
+    private String heldAt(String projectId, String linkedinUrl, String name) throws Exception {
+        return heldAt(projectId, linkedinUrl, name, false);
+    }
+
+    private String heldAt(String projectId, String linkedinUrl, String name, boolean throughMarket) throws Exception {
+        MockHttpServletRequestBuilder lookup = get("/api/v1/projects/" + projectId + "/triage/held")
+                .header("Authorization", "Bearer " + adminToken)
+                .param("linkedinUrl", linkedinUrl)
+                .param("throughMarket", String.valueOf(throughMarket));
+        if (name != null) {
+            lookup.param("name", name);
+        }
+        MvcResult answered = mvc.perform(lookup).andReturn();
+        return answered.getResponse().getStatus() == 204 ? null : body(answered).get("id").asText();
     }
 
     private static String captureUrl(String projectId) {

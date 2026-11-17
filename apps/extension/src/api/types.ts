@@ -51,6 +51,11 @@ export interface ProjectSummary {
   team: TeamMember[];
   /** Set once the position is archived; the panel files into live positions only. */
   archivedAt: string | null;
+  /**
+   * Whether the paired consultant may file into it — a seat on its team, or a workspace admin. Absent from an API
+   * older than the field.
+   */
+  viewerCanWork?: boolean | null;
 }
 
 /**

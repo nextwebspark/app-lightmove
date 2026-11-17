@@ -154,6 +154,50 @@ post_json "/projects/$PROJECT/candidates" "$(jq -nc --arg n "Unmapped Executive 
 check 15.29a "a person at a company the mandate does not hold is filed unmapped" "" \
   "$(json '.triageCompanyId // empty')"
 
+# --- the panel's own sequence: ask whether the position holds the page, then file ---------
+#
+# What the side panel sends, field for field: a name and the address-bar URL, no employer, so every
+# person lands unmapped and every company page is matched by its slug before its name.
+
+capture_person() { # capture_person NAME LINKEDIN_URL
+  post_json "/projects/$PROJECT/candidates" "$(jq -nc --arg n "$1" --arg u "$2" \
+    '{fullName:$n, linkedinUrl:$u, source:"extension", sourceUrl:$u}')" -H "$EXT_AUTH"
+}
+held_person() { # held_person LINKEDIN_URL
+  get "/projects/$PROJECT/candidates/held?linkedinUrl=$(jq -rn --arg u "$1" '$u|@uri')" -H "$EXT_AUTH"
+}
+held_company() { # held_company LINKEDIN_URL NAME
+  get "/projects/$PROJECT/triage/held?linkedinUrl=$(jq -rn --arg u "$1" '$u|@uri')&name=$(jq -rn --arg n "$2" '$n|@uri')" \
+    -H "$EXT_AUTH"
+}
+
+NAMESAKE="Mohammed Ali $RANDOM"
+capture_person "$NAMESAKE" "https://www.linkedin.com/in/mohammed-ali-$RANDOM-1/"
+check_status 15.40 "a person captured from their profile is filed" 201
+capture_person "$NAMESAKE" "https://www.linkedin.com/in/mohammed-ali-$RANDOM-2/"
+check_status 15.41 "…and a namesake with a profile of their own is filed beside them, not refused" 201
+
+ENCODED_PROFILE="https://www.linkedin.com/in/j%C3%A9r%C3%B4me-dupont-$RANDOM/"
+capture_person "Jérôme Dupont" "$ENCODED_PROFILE"
+ENCODED_ID=$(json '.id')
+held_person "$ENCODED_PROFILE"
+check_status 15.42 "a profile with a non-ASCII address is found again by the panel's lookup" 200
+check 15.43 "…as the row that was filed" "$ENCODED_ID" "$(json '.candidate.id')"
+
+PAGE_SLUG="gulf-page-$RANDOM"
+post_json "$CAPTURE" "$(jq -nc --arg u "https://www.linkedin.com/company/$PAGE_SLUG/" \
+  '{source:"extension", status:"inUniverse", companyName:"Gulf Page", companyLinkedinUrl:$u}')" -H "$EXT_AUTH"
+PAGE_ID=$(json '.id')
+post_json "$CAPTURE" "$(jq -nc --arg u "https://www.linkedin.com/company/$PAGE_SLUG/about/" \
+  '{source:"extension", status:"inUniverse", companyName:"Gulf Page Trading LLC", companyLinkedinUrl:$u}')" -H "$EXT_AUTH"
+check_status 15.44 "a company page the position holds under another name is refused as held" 409
+held_company "https://www.linkedin.com/company/$PAGE_SLUG/" "Gulf Page Trading LLC"
+check 15.45 "…and the panel's lookup opens that row" "$PAGE_ID" "$(json '.id')"
+
+get /projects -H "$EXT_AUTH"
+check 15.46 "the position list tells the panel the lead can file into it" "true" \
+  "$(json ".[] | select(.id == \"$PROJECT\") | .viewerCanWork")"
+
 # --- the seat, not the login -------------------------------------------------
 #
 # A client representative holds WORK_VIEW without WORK_EXECUTE — the one role that proves capture is

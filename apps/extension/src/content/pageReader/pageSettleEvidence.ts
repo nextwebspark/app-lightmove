@@ -11,6 +11,8 @@ export type SettleEvidence = "settled" | "waiting" | "displaced";
 export interface PreviousRead {
   pageKey: string;
   name: string;
+  /** The tab title it was read under; absent from a read a version without it stored. */
+  title?: string | null;
 }
 
 export function settleEvidenceOf(read: PageSubject, previous: PreviousRead | null): SettleEvidence {
@@ -34,14 +36,19 @@ export function settleEvidenceOf(read: PageSubject, previous: PreviousRead | nul
   }
 
   // The signed-in layout declares no canonical at all, so this is what carries it there: the same name
-  // that was read at a different page is the previous profile still on screen, not a coincidence.
-  // (Two people of the same name across one navigation would blank the field. Rare, and the safe way
-  // round — the consultant types a name rather than filing someone under the wrong one.)
-  if (previous && previous.pageKey !== pageKey && previous.name === name) {
+  // that was read at a different page is the previous profile still on screen — unless the tab title has
+  // moved on, which LinkedIn does only once the new page has mounted. Without that, two namesakes visited
+  // back to back always blanked the second's name and left Add disabled. Identical titles still blank: the
+  // safe way round, the consultant types a name rather than filing someone under the wrong one.
+  if (previous && previous.pageKey !== pageKey && previous.name === name && !hasTitleMovedOn(read, previous)) {
     return "displaced";
   }
 
   return "settled";
+}
+
+function hasTitleMovedOn(read: PageSubject, previous: PreviousRead): boolean {
+  return Boolean(previous.title && read.documentTitle && previous.title !== read.documentTitle);
 }
 
 /** Whichever half of the read the page is about, or nothing when it named nobody. */

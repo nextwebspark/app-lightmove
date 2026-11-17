@@ -672,8 +672,7 @@ function SequenceRules() {
         <span className="text-u-text3">Stops when</span>
         <span>
           They reply, they book a call through your booking link (they also move to Engaged), an email bounces, they
-          are marked do not contact, they leave this position, or their status becomes Not interested, Off-limits or
-          Out of scope.
+          are marked do not contact, they leave this position, or their status takes them out of process.
         </span>
       </div>
     </div>

@@ -14,6 +14,7 @@ import app.lightmove.api.core.resilience.service.VendorCallGuard;
 import app.lightmove.api.core.resilience.service.VendorClientFactory;
 import app.lightmove.api.core.resilience.service.VendorRateLimiter;
 import app.lightmove.api.core.resilience.service.VendorRetryPredicate;
+import app.lightmove.api.core.text.service.LinkedInUrls;
 import java.util.List;
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
@@ -72,7 +73,9 @@ public class HarvestApiProfileEnricher implements LinkedInProfileEnricher {
             return Optional.empty();
         }
         EnrichedProfile enriched = toEnrichedProfile(envelope.element());
-        return Optional.of(withPhoto(enriched, envelope.element()));
+        String vanity = envelope.element().publicIdentifier();
+        return Optional.of(withPhoto(enriched, envelope.element())
+                .withPublicProfileUrl(vanity == null || vanity.isBlank() ? null : LinkedInUrls.profileUrlOf(vanity)));
     }
 
     private EnrichedProfile withPhoto(EnrichedProfile enriched, HarvestApiProfile profile) {
@@ -183,7 +186,7 @@ public class HarvestApiProfileEnricher implements LinkedInProfileEnricher {
                              List<HarvestApiEducation> education,
                              List<HarvestApiSkill> skills,
                              List<HarvestApiLanguage> languages,
-                             String photo, HarvestApiImage profilePicture) {}
+                             String photo, HarvestApiImage profilePicture, String publicIdentifier) {}
 
     record HarvestApiLocation(String linkedinText, HarvestApiParsedLocation parsed) {}
 

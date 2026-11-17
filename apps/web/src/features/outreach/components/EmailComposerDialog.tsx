@@ -32,7 +32,7 @@ export function EmailComposerDialog({
     queryFn: ({ signal }) => conversationApi.getConversation(projectId, candidateId, signal),
   });
   const projects = useQuery({ queryKey: projectsApi.PROJECTS_KEY, queryFn: projectsApi.projects });
-  const dialog = useComposerDialog();
+  const dialog = useComposerDialog({ isEmail: true });
   const isArchived = Boolean(projects.data?.find((project) => project.id === projectId)?.archivedAt);
 
   return (
@@ -69,6 +69,7 @@ export function EmailComposerDialog({
           onSent={onClose}
           onDraftChange={dialog.onDraftChange}
           onExpandChange={dialog.onExpandChange}
+          startsExpanded={dialog.startsLarge}
         />
       )}
     </Modal>

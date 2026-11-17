@@ -39,7 +39,7 @@ export function ConversationDock({
 }) {
   const { executive, composer, currentRun } = conversation;
   const [isEmailing, setIsEmailing] = useState(focusComposer);
-  const emailDialog = useComposerDialog();
+  const emailDialog = useComposerDialog({ isEmail: true });
   const [noteKind, setNoteKind] = useState<PersonNoteKind | null>(null);
   const [isEnrolling, setIsEnrolling] = useState(false);
   const [isBooking, setIsBooking] = useState(false);
@@ -92,6 +92,7 @@ export function ConversationDock({
           onSent={closeEmail}
           onDraftChange={emailDialog.onDraftChange}
           onExpandChange={emailDialog.onExpandChange}
+          startsExpanded={emailDialog.startsLarge}
         />
       </Modal>
       <NoteComposerModal

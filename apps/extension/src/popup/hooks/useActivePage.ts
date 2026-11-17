@@ -24,6 +24,7 @@ const SETTLE_BURST_MS = 150;
 export function useActivePage() {
   const [pageKey, setPageKey] = useState<string | null>(null);
   const [hasReadOnce, setHasReadOnce] = useState(false);
+  const { windowIdOfPanel, knownWindowId } = usePanelWindow();
 
   const page = useQuery<ReadPageResult>({
     queryKey: ["extension", "activePage", pageKey],
@@ -31,7 +32,7 @@ export function useActivePage() {
     staleTime: 0,
     gcTime: 0,
     queryFn: async () => {
-      const result = await askServiceWorker({ kind: "readActivePage" });
+      const result = await askServiceWorker({ kind: "readActivePage", windowId: await windowIdOfPanel() });
       if (!result.ok) {
         throw new PageReadError(result.code, result.message);
       }
@@ -46,17 +47,21 @@ export function useActivePage() {
   const resolvePageKey = useCallback(async () => {
     askedAt.current += 1;
     const asked = askedAt.current;
-    const result = await askServiceWorker({ kind: "activePageKey" });
+    const result = await askServiceWorker({ kind: "activePageKey", windowId: await windowIdOfPanel() });
     if (asked === askedAt.current && result.ok) {
       setPageKey(result.value.pageKey);
     }
-  }, []);
+  }, [windowIdOfPanel]);
 
   const { refetch } = page;
   useEffect(() => {
     void resolvePageKey();
 
     let settle: ReturnType<typeof setTimeout> | undefined;
+    // Every window's tabs fire these, and the panel lives in one: a tab switched in another window wiped the note
+    // being typed here, and its LinkedIn profile took this panel over.
+    const isAnotherWindow = (windowId: number | undefined) =>
+      knownWindowId.current !== null && windowId !== undefined && windowId !== knownWindowId.current;
     const rereadSoon = () => {
       clearTimeout(settle);
       settle = setTimeout(() => void refetch(), SETTLE_BURST_MS);
@@ -68,7 +73,7 @@ export function useActivePage() {
     // much longer with the previous person's name on screen — while the read that follows is
     // debounced, because one move is a burst and only its last event is worth reading after.
     const onUpdated = (_id: number, change: chrome.tabs.TabChangeInfo, tab: chrome.tabs.Tab) => {
-      if (!tab.active) {
+      if (!tab.active || isAnotherWindow(tab.windowId)) {
         return;
       }
       if (change.url) {
@@ -80,7 +85,10 @@ export function useActivePage() {
     };
     // Only ids, so the worker is asked — and the key is dropped first, because everything on screen
     // belongs to a tab nobody is looking at any more.
-    const onActivated = () => {
+    const onActivated = (activated?: chrome.tabs.TabActiveInfo) => {
+      if (isAnotherWindow(activated?.windowId)) {
+        return;
+      }
       setPageKey(null);
       void resolvePageKey();
     };
@@ -92,7 +100,7 @@ export function useActivePage() {
       chrome.tabs.onActivated.removeListener(onActivated);
       chrome.tabs.onUpdated.removeListener(onUpdated);
     };
-  }, [refetch, resolvePageKey]);
+  }, [refetch, resolvePageKey, knownWindowId]);
 
   // The worker resolved a different tab than the panel guessed. It is the authority — adopting its key
   // rather than discarding the answer is what stops the panel sitting empty for a page it can see.
@@ -134,3 +142,22 @@ export function useActivePage() {
 }
 
 export type ActivePage = ReturnType<typeof useActivePage>;
+
+/**
+ * The window this panel is docked in, asked once. Null where Chrome cannot say, and the panel then follows the focused
+ * window as it always did.
+ */
+function usePanelWindow() {
+  const asked = useRef<Promise<number | null> | null>(null);
+  const knownWindowId = useRef<number | null>(null);
+  const windowIdOfPanel = useCallback(() => {
+    asked.current ??= (chrome.windows?.getCurrent?.() ?? Promise.resolve(null))
+      .then((panelWindow) => {
+        knownWindowId.current = panelWindow?.id ?? null;
+        return knownWindowId.current;
+      })
+      .catch(() => null);
+    return asked.current;
+  }, []);
+  return { windowIdOfPanel, knownWindowId };
+}

@@ -146,3 +146,47 @@ describe("following the page the panel is looking at", () => {
     expect(result.current.person).toBeNull();
   });
 });
+
+describe("a panel docked in one window of several", () => {
+  const asked: { kind: string; windowId?: number | null }[] = [];
+  let chrome: ChromeStub;
+
+  beforeEach(() => {
+    asked.length = 0;
+    chrome = installChromeStub({ panelWindowId: 7 });
+    chrome.answer((request) => {
+      asked.push(request);
+      return request.kind === "activePageKey"
+        ? { ok: true, value: { pageKey: "person:amira-haddad", sourceUrl: AMIRA } }
+        : readOf(AMIRA, "Amira Haddad", "person:amira-haddad");
+    });
+  });
+
+  it("asks the worker about its own window", async () => {
+    const { result } = renderHook(() => useActivePage(), { wrapper });
+    await waitFor(() => expect(result.current.person?.fullName).toBe("Amira Haddad"));
+
+    expect(asked.map((request) => request.windowId)).toEqual(asked.map(() => 7));
+  });
+
+  // A tab switched or navigated in another window remounted the form here and threw away the note being typed.
+  it("keeps its page while another window's tabs move", async () => {
+    const { result } = renderHook(() => useActivePage(), { wrapper });
+    await waitFor(() => expect(result.current.person?.fullName).toBe("Amira Haddad"));
+
+    act(() => chrome.fireTabUpdated({ url: BILAL }, { windowId: 9 }));
+    act(() => chrome.fireTabActivated({ windowId: 9 }));
+
+    expect(result.current.pageKey).toBe("person:amira-haddad");
+    expect(result.current.person?.fullName).toBe("Amira Haddad");
+  });
+
+  it("still follows its own window's tabs", async () => {
+    const { result } = renderHook(() => useActivePage(), { wrapper });
+    await waitFor(() => expect(result.current.person?.fullName).toBe("Amira Haddad"));
+
+    act(() => chrome.fireTabUpdated({ url: BILAL }, { windowId: 7 }));
+
+    expect(result.current.pageKey).toBe("person:bilal-nasser");
+  });
+});
