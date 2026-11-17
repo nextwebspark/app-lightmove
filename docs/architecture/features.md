@@ -65,12 +65,16 @@ Decline / Back to universe sent them (`PUT …/candidates/{id}/triage-status`) �
 person alone. A stage lists its own companies plus any company with someone listed there; the company's own move
 (its drawer, or the line of a company with nobody on that stage) carries everyone at it (`TriageCompanyMoved`). An executive is also
 captured by the plugin, through the same endpoint the drawer posts to (`source: "extension"`). The plugin's side panel files into
-the position chosen at its top, asks first whether that position already holds the page (`GET …/candidates/held` by
-profile slug, `GET …/triage/held` by company page then name; staff-only, 204 when not) and then opens that record —
+the position chosen at its top — only positions `GET /projects` marks `viewerCanWork` (a seat, or a workspace admin) —
+asks first whether that position already holds the page (`GET …/candidates/held` by profile slug, decoded or
+percent-encoded; `GET …/triage/held` by company page, then name, then the market row capture would resolve the page to;
+staff-only, 204 when not) and then opens that record —
 status, tags and the position's notes, ready for the next — rather than a form; it writes its notes through the notes
 routes in the app's own editor (never the door's plain `note`), and files a company into the universe only. Its Undo
 says why when it leaves something: a person's takes the company filed for them (`?withFiledCompany=true`, V167) only
 while it is still In universe with nobody else at it and no note on it, and a company's is refused once anyone is mapped there.
+Two LinkedIn profiles are two people: the same-name refusal skips a namesake whose profile slug differs, and an employer
+filed from research lands on the position's company for that LinkedIn page before any name match (`resolveCapture`).
 **The add form leads with a LinkedIn lookup** (`ProfileLookupStep`, `POST …/candidates/profile-lookup`,
 `enrichment/candidate`'s `ProfileLookupService` over `candidate`'s `LookedUpResearch`): a pasted profile is researched
 exactly as a capture is (the same `LinkedInProfileEnricher`, name and photo included) and answered to the form before

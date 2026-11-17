@@ -150,7 +150,8 @@ A picked status since retired comes back `PIPELINE_STATUS_RETIRED`. Tags are the
 typing a new name, put on the person after the row is filed. A company goes **into the universe only** — shortlisting
 and declining are decisions made on the Companies screen with the universe in view.
 
-**The position is the panel's context** (`PositionBar`): chosen at the top before anything else, searched by title
+**The position is the panel's context** (`PositionBar`): only the positions `GET /projects` marks `viewerCanWork`
+(staff browse every mandate, but a save needs a seat or a workspace admin), chosen at the top before anything else, searched by title
 or client, the last three used first (`RECENT_PROJECTS_KEY`), archived positions never offered. Every page and every
 change of position asks the held lookups first (`useHeldRecord`): a match opens the **record** — who filed them and
 when, the photo (a data URL the worker fetched, since the panel cannot send the bearer token an `<img>` would need),
@@ -199,6 +200,10 @@ How the two fields are read (`background/activePage.ts:readActivePage`, no scrol
   answer for the page just left resolves into an entry nothing renders. It is also why a `?trk=` or
   a `/details/experience` detour does not reseed a form someone is typing in. The raw address stays
   as `sourceUrl` — provenance, sent with the capture, not identity.
+- **The panel reads its own window, never the focused one.** It asks `chrome.windows.getCurrent()` once, sends that
+  `windowId` with `readActivePage`/`activePageKey` (the worker's `tabToRead` then reads that window's active tab), and
+  ignores `tabs.onActivated`/`onUpdated` from other windows. Both shipped unscoped: a tab switched in a second window
+  remounted the form here — the note being typed gone — and that window's LinkedIn profile took this panel over.
 - The extension makes **no request of its own against LinkedIn**, ever — no Voyager calls, no
   interception, no declared `content_scripts`. That restraint is what keeps a real account safe.
 - Off LinkedIn there is no read at all: the worker answers `LINKEDIN_ONLY` and the panel shows the
