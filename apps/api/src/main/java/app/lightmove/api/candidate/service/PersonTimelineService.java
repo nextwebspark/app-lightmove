@@ -57,7 +57,7 @@ public class PersonTimelineService {
             "text", "dueAt", "cleared", "visible", "taskId", "title", "taskKind", "assignee", "previousAssignee",
             "rule", "sequenceId", "sequence", "step", "reason", "startsAt", "viaLink", "manual", "withCompany",
             "fields", "call", "callAt", "recordingId", "reverted", "scope", "previousStartsAt", "messageId",
-            "automation", "outcome");
+            "automation", "outcome", "fromReason");
     /**
      * Changes to the person rather than to a position's work, read on every position they are on: a position's
      * drawer reads what it shows (the profile, the contacts, the documents), so who changed it is that position's

@@ -19,6 +19,9 @@ public enum PersonActivityKind {
 
     STATUS_CHANGED,
 
+    /** A different reason, or note, for someone already out of process (V228). */
+    EXIT_REASON_CHANGED,
+
     /** Moved to another Companies stage, on their own or carried by their company's move (#903). */
     TRIAGE_STATUS_CHANGED,
 

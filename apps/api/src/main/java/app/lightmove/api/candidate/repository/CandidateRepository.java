@@ -73,6 +73,8 @@ public interface CandidateRepository extends JpaRepository<Candidate, UUID>, Jpa
 
     Optional<Candidate> findByIdAndProjectId(UUID id, UUID projectId);
 
+    List<Candidate> findByProjectIdAndExitReasonIdIsNotNull(UUID projectId);
+
     Optional<Candidate> findByProjectIdAndPersonId(UUID projectId, UUID personId);
 
     default Candidate requireInProject(UUID id, UUID projectId) {

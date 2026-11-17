@@ -672,7 +672,7 @@ class OutreachDispatchIntegrationTest extends FlowTestSupport {
         String priya = executive("Priya Raman", "priya@" + domain);
         String rajesh = executive("Rajesh Menon", "rajesh@" + domain);
         start(sequenceId, List.of(person(priya, "priya@" + domain, null), person(rajesh, "rajesh@" + domain, null)));
-        setStatus(priya, "notInterested");
+        setStatus(priya, "unresponsive");
         jdbc.update("delete from app_lm_person_contact where lower(value) = ?", "rajesh@" + domain);
 
         dispatcher.dispatchAt(monday);

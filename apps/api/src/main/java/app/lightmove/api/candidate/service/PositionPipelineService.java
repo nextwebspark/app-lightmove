@@ -1,6 +1,7 @@
 package app.lightmove.api.candidate.service;
 
 import app.lightmove.api.candidate.constant.PersonActivityKind;
+import app.lightmove.api.candidate.dto.CandidateExitReasonResponse;
 import app.lightmove.api.candidate.dto.CandidateNextActionDto;
 import app.lightmove.api.candidate.dto.PipelineRowResponse;
 import app.lightmove.api.candidate.dto.PipelineStageCountResponse;
@@ -27,6 +28,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -62,6 +64,7 @@ public class PositionPipelineService {
     private final CandidateRepository candidates;
     private final ProjectRepository projects;
     private final CandidatePipelineCatalog pipeline;
+    private final CandidateExitReasons exitReasons;
     private final PersonActivityRecorder activity;
     private final NextActionLookup nextActions;
     private final AuditService audit;
@@ -96,7 +99,8 @@ public class PositionPipelineService {
                 .filter(row -> row.getStatus().getStage().getStageKey().equals(stageKey.strip()))
                 .toList();
         Map<UUID, CandidateNextActionDto> next = nextActionsOf(projectId, shown);
-        return new PositionPipelineResponse(shown.stream().map(row -> toRow(row, next)).toList(), counts,
+        Map<UUID, CandidateExitReasonResponse> why = reasonsOf(workspaceId, shown);
+        return new PositionPipelineResponse(shown.stream().map(row -> toRow(row, next, why)).toList(), counts,
                 inactive, shown.size());
     }
 
@@ -105,7 +109,7 @@ public class PositionPipelineService {
     public PipelineRowResponse rowOf(UUID workspaceId, UUID projectId, UUID candidateId) {
         projects.requireInWorkspace(projectId, workspaceId);
         Candidate candidate = candidates.requireInProject(candidateId, projectId);
-        return toRow(candidate, nextActionsOf(projectId, List.of(candidate)));
+        return toRow(candidate, nextActionsOf(projectId, List.of(candidate)), reasonsOf(workspaceId, List.of(candidate)));
     }
 
     /**
@@ -139,7 +143,7 @@ public class PositionPipelineService {
         audit.projectEvent(ProjectEventType.CANDIDATE_PIPELINE_REORDERED, userId, workspaceId, projectId, httpRequest)
                 .detail("candidateId", candidateId.toString())
                 .record();
-        return toRow(moved, nextActionsOf(projectId, List.of(moved)));
+        return toRow(moved, nextActionsOf(projectId, List.of(moved)), reasonsOf(workspaceId, List.of(moved)));
     }
 
     @Transactional
@@ -161,7 +165,7 @@ public class PositionPipelineService {
                     .detailIfPresent("withoutShareConsent", withoutShareConsent)
                     .record();
         }
-        return toRow(candidate, nextActionsOf(projectId, List.of(candidate)));
+        return toRow(candidate, nextActionsOf(projectId, List.of(candidate)), reasonsOf(workspaceId, List.of(candidate)));
     }
 
     /** Where the moved row goes among the others: after {@code after}, else before {@code before}, else last. */
@@ -224,13 +228,19 @@ public class PositionPipelineService {
                 : nextActions.nextActionsOf(projectId, rows.stream().map(Candidate::getId).toList());
     }
 
-    private static PipelineRowResponse toRow(Candidate row, Map<UUID, CandidateNextActionDto> next) {
+    private Map<UUID, CandidateExitReasonResponse> reasonsOf(UUID workspaceId, List<Candidate> rows) {
+        return exitReasons.givenTo(workspaceId, rows).stream()
+                .collect(Collectors.toMap(CandidateExitReasonResponse::candidateId, Function.identity()));
+    }
+
+    private static PipelineRowResponse toRow(Candidate row, Map<UUID, CandidateNextActionDto> next,
+                                             Map<UUID, CandidateExitReasonResponse> why) {
         return new PipelineRowResponse(row.getId(), row.getPerson().getId(), row.getPerson().getFullName(),
                 row.getPerson().getTitle(), row.getCompanyName(), row.getTriageCompanyId(),
                 row.getStatus().getStatusKey(), row.getStatus().getLabel(), row.getStatus().getColour().value(),
                 row.getStatus().isOutOfProcess(), CandidateResponseMapper.stageOf(row.getStatus()),
                 row.getCreatedAt(), row.getStatusChangedAt(),
                 next.get(row.getId()),
-                row.isClientVisible(), row.getPerson().getProfile().enrichedAt());
+                row.isClientVisible(), row.getPerson().getProfile().enrichedAt(), why.get(row.getId()));
     }
 }
