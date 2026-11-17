@@ -161,12 +161,12 @@ export function CandidateProfile({
 }) {
   const sections = useProfileSections();
   const outlet = useOutletContext<ProjectOutletContext | undefined>();
-  // Only where a press could warn: a writer, and a phone to press. The Outreach tab reads the same conversation, so
-  // opening it costs nothing more.
+  // A writer's Contact section reads it: Last call under Phone, phone or none, and the caution before a press. The
+  // Outreach tab's timeline reads the same conversation, so it costs nothing more.
   const conversation = useQuery({
     queryKey: CONVERSATION_KEY(projectId, candidate.id),
     queryFn: ({ signal }) => getConversation(projectId, candidate.id, signal),
-    enabled: canWrite && candidate.contacts.phones.length > 0,
+    enabled: canWrite,
   });
   /**
    * Whether this deployment looks contacts up. A deployment fact, not a row one, so it is read once
