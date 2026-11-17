@@ -16,6 +16,8 @@ export interface PageSubject {
    * the bar first. Evidence of staleness only — it can make a read wait, never make one trusted.
    */
   declaredUrl: string | null;
+  /** The tab title, notification count dropped: what tells a namesake's page from the previous one still on screen. */
+  documentTitle: string | null;
 }
 
 /**
@@ -30,6 +32,7 @@ export function readPageSubject(document: Document): PageSubject {
     company: mergeExtracted([linkedInCompanyExtractor(document)]),
     pageUrl: document.location?.href ?? "",
     declaredUrl: declaredUrlOf(document),
+    documentTitle: documentTitleOf(document),
   };
 }
 
@@ -42,6 +45,11 @@ function classify(document: Document): PageSubjectKind {
     return "person";
   }
   return pathname.startsWith("/company/") ? "company" : "unknown";
+}
+
+function documentTitleOf(document: Document): string | null {
+  const title = (document.title ?? "").replace(/^\(\d+\+?\)\s*/, "").replace(/\s+/g, " ").trim();
+  return title || null;
 }
 
 function declaredUrlOf(document: Document): string | null {

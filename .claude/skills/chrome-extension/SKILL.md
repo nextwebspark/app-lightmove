@@ -186,7 +186,7 @@ How the two fields are read (`background/activePage.ts:readActivePage`, no scrol
   comparing one address to another catches nothing — the address is not what lags — and a single read
   taken mid-navigation puts the previous person's name above the Save button. `pageSettleEvidence.ts`
   asks whether anything about the *content* says it belongs elsewhere (a `canonical` naming another
-  slug; the same name that was read at a different page), and `activePage.ts` re-injects on a 150ms
+  slug; the same name *under the same tab title* that was read at a different page — a namesake's page has its own title), and `activePage.ts` re-injects on a 150ms
   grid for ~3s while it does. Past the deadline the name comes back **empty** rather than wrong.
   A page-supplied value is only ever evidence *against* a read — it can make one wait, never make one
   trusted.

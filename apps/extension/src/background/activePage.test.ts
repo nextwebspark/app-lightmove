@@ -11,6 +11,7 @@ function personRead(fullName: string | null, pageUrl = PROFILE_URL): PageSubject
     company: { companyName: null, linkedinUrl: null },
     pageUrl,
     declaredUrl: null,
+    documentTitle: null,
   };
 }
 
@@ -81,7 +82,7 @@ describe("reading the page the panel is looking at", () => {
 
     expect(read.person.fullName).toBe("Bilal Nasser");
     expect(page.injections()).toBe(3);
-    expect(page.stored()).toEqual({ tabId: 1, pageKey: "person:bilal-nasser", name: "Bilal Nasser" });
+    expect(page.stored()).toEqual({ tabId: 1, pageKey: "person:bilal-nasser", name: "Bilal Nasser", title: null });
   });
 
   it("stops as soon as the tab has moved on again, rather than waiting out a page nobody is on", async () => {

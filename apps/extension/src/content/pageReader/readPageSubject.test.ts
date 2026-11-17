@@ -59,6 +59,16 @@ describe("the LinkedIn profile", () => {
 
   // The worker compares this against the slug it asked about, so a read that landed on another page
   // is discarded rather than shown.
+  it("reports the tab title without LinkedIn's notification count", () => {
+    const read = readPageSubject(
+      new JSDOM("<title>(12) Amira Haddad - Group CFO | LinkedIn</title><main></main>", {
+        url: "https://www.linkedin.com/in/amira-haddad/",
+      }).window.document as unknown as Document,
+    );
+
+    expect(read.documentTitle).toBe("Amira Haddad - Group CFO | LinkedIn");
+  });
+
   it("reports the address it was read at", () => {
     const read = readPageSubject(
       documentAt("linkedInProfilePage.html", "https://www.linkedin.com/in/amira-haddad/"),

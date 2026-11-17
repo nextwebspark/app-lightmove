@@ -130,7 +130,7 @@ async function readWhenSettled(
       if (name) {
         // Only a settled read is remembered. Recording a blank would let the next read fall through
         // to "nothing against it" and hand the stale name straight back.
-        await deps.lastRead.set({ tabId, pageKey, name });
+        await deps.lastRead.set({ tabId, pageKey, name, title: read.documentTitle });
       }
       return read;
     }
