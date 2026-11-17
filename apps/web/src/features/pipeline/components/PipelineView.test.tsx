@@ -48,7 +48,7 @@ vi.mock("../api/pipelineApi", async (importOriginal) => ({
 vi.mock("../../workspace/api/pipelineApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../workspace/api/pipelineApi")>()),
   pipelineCatalog: vi.fn(),
-  exitReasons: vi.fn().mockResolvedValue({ reasons: [] }),
+  exitReasons: vi.fn(),
 }));
 vi.mock("../../tasks/api/tasksApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../tasks/api/tasksApi")>()),
@@ -710,6 +710,7 @@ describe("PipelineView", () => {
     beforeEach(() => {
       vi.mocked(catalogApi.pipelineCatalog).mockResolvedValue(current);
       vi.mocked(pipelineApi.getPipeline).mockResolvedValue(aPipelinePage(flaggedRows, current));
+      vi.mocked(catalogApi.exitReasons).mockResolvedValue({ reasons: [] });
     });
 
     it("draws someone at a status out of process in the band under their stage, not in its column", async () => {

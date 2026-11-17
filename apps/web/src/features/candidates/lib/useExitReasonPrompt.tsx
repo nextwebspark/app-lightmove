@@ -1,5 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
+import { useToast } from "../../../components/ui";
+import { messageFor } from "../../../lib/errorCodes";
 import * as pipelineApi from "../../workspace/api/pipelineApi";
 import type {
   ExitReason,
@@ -54,6 +56,7 @@ export function useExitReasonPrompt(): {
   dialog: ReactNode;
 } {
   const queryClient = useQueryClient();
+  const toast = useToast();
   const { catalog } = usePipelineCatalog();
   const [asking, setAsking] = useState<Asking | null>(null);
 
@@ -71,9 +74,11 @@ export function useExitReasonPrompt(): {
         await fetchExitReasons(queryClient),
         wayOut.id,
       );
-    } catch {
-      // Unread, the server still decides: a move that needs a reason is refused with a message saying so.
-      return proceed(null);
+    } catch (error) {
+      // Sent without a reason, a move to a way out that asks for one is certain to be refused: stop and say so.
+      toast.error(messageFor(error));
+      cancel?.();
+      return;
     }
     if (reasons.length === 0) return proceed(null);
     setAsking({ name, wayOut, reasons, proceed, cancel });

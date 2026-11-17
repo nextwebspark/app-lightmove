@@ -345,13 +345,14 @@ export interface WritePersonNotePayload {
 /** An edit: a body left out keeps the words held, as an outcome left out keeps the outcome. */
 export type RevisePersonNotePayload = Omit<WritePersonNotePayload, "body"> & { body?: string };
 
-/** One mandate a person is mapped on, with that mandate's status and who filed them there. */
 /** Why a mandate's candidate left the process. Staff-only: never on `Candidate`, which a client seat reads. */
 export interface CandidateExitReason {
   candidateId: string;
   reasonId: string;
   label: string;
   note: string | null;
+  /** The reason asks for a note (Other), so a held one is corrected with it. */
+  requiresNote: boolean;
   /** Retired after it was given: kept on them, offered no more. */
   retired: boolean;
   setAt: string | null;
@@ -365,6 +366,7 @@ export interface ExitReasonChoice {
   note: string | null;
 }
 
+/** One mandate a person is mapped on, with that mandate's status and who filed them there. */
 export interface PersonPosition {
   candidateId: string;
   projectId: string;

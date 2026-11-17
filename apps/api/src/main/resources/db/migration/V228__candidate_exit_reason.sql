@@ -1,13 +1,19 @@
 -- Why this mandate's candidate left the process: one of the workspace's reasons, a note where the reason asks for one,
 -- and who gave it when. Held only while the candidate's status is out of process; a move back in clears it. A row
 -- moved out before V228 holds none and reads "Not given" until someone fills it in. Staff-only, like the reasons.
+-- A reason is retired, never deleted, so the key takes no ON DELETE: a reason someone holds cannot go, and a workspace's
+-- deletion still cascades through both sides because the check waits for the end of the statement.
 ALTER TABLE app_lm_project_candidate
-    ADD COLUMN exit_reason_id     uuid REFERENCES app_lm_workspace_exit_reason (id) ON DELETE SET NULL,
+    ADD COLUMN exit_reason_id     uuid REFERENCES app_lm_workspace_exit_reason (id),
     ADD COLUMN exit_note          varchar(500),
     ADD COLUMN exit_reason_set_at timestamptz,
     ADD COLUMN exit_reason_set_by uuid REFERENCES app_lm_user (id) ON DELETE SET NULL,
     ADD CONSTRAINT app_lm_project_candidate_exit_note_chk
-        CHECK (btrim(exit_note) <> '');
+        CHECK (btrim(exit_note) <> ''),
+    -- No note or date without the reason they belong to.
+    ADD CONSTRAINT app_lm_project_candidate_exit_reason_chk
+        CHECK (exit_reason_id IS NOT NULL OR (exit_note IS NULL AND exit_reason_set_at IS NULL
+                                              AND exit_reason_set_by IS NULL));
 
 CREATE INDEX app_lm_project_candidate_exit_reason_idx
     ON app_lm_project_candidate (exit_reason_id) WHERE exit_reason_id IS NOT NULL;

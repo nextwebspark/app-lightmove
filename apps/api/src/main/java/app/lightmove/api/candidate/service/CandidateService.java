@@ -550,17 +550,17 @@ public class CandidateService {
         Candidate candidate = candidates.requireInProject(candidateId, projectId);
 
         CandidateStatusDefinition to = pipeline.requireOfferable(workspaceId, request.status());
-        ExitReason reason = to.getId().equals(candidate.getStatus().getId()) ? null
-                : exitReasons.requireForMove(workspaceId, to, request.reasonId(), request.note());
-        CandidateStatusDefinition from = candidate.getStatus();
-        if (candidate.moveTo(to)) {
-            if (reason != null) {
-                candidate.giveExitReason(reason.getId(), request.note(), userId);
+        ExitReason reason;
+        if (to.getId().equals(candidate.getStatus().getId())) {
+            // A reason rides a move; one for the status already held is changed by PUT …/exit-reason instead.
+            if (request.reasonId() != null) {
+                throw ApiException.of(ErrorCode.EXIT_REASON_NOT_OFFERED);
             }
-            activity.record(candidate, userId, PersonActivityKind.STATUS_CHANGED,
-                    PersonActivityDetails.statusChange(from, to)
-                            .and("reason", reason == null ? null : reason.getLabel()));
+            reason = null;
+        } else {
+            reason = exitReasons.requireForMove(workspaceId, to, request.reasonId(), request.note());
         }
+        moveTo(candidate, userId, to, reason, request.note());
 
         var event = audit.projectEvent(ProjectEventType.CANDIDATE_UPDATED, userId, workspaceId, projectId,
                         httpRequest)
@@ -582,8 +582,7 @@ public class CandidateService {
         projects.requireInWorkspace(projectId, workspaceId);
         Candidate candidate = candidates.requireInProject(candidateId, projectId);
         ExitReason reason = exitReasons.requireForChange(workspaceId, candidate, request.reasonId(), request.note());
-        CandidateExitReasonResponse before = exitReasons.givenTo(workspaceId, candidate);
-        String fromReason = before == null ? null : before.label();
+        String fromReason = exitReasons.labelOf(workspaceId, candidate.getExitReasonId());
         if (candidate.giveExitReason(reason.getId(), request.note(), userId)) {
             activity.record(candidate, userId, PersonActivityKind.EXIT_REASON_CHANGED, PersonActivityDetails
                     .of("reason", reason.getLabel()).and("fromReason", fromReason)
@@ -630,10 +629,20 @@ public class CandidateService {
     }
 
     private void moveTo(Candidate candidate, UUID userId, CandidateStatusDefinition to) {
+        moveTo(candidate, userId, to, null, null);
+    }
+
+    /** Every door's move: a reason, where the door asked for one, is given with it and named on its timeline line. */
+    private void moveTo(Candidate candidate, UUID userId, CandidateStatusDefinition to, ExitReason reason,
+                        String note) {
         CandidateStatusDefinition from = candidate.getStatus();
         if (candidate.moveTo(to)) {
+            if (reason != null) {
+                candidate.giveExitReason(reason.getId(), note, userId);
+            }
             activity.record(candidate, userId, PersonActivityKind.STATUS_CHANGED,
-                    PersonActivityDetails.statusChange(from, to));
+                    PersonActivityDetails.statusChange(from, to)
+                            .and("reason", reason == null ? null : reason.getLabel()));
         }
     }
 

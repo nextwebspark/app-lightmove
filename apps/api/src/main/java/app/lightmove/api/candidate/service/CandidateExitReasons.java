@@ -66,6 +66,12 @@ class CandidateExitReasons {
                 .orElseThrow(() -> refusalFor(workspaceId, reasonId));
     }
 
+    /** A held reason's name, retired or not; null for none. */
+    String labelOf(UUID workspaceId, UUID reasonId) {
+        return reasonId == null ? null
+                : reasons.findByIdAndWorkspaceId(reasonId, workspaceId).map(ExitReason::getLabel).orElse(null);
+    }
+
     /** Each candidate's reason, for those holding one. */
     List<CandidateExitReasonResponse> givenTo(UUID workspaceId, Collection<Candidate> candidates) {
         List<Candidate> given = candidates.stream().filter(row -> row.getExitReasonId() != null).toList();
@@ -84,7 +90,7 @@ class CandidateExitReasons {
                     ExitReason reason = byId.get(row.getExitReasonId());
                     User setter = row.getExitReasonSetBy() == null ? null : setters.get(row.getExitReasonSetBy());
                     return new CandidateExitReasonResponse(row.getId(), reason.getId(), reason.getLabel(),
-                            row.getExitNote(), reason.isRetired(), row.getExitReasonSetAt(), row.getExitReasonSetBy(),
+                            row.getExitNote(), reason.isRequiresNote(), reason.isRetired(), row.getExitReasonSetAt(), row.getExitReasonSetBy(),
                             setter == null ? null : setter.getFullName());
                 })
                 .toList();

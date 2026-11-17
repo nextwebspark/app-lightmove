@@ -97,6 +97,16 @@ describe("useChangeCandidateStatus", () => {
     expect(candidatesApi.changeCandidateStatus).not.toHaveBeenCalled();
   });
 
+  it("stops, and says so, when the reasons cannot be read rather than sending a move certain to be refused", async () => {
+    vi.mocked(pipelineApi.exitReasons).mockRejectedValue(new Error("offline"));
+    renderMover("notInterested");
+    await userEvent.click(await screen.findByRole("button", { name: "Move" }));
+
+    expect(await screen.findByRole("alert")).toBeInTheDocument();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(candidatesApi.changeCandidateStatus).not.toHaveBeenCalled();
+  });
+
   it("moves straight through to a status in process", async () => {
     renderMover("engaged");
     await userEvent.click(await screen.findByRole("button", { name: "Move" }));

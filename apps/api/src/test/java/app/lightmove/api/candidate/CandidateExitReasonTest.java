@@ -52,6 +52,10 @@ class CandidateExitReasonTest extends PipelineFlowSupport {
         assertThat(given.get("note").asText()).isEqualTo("Relocating to Riyadh");
         assertThat(given.get("setByName").isNull()).isFalse();
         assertThat(pipelineRow().at("/exitReason/label").asText()).isEqualTo("Other");
+        assertThat(pipelineRow().at("/exitReason/requiresNote").asBoolean()).isTrue();
+        assertThat(codeOf(move("notInterested", reason("compensation"), null)))
+                .as("a reason rides a move; the status already held changes it through PUT exit-reason")
+                .isEqualTo("EXIT_REASON_NOT_OFFERED");
     }
 
     @Test
@@ -115,6 +119,19 @@ class CandidateExitReasonTest extends PipelineFlowSupport {
         JsonNode candidate = body(mvc.perform(get(candidatesUrl(projectId) + "/" + candidateId)
                 .header("Authorization", "Bearer " + admin)).andExpect(status().isOk()).andReturn());
         assertThat(candidate.has("exitReason")).as("the candidate a client reads carries no reason").isFalse();
+    }
+
+    @Test
+    @DisplayName("a reason someone holds cannot be deleted, and their workspace's deletion still takes both")
+    void aHeldReasonOutlivesOnlyItsWorkspace() throws Exception {
+        move("notInterested", reason("other"), "Moving to Riyadh");
+
+        assertThat(org.assertj.core.api.Assertions.catchThrowable(() -> db.update(
+                "DELETE FROM app_lm_workspace_exit_reason WHERE id = ?::uuid", reason("other"))))
+                .as("retired, never deleted").isNotNull();
+        db.update("DELETE FROM app_lm_workspace WHERE id = ?::uuid", workspaceId);
+        assertThat(db.queryForObject("SELECT count(*) FROM app_lm_project_candidate WHERE id = ?::uuid",
+                Integer.class, candidateId)).isZero();
     }
 
     private org.springframework.test.web.servlet.MvcResult move(String statusKey, String reasonId, String note)

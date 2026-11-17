@@ -133,6 +133,17 @@ export function ExitReasonLine({
           {given?.label}
         </span>
       )}
+      {/* A native select fires nothing for the option already chosen, so a held note gets its own way back in. */}
+      {canChange && given?.requiresNote && (
+        <button
+          type="button"
+          disabled={change.isPending}
+          onClick={() => setNoting({ reasonId: given.reasonId, note: given.note })}
+          className="flex-none rounded px-1 text-u-accent hover:bg-u-surface"
+        >
+          Edit note
+        </button>
+      )}
       {noting && (
         <ExitReasonDialog
           name={name}
@@ -181,7 +192,7 @@ function optionsOf(
       id: given.reasonId,
       key: given.reasonId,
       label: given.label,
-      requiresNote: false,
+      requiresNote: given.requiresNote,
       position: -1,
       retired: given.retired,
       statusIds: [],
