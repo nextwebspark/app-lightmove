@@ -39,9 +39,13 @@ class CandidatePipelineCatalogTest extends PipelineFlowSupport {
         catalog.get("stages").forEach(stage -> assertThat(stage.has("kind")).isFalse());
         assertThat(labelsOf(stageIn(catalog, "contacted").get("statuses"))).containsExactly("Awaiting reply",
                 "Confirming interest", "Call being arranged", "Call arranged", "Not interested", "Unresponsive");
+        assertThat(labelsOf(stageIn(catalog, "identified").get("statuses")))
+                .containsExactly("Identified", "Not approached", "Off-limits", "Source");
         assertThat(flaggedOf(catalog)).containsExactlyInAnyOrder("outOfScope", "offLimits", "notInterested",
-                "unresponsive", "screenedOut", "notProgressed", "withdrew", "clientRejected",
-                "clientRejectedAfterReferences", "declinedOffer");
+                "unresponsive", "screenedOut", "notProgressed", "withdrew", "clientRejected", "withdrewShortlist",
+                "clientRejectedAfterReferences", "declinedOffer", "withdrewOffer");
+        assertThat(labelsOf(stageIn(catalog, "qualified").get("statuses")).getLast()).isEqualTo("Withdrew");
+        assertThat(labelsOf(stageIn(catalog, "shortlisted").get("statuses")).getLast()).isEqualTo("Withdrew");
         assertThat(defaultsOf(catalog)).containsExactly("identified", "contacted", "interested", "shortlisted",
                 "references");
         assertThat(systemOf(catalog)).containsExactlyInAnyOrder("identified", "outOfScope", "offLimits",
@@ -49,7 +53,7 @@ class CandidatePipelineCatalogTest extends PipelineFlowSupport {
     }
 
     @Test
-    @DisplayName("a status is added under its stage, last, with a key read off its name; its name is the workspace's alone")
+    @DisplayName("a status is added under its stage, last, with a key read off its name; its name is its stage's alone")
     void aStatusIsAddedUnderItsStage() throws Exception {
         String interested = stageIn(catalog(), "interested").get("id").asText();
 
@@ -66,8 +70,42 @@ class CandidatePipelineCatalogTest extends PipelineFlowSupport {
                 .isEqualTo("PIPELINE_LABEL_TAKEN");
         assertThat(write(admin, "POST", PIPELINE + "/statuses", """
                 {"label":"Floating"}""").getResponse().getStatus()).isEqualTo(400);
+
+        String research = stageIn(catalog, "identified").get("id").asText();
+        catalog = body(write(admin, "POST", PIPELINE + "/statuses", """
+                {"stageId":"%s","label":"Waiting on visa"}""".formatted(research)));
+        assertThat(statusIn(catalog, "waitingOnVisa2").get("label").asText()).isEqualTo("Waiting on visa");
         assertThat(write(admin, "POST", PIPELINE + "/stages", """
                 {"label":"Assessment"}""").getResponse().getStatus()).isEqualTo(409);
+    }
+
+    @Test
+    @DisplayName("a rename or a move never leaves two statuses of one name under one stage")
+    void aStatusNameIsUniqueWithinItsStage() throws Exception {
+        JsonNode catalog = catalog();
+        String hold = statusIn(catalog, "hold").get("id").asText();
+        String screenedOut = statusIn(catalog, "screenedOut").get("id").asText();
+        String offer = stageIn(catalog, "shortlisted").get("id").asText();
+
+        assertThat(codeOf(write(admin, "PATCH", PIPELINE + "/statuses/" + screenedOut, """
+                {"label":"withdrew"}"""))).isEqualTo("PIPELINE_LABEL_TAKEN");
+        catalog = body(write(admin, "PATCH", PIPELINE + "/statuses/" + hold, """
+                {"label":"Placed"}"""));
+        assertThat(statusIn(catalog, "hold").get("label").asText()).isEqualTo("Placed");
+        assertThat(codeOf(write(admin, "PATCH", PIPELINE + "/statuses/" + hold, """
+                {"stageId":"%s"}""".formatted(offer)))).isEqualTo("PIPELINE_LABEL_TAKEN");
+        assertThat(codeOf(write(admin, "PATCH", PIPELINE + "/statuses/" + screenedOut, """
+                {"label":"Withdrew","stageId":"%s"}""".formatted(offer)))).isEqualTo("PIPELINE_LABEL_TAKEN");
+        assertThat(keysOf(stageIn(catalog(), "interested").get("statuses")))
+                .as("a refused write moves nothing").contains("screenedOut");
+
+        String approach = stageIn(catalog, "contacted").get("id").asText();
+        catalog = body(write(admin, "PATCH", PIPELINE + "/statuses/" + screenedOut, """
+                {"label":"Withdrew","stageId":"%s"}""".formatted(approach)));
+        assertThat(statusIn(catalog, "screenedOut").get("label").asText())
+                .as("renamed and moved at once, its new name checked against the stage it lands in")
+                .isEqualTo("Withdrew");
+        assertThat(keysOf(stageIn(catalog, "contacted").get("statuses"))).contains("screenedOut");
     }
 
     @Test

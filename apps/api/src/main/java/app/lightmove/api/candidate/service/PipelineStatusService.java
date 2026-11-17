@@ -40,7 +40,7 @@ public class PipelineStatusService {
         CandidateStage stage = stages.requireInWorkspace(request.stageId(), workspaceId);
         PipelineRules.refuseRetiredStage(stage);
         String label = request.label().strip();
-        statuses.findByLabel(workspaceId, label).ifPresent(existing -> {
+        statuses.findByLabelInStage(workspaceId, stage.getId(), label).ifPresent(existing -> {
             throw ApiException.of(existing.isRetired() ? ErrorCode.PIPELINE_STATUS_RETIRED : ErrorCode.PIPELINE_LABEL_TAKEN);
         });
         String key = PipelineRules.freeKey(label, "status",
@@ -63,17 +63,21 @@ public class PipelineStatusService {
                                                 UpdatePipelineStatusRequest request, HttpServletRequest httpRequest) {
         PipelineCatalog catalog = catalogs.catalogOf(workspaceId);
         CandidateStatusDefinition status = statuses.requireInWorkspace(statusId, workspaceId);
-        if (request.label() != null) {
-            rename(workspaceId, status, request.label());
+        CandidateStage target = request.stageId() == null || request.stageId().equals(status.getStage().getId())
+                ? null : stages.requireInWorkspace(request.stageId(), workspaceId);
+        String label = request.label() == null ? status.getLabel() : requireLabel(request.label());
+        if (request.label() != null || target != null) {
+            refuseLabelTakenIn(workspaceId, target == null ? status.getStage() : target, label, status);
         }
+        status.rename(label);
         if (request.colour() != null) {
             status.recolour(PipelineRules.requireColour(request.colour()));
         }
         if (request.outOfProcess() != null && request.outOfProcess() != status.isOutOfProcess()) {
             flag(catalog, status, request.outOfProcess());
         }
-        if (request.stageId() != null && !request.stageId().equals(status.getStage().getId())) {
-            move(catalog, status, stages.requireInWorkspace(request.stageId(), workspaceId));
+        if (target != null) {
+            move(catalog, status, target);
         }
         if (Boolean.TRUE.equals(request.isDefault()) && !status.isDefaultOfStage()) {
             makeDefault(catalog, status);
@@ -113,17 +117,21 @@ public class PipelineStatusService {
         return PipelineCatalogMapper.toResponse(catalogs.catalogOf(workspaceId));
     }
 
-    private void rename(UUID workspaceId, CandidateStatusDefinition status, String requested) {
+    private static String requireLabel(String requested) {
         String label = requested.strip();
         if (label.isEmpty()) {
             throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "label", "A status needs a name");
         }
-        statuses.findByLabel(workspaceId, label)
+        return label;
+    }
+
+    private void refuseLabelTakenIn(UUID workspaceId, CandidateStage stage, String label,
+                                    CandidateStatusDefinition status) {
+        statuses.findByLabelInStage(workspaceId, stage.getId(), label)
                 .filter(existing -> !existing.getId().equals(status.getId()))
                 .ifPresent(existing -> {
                     throw ApiException.of(ErrorCode.PIPELINE_LABEL_TAKEN);
                 });
-        status.rename(label);
     }
 
     /** Taking a status out moves everyone at it to Inactive at once; its stage's default is never taken out. */
