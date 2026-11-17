@@ -25,6 +25,7 @@ vi.mock("../../workspace/api/pipelineApi", async (importOriginal) => ({
   statusRetirePreview: vi.fn(),
   statusAutomations: vi.fn(),
   updateStatusAutomation: vi.fn(),
+  exitReasons: vi.fn(),
 }));
 
 let currentUser: User = aUser();
@@ -44,8 +45,11 @@ function renderPage() {
 
 const AUTOMATION_CARD = "Move candidates automatically";
 const card = (label: string) => screen.getByRole("region", { name: label });
+const REASONS_CARD = "Reasons for leaving the process";
 const stageRegions = () =>
-  screen.getAllByRole("region").filter((region) => region.getAttribute("aria-label") !== AUTOMATION_CARD);
+  screen
+    .getAllByRole("region")
+    .filter((region) => ![AUTOMATION_CARD, REASONS_CARD].includes(region.getAttribute("aria-label") ?? ""));
 const stageListItems = () => stageRegions().flatMap((region) => within(region).queryAllByRole("listitem"));
 
 function seededAutomations(overrides: Partial<Record<StatusAutomationTrigger, Partial<StatusAutomation>>> = {}) {
@@ -87,6 +91,7 @@ describe("PipelineStagesPage", () => {
     currentUser = aUser();
     vi.mocked(pipelineApi.pipelineCatalog).mockResolvedValue(aSeededCatalog());
     vi.mocked(pipelineApi.statusAutomations).mockResolvedValue(seededAutomations());
+    vi.mocked(pipelineApi.exitReasons).mockResolvedValue({ reasons: [] });
     vi.mocked(pipelineApi.statusRetirePreview).mockImplementation(async (statusId) => ({
       statuses: [{ statusId, label: statusId, holders: 0 }],
       automations: [],

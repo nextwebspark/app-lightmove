@@ -133,6 +133,28 @@ export interface PipelineStageChange {
 }
 
 /** The events that move a candidate forward to a status of the workspace's choosing. */
+/** A reason for leaving the process; `statusIds` are the out-of-process statuses that offer it. Staff-only. */
+export interface ExitReason {
+  id: string;
+  key: string;
+  label: string;
+  requiresNote: boolean;
+  position: number;
+  retired: boolean;
+  statusIds: string[];
+}
+
+export interface ExitReasonCatalog {
+  reasons: ExitReason[];
+}
+
+export interface ExitReasonChange {
+  label?: string;
+  requiresNote?: boolean;
+  statusIds?: string[];
+  retired?: boolean;
+}
+
 export type StatusAutomationTrigger = "emailSent" | "replied" | "callBooked";
 
 export interface StatusAutomation {

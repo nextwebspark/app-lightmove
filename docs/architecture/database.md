@@ -513,6 +513,15 @@ someone left from is their status's stage. The seed now labels `outOfScope` **No
 Shortlist (`withdrewShortlist`) and Offer (`withdrewOffer`). An existing workspace gained those two only where it still
 runs V163's shape (its own `withdrew` a way out under the `INTERESTED` stage), on a live stage, under a key it does not
 hold; nothing existing was renamed.
+V227 adds the reasons for leaving the process: `app_lm_workspace_exit_reason` (a workspace's list — key, label ≤ 60
+unique per workspace case ignored, `requires_note` for Other, position, retired never deleted) and
+`app_lm_workspace_status_exit_reason`, which out-of-process statuses offer each reason (a status offering none asks for
+none). Both forced RLS, the link through its reason. Staff-only: served by `GET /workspace/pipeline/reasons`
+(`staffOnly`), never on the catalog a client seat reads. `app_lm_seed_exit_reasons` seeds the starting list linked by
+status key to live ways out only, once per workspace: V227 ran it for every workspace with a pipeline, and
+`app_lm_seed_candidate_pipeline` now calls it, so a pipeline seeded by any door brings its reasons. A status brought
+back into process loses its links (`ExitReasonRepository.withdrawFromStatus`), so a reason is only ever offered out of
+process.
 V225 adds `app_lm_import_enrichment_item` (`docs/spreadsheet-import.md`): one row per person or company a spreadsheet
 import asked to have researched from LinkedIn — `kind` `PERSON | COMPANY`, the candidate's or triage company's id in
 `target_id` (no foreign key: two tables), the profile or company slug, `status` from `QUEUED` through `RUNNING` to one

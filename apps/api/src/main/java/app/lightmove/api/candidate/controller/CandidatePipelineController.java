@@ -1,14 +1,18 @@
 package app.lightmove.api.candidate.controller;
 
+import app.lightmove.api.candidate.dto.CreateExitReasonRequest;
 import app.lightmove.api.candidate.dto.CreatePipelineStageRequest;
 import app.lightmove.api.candidate.dto.CreatePipelineStatusRequest;
+import app.lightmove.api.candidate.dto.ExitReasonCatalogResponse;
 import app.lightmove.api.candidate.dto.PipelineCatalogResponse;
 import app.lightmove.api.candidate.dto.PipelineRetirePreviewResponse;
 import app.lightmove.api.candidate.dto.ReorderPipelineRequest;
 import app.lightmove.api.candidate.dto.StatusAutomationResponse;
+import app.lightmove.api.candidate.dto.UpdateExitReasonRequest;
 import app.lightmove.api.candidate.dto.UpdatePipelineStageRequest;
 import app.lightmove.api.candidate.dto.UpdatePipelineStatusRequest;
 import app.lightmove.api.candidate.dto.UpdateStatusAutomationRequest;
+import app.lightmove.api.candidate.service.ExitReasonService;
 import app.lightmove.api.candidate.service.PipelineCatalogService;
 import app.lightmove.api.candidate.service.PipelineStageService;
 import app.lightmove.api.candidate.service.PipelineStatusService;
@@ -37,8 +41,8 @@ import org.springframework.web.bind.annotation.RestController;
 /**
  * The workspace's pipeline stages and statuses. Reading is any member's, a client seat included: the
  * labels are what every candidate read already carries. Every change is an admin's, under
- * {@code WORKSPACE_MANAGE}, and answers the whole catalog. The automations and the retire previews are
- * staff reads: they say how the firm works its candidates, which a client seat has no part in.
+ * {@code WORKSPACE_MANAGE}, and answers the whole catalog. The automations, the retire previews and the reasons for
+ * leaving the process are staff reads: they say how the firm works its candidates, which a client seat has no part in.
  */
 @RestController
 @RequestMapping("/api/v1/workspace/pipeline")
@@ -49,6 +53,7 @@ public class CandidatePipelineController {
     private final PipelineStageService stages;
     private final PipelineStatusService statuses;
     private final StatusAutomationService automations;
+    private final ExitReasonService reasons;
 
     @GetMapping
     @PreAuthorize("@workspaceAuthorizer.member(principal)")
@@ -125,6 +130,38 @@ public class CandidatePipelineController {
     public PipelineRetirePreviewResponse statusRetirePreview(@AuthenticationPrincipal AuthPrincipal principal,
                                                              @PathVariable UUID statusId) {
         return catalogs.statusRetirePreview(principal.requireWorkspaceId(), statusId);
+    }
+
+    @GetMapping("/reasons")
+    @PreAuthorize("@workspaceAuthorizer.staffOnly(principal)")
+    public ExitReasonCatalogResponse reasons(@AuthenticationPrincipal AuthPrincipal principal) {
+        return reasons.catalog(principal.requireWorkspaceId());
+    }
+
+    @PostMapping("/reasons")
+    @ResponseStatus(HttpStatus.CREATED)
+    @RequireWorkspacePermission(WorkspaceAction.WORKSPACE_MANAGE)
+    public ExitReasonCatalogResponse createReason(@AuthenticationPrincipal AuthPrincipal principal,
+                                                  @Valid @RequestBody CreateExitReasonRequest request,
+                                                  HttpServletRequest httpRequest) {
+        return reasons.create(principal.userId(), principal.requireWorkspaceId(), request, httpRequest);
+    }
+
+    @PatchMapping("/reasons/{reasonId}")
+    @RequireWorkspacePermission(WorkspaceAction.WORKSPACE_MANAGE)
+    public ExitReasonCatalogResponse updateReason(@AuthenticationPrincipal AuthPrincipal principal,
+                                                  @PathVariable UUID reasonId,
+                                                  @Valid @RequestBody UpdateExitReasonRequest request,
+                                                  HttpServletRequest httpRequest) {
+        return reasons.update(principal.userId(), principal.requireWorkspaceId(), reasonId, request, httpRequest);
+    }
+
+    @PutMapping("/reasons/order")
+    @RequireWorkspacePermission(WorkspaceAction.WORKSPACE_MANAGE)
+    public ExitReasonCatalogResponse reorderReasons(@AuthenticationPrincipal AuthPrincipal principal,
+                                                    @Valid @RequestBody ReorderPipelineRequest request,
+                                                    HttpServletRequest httpRequest) {
+        return reasons.reorder(principal.userId(), principal.requireWorkspaceId(), request.ids(), httpRequest);
     }
 
     @GetMapping("/automations")
