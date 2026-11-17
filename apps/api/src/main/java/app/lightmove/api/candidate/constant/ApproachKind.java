@@ -4,6 +4,7 @@ package app.lightmove.api.candidate.constant;
 public enum ApproachKind {
     EMAILED,
     REPLIED,
+    WHATSAPP_REPLIED,
     IN_SEQUENCE,
     CALL_LOGGED,
     LINKEDIN_LOGGED,
@@ -16,9 +17,14 @@ public enum ApproachKind {
         return this == IN_SEQUENCE;
     }
 
-    /** A logged "They replied" is their answer, so it ranks as one; any other log is the channel it was on. */
+    /** Their answer, by email or logged from WhatsApp: it leads whatever the team did. */
+    public boolean isReply() {
+        return this == REPLIED || this == WHATSAPP_REPLIED;
+    }
+
+    /** A logged "They replied" is their answer on WhatsApp; any other log is the channel it was on. */
     public static ApproachKind loggedAs(PersonNoteKind noteKind, NoteOutcome outcome) {
-        return outcome == NoteOutcome.REPLIED ? REPLIED : loggedAs(noteKind);
+        return outcome == NoteOutcome.REPLIED ? WHATSAPP_REPLIED : loggedAs(noteKind);
     }
 
     public static ApproachKind loggedAs(PersonNoteKind noteKind) {

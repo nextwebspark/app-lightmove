@@ -10,9 +10,4 @@ import java.util.UUID;
  * call or WhatsApp message carries how it went; anything else carries no outcome.
  */
 public record PersonTouch(UUID personId, UUID projectId, UUID byUserId, ApproachKind kind, Instant at,
-                          NoteOutcome outcome) {
-
-    public PersonTouch(UUID personId, UUID projectId, UUID byUserId, ApproachKind kind, Instant at) {
-        this(personId, projectId, byUserId, kind, at, null);
-    }
-}
+                          NoteOutcome outcome) {}

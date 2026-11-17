@@ -48,7 +48,7 @@ describe("recent approach wording", () => {
     expect(touchLine(touch({ kind: "WHATSAPP_LOGGED", outcome: "sent" }), NOW).text).toBe(
       "Sara Al-Mansour sent a WhatsApp message · 12 days ago · Head of Credit Risk",
     );
-    expect(touchLine(touch({ kind: "REPLIED", outcome: "replied", byYou: true }), NOW).text).toBe(
+    expect(touchLine(touch({ kind: "WHATSAPP_REPLIED", outcome: "replied", byYou: true }), NOW).text).toBe(
       "Replied to you on WhatsApp · 12 days ago · Head of Credit Risk",
     );
   });
