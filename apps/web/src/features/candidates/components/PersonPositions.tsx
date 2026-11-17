@@ -136,7 +136,7 @@ function PositionCard({
           currentLabel={position.statusLabel}
           disabled={moving.isPending}
           onChange={(status) =>
-            void prompt.ask(personName, status, (reason) => moving.mutate({ next: status, reason }))
+            void prompt.ask({ name: personName, statusKey: status }, (next, reason) => moving.mutate({ next, reason }))
           }
           className="flex-none"
         />

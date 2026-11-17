@@ -725,27 +725,9 @@ describe("PipelineView", () => {
       expect(screen.queryByRole("group", { name: "Out of process · Declined" })).not.toBeInTheDocument();
     });
 
-    it("asks which of a stage's ways out a card dropped in its cell takes, offering that stage's alone", async () => {
-      vi.mocked(candidatesApi.changeCandidateStatus).mockReturnValue(new Promise(() => {}));
-      renderView();
-      await screen.findByRole("region", { name: "Approach" });
-
-      dropOn("Amal Haddad", screen.getByRole("group", { name: "Out of process · Approach" }));
-
-      const chooser = within(screen.getByRole("group", { name: "Mark Amal Haddad out of process" }));
-      expect(chooser.getAllByRole("button").map((button) => button.textContent)).toEqual([
-        "Not interested",
-        "Unresponsive",
-        "Cancel",
-      ]);
-      await userEvent.click(chooser.getByRole("button", { name: "Unresponsive" }));
-
-      await waitFor(() => expect(candidatesApi.changeCandidateStatus).toHaveBeenCalledWith("p1", "a", "unresponsive", null));
-    });
-
-    it("asks why before a card dropped on a way out that offers reasons leaves the process", async () => {
+    it("asks which way out and why in one dialog, offering the stage's ways out alone", async () => {
       const notInterested = current.stages.flatMap((stage) => stage.statuses).find((status) => status.key === "notInterested")!;
-      vi.mocked(catalogApi.exitReasons).mockResolvedValueOnce({
+      vi.mocked(catalogApi.exitReasons).mockResolvedValue({
         reasons: [{ id: "timing", key: "timing", label: "Timing", requiresNote: false, position: 1, retired: false, statusIds: [notInterested.id] }],
       });
       vi.mocked(candidatesApi.changeCandidateStatus).mockReturnValue(new Promise(() => {}));
@@ -753,17 +735,51 @@ describe("PipelineView", () => {
       await screen.findByRole("region", { name: "Approach" });
 
       dropOn("Amal Haddad", screen.getByRole("group", { name: "Out of process · Approach" }));
-      const chooser = within(screen.getByRole("group", { name: "Mark Amal Haddad out of process" }));
-      await userEvent.click(chooser.getByRole("button", { name: "Not interested" }));
 
-      expect(await screen.findByRole("dialog", { name: "Why did Amal Haddad leave?" })).toBeInTheDocument();
-      expect(candidatesApi.changeCandidateStatus).not.toHaveBeenCalled();
-      await userEvent.selectOptions(screen.getByRole("combobox", { name: "Reason" }), "Timing");
-      await userEvent.click(screen.getByRole("button", { name: "Move to Not interested" }));
+      const dialog = within(await screen.findByRole("dialog", { name: "Why did Amal Haddad leave?" }));
+      expect(dialog.getByText("Moving them out of process at Approach.")).toBeInTheDocument();
+      const wayOut = dialog.getByRole("combobox", { name: "Way out" });
+      expect(within(wayOut).getAllByRole("option").map((option) => option.textContent)).toEqual([
+        "Choose a way out",
+        "Not interested",
+        "Unresponsive",
+      ]);
+      expect(dialog.getByRole("combobox", { name: "Reason" })).toBeDisabled();
+      expect(dialog.getByRole("button", { name: "Move out of process" })).toBeDisabled();
+
+      await userEvent.selectOptions(wayOut, "Not interested");
+      await userEvent.selectOptions(dialog.getByRole("combobox", { name: "Reason" }), "Timing");
+      await userEvent.click(dialog.getByRole("button", { name: "Move to Not interested" }));
 
       await waitFor(() =>
         expect(candidatesApi.changeCandidateStatus).toHaveBeenCalledWith("p1", "a", "notInterested", { reasonId: "timing", note: null }),
       );
+    });
+
+    it("takes a way out that asks for no reason from the same dialog, with nothing more to fill in", async () => {
+      vi.mocked(candidatesApi.changeCandidateStatus).mockReturnValue(new Promise(() => {}));
+      renderView();
+      await screen.findByRole("region", { name: "Approach" });
+
+      dropOn("Amal Haddad", screen.getByRole("group", { name: "Out of process · Approach" }));
+      const dialog = within(await screen.findByRole("dialog", { name: "Why did Amal Haddad leave?" }));
+      await userEvent.selectOptions(dialog.getByRole("combobox", { name: "Way out" }), "Unresponsive");
+
+      expect(dialog.getByText("Unresponsive asks for no reason.")).toBeInTheDocument();
+      await userEvent.click(dialog.getByRole("button", { name: "Move to Unresponsive" }));
+      await waitFor(() => expect(candidatesApi.changeCandidateStatus).toHaveBeenCalledWith("p1", "a", "unresponsive", null));
+    });
+
+    it("leaves the card where it was when the dialog is cancelled", async () => {
+      renderView();
+      await screen.findByRole("region", { name: "Approach" });
+
+      dropOn("Amal Haddad", screen.getByRole("group", { name: "Out of process · Approach" }));
+      await userEvent.click(await screen.findByRole("button", { name: "Cancel" }));
+
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+      expect(candidatesApi.changeCandidateStatus).not.toHaveBeenCalled();
+      expect(within(screen.getByRole("region", { name: "Approach" })).getByText("Amal Haddad")).toBeInTheDocument();
     });
 
     it("gives a card dropped in a cell with one way out that way out at once", async () => {
@@ -774,7 +790,7 @@ describe("PipelineView", () => {
       dropOn("Amal Haddad", screen.getByRole("group", { name: "Out of process · Shortlist" }));
 
       await waitFor(() => expect(candidatesApi.changeCandidateStatus).toHaveBeenCalledWith("p1", "a", "clientRejected", null));
-      expect(screen.queryByRole("group", { name: "Mark Amal Haddad out of process" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     });
 
     it("brings a card out of process dropped on its own stage back to that stage's default", async () => {

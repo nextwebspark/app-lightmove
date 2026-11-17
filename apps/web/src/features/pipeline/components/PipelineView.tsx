@@ -20,7 +20,6 @@ import { usePipelineCatalog } from "../../workspace/lib/usePipelineCatalog";
 import * as pipelineApi from "../api/pipelineApi";
 import type { PipelineRow } from "../api/types";
 import { useBoardMove, useClientVisibility } from "../lib/usePipelineWrites";
-import { useExitReasonPrompt } from "../../candidates/lib/useExitReasonPrompt";
 import { PipelineBoard } from "./PipelineBoard";
 import type { CardActionKind, CardActionsUnavailable } from "./PipelineCardActions";
 import { ScheduleCallLauncher } from "./ScheduleCallLauncher";
@@ -80,7 +79,6 @@ export function PipelineView({
 
   const visibility = useClientVisibility(project.id);
   const boardMove = useBoardMove(project.id, queryKey);
-  const exitPrompt = useExitReasonPrompt();
 
   const rows = pipeline.data?.rows ?? [];
   const stageCounts = pipeline.data?.stageCounts ?? [];
@@ -112,7 +110,6 @@ export function PipelineView({
 
   return (
     <>
-      {exitPrompt.dialog}
       {pipeline.isError ? (
         <p role="alert" className="px-5 py-6 text-note text-u-text3">
           {messageFor(pipeline.error)}
@@ -139,11 +136,7 @@ export function PipelineView({
             onToggleSelected={onToggleSelected}
             actionsUnavailable={actionsUnavailable}
             onOpen={(candidateId) => setOpenCandidateId(candidateId)}
-            onMove={(placement) => {
-              const name = placement.rows.find((row) => row.candidateId === placement.candidateId)?.fullName ?? "";
-              if (!placement.status) return boardMove.mutate(placement);
-              void exitPrompt.ask(name, placement.status, (reason) => boardMove.mutate({ ...placement, reason }));
-            }}
+            onMove={(placement) => boardMove.mutate(placement)}
             onToggleVisible={toggleVisible}
             onOpenNextAction={openNextAction}
             onAction={(kind, row) => setCardAction({ kind, row })}
