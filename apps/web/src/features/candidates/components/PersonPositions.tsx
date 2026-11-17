@@ -7,7 +7,9 @@ import { formatInstantDate } from "../../../lib/format";
 import { messageFor } from "../../../lib/errorCodes";
 import { changeCandidateStatus, CANDIDATES_KEY_PREFIX } from "../api/candidatesApi";
 import * as poolApi from "../api/poolApi";
-import type { CandidateStatus, PersonPosition } from "../api/types";
+import type { CandidateStatus, ExitReasonChoice, PersonPosition } from "../api/types";
+import { useExitReasonPrompt } from "../lib/useExitReasonPrompt";
+import { ExitReasonLine } from "./ExitReasonLine";
 import { CANDIDATE_SOURCE_STYLES } from "../lib/candidateVocabulary";
 import { useStatusStyle } from "../../workspace/lib/usePipelineCatalog";
 import { StatusPicker } from "./StatusPicker";
@@ -30,6 +32,7 @@ export type SetNextActionOn = (position: PersonPosition, taskId: string | null) 
  */
 export function PositionsSection({
   title,
+  personName,
   positions,
   action,
   empty,
@@ -37,6 +40,8 @@ export function PositionsSection({
   onSetNextAction,
 }: {
   title: string;
+  /** Who the cards are about, for the dialog that asks why they left. */
+  personName: string;
   positions: readonly PersonPosition[];
   action?: ReactNode;
   empty?: ReactNode;
@@ -54,6 +59,7 @@ export function PositionsSection({
             <PositionCard
               key={position.candidateId}
               position={position}
+              personName={personName}
               onStatusChanged={onStatusChanged}
               onSetNextAction={onSetNextAction}
             />
@@ -66,10 +72,12 @@ export function PositionsSection({
 
 function PositionCard({
   position,
+  personName,
   onStatusChanged,
   onSetNextAction,
 }: {
   position: PersonPosition;
+  personName: string;
   onStatusChanged?: () => void;
   onSetNextAction?: SetNextActionOn;
 }) {
@@ -77,9 +85,11 @@ function PositionCard({
   const toast = useToast();
   const styleOf = useStatusStyle();
   const status = styleOf(position.status, position);
+  const prompt = useExitReasonPrompt();
   const moving = useMutation({
-    mutationFn: (next: CandidateStatus) => changeCandidateStatus(position.projectId, position.candidateId, next),
-    onSuccess: (_, next) => {
+    mutationFn: ({ next, reason }: { next: CandidateStatus; reason: ExitReasonChoice | null }) =>
+      changeCandidateStatus(position.projectId, position.candidateId, next, reason),
+    onSuccess: (_, { next }) => {
       toast(`Marked ${styleOf(next).label} on ${position.positionTitle ?? "the position"}`);
       void queryClient.invalidateQueries({ queryKey: poolApi.POOL_KEY });
       void queryClient.invalidateQueries({ queryKey: CANDIDATES_KEY_PREFIX(position.projectId) });
@@ -90,6 +100,7 @@ function PositionCard({
 
   return (
     <li className="rounded-u-card border border-u-border">
+      {prompt.dialog}
       <div className="flex items-center gap-3 px-3 py-2.5">
       <Icon d={ICONS.position} size={15} className="flex-none text-u-text3" />
       <div className="min-w-0 flex-1">
@@ -104,6 +115,18 @@ function PositionCard({
           Added by {position.addedByName ?? "someone"} · {formatInstantDate(position.addedAt)} ·{" "}
           {CANDIDATE_SOURCE_STYLES[position.source]?.label ?? position.source}
         </span>
+        <ExitReasonLine
+          projectId={position.projectId}
+          candidateId={position.candidateId}
+          name={personName}
+          statusKey={position.status}
+          given={position.exitReason ?? null}
+          canChange={position.workable}
+          onChanged={() => {
+            void queryClient.invalidateQueries({ queryKey: poolApi.POOL_KEY });
+            onStatusChanged?.();
+          }}
+        />
       </div>
       {position.positionArchived && <ArchivedPill />}
       {position.workable ? (
@@ -112,7 +135,9 @@ function PositionCard({
           value={position.status}
           currentLabel={position.statusLabel}
           disabled={moving.isPending}
-          onChange={(status) => moving.mutate(status)}
+          onChange={(status) =>
+            void prompt.ask(personName, status, (reason) => moving.mutate({ next: status, reason }))
+          }
           className="flex-none"
         />
       ) : (

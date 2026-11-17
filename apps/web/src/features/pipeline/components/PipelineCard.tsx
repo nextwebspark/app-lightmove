@@ -176,8 +176,8 @@ export function OutOfProcessCard({
           <span className="truncate text-meta text-u-text2">{[row.title, row.companyName].filter(Boolean).join(" · ")}</span>
           <span className="mt-1 flex min-w-0 items-center gap-1.5 text-meta text-u-text2">
             <span aria-hidden className={cn("size-1.5 flex-none rounded-full", pipelineSwatchClass(row.statusColour))} />
-            <span className="truncate">
-              {row.statusLabel} · {shortDate(row.statusChangedAt)}
+            <span className="truncate" title={row.exitReason?.note ?? undefined}>
+              {[row.statusLabel, row.exitReason?.label, shortDate(row.statusChangedAt)].filter(Boolean).join(" · ")}
             </span>
           </span>
         </span>

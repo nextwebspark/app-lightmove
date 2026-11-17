@@ -1424,7 +1424,7 @@ describe("CandidateDrawer", () => {
     await pickStatus(/^Status:/, "Contacted");
 
     await waitFor(() =>
-      expect(candidatesApi.changeCandidateStatus).toHaveBeenCalledWith("p1", "c1", "contacted"),
+      expect(candidatesApi.changeCandidateStatus).toHaveBeenCalledWith("p1", "c1", "contacted", null),
     );
     // The point of the separate write: a pill flicked while reading must not re-submit a profile that
     // has been on screen for a while.
@@ -1441,7 +1441,7 @@ describe("CandidateDrawer", () => {
     await userEvent.click(await screen.findByRole("button", { name: "Undo" }));
 
     await waitFor(() =>
-      expect(candidatesApi.changeCandidateStatus).toHaveBeenLastCalledWith("p1", "c1", "interested"),
+      expect(candidatesApi.changeCandidateStatus).toHaveBeenLastCalledWith("p1", "c1", "interested", null),
     );
     expect(await screen.findByText("Yasmin El-Sayed is now interested")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Undo" })).not.toBeInTheDocument();

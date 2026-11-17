@@ -1,7 +1,9 @@
 package app.lightmove.api.candidate.controller;
 
 import app.lightmove.api.candidate.dto.CandidateListCriteria;
+import app.lightmove.api.candidate.dto.CandidateExitReasonResponse;
 import app.lightmove.api.candidate.dto.CandidateResponse;
+import app.lightmove.api.candidate.dto.ChangeExitReasonRequest;
 import app.lightmove.api.candidate.dto.CandidatesResponse;
 import app.lightmove.api.candidate.dto.HeldCandidateResponse;
 import app.lightmove.api.candidate.dto.SaveCandidateRequest;
@@ -157,6 +159,27 @@ public class CandidateController {
             HttpServletRequest httpRequest) {
         return candidates.changeStatus(principal.userId(),
                 principal.requireWorkspaceId(), projectId, candidateId, request, httpRequest);
+    }
+
+    /** Why each of the mandate's candidates left the process. Staff-only, as the Pipeline page is. */
+    @GetMapping("/exit-reasons")
+    @RequireProjectPermission(ProjectAction.WORK_EXECUTE)
+    public List<CandidateExitReasonResponse> exitReasons(@AuthenticationPrincipal AuthPrincipal principal,
+                                                         @PathVariable UUID projectId) {
+        return candidates.exitReasonsOf(principal.requireWorkspaceId(), projectId);
+    }
+
+    /** A different reason, or note, for someone already out of process. */
+    @PutMapping("/{candidateId}/exit-reason")
+    @RequireProjectPermission(ProjectAction.WORK_EXECUTE)
+    public CandidateExitReasonResponse changeExitReason(
+            @AuthenticationPrincipal AuthPrincipal principal,
+            @PathVariable UUID projectId,
+            @PathVariable UUID candidateId,
+            @Valid @RequestBody ChangeExitReasonRequest request,
+            HttpServletRequest httpRequest) {
+        return candidates.changeExitReason(principal.userId(), principal.requireWorkspaceId(), projectId,
+                candidateId, request, httpRequest);
     }
 
     /** Moves one executive to another Companies stage; their company and its other people stay put. */

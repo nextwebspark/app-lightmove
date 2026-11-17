@@ -3,6 +3,7 @@ package app.lightmove.api.candidate.repository;
 import app.lightmove.api.candidate.model.ExitReason;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -20,6 +21,13 @@ public interface ExitReasonRepository extends JpaRepository<ExitReason, UUID> {
     boolean existsByWorkspaceIdAndReasonKey(UUID workspaceId, String reasonKey);
 
     Optional<ExitReason> findByIdAndWorkspaceId(UUID id, UUID workspaceId);
+
+    /** The live reasons a status offers, in the list's order. */
+    @Query("select r from ExitReason r join r.statusIds linked where r.workspaceId = :workspaceId "
+            + "and linked = :statusId and r.retiredAt is null order by r.position")
+    List<ExitReason> findOfferedAt(UUID workspaceId, UUID statusId);
+
+    List<ExitReason> findByWorkspaceIdAndIdIn(UUID workspaceId, Collection<UUID> ids);
 
     @Query("select r from ExitReason r where r.workspaceId = :workspaceId and lower(r.label) = lower(:label)")
     Optional<ExitReason> findByLabel(UUID workspaceId, String label);

@@ -1083,7 +1083,7 @@ function TriageStage() {
           onChangeCandidateStatus={(candidate, status) => {
             markBusy(candidate.id);
             changeCandidateStatus.mutate(
-              { candidateId: candidate.id, status, previous: candidate.status },
+              { candidateId: candidate.id, name: candidate.fullName, status, previous: candidate.status },
               { onSettled: () => clearBusy(candidate.id) },
             );
           }}
@@ -1253,6 +1253,7 @@ function TriageStage() {
         onCancel={() => setPendingCandidateRemoval(null)}
         onConfirm={(candidate, { withCompany }) => removeCandidate.mutate({ candidate, withCompany })}
       />
+      {changeCandidateStatus.dialog}
     </div>
   );
 }

@@ -25,5 +25,7 @@ public record PipelineRowResponse(
         CandidateNextActionDto nextAction,
         boolean clientVisible,
         /** When research filled the profile in; the photo is asked for only once it has. */
-        String enrichedAt
+        String enrichedAt,
+        /** Why they left, while they are out of process and someone has said; null otherwise. */
+        CandidateExitReasonResponse exitReason
 ) {}

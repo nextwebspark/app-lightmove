@@ -9,7 +9,9 @@ import app.lightmove.api.candidate.constant.PersonActivityKind;
 import app.lightmove.api.candidate.constant.ProfileClaim;
 import app.lightmove.api.candidate.dto.CandidateListCriteria;
 import app.lightmove.api.candidate.dto.AddedByResponse;
+import app.lightmove.api.candidate.dto.CandidateExitReasonResponse;
 import app.lightmove.api.candidate.dto.CandidateResponse;
+import app.lightmove.api.candidate.dto.ChangeExitReasonRequest;
 import app.lightmove.api.candidate.dto.CandidatesResponse;
 import app.lightmove.api.candidate.dto.HeldCandidateResponse;
 import app.lightmove.api.candidate.dto.MapPeopleToPositionResponse;
@@ -30,6 +32,7 @@ import app.lightmove.api.candidate.model.CandidateSearchMatches;
 import app.lightmove.api.candidate.model.CandidateStatusDefinition;
 import app.lightmove.api.candidate.model.ContactEntry;
 import app.lightmove.api.candidate.model.EnrichedProfile;
+import app.lightmove.api.candidate.model.ExitReason;
 import app.lightmove.api.candidate.model.ResearchedCandidate;
 import app.lightmove.api.candidate.model.ResearchedEmployer;
 import app.lightmove.api.candidate.model.ResearchedFiling;
@@ -128,6 +131,7 @@ public class CandidateService {
     private final CandidateResponseMapper responses;
     private final CompanyListSettings listConfig;
     private final CandidatePipelineCatalog pipeline;
+    private final CandidateExitReasons exitReasons;
     private final PersonEmployerResolver employerResolver;
     private final UserRepository users;
     private final CandidateSearchService searches;
@@ -145,7 +149,8 @@ public class CandidateService {
                             CustomColumnService customColumns, AuditService audit,
                             ApplicationEventPublisher events, ProjectStreamPublisher stream,
                             CandidateRequestReader requests, CandidateResponseMapper responses,
-                            CandidatePipelineCatalog pipeline, PersonEmployerResolver employerResolver,
+                            CandidatePipelineCatalog pipeline, CandidateExitReasons exitReasons,
+                            PersonEmployerResolver employerResolver,
                             UserRepository users, CandidateSearchService searches,
                             CandidateRemoval removal, SuppressionGate suppression,
                             WorkspaceAiControlsReader aiControls, WorkspaceSettingsService workspaceSettings,
@@ -167,6 +172,7 @@ public class CandidateService {
         this.stream = stream;
         this.listConfig = properties.company().list();
         this.pipeline = pipeline;
+        this.exitReasons = exitReasons;
         this.employerResolver = employerResolver;
         this.users = users;
         this.searches = searches;
@@ -551,15 +557,58 @@ public class CandidateService {
         projects.requireInWorkspace(projectId, workspaceId);
         Candidate candidate = candidates.requireInProject(candidateId, projectId);
 
-        moveTo(candidate, userId, pipeline.requireOfferable(workspaceId, request.status()));
+        CandidateStatusDefinition to = pipeline.requireOfferable(workspaceId, request.status());
+        ExitReason reason;
+        if (to.getId().equals(candidate.getStatus().getId())) {
+            // A reason rides a move; one for the status already held is changed by PUT …/exit-reason instead.
+            if (request.reasonId() != null) {
+                throw ApiException.of(ErrorCode.EXIT_REASON_NOT_OFFERED);
+            }
+            reason = null;
+        } else {
+            reason = exitReasons.requireForMove(workspaceId, to, request.reasonId(), request.note());
+        }
+        moveTo(candidate, userId, to, reason, request.note());
         stream.publish(projectId, ProjectStreamKind.CANDIDATE_EDITED);
 
-        audit.projectEvent(ProjectEventType.CANDIDATE_UPDATED, userId, workspaceId, projectId, httpRequest)
+        var event = audit.projectEvent(ProjectEventType.CANDIDATE_UPDATED, userId, workspaceId, projectId,
+                        httpRequest)
                 .detail("candidateId", candidateId.toString())
                 .detail("status", candidate.getStatus().getStatusKey())
-                .detail("statusLabel", candidate.getStatus().getLabel())
-                .record();
+                .detail("statusLabel", candidate.getStatus().getLabel());
+        if (reason != null) {
+            event.detail("exitReasonId", reason.getId().toString());
+        }
+        event.record();
         return responses.toDto(candidate);
+    }
+
+    /** A different reason or note for someone already out of process: the drawer's status line, changed in place. */
+    @Transactional
+    public CandidateExitReasonResponse changeExitReason(UUID userId, UUID workspaceId, UUID projectId,
+                                                        UUID candidateId, ChangeExitReasonRequest request,
+                                                        HttpServletRequest httpRequest) {
+        projects.requireInWorkspace(projectId, workspaceId);
+        Candidate candidate = candidates.requireInProject(candidateId, projectId);
+        ExitReason reason = exitReasons.requireForChange(workspaceId, candidate, request.reasonId(), request.note());
+        String fromReason = exitReasons.labelOf(workspaceId, candidate.getExitReasonId());
+        if (candidate.giveExitReason(reason.getId(), request.note(), userId)) {
+            activity.record(candidate, userId, PersonActivityKind.EXIT_REASON_CHANGED, PersonActivityDetails
+                    .of("reason", reason.getLabel()).and("fromReason", fromReason)
+                    .and("status", candidate.getStatus().getLabel()));
+            audit.projectEvent(ProjectEventType.CANDIDATE_UPDATED, userId, workspaceId, projectId, httpRequest)
+                    .detail("candidateId", candidateId.toString())
+                    .detail("exitReasonId", reason.getId().toString())
+                    .record();
+        }
+        return exitReasons.givenTo(workspaceId, candidate);
+    }
+
+    /** Why each of the mandate's candidates left, for those who have; staff-only. */
+    @Transactional(readOnly = true)
+    public List<CandidateExitReasonResponse> exitReasonsOf(UUID workspaceId, UUID projectId) {
+        projects.requireInWorkspace(projectId, workspaceId);
+        return exitReasons.givenTo(workspaceId, candidates.findByProjectIdAndExitReasonIdIsNotNull(projectId));
     }
 
     /**
@@ -589,10 +638,20 @@ public class CandidateService {
     }
 
     private void moveTo(Candidate candidate, UUID userId, CandidateStatusDefinition to) {
+        moveTo(candidate, userId, to, null, null);
+    }
+
+    /** Every door's move: a reason, where the door asked for one, is given with it and named on its timeline line. */
+    private void moveTo(Candidate candidate, UUID userId, CandidateStatusDefinition to, ExitReason reason,
+                        String note) {
         CandidateStatusDefinition from = candidate.getStatus();
         if (candidate.moveTo(to)) {
+            if (reason != null) {
+                candidate.giveExitReason(reason.getId(), note, userId);
+            }
             activity.record(candidate, userId, PersonActivityKind.STATUS_CHANGED,
-                    PersonActivityDetails.statusChange(from, to));
+                    PersonActivityDetails.statusChange(from, to)
+                            .and("reason", reason == null ? null : reason.getLabel()));
         }
     }
 

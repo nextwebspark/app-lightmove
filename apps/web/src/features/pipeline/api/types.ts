@@ -1,4 +1,4 @@
-import type { CandidatePipelineStage } from "../../candidates/api/types";
+import type { CandidateExitReason, CandidatePipelineStage } from "../../candidates/api/types";
 import type { TaskKind, TaskPerson } from "../../tasks/api/types";
 
 /** The executive's earliest open task on the position: what the card and the list row show as Next action. */
@@ -33,6 +33,8 @@ export interface PipelineRow {
   clientVisible: boolean;
   /** When research last landed; the photo is asked for only once it has. */
   enrichedAt?: string | null;
+  /** Why they left, while out of process and someone has said. */
+  exitReason?: CandidateExitReason | null;
 }
 
 /** Every live stage with how many rows sit in it in process — the search narrows it, the stage filter does not. */

@@ -1,8 +1,10 @@
 import { request } from "../../../lib/apiClient";
 import type {
   Candidate,
+  CandidateExitReason,
   CandidatesPage,
   CandidateStatus,
+  ExitReasonChoice,
   NationalityReading,
   ProfileLookupResult,
   SaveCandidatePayload,
@@ -172,10 +174,30 @@ export function changeCandidateStatus(
   projectId: string,
   candidateId: string,
   status: CandidateStatus,
+  reason?: ExitReasonChoice | null,
 ): Promise<Candidate> {
   return request<Candidate>(`/projects/${projectId}/candidates/${candidateId}`, {
     method: "PATCH",
-    body: { status },
+    body: reason ? { status, reasonId: reason.reasonId, note: reason.note } : { status },
+  });
+}
+
+export const EXIT_REASONS_OF_KEY = (projectId: string) => ["candidate-exit-reasons", projectId] as const;
+
+/** Why each of a position's candidates left, for those who have. Staff-only. */
+export function exitReasonsOf(projectId: string, signal?: AbortSignal): Promise<CandidateExitReason[]> {
+  return request<CandidateExitReason[]>(`/projects/${projectId}/candidates/exit-reasons`, { signal });
+}
+
+/** A different reason, or note, for someone already out of process; their status stays. */
+export function changeExitReason(
+  projectId: string,
+  candidateId: string,
+  reason: ExitReasonChoice,
+): Promise<CandidateExitReason> {
+  return request<CandidateExitReason>(`/projects/${projectId}/candidates/${candidateId}/exit-reason`, {
+    method: "PUT",
+    body: reason,
   });
 }
 
