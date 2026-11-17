@@ -26,10 +26,10 @@ export function CheckingPosition() {
  * The position could not be asked whether it already has this page's subject. The form stays usable — a save the
  * position would refuse says so — but it must not pass for "not on this position".
  */
-export function HeldCheckFailed({ onRetry }: { onRetry: () => void }) {
+export function HeldCheckFailed({ subject, onRetry }: { subject: "person" | "company"; onRetry: () => void }) {
   return (
     <div role="alert" className="mb-3 flex items-center justify-between gap-2 rounded-[8px] border border-u-border px-2.5 py-2 text-[12px] leading-[1.5] text-u-text2">
-      Couldn't check whether this position already has them.
+      Couldn't check whether this position already has this {subject}.
       <button type="button" onClick={onRetry} className="flex-none font-semibold text-u-accent hover:underline">
         Retry
       </button>

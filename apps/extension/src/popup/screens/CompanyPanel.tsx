@@ -1,5 +1,4 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { askServiceWorker } from "../../background/extensionMessages";
 import { useEffect, useState } from "react";
 import { FIELD_LIMITS, cappedAt } from "../../api/fieldLimits";
 import type { NoteKind, TriagedCompany } from "../../api/types";
@@ -13,7 +12,7 @@ import { SubjectCard } from "../components/SubjectCard";
 import { useCaptureCompany, useUndoCapture, type FiledCapture } from "../hooks/useCaptureSequence";
 import { useCaptureSettings } from "../hooks/useCaptureSettings";
 import { useCloseAfterSave } from "../hooks/useCloseAfterSave";
-import { heldCompanyKey, useHeldCompany } from "../hooks/useHeldRecord";
+import { heldCompanyKey, useHeldCache, useHeldCompany } from "../hooks/useHeldRecord";
 import { useSeededField } from "../hooks/useSeededField";
 import { cn } from "../lib/cn";
 import { ICONS } from "../lib/icons";
@@ -36,18 +35,18 @@ export function CompanyPanel({ page, projects, user }: SubjectPanelProps) {
   const [filed, setFiled] = useState<FiledCapture<TriagedCompany> | null>(null);
   const held = useHeldCompany(projectId, linkedinUrl, readName);
   const queryClient = useQueryClient();
+  const heldCache = useHeldCache();
   const { settings } = useCaptureSettings();
 
   useEffect(() => setFiled(null), [projectId]);
 
   // A refusal can come from the market row capture matched — the page's own slug and name find nothing — so the
-  // position is asked again through the market, which a page view never pays for.
-  const openRefusingRecord = async () => {
+  // position is asked again through the market. Nothing found there, or the ask failing, falls back to the plain
+  // re-check, whose own failure shows the Retry line rather than leaving the refusal with nothing to open.
+  const handleHeldElsewhere = async () => {
     if (!projectId) return;
-    const result = await askServiceWorker({ kind: "heldCompany", projectId, linkedinUrl, name: readName, throughMarket: true });
-    if (result.ok && result.value) {
-      queryClient.setQueryData(heldCompanyKey(projectId, linkedinUrl, readName), result.value);
-    }
+    const opened = await heldCache.recheckCompanyThroughMarket(projectId, linkedinUrl, readName).catch(() => false);
+    if (!opened) void held.refetch();
   };
   // A note that did not land is waiting on the record for a retry; closing would throw it away.
   useCloseAfterSave(Boolean(filed) && !filed?.unsentNote, settings.closesAfterSave);
@@ -82,7 +81,7 @@ export function CompanyPanel({ page, projects, user }: SubjectPanelProps) {
         setFiled(capture);
         queryClient.setQueryData(heldCompanyKey(project.id, linkedinUrl, readName), capture.filed);
       }}
-      onHeldElsewhere={() => void openRefusingRecord()}
+      onHeldElsewhere={() => void handleHeldElsewhere()}
       onRecheck={held.isError ? () => void held.refetch() : null}
     />
   );
@@ -145,7 +144,7 @@ function CompanyForm({
   return (
     <>
       <div className="min-h-0 flex-1 overflow-y-auto p-3.5">
-        {onRecheck && <HeldCheckFailed onRetry={onRecheck} />}
+        {onRecheck && <HeldCheckFailed subject="company" onRetry={onRecheck} />}
         <SubjectCard
           shape="company"
           name={companyName}

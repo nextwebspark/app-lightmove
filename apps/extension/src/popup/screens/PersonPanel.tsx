@@ -177,7 +177,7 @@ function PersonForm({
   return (
     <>
       <div className="min-h-0 flex-1 overflow-y-auto p-3.5">
-        {onRecheck && <HeldCheckFailed onRetry={onRecheck} />}
+        {onRecheck && <HeldCheckFailed subject="person" onRetry={onRecheck} />}
         <SubjectCard
           shape="person"
           name={fullName}
@@ -380,10 +380,11 @@ function isFiledWhole(capture: FiledCapture<CapturedCandidate> | null): boolean 
   return capture !== null && !capture.unsentNote && capture.untaggedTagIds.length === 0;
 }
 
+/** A fixed sentence, never the server's own words: the panel reads a refusal's code, not its detail. */
 function TagCreateError({ error }: { error: Error | null }) {
   return error ? (
     <p role="alert" className="mt-1.5 text-note text-u-offlimits">
-      That tag was not created. {error.message}
+      That tag was not created. Try again, or add it in Uncava.
     </p>
   ) : null;
 }

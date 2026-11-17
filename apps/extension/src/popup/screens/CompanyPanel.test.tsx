@@ -39,6 +39,9 @@ describe("a LinkedIn company page against the chosen position", () => {
       requests.push(request);
       switch (request.kind) {
         case "heldCompany":
+          if (request.throughMarket && heldThroughMarket === "fails") {
+            return { ok: false, code: "UNEXPECTED_RESPONSE", message: "The workspace answered 503." };
+          }
           return { ok: true, value: request.throughMarket ? heldThroughMarket : heldAnswer };
         case "listNotes":
           return { ok: true, value: [] };
@@ -80,6 +83,18 @@ describe("a LinkedIn company page against the chosen position", () => {
 
     expect(await screen.findByText("Already in this position's universe")).toBeDefined();
     expect(requests.some((each) => each.kind === "heldCompany" && each.throughMarket)).toBe(true);
+  });
+
+  it("falls back to the plain re-check when asking through the market fails", async () => {
+    captureAnswer = { ok: false, code: "TRIAGE_COMPANY_ALREADY_HELD", message: "held" };
+    heldThroughMarket = "fails";
+    renderPanel(<CompanyPanel page={COMPANY_PAGE} projects={PROJECTS} user={USER} />);
+
+    const add = await screen.findByRole("button", { name: /Add to universe/ });
+    heldAnswer = triaged();
+    fireEvent.click(add);
+
+    expect(await screen.findByText("Already in this position's universe")).toBeDefined();
   });
 
   it("opens a company the position holds on its record, its logo and who filed it", async () => {
