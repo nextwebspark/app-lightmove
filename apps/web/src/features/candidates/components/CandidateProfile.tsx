@@ -57,7 +57,9 @@ import type {
 import { replayOf, type ProfileFormSection } from "../lib/candidateForm";
 import type { ActivityExecutive } from "../lib/activityPresentation";
 import { candidateGenderLabel } from "../lib/candidateVocabulary";
-import { statusStyle } from "../lib/pipelineStatus";
+import { isOutOfProcess, statusStyle } from "../lib/pipelineStatus";
+import { usePipelineCatalog } from "../../workspace/lib/usePipelineCatalog";
+import { ExitReasonLine } from "./ExitReasonLine";
 import { careerSummary } from "../lib/careerTimeline";
 import { compensationFoldSummary, documentsFoldSummary, scrollToFold } from "../lib/profileFolds";
 import { useBackgroundSuggestion } from "../lib/useBackgroundSuggestion";
@@ -309,6 +311,12 @@ export function CandidateProfile({
   };
 
   const changeStatus = useChangeCandidateStatus(projectId, onSaved);
+  const { catalog } = usePipelineCatalog();
+  const exitReasons = useQuery({
+    queryKey: candidatesApi.EXIT_REASONS_OF_KEY(projectId),
+    queryFn: ({ signal }) => candidatesApi.exitReasonsOf(projectId, signal),
+    enabled: canWrite && isOutOfProcess(candidate.status, catalog),
+  });
   const documentScope: DocumentScope = { kind: "position", projectId, candidateId: candidate.id };
   const documents = usePersonDocuments(documentScope, canWrite);
   const [preview, setPreview] = useState<PreviewTarget | null>(null);
@@ -429,6 +437,7 @@ export function CandidateProfile({
 
   return (
     <>
+      {changeStatus.dialog}
       <div className="relative flex-none border-b border-u-border px-5 pt-4">
         <PanelCloseButton onClose={onClose} />
         <PersonHeaderLayout
@@ -451,7 +460,7 @@ export function CandidateProfile({
                   aria-label="Status"
                   disabled={changeStatus.isPending}
                   onChange={(status) =>
-                    changeStatus.mutate({ candidateId: candidate.id, status, previous: candidate.status })
+                    changeStatus.mutate({ candidateId: candidate.id, name: candidate.fullName, status, previous: candidate.status })
                   }
                   className="h-7"
                 />
@@ -465,6 +474,20 @@ export function CandidateProfile({
             </>
           }
           title={candidate.title}
+          statusLine={
+            canWrite && isOutOfProcess(candidate.status, catalog) ? (
+              <ExitReasonLine
+                projectId={projectId}
+                candidateId={candidate.id}
+                name={candidate.fullName}
+                statusKey={candidate.status}
+                given={exitReasons.data?.find((given) => given.candidateId === candidate.id) ?? null}
+                canChange
+              />
+            ) : (
+              <StageLine candidate={candidate} />
+            )
+          }
           contacts={candidate.contacts}
           onEditContacts={canWrite ? () => setContactWindow("details") : undefined}
           onShowContacts={() => setContactWindow("read")}
@@ -845,7 +868,7 @@ export function CandidateProfile({
                       onToggle={() => sections.toggle("outreach")}
                       isSettingStatus={changeStatus.isPending}
                       onSetStatus={(status) =>
-                        changeStatus.mutate({ candidateId: candidate.id, status, previous: candidate.status })
+                        changeStatus.mutate({ candidateId: candidate.id, name: candidate.fullName, status, previous: candidate.status })
                       }
                     />
                   </>
@@ -1181,4 +1204,18 @@ function scrollToOutreachSection(section: OutreachPart): () => void {
   };
   timer = window.setTimeout(find, 0);
   return () => window.clearTimeout(timer);
+}
+
+/** In process: the stage they are at, and how long since their status last changed. */
+function StageLine({ candidate }: { candidate: Candidate }) {
+  if (!candidate.pipelineStage) return null;
+  const days = candidate.statusChangedAt
+    ? Math.max(0, Math.floor((Date.now() - new Date(candidate.statusChangedAt).getTime()) / 86_400_000))
+    : null;
+  return (
+    <span className="truncate font-mono text-meta text-u-text3">
+      {candidate.pipelineStage.label}
+      {days !== null && ` · ${days === 1 ? "1 day" : `${days} days`} at this status`}
+    </span>
+  );
 }

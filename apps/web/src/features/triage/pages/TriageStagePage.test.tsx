@@ -1014,7 +1014,7 @@ describe("TriageStagePage", () => {
     await pickStatus(/^Status for Yasmin El-Sayed:/, "Interested");
 
     await waitFor(() =>
-      expect(candidatesApi.changeCandidateStatus).toHaveBeenCalledWith("p1", "c1", "interested"),
+      expect(candidatesApi.changeCandidateStatus).toHaveBeenCalledWith("p1", "c1", "interested", null),
     );
   });
 

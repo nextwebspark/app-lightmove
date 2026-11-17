@@ -346,6 +346,25 @@ export interface WritePersonNotePayload {
 export type RevisePersonNotePayload = Omit<WritePersonNotePayload, "body"> & { body?: string };
 
 /** One mandate a person is mapped on, with that mandate's status and who filed them there. */
+/** Why a mandate's candidate left the process. Staff-only: never on `Candidate`, which a client seat reads. */
+export interface CandidateExitReason {
+  candidateId: string;
+  reasonId: string;
+  label: string;
+  note: string | null;
+  /** Retired after it was given: kept on them, offered no more. */
+  retired: boolean;
+  setAt: string | null;
+  setByUserId: string | null;
+  setByName: string | null;
+}
+
+/** The reason a move out of process is given, and its note where the reason asks for one. */
+export interface ExitReasonChoice {
+  reasonId: string;
+  note: string | null;
+}
+
 export interface PersonPosition {
   candidateId: string;
   projectId: string;
@@ -362,6 +381,8 @@ export interface PersonPosition {
   /** Whether the viewer may move this mapping's status: they hold the position's WORK_EXECUTE. */
   workable: boolean;
   positionArchived?: boolean;
+  /** Why they left this position's process; absent while in process or when nobody has said. */
+  exitReason?: CandidateExitReason | null;
 }
 
 /** How someone on the team reached a person; the server's `ApproachKind` names. */
@@ -431,6 +452,7 @@ export type PersonActivityKind =
   | "MAPPED"
   | "UNMAPPED"
   | "STATUS_CHANGED"
+  | "EXIT_REASON_CHANGED"
   | "TRIAGE_STATUS_CHANGED"
   | "NEXT_ACTION_SET"
   | "CLIENT_VISIBILITY_CHANGED"

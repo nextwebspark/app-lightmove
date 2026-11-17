@@ -90,6 +90,9 @@ export type ApiErrorCode =
   | "PIPELINE_ORDER_INVALID"
   | "EXIT_REASON_TAKEN"
   | "EXIT_REASON_RETIRED"
+  | "EXIT_REASON_REQUIRED"
+  | "EXIT_REASON_NOTE_REQUIRED"
+  | "EXIT_REASON_NOT_OFFERED"
   | "PERSON_OWNER_NOT_STAFF"
   | "PERSON_DO_NOT_CONTACT"
   | "PERSON_SUPPRESSED"
@@ -329,6 +332,9 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   PIPELINE_ORDER_INVALID: "The pipeline changed meanwhile. Reload and try again.",
   EXIT_REASON_TAKEN: "Your team already has that reason.",
   EXIT_REASON_RETIRED: "That reason is retired. Restore it in Settings to use it again.",
+  EXIT_REASON_REQUIRED: "Choose why they left.",
+  EXIT_REASON_NOTE_REQUIRED: "Add a note for this reason.",
+  EXIT_REASON_NOT_OFFERED: "That reason is not offered for this status. Pick another.",
   PERSON_OWNER_NOT_STAFF: "The owner must be someone on your team.",
   PERSON_DO_NOT_CONTACT: "This person is marked do not contact, so contact lookups are off.",
   PERSON_SUPPRESSED: "This person is on your workspace's suppression list, so they can't be added.",
