@@ -294,7 +294,7 @@ public class CandidateService {
             return Optional.empty();
         }
         return candidatesAtProfile(projectId, slug).stream()
-                .findFirst()
+                .min(Comparator.comparing(Candidate::getCreatedAt))
                 .map(held -> new HeldCandidateResponse(responses.toDto(held), adderOf(projectId, held.getId()),
                         employerResolver.logoOfMapping(workspaceId, held)));
     }
@@ -389,7 +389,8 @@ public class CandidateService {
 
     /** LIKE narrows; the exact slug decides — "jon-smith" must not answer for "jon-smith-acwa". */
     private List<Candidate> candidatesAtProfile(UUID projectId, String slug) {
-        return candidates.findByProjectIdAndProfileSlugLike(projectId, slug).stream()
+        return candidates.findByProjectIdAndProfileSlugLike(projectId, slug, LinkedInUrls.percentEncodedSlug(slug))
+                .stream()
                 .filter(held -> slug.equals(LinkedInUrls.profileSlugOrNull(held.getPerson().getLinkedinUrl())))
                 .toList();
     }
@@ -416,7 +417,7 @@ public class CandidateService {
             details = details.employedAt(researchedEmployer.get().companyName());
         }
 
-        refuseDuplicate(projectId, triageCompanyId, details.fullName(), null);
+        refuseDuplicate(projectId, triageCompanyId, details.fullName(), details.linkedinUrl(), null);
         refuseHeldProfile(projectId, details.linkedinUrl(), null);
         suppression.refuseSuppressed(workspaceId, details.linkedinUrl(), emailsOf(details.emails()));
 
@@ -487,7 +488,7 @@ public class CandidateService {
         UUID triageCompanyId = requests.companyOf(projectId, request, candidate);
         CandidateDetails details = requests.detailsOf(projectId, request.withTriageCompanyId(triageCompanyId),
                 candidate.getTriageCompanyId());
-        refuseDuplicate(projectId, triageCompanyId, details.fullName(), candidateId);
+        refuseDuplicate(projectId, triageCompanyId, details.fullName(), details.linkedinUrl(), candidateId);
         refuseHeldProfile(projectId, details.linkedinUrl(), candidateId);
         ProfileClaim claim = matcher.claimOf(workspaceId, details.linkedinUrl(), person);
         if (claim == ProfileClaim.HELD) {
@@ -651,7 +652,7 @@ public class CandidateService {
             details = details.employedAt(employer.companyName());
         }
 
-        refuseDuplicate(projectId, triageCompanyId, details.fullName(), null);
+        refuseDuplicate(projectId, triageCompanyId, details.fullName(), details.linkedinUrl(), null);
         refuseHeldProfile(projectId, details.linkedinUrl(), null);
 
         Filed filed = file(userId, workspaceId, projectId, triageCompanyId, filing.source(),
@@ -962,7 +963,8 @@ public class CandidateService {
                 .findByProjectIdAndTriageCompanyIdAndPersonFullNameIgnoreCase(
                         projectId, company.id(), candidate.getPerson().getFullName())
                 .stream()
-                .anyMatch(other -> !other.getId().equals(candidate.getId()));
+                .anyMatch(other -> !other.getId().equals(candidate.getId()) && !isAnotherProfile(other,
+                        LinkedInUrls.profileSlugOrNull(candidate.getPerson().getLinkedinUrl())));
         if (nameHeldThere) {
             log.info("Leaving candidate {} unmapped — {} already maps that name", candidate.getId(),
                     company.companyName());
@@ -1054,16 +1056,28 @@ public class CandidateService {
      * row being edited. Both finders carry the project id: scoping by company alone would make this 409 an oracle for
      * another workspace's company ids.
      */
-    private void refuseDuplicate(UUID projectId, UUID triageCompanyId, String fullName, UUID selfId) {
+    private void refuseDuplicate(UUID projectId, UUID triageCompanyId, String fullName, String linkedinUrl,
+                                 UUID selfId) {
         List<Candidate> sameName = triageCompanyId == null
                 ? candidates.findByProjectIdAndTriageCompanyIdIsNullAndPersonFullNameIgnoreCase(projectId, fullName)
                 : candidates.findByProjectIdAndTriageCompanyIdAndPersonFullNameIgnoreCase(
                         projectId, triageCompanyId, fullName);
 
-        boolean held = sameName.stream().anyMatch(other -> !other.getId().equals(selfId));
+        String slug = LinkedInUrls.profileSlugOrNull(linkedinUrl);
+        boolean held = sameName.stream()
+                .anyMatch(other -> !other.getId().equals(selfId) && !isAnotherProfile(other, slug));
         if (held) {
             throw ApiException.of(ErrorCode.CANDIDATE_ALREADY_MAPPED);
         }
+    }
+
+    /**
+     * Two LinkedIn profiles are two people, whatever they are called: the name rule exists for rows nobody can tell
+     * apart, and a plugin capture is never mapped when it lands, so it refused every namesake of an unmapped capture.
+     */
+    private static boolean isAnotherProfile(Candidate other, String slug) {
+        String otherSlug = LinkedInUrls.profileSlugOrNull(other.getPerson().getLinkedinUrl());
+        return slug != null && otherSlug != null && !slug.equals(otherSlug);
     }
 
     /**
@@ -1071,16 +1085,6 @@ public class CandidateService {
      * capture (no company) against a first since mapped to its employer, leaving a duplicate "Not in universe" line.
      * {@code selfId} is the row being edited.
      */
-    private AddedByResponse adderOf(UUID projectId, UUID candidateId) {
-        return candidates.findAttributionByProjectIdAndIdIn(projectId, List.of(candidateId)).stream()
-                .map(CandidateAttribution::getAddedBy)
-                .filter(Objects::nonNull)
-                .findFirst()
-                .flatMap(users::findById)
-                .map(adder -> new AddedByResponse(adder.getId(), adder.getFullName(), adder.getAvatarUrl()))
-                .orElse(null);
-    }
-
     private void refuseHeldProfile(UUID projectId, String linkedinUrl, UUID selfId) {
         String slug = LinkedInUrls.profileSlugOrNull(linkedinUrl);
         if (slug == null) {
@@ -1091,6 +1095,16 @@ public class CandidateService {
         if (held) {
             throw ApiException.of(ErrorCode.CANDIDATE_ALREADY_MAPPED);
         }
+    }
+
+    private AddedByResponse adderOf(UUID projectId, UUID candidateId) {
+        return candidates.findAttributionByProjectIdAndIdIn(projectId, List.of(candidateId)).stream()
+                .map(CandidateAttribution::getAddedBy)
+                .filter(Objects::nonNull)
+                .findFirst()
+                .flatMap(users::findById)
+                .map(adder -> new AddedByResponse(adder.getId(), adder.getFullName(), adder.getAvatarUrl()))
+                .orElse(null);
     }
 
     /**

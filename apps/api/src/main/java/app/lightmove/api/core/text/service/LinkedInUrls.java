@@ -1,6 +1,7 @@
 package app.lightmove.api.core.text.service;
 
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -29,6 +30,23 @@ public final class LinkedInUrls {
     /** The {@code /company/<slug>} a company page URL names, or null when it is not one. */
     public static String companySlugOrNull(String url) {
         return slugOrNull(url, COMPANY_SLUG);
+    }
+
+    /**
+     * A slug as a browser's address bar spells it, every non-ASCII byte percent-encoded and lower-cased like the URL
+     * columns are compared. The slug readers decode, while the extension stores the encoded address, so a decoded
+     * {@code jérôme} matched no stored {@code j%c3%a9r%c3%b4me} and the plugin offered to file someone already filed.
+     */
+    public static String percentEncodedSlug(String slug) {
+        StringBuilder encoded = new StringBuilder();
+        for (byte octet : slug.getBytes(StandardCharsets.UTF_8)) {
+            if (octet >= 0) {
+                encoded.append((char) octet);
+            } else {
+                encoded.append('%').append(String.format(Locale.ROOT, "%02x", octet & 0xff));
+            }
+        }
+        return encoded.toString();
     }
 
     private static String slugOrNull(String url, Pattern pattern) {
