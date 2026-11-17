@@ -436,12 +436,13 @@ public class TriageCompanyReadService {
 
     /**
      * The company this position already holds for a LinkedIn page, if any: what the plugin asks before it offers to
-     * file one. The page's slug first, then the name, then the market row {@code capture} resolves the page to — every
-     * row {@code capture} would refuse as held, so a refusal always has a record to open.
+     * file one. The page's slug first, then the name. {@code throughMarket} adds the market row {@code capture}
+     * resolves the page to — every row {@code capture} would refuse as held — and is asked only after such a refusal:
+     * it scans the whole Apollo universe, which every page view would otherwise pay for.
      */
     @Transactional(readOnly = true)
     public Optional<TriageCompanyResponse> heldAt(UUID workspaceId, UUID projectId, String linkedinUrl,
-                                                  String companyName) {
+                                                  String companyName, boolean throughMarket) {
         projects.requireInWorkspace(projectId, workspaceId);
         Optional<TriageCompany> held = Optional.empty();
         String slug = LinkedInUrls.companySlugOrNull(linkedinUrl);
@@ -452,7 +453,7 @@ public class TriageCompanyReadService {
         if (held.isEmpty() && name != null) {
             held = heldByName(projectId, name);
         }
-        if (held.isEmpty() && (slug != null || name != null)) {
+        if (held.isEmpty() && throughMarket && (slug != null || name != null)) {
             held = market.matchEmployer(slug, name).flatMap(row -> triaged
                     .findByProjectIdAndApolloAccountId(projectId, row.apolloAccountId())
                     .or(() -> heldByName(projectId, row.companyName())));

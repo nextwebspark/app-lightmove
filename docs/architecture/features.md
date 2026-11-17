@@ -67,7 +67,8 @@ person alone. A stage lists its own companies plus any company with someone list
 captured by the plugin, through the same endpoint the drawer posts to (`source: "extension"`). The plugin's side panel files into
 the position chosen at its top — only positions `GET /projects` marks `viewerCanWork` (a seat, or a workspace admin) —
 asks first whether that position already holds the page (`GET …/candidates/held` by profile slug, decoded or
-percent-encoded; `GET …/triage/held` by company page, then name, then the market row capture would resolve the page to;
+percent-encoded; `GET …/triage/held` by company page, then name — and, only after a save refused as held, `throughMarket=true` adds
+the market row capture resolved the page to;
 staff-only, 204 when not) and then opens that record —
 status, tags and the position's notes, ready for the next — rather than a form; it writes its notes through the notes
 routes in the app's own editor (never the door's plain `note`), and files a company into the universe only. Its Undo

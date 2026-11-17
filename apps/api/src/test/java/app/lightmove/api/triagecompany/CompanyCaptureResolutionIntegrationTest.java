@@ -252,7 +252,10 @@ class CompanyCaptureResolutionIntegrationTest extends FlowTestSupport {
                                  "companyLinkedinUrl":"https://www.linkedin.com/company/acme-gulf/"}"""))
                 .andExpect(status().isConflict());
 
-        assertThat(heldAt(projectId, "https://www.linkedin.com/company/acme-gulf/", "Acme Gulf")).isEqualTo(heldId);
+        // Asked through the market only after that refusal: a page view does not pay for a scan of the universe.
+        assertThat(heldAt(projectId, "https://www.linkedin.com/company/acme-gulf/", "Acme Gulf")).isNull();
+        assertThat(heldAt(projectId, "https://www.linkedin.com/company/acme-gulf/", "Acme Gulf", true))
+                .isEqualTo(heldId);
     }
 
     private String captureCompany(String projectId, String companyName, String linkedinUrl) throws Exception {
@@ -268,9 +271,14 @@ class CompanyCaptureResolutionIntegrationTest extends FlowTestSupport {
 
     /** The id the plugin's lookup answers with, or null for its 204. */
     private String heldAt(String projectId, String linkedinUrl, String name) throws Exception {
+        return heldAt(projectId, linkedinUrl, name, false);
+    }
+
+    private String heldAt(String projectId, String linkedinUrl, String name, boolean throughMarket) throws Exception {
         MockHttpServletRequestBuilder lookup = get("/api/v1/projects/" + projectId + "/triage/held")
                 .header("Authorization", "Bearer " + adminToken)
-                .param("linkedinUrl", linkedinUrl);
+                .param("linkedinUrl", linkedinUrl)
+                .param("throughMarket", String.valueOf(throughMarket));
         if (name != null) {
             lookup.param("name", name);
         }

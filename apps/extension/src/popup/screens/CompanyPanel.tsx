@@ -1,4 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
+import { askServiceWorker } from "../../background/extensionMessages";
 import { useEffect, useState } from "react";
 import { FIELD_LIMITS, cappedAt } from "../../api/fieldLimits";
 import type { NoteKind, TriagedCompany } from "../../api/types";
@@ -38,6 +39,16 @@ export function CompanyPanel({ page, projects, user }: SubjectPanelProps) {
   const { settings } = useCaptureSettings();
 
   useEffect(() => setFiled(null), [projectId]);
+
+  // A refusal can come from the market row capture matched — the page's own slug and name find nothing — so the
+  // position is asked again through the market, which a page view never pays for.
+  const openRefusingRecord = async () => {
+    if (!projectId) return;
+    const result = await askServiceWorker({ kind: "heldCompany", projectId, linkedinUrl, name: readName, throughMarket: true });
+    if (result.ok && result.value) {
+      queryClient.setQueryData(heldCompanyKey(projectId, linkedinUrl, readName), result.value);
+    }
+  };
   // A note that did not land is waiting on the record for a retry; closing would throw it away.
   useCloseAfterSave(Boolean(filed) && !filed?.unsentNote, settings.closesAfterSave);
 
@@ -71,7 +82,7 @@ export function CompanyPanel({ page, projects, user }: SubjectPanelProps) {
         setFiled(capture);
         queryClient.setQueryData(heldCompanyKey(project.id, linkedinUrl, readName), capture.filed);
       }}
-      onHeldElsewhere={() => void held.refetch()}
+      onHeldElsewhere={() => void openRefusingRecord()}
       onRecheck={held.isError ? () => void held.refetch() : null}
     />
   );

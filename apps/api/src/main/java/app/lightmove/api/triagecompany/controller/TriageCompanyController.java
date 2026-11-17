@@ -74,8 +74,9 @@ public class TriageCompanyController {
     public ResponseEntity<TriageCompanyResponse> held(@AuthenticationPrincipal AuthPrincipal principal,
                                                       @PathVariable UUID projectId,
                                                       @RequestParam(required = false) String linkedinUrl,
-                                                      @RequestParam(required = false) String name) {
-        return reads.heldAt(principal.requireWorkspaceId(), projectId, linkedinUrl, name)
+                                                      @RequestParam(required = false) String name,
+                                                      @RequestParam(defaultValue = "false") boolean throughMarket) {
+        return reads.heldAt(principal.requireWorkspaceId(), projectId, linkedinUrl, name, throughMarket)
                 .map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.noContent().build());
     }
