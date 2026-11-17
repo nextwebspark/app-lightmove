@@ -62,6 +62,7 @@ export function ReplyComposer({
   onSent,
   onDraftChange,
   onExpandChange,
+  startsExpanded = false,
 }: {
   projectId: string;
   conversation: Conversation;
@@ -76,6 +77,8 @@ export function ReplyComposer({
   onDraftChange?: (hasDraft: boolean) => void;
   /** Expand grows the dialog it fills, told through this. */
   onExpandChange?: (expanded: boolean) => void;
+  /** The dialog it fills opens expanded. */
+  startsExpanded?: boolean;
 }) {
   const { executive, contact, composer, currentRun, openTasks } = conversation;
   const firstName = firstNameOf(executive.fullName) ?? executive.fullName;
@@ -107,9 +110,13 @@ export function ReplyComposer({
       onSent={onSent}
       onDraftChange={onDraftChange}
       onExpandChange={onExpandChange}
+      startsExpanded={startsExpanded}
     />
   );
 }
+
+/** A first email opens greeting the executive by name; it is ordinary text, deleted like any other. */
+const GREETING = "Hi {{firstName}},";
 
 function OpenComposer({
   projectId,
@@ -134,6 +141,7 @@ function OpenComposer({
   onSent,
   onDraftChange,
   onExpandChange,
+  startsExpanded = false,
 }: {
   projectId: string;
   candidateId: string;
@@ -157,12 +165,15 @@ function OpenComposer({
   onSent?: () => void;
   onDraftChange?: (hasDraft: boolean) => void;
   onExpandChange?: (expanded: boolean) => void;
+  /** The dialog it fills opens expanded. */
+  startsExpanded?: boolean;
 }) {
   const queryClient = useQueryClient();
   const toast = useToast();
   const [wantsReply, setWantsReply] = useState(replySubject !== null);
   const [subject, setSubject] = useState("");
-  const [body, setBody] = useState("");
+  const [body, setBody] = useState(replySubject === null ? GREETING : "");
+  const isBodyUntouched = body.trim() === "" || body.trim() === GREETING;
   const [chosenAddress, setChosenAddress] = useState(emails[0]);
   const [understoodApproach, setUnderstoodApproach] = useState<string | null>(null);
   const [heldSend, setHeldSend] = useState<{ at: Date | null } | null>(null);
@@ -179,6 +190,16 @@ function OpenComposer({
   const bodyEditor = useRef<NoteEditorHandle | null>(null);
   const subjectId = useId();
   const [isSubjectFocused, setIsSubjectFocused] = useState(false);
+  // Shipped bug: only the subject's focus was recorded, so once it had been visited every variable went there,
+  // even with the caret back in the message.
+  useEffect(() => {
+    const recordBodyFocus = (event: FocusEvent) => {
+      const editorDom = bodyEditor.current?.editor.view.dom;
+      if (editorDom && event.target instanceof Node && editorDom.contains(event.target)) setLastField("body");
+    };
+    document.addEventListener("focusin", recordBodyFocus);
+    return () => document.removeEventListener("focusin", recordBodyFocus);
+  }, []);
   const [openChip, setOpenChip] = useState<OpenChip | null>(null);
   const [chips] = useState(() => {
     const created = createVariableChips();
@@ -196,7 +217,10 @@ function OpenComposer({
   // A thread that went away (a reconnect elsewhere) leaves a first email; one that appears is offered only to an empty draft.
   const isReply = wantsReply && replySubject !== null;
   useEffect(() => {
-    if (replySubject !== null && !body.trim() && !subject.trim()) setWantsReply(true);
+    if (replySubject !== null && isBodyUntouched && !subject.trim()) {
+      setWantsReply(true);
+      setBody("");
+    }
     // Only the thread's coming or going moves the mode; a draft being typed never does.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [replySubject]);
@@ -253,7 +277,11 @@ function OpenComposer({
 
   /** Into an empty editor it is the body; into words it goes in at the cursor, nothing typed lost. */
   function insertDoc(doc: ReturnType<typeof plainNoteDoc>) {
-    if (!body.trim() || !bodyEditor.current) {
+    if (isBodyUntouched) {
+      setBody(serializeNoteDoc(doc));
+      return;
+    }
+    if (!bodyEditor.current) {
       setBody(body.trim() ? `${body}\n\n${serializeNoteDoc(doc)}` : serializeNoteDoc(doc));
       return;
     }
@@ -333,7 +361,7 @@ function OpenComposer({
     ? piecesOf(subject, tokens, firstName, (name) => templateVocabulary(bookingLinkOffered).includes(name))
     : [];
   const subjectPieces = subjectChips.some((piece) => "chip" in piece) ? subjectChips : null;
-  const hasBody = body.trim().length > 0;
+  const hasBody = !isBodyUntouched;
   const hasDraft = hasBody || subject.trim().length > 0 || attachments.length > 0;
   useEffect(() => onDraftChange?.(hasDraft), [hasDraft, onDraftChange]);
   const isTooLong = body.length > BODY_MAX_LENGTH;
@@ -370,7 +398,14 @@ function OpenComposer({
           {isReply ? `Reply to ${firstName}` : `First email to ${firstName}`}
         </span>
         {replySubject !== null && (
-          <button type="button" className="text-note text-u-accent hover:underline" onClick={() => setWantsReply(!isReply)}>
+          <button
+            type="button"
+            className="text-note text-u-accent hover:underline"
+            onClick={() => {
+              if (isBodyUntouched) setBody(isReply ? GREETING : "");
+              setWantsReply(!isReply);
+            }}
+          >
             {isReply ? "New email instead" : "Reply in the thread"}
           </button>
         )}
@@ -389,6 +424,7 @@ function OpenComposer({
         autoFocus={autoFocus && isReply}
         fillsDialog
         onExpandChange={onExpandChange}
+        startsExpanded={startsExpanded}
         editorRef={bodyEditor}
         extraExtensions={chips.extensions}
         header={

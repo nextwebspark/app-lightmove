@@ -13,6 +13,7 @@ import * as pipelineApi from "../../workspace/api/pipelineApi";
 import { useStatusAutomations } from "../../workspace/lib/statusAutomation";
 import { usePipelineCatalog, usePipelineWrite } from "../../workspace/lib/usePipelineCatalog";
 import { PipelineStageCard } from "../components/PipelineStageCard";
+import { ExitReasonsCard } from "../components/ExitReasonsCard";
 import { AUTOMATION_CARD_ID, StatusAutomationCard } from "../components/StatusAutomationCard";
 import { inOrderOf, PIPELINE_NAME_LIMIT } from "../lib/pipelineStageRows";
 import { usePipelineReorder } from "../lib/usePipelineReorder";
@@ -171,6 +172,7 @@ export function PipelineStagesPage() {
       )}
 
       {query.isSuccess && <StatusAutomationCard catalog={query.data} isAdmin={isAdmin} />}
+      {query.isSuccess && <ExitReasonsCard catalog={query.data} isAdmin={isAdmin} />}
     </>
   );
 }

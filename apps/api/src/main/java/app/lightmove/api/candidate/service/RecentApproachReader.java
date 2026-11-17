@@ -1,6 +1,7 @@
 package app.lightmove.api.candidate.service;
 
 import app.lightmove.api.candidate.constant.ApproachKind;
+import app.lightmove.api.candidate.constant.NoteOutcome;
 import app.lightmove.api.candidate.constant.PersonNoteKind;
 import app.lightmove.api.candidate.constant.RecentApproachTier;
 import app.lightmove.api.candidate.dto.ApproachPositionResponse;
@@ -50,11 +51,16 @@ public class RecentApproachReader {
 
     private static final List<String> LOGGED_CONTACT_KEYS = LOGGED_CONTACT.stream().map(Enum::name).toList();
 
+    /** A call that rang out or reached someone else never reached the person, so it warns nobody. */
+    private static final Set<NoteOutcome> UNANSWERED = EnumSet.of(NoteOutcome.NO_ANSWER, NoteOutcome.WRONG_NUMBER);
+
+    private static final List<String> UNANSWERED_KEYS = UNANSWERED.stream().map(Enum::name).toList();
+
     private static final BinaryOperator<PersonTouch> NEWER =
             BinaryOperator.maxBy(Comparator.comparing(PersonTouch::at));
 
     private static final Comparator<PersonTouch> REPLY_THEN_ONGOING_THEN_NEWEST = Comparator
-            .comparing((PersonTouch touch) -> touch.kind() != ApproachKind.REPLIED)
+            .comparing((PersonTouch touch) -> !touch.kind().isReply())
             .thenComparing(touch -> !touch.kind().isOngoing())
             .thenComparing(PersonTouch::at, Comparator.reverseOrder());
 
@@ -81,16 +87,18 @@ public class RecentApproachReader {
 
         Map<UUID, List<PersonTouch>> touchesByPerson = Stream.concat(
                         history.touchesSince(workspaceId, asked, since).stream(),
-                        notes.findLoggedContacts(workspaceId, asked, LOGGED_CONTACT, since).stream()
+                        notes.findLoggedContacts(workspaceId, asked, LOGGED_CONTACT, UNANSWERED, since).stream()
                                 .map(row -> new PersonTouch(row.getPersonId(), row.getProjectId(),
-                                        row.getAuthorUserId(), ApproachKind.loggedAs(row.getKind()), row.getAt())))
+                                        row.getAuthorUserId(), ApproachKind.loggedAs(row.getKind(), row.getOutcome()),
+                                        row.getAt(), row.getOutcome())))
                 .filter(touch -> counts(touch, callerId, currentProjectId))
                 .collect(Collectors.groupingBy(PersonTouch::personId));
         Set<UUID> quiet = asked.stream().filter(personId -> !touchesByPerson.containsKey(personId))
                 .collect(Collectors.toSet());
         Map<UUID, PersonTouch> olderByPerson = quiet.isEmpty() ? Map.of() : Stream.concat(
                         history.latestTouchesBefore(workspaceId, quiet, since).stream(),
-                        notes.findLatestLoggedContactsBefore(workspaceId, quiet, LOGGED_CONTACT_KEYS, since).stream()
+                        notes.findLatestLoggedContactsBefore(workspaceId, quiet, LOGGED_CONTACT_KEYS, UNANSWERED_KEYS,
+                                        since).stream()
                                 .map(RecentApproachReader::touchOf))
                 .filter(touch -> counts(touch, callerId, currentProjectId))
                 .collect(Collectors.toMap(PersonTouch::personId, Function.identity(), NEWER));
@@ -148,7 +156,7 @@ public class RecentApproachReader {
 
     private static PersonTouch touchOf(PersonNote note) {
         return new PersonTouch(note.getPersonId(), note.getProjectId(), note.getAuthorUserId(),
-                ApproachKind.loggedAs(note.getKind()), note.happenedAt());
+                ApproachKind.loggedAs(note.getKind(), note.getOutcome()), note.happenedAt(), note.getOutcome());
     }
 
     private static RecentApproachTier tierOf(List<PersonTouch> recent, PersonTouch older,
@@ -215,7 +223,8 @@ public class RecentApproachReader {
             Project mandate = touch.projectId() == null || hidden ? null : mandates.get(touch.projectId());
             return new ApproachTouchResponse(touch.kind(), touch.byUserId(), names.get(touch.byUserId()), touch.at(),
                     hidden ? null : touch.projectId(), mandate == null ? null : mandate.getPositionTitle(), here,
-                    Objects.equals(touch.byUserId(), callerId), hidden);
+                    Objects.equals(touch.byUserId(), callerId), hidden,
+                    touch.outcome() == null ? null : touch.outcome().value());
         }
     }
 }

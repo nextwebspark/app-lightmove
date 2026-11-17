@@ -226,6 +226,17 @@ describe("DrawerOutreachTimeline", () => {
     expect(screen.queryByText("Keep the chair out of it.")).not.toBeInTheDocument();
   });
 
+  it("draws a call logged by its outcome alone as the outcome", async () => {
+    const noAnswer = { ...aNote("n-out", "call", "", "2026-11-05T09:00:00Z"), outcome: "no_answer" as const };
+    vi.mocked(conversationApi.getConversation).mockResolvedValue({
+      events: [noteEvent(noAnswer)],
+      truncated: false,
+    } as unknown as Conversation);
+    renderTimeline();
+
+    expect(await screen.findByText("No answer")).toBeInTheDocument();
+  });
+
   it("leads each card with its kind's mark, and the face of whoever did it beside the time with no name on show", async () => {
     vi.mocked(conversationApi.getConversation).mockResolvedValue({
       events: [replyEvent, ...EVENTS],

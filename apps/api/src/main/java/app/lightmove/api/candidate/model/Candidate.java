@@ -97,6 +97,19 @@ public class Candidate extends BaseEntity {
     @Column(name = "client_visible", nullable = false)
     private boolean clientVisible = true;
 
+    /** Why they left (V228), held only while their status is out of process. Staff-only: never on a client's read. */
+    @Column(name = "exit_reason_id")
+    private UUID exitReasonId;
+
+    @Column(name = "exit_note", length = 500)
+    private String exitNote;
+
+    @Column(name = "exit_reason_set_at")
+    private Instant exitReasonSetAt;
+
+    @Column(name = "exit_reason_set_by")
+    private UUID exitReasonSetBy;
+
     public static Candidate mapped(UUID projectId, UUID addedBy, UUID triageCompanyId,
                                    TriageCompanyStatus companyStatus, Person person,
                                    CandidateSource source, CandidateStatusDefinition status,
@@ -151,7 +164,29 @@ public class Candidate extends BaseEntity {
         }
         this.status = newStatus;
         this.statusChangedAt = Instant.now();
+        // A reason answers why they left by one way out; any move makes it stale, so the mover gives it afresh.
+        clearExitReason();
         return true;
+    }
+
+    /** Answers whether anything changed. A blank note is no note. */
+    public boolean giveExitReason(UUID reasonId, String note, UUID givenBy) {
+        String keptNote = note == null || note.isBlank() ? null : note.strip();
+        if (Objects.equals(exitReasonId, reasonId) && Objects.equals(exitNote, keptNote)) {
+            return false;
+        }
+        this.exitReasonId = reasonId;
+        this.exitNote = keptNote;
+        this.exitReasonSetAt = Instant.now();
+        this.exitReasonSetBy = givenBy;
+        return true;
+    }
+
+    private void clearExitReason() {
+        this.exitReasonId = null;
+        this.exitNote = null;
+        this.exitReasonSetAt = null;
+        this.exitReasonSetBy = null;
     }
 
     public void rankAt(BigDecimal newRank) {
@@ -186,6 +221,13 @@ public class Candidate extends BaseEntity {
         remapTo(resolvedTriageCompanyId, resolvedCompanyStatus);
         this.companyName = resolvedEmployerName;
         this.companyFiledForThem = filedForThem;
+    }
+
+    /** The company they are mapped at was renamed; the snapshot is that company's name, so it follows. */
+    public void followCompanyRename(String renamedTo) {
+        if (triageCompanyId != null) {
+            this.companyName = renamedTo;
+        }
     }
 
     /** Someone chose their company on its own account, so taking them back off the mandate leaves it. */

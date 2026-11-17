@@ -182,33 +182,44 @@ export function CareerFields<TTransformed extends FieldValues>({
         <span className="font-mono text-[11px] text-u-text3">Most recent first</span>
       </div>
       {career.fields.map((row, index) => (
-        <div key={row.id} className="mb-2 flex items-start gap-2">
-          <Input
-            {...register(`career.${index}.company`)}
-            placeholder="Company"
-            aria-label={`Career ${index + 1} company`}
-            className="flex-1"
-          />
-          <Input
-            {...register(`career.${index}.title`)}
-            placeholder="Title"
-            aria-label={`Career ${index + 1} title`}
-            className="flex-1"
-          />
-          <Input
-            {...register(`career.${index}.period`)}
-            placeholder="2021–Present"
-            aria-label={`Career ${index + 1} period`}
-            className="w-[110px] flex-none"
-          />
-          <button
-            type="button"
-            onClick={() => career.remove(index)}
-            aria-label={`Remove career row ${index + 1}`}
-            className="mt-2 flex-none rounded-md p-1.5 text-u-text3 transition hover:bg-u-raised hover:text-u-offlimits"
-          >
-            <Icon d={ICONS.trash} size={14} />
-          </button>
+        <div key={row.id} className="mb-2">
+          <div className="flex items-start gap-2">
+            <Input
+              {...register(`career.${index}.company`)}
+              placeholder="Company"
+              aria-label={`Career ${index + 1} company`}
+              invalid={Boolean(errors.career?.[index]?.company)}
+              className="flex-1"
+            />
+            <Input
+              {...register(`career.${index}.title`)}
+              placeholder="Title"
+              aria-label={`Career ${index + 1} title`}
+              invalid={Boolean(errors.career?.[index]?.title)}
+              className="flex-1"
+            />
+            <Input
+              {...register(`career.${index}.period`)}
+              placeholder="2021–Present"
+              aria-label={`Career ${index + 1} period`}
+              invalid={Boolean(errors.career?.[index]?.period)}
+              className="w-[110px] flex-none"
+            />
+            <button
+              type="button"
+              onClick={() => career.remove(index)}
+              aria-label={`Remove career row ${index + 1}`}
+              className="mt-2 flex-none rounded-md p-1.5 text-u-text3 transition hover:bg-u-raised hover:text-u-offlimits"
+            >
+              <Icon d={ICONS.trash} size={14} />
+            </button>
+          </div>
+          {/* A post's own refusal belongs on its row: only the list's message was drawn, so Save did nothing. */}
+          {careerRowMessage(errors, index) && (
+            <span role="alert" className="mt-1 block font-mono text-meta text-u-offlimits">
+              {careerRowMessage(errors, index)}
+            </span>
+          )}
         </div>
       ))}
       <button
@@ -226,6 +237,11 @@ export function CareerFields<TTransformed extends FieldValues>({
       )}
     </div>
   );
+}
+
+function careerRowMessage(errors: FieldErrors<CandidateForm>, index: number): string | undefined {
+  const row = errors.career?.[index];
+  return row?.company?.message ?? row?.title?.message ?? row?.period?.message;
 }
 
 const CADENCES: readonly SegmentedOption<BaseCadence>[] = [

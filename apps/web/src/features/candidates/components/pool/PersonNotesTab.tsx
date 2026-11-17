@@ -12,6 +12,7 @@ import { NoteEditor } from "../../../notes/components/NoteEditor";
 import { NextActionModal, type NextActionTarget } from "../../../tasks/components/NextActionModal";
 import { NOTE_MAX_STORED, NOTE_TOO_LONG, withoutMentionTokens } from "../../../tasks/lib/mentions";
 import { usePositionTeam } from "../../../tasks/lib/usePositionTeam";
+import { invalidateConversationsOf } from "../../../outreach/api/conversationApi";
 
 /**
  * The Notes tab: a plain note about a position or about the person, and the team's plain notes, pinned first. Calls,
@@ -169,12 +170,12 @@ function PoolNoteCard({ personId, note }: { personId: string; note: PersonNote }
     note,
     {
       pin: (noteId, pinned) => poolApi.pinPoolNote(personId, noteId, pinned),
-      revise: (current, body) =>
+      revise: (current, change) =>
         poolApi.revisePoolNote(personId, current.id, {
           kind: current.kind,
-          body,
           format: "markdown",
           projectId: current.projectId,
+          ...change,
         }),
       remove: (noteId) => poolApi.removePoolNote(personId, noteId),
       restore: (noteId) => poolApi.restorePoolNote(personId, noteId),
@@ -182,10 +183,10 @@ function PoolNoteCard({ personId, note }: { personId: string; note: PersonNote }
     useNoteRefresh(personId),
   );
   const team = usePositionTeam(note.projectId);
-  return <NoteCard note={note} actions={actions} teammates={note.projectId ? team.teammates : null} />;
+  return <NoteCard note={note} actions={actions} teammates={note.projectId ? team.teammates : null} takesOutcome />;
 }
 
-/** A note changes the notes, the timeline and the feed; nothing else about the person. */
+/** A note changes the notes, the timeline, the feed and, through Last call, every position's conversation. */
 function useNoteRefresh(personId: string) {
   const queryClient = useQueryClient();
   return () => {
@@ -193,5 +194,6 @@ function useNoteRefresh(personId: string) {
     void queryClient.invalidateQueries({ queryKey: [...poolApi.POOL_KEY, "timeline", personId] });
     void queryClient.invalidateQueries({ queryKey: [...poolApi.POOL_KEY, "activity"] });
     void queryClient.invalidateQueries({ queryKey: [...poolApi.POOL_KEY, "page"] });
+    invalidateConversationsOf(queryClient, { personId });
   };
 }

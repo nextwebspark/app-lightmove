@@ -60,6 +60,27 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
+    @DisplayName("two admins naming a status alike in one stage at once answer PIPELINE_LABEL_TAKEN, same as the pre-check")
+    void statusLabelPerStageConstraintMapsToItsBusinessError() {
+        ProblemDetail problem = handler.handleDataIntegrity(
+                violation("app_lm_workspace_candidate_status_stage_label_uk"), new MockHttpServletRequest());
+
+        assertThat(problem.getStatus()).isEqualTo(409);
+        assertThat(problem.getProperties()).containsEntry("code", "PIPELINE_LABEL_TAKEN");
+    }
+
+    @Test
+    @DisplayName("two admins adding one reason at once answer EXIT_REASON_TAKEN, by its name or the key read off it")
+    void exitReasonConstraintsMapToTheirBusinessError() {
+        for (String constraint : List.of("app_lm_workspace_exit_reason_label_uk", "app_lm_workspace_exit_reason_key_uk")) {
+            ProblemDetail problem = handler.handleDataIntegrity(violation(constraint), new MockHttpServletRequest());
+
+            assertThat(problem.getStatus()).isEqualTo(409);
+            assertThat(problem.getProperties()).containsEntry("code", "EXIT_REASON_TAKEN");
+        }
+    }
+
+    @Test
     @DisplayName("any other constraint answers a generic 409, never a 500")
     void unknownConstraintIsAConflictNotAServerError() {
         ProblemDetail problem = handler.handleDataIntegrity(

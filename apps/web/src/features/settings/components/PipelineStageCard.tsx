@@ -214,6 +214,7 @@ function StageHeader({
         open={preview !== null}
         title={`Retire ${stage.label} and its ${statusCountLabel(statuses.length)}?`}
         confirmLabel="Retire stage and statuses"
+        retiring
         catalog={catalog}
         preview={preview}
         pending={isPending}

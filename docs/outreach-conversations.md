@@ -406,7 +406,8 @@ unknown kind refetches everything).
   cap refusal is the 409 toast.
 - **`CandidateDetailsPane`**: avatar/name/role; stage pill; **Client visible** `role="switch"` via
   `useClientVisibility` (invalidate pipeline and outreach keys) with the mockup's caption; Contact details as a
-  read-only `DetailList` (Email, Mobile, Location); Key dates; Current sequence (name, n / 3, three bars, send
+  read-only `DetailList` (Email, Mobile, Location); Key dates (Last call once anyone logged one, on any position:
+  `keyDates.lastCall`, `docs/candidate-crm.md`); Current sequence (name, n / 3, three bars, send
   status from `lib/runVocabulary.ts`, **View sequence** → editor, **View history** → the drawer's Activity tab);
   **Open persistent candidate record** → `CandidateDrawerById` in place (portalled; navigating away would lose the
   queue).

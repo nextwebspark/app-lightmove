@@ -65,12 +65,20 @@ Decline / Back to universe sent them (`PUT …/candidates/{id}/triage-status`) �
 person alone. A stage lists its own companies plus any company with someone listed there; the company's own move
 (its drawer, or the line of a company with nobody on that stage) carries everyone at it (`TriageCompanyMoved`). An executive is also
 captured by the plugin, through the same endpoint the drawer posts to (`source: "extension"`). The plugin's side panel files into
-the position chosen at its top, asks first whether that position already holds the page (`GET …/candidates/held` by
-profile slug, `GET …/triage/held` by company page then name; staff-only, 204 when not) and then opens that record —
+the position chosen at its top — only positions `GET /projects` marks `viewerCanWork` (a seat, or a workspace admin) —
+asks first whether that position already holds the page (`GET …/candidates/held` by profile slug, decoded or
+percent-encoded; `GET …/triage/held` by company page, then name — and, only after a save refused as held, `throughMarket=true` adds
+the market row capture resolved the page to;
+staff-only, 204 when not) and then opens that record —
 status, tags and the position's notes, ready for the next — rather than a form; it writes its notes through the notes
 routes in the app's own editor (never the door's plain `note`), and files a company into the universe only. Its Undo
 says why when it leaves something: a person's takes the company filed for them (`?withFiledCompany=true`, V167) only
 while it is still In universe with nobody else at it and no note on it, and a company's is refused once anyone is mapped there.
+Two LinkedIn profiles are two people: the same-name refusal skips a namesake whose profile slug differs, and an employer
+filed from research lands on the position's company for that LinkedIn page before any name match (`resolveCapture`).
+A capture at LinkedIn's member-id address (`/in/ACoAA…`) takes the vanity address research names (HarvestAPI's
+`publicIdentifier`, Bright Data's `linkedin_id`), unless another person of the workspace already holds it — the merge
+tool's to fold.
 **The add form leads with a LinkedIn lookup** (`ProfileLookupStep`, `POST …/candidates/profile-lookup`,
 `enrichment/candidate`'s `ProfileLookupService` over `candidate`'s `LookedUpResearch`): a pasted profile is researched
 exactly as a capture is (the same `LinkedInProfileEnricher`, name and photo included) and answered to the form before
@@ -93,12 +101,19 @@ profile that does not exist.
 human — profile, background, package, contact ledger, research — owned by the workspace, and a mandate's
 `Candidate` row maps that person and keeps only the mandate's own status, custom-column values and
 brief-specific AI assessment. Whichever door files someone, `PersonMatcher` first asks whether the
-workspace already knows them — by LinkedIn profile slug (stored, V95), or by an email the ledger holds unless the two
-name different profiles; never by phone (a switchboard is on everyone) and never by name alone — and a
+workspace already knows them — by LinkedIn profile slug (stored, V95), or by a personal email the ledger holds whose
+holder's name agrees, unless the two name different profiles; never a role inbox (`info@`), never by phone (a switchboard is on everyone) and never by name alone — and a
 match is **mapped, not duplicated**: what the new mandate brings only fills what nobody recorded, an
 edit through one mandate is what every other reads, and removing someone from a mandate keeps the
 person. A profile is one person's: an edit that would give a second person of the workspace the same
-LinkedIn profile is refused (`PERSON_PROFILE_HELD`). The people controls below (the suppression list, erasure,
+LinkedIn profile is refused (`PERSON_PROFILE_HELD`). A section's save replays the stored profile but never its status
+(the status a save repeats is no move, so a retired one they hold refuses nothing), at most 25 career posts and 20
+languages (research keeps its most recent to the same), and an unchanged employer at no company does not map them
+beside a namesake already there; a researched person's address corrected in the drawer to another human's
+(two different vanity profiles; a member-id address is never another person) researches the new profile without an AI
+run, and its schools, skills, photo and research mark replace the old ones only once that research lands, so a typo
+or a failed lookup loses nothing; a spreadsheet's address asks for no research. Each save is announced (`candidate-edited`, a company's `company-edited`), and
+renaming a company renames it on everyone mapped there (`TriageCompanyRenamed`). The people controls below (the suppression list, erasure,
 restriction and the candidate retention review) are offered only where `lightmove.data-protection.enabled`
 (`DATA_PROTECTION_ENABLED`, off by default, read by the SPA from `GET /data-protection/config`; the four controllers are `@ConditionalOnProperty` on it)
 is on: off, their routes answer 404 and no screen offers them, while the doors' checks stay. **A workspace's suppression list (V195, #920)** names the people no door may file again — by an HMAC of
@@ -294,9 +309,11 @@ are rows in `app_lm_project_custom_column` and the values a jsonb bag on the row
 it like any built-in while a new mandate still starts from the built-ins alone. The importer writes
 nothing itself — it builds the same requests the Companies drawer posts and hands them to
 `triagecompany` and `candidate`, so every scope check, duplicate rule and audit event stays where it
-already lives. **An imported row is never resolved against the market and never researched** — a file
-states its own figures and arrives a thousand rows at once, so the two things a one-at-a-time capture
-affords are exactly the two it cannot.
+already lives. **An imported row is never resolved against the market**, and it is **researched only when the
+mapping step's "enrich from LinkedIn" box is ticked** (ticked by default): the file's distinct LinkedIn links are
+counted before anything is written and a file of more than `max-auto-enrich` (250), or past the month's fair use, is
+refused; what it filed is queued in `app_lm_import_enrichment_item` (V225) and researched behind the import by
+`ImportEnrichmentWorker`, filling only what the file left empty.
 A stage also leaves as a file: **Export** (under the toolbar's Advanced ▾) downloads the whole stage —
 every row, not the page on screen, narrowed by the toolbar's search and whichever of the grid's three header filters
 are in force, rows as well as companies, so the file is what the screen was showing — carrying every
@@ -654,7 +671,8 @@ method (`applyTo`) that decides what a row may store in them, since the bag is o
 stands between it and arbitrary caller-chosen keys. `triagecompany` and `candidate` depend on it; it
 depends on neither and knows nothing about companies or people. **`dataimport` is the spreadsheet** —
 read the file, work out what its columns mean, and write what it carries through the doors that
-already exist. It depends on those three and none of them depends back. **`dataexport` is the same
+already exist. It depends on those three, and on `enrichment.importrun` for the box that has what it filed
+researched (`ImportEnrichmentService`; its progress DTO rides `dataimport`'s controller); none of them depends back. **`dataexport` is the same
 three doors outward** — one stage of the Companies grid, composed and written as a CSV, reading
 through the seams `talentmap` already uses; it depends on the same three and on nothing else. Details
 in `java-spring-development`.

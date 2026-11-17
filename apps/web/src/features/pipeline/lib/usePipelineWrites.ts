@@ -63,7 +63,7 @@ export function useBoardMove(projectId: string, queryKey: QueryKey) {
   return useMutation({
     mutationFn: async (placement: BoardPlacement) => {
       const saved = placement.status
-        ? await candidatesApi.changeCandidateStatus(projectId, placement.candidateId, placement.status)
+        ? await candidatesApi.changeCandidateStatus(projectId, placement.candidateId, placement.status, placement.reason ?? null)
         : null;
       if (!placement.move) return { saved, rankRefused: null };
       try {

@@ -1,35 +1,52 @@
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "../../../components/ui";
 import { messageFor } from "../../../lib/errorCodes";
 import * as candidatesApi from "../api/candidatesApi";
-import type { Candidate, CandidateStatus } from "../api/types";
+import type { Candidate, CandidateStatus, ExitReasonChoice } from "../api/types";
 import { statusStyle } from "./pipelineStatus";
+import { useExitReasonPrompt } from "./useExitReasonPrompt";
 
 /**
  * A status change on its own — the same write the profile's header pill and the Companies grid's
  * Status column both need, so the two never disagree about what changing a candidate's status does.
+ * A move to a way out that offers reasons asks why first: render `dialog` beside the picker.
  */
 export function useChangeCandidateStatus(projectId: string, onSaved: (saved: Candidate) => void) {
   const toast = useToast();
+  const queryClient = useQueryClient();
+  const prompt = useExitReasonPrompt();
   const change = useMutation({
-    mutationFn: ({ candidateId, status }: ChangeCandidateStatus) =>
-      candidatesApi.changeCandidateStatus(projectId, candidateId, status),
+    mutationFn: ({ candidateId, status, reason }: ChangeCandidateStatus & { reason: ExitReasonChoice | null }) =>
+      candidatesApi.changeCandidateStatus(projectId, candidateId, status, reason),
     onSuccess: (saved, { candidateId, previous }) => {
       onSaved(saved);
+      void queryClient.invalidateQueries({ queryKey: candidatesApi.EXIT_REASONS_OF_KEY(projectId) });
       const message = `${saved.fullName} is now ${statusStyle(saved.status, saved).label.toLowerCase()}`;
       if (previous === undefined || previous === saved.status) {
         toast(message);
         return;
       }
-      toast.success(message, { undo: () => change.mutate({ candidateId, status: previous }) });
+      // Back to a way out that offers reasons asks why again: the reason they had went with the move.
+      toast.success(message, { undo: () => request({ candidateId, name: saved.fullName, status: previous }) });
     },
     onError: (error) => toast.error(messageFor(error)),
   });
-  return change;
+
+  const request = (args: ChangeCandidateStatus, options?: { onSettled?: () => void }) =>
+    void prompt.ask(
+      { name: args.name, statusKey: args.status },
+      // The dialog may have changed the way out: the status sent is the one it confirmed.
+      (status, reason) => change.mutate({ ...args, status, reason }, { onSettled: options?.onSettled }),
+      options?.onSettled,
+    );
+
+  return { mutate: request, isPending: change.isPending, dialog: prompt.dialog };
 }
 
 interface ChangeCandidateStatus {
   candidateId: string;
+  /** Who is moving, for the dialog that asks why they left. */
+  name: string;
   status: CandidateStatus;
   /** The status being left; given, the toast offers an Undo back to it. */
   previous?: CandidateStatus;

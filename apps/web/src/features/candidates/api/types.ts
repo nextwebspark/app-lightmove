@@ -277,6 +277,18 @@ export interface NationalityReading {
 /** What a note records, as the composer offers it. */
 export type PersonNoteKind = "general" | "call" | "meeting" | "email" | "linkedin" | "whatsapp";
 
+/** How a logged call (the first four) or WhatsApp message (the last two) went (V224). */
+export type NoteOutcome = "connected" | "voicemail" | "no_answer" | "wrong_number" | "sent" | "replied";
+
+/** The newest call anyone on the team logged with the person, on any position. Staff-only; never the words. */
+export interface LastCall {
+  at: string;
+  outcome: NoteOutcome | null;
+  byUserId: string;
+  /** Null once the author has left. */
+  byName: string | null;
+}
+
 /**
  * A note on a workspace person. Staff-only: one about a position is read there alone, one about no position
  * on every position, and the workspace's Candidates page reads them all.
@@ -306,6 +318,8 @@ export interface PersonNote {
   meetingId?: string | null;
   /** The Notetaker recording they are about, where the calendar no longer holds its meeting. */
   recordingId?: string | null;
+  /** How the call or WhatsApp message went; with one the body may be empty. */
+  outcome?: NoteOutcome | null;
 }
 
 export interface WritePersonNotePayload {
@@ -324,6 +338,32 @@ export interface WritePersonNotePayload {
   meetingId?: string | null;
   /** Or the Notetaker recording, for a call known only from it; never with a `meetingId`. */
   recordingId?: string | null;
+  /** A call's or WhatsApp log's outcome; an edit that leaves it out keeps it, and `""` clears it. */
+  outcome?: NoteOutcome | "" | null;
+}
+
+/** An edit: a body left out keeps the words held, as an outcome left out keeps the outcome. */
+export type RevisePersonNotePayload = Omit<WritePersonNotePayload, "body"> & { body?: string };
+
+/** Why a mandate's candidate left the process. Staff-only: never on `Candidate`, which a client seat reads. */
+export interface CandidateExitReason {
+  candidateId: string;
+  reasonId: string;
+  label: string;
+  note: string | null;
+  /** The reason asks for a note (Other), so a held one is corrected with it. */
+  requiresNote: boolean;
+  /** Retired after it was given: kept on them, offered no more. */
+  retired: boolean;
+  setAt: string | null;
+  setByUserId: string | null;
+  setByName: string | null;
+}
+
+/** The reason a move out of process is given, and its note where the reason asks for one. */
+export interface ExitReasonChoice {
+  reasonId: string;
+  note: string | null;
 }
 
 /** One mandate a person is mapped on, with that mandate's status and who filed them there. */
@@ -343,12 +383,15 @@ export interface PersonPosition {
   /** Whether the viewer may move this mapping's status: they hold the position's WORK_EXECUTE. */
   workable: boolean;
   positionArchived?: boolean;
+  /** Why they left this position's process; absent while in process or when nobody has said. */
+  exitReason?: CandidateExitReason | null;
 }
 
 /** How someone on the team reached a person; the server's `ApproachKind` names. */
 export type ApproachKind =
   | "EMAILED"
   | "REPLIED"
+  | "WHATSAPP_REPLIED"
   | "IN_SEQUENCE"
   | "CALL_LOGGED"
   | "LINKEDIN_LOGGED"
@@ -370,6 +413,8 @@ export interface ApproachTouch {
   samePosition: boolean;
   byYou: boolean;
   positionHidden: boolean;
+  /** How a logged call or WhatsApp message went; null for anything else. */
+  outcome: NoteOutcome | null;
 }
 
 /**
@@ -409,6 +454,7 @@ export type PersonActivityKind =
   | "MAPPED"
   | "UNMAPPED"
   | "STATUS_CHANGED"
+  | "EXIT_REASON_CHANGED"
   | "TRIAGE_STATUS_CHANGED"
   | "NEXT_ACTION_SET"
   | "CLIENT_VISIBILITY_CHANGED"

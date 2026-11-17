@@ -20,8 +20,11 @@ changes. Copy no mockup draws — toasts, errors, banners, empty states — foll
 | **Candidate** | the same person on the workspace's Candidates page | — |
 | **Universe** | the companies a position has taken from the market (In universe / Shortlisted / Declined) | triage |
 | **Out of process** | a status that takes whoever holds it out of the search — not interested, screened out, declined offer — whatever stage it sits under | terminal, dead |
+| **Reason** (for leaving the process) | why someone left a position at an out-of-process status (Not interested, Withdrew, Client rejected…), picked from the workspace's own list; staff-only | rejection reason, disposition, archive reason |
 | **Out of process** (the board's band) | the band under the Pipeline board's columns: everyone at a status out of process, under the stage their way out sits in | Inactive, archived, declined (for people) |
-| **Recently approached** | the amber note before an email, a sequence or an add: who on the team already reached the person (an email, a reply, a sequence, a logged call, LinkedIn, WhatsApp or meeting), when, and for which position, and where else they are in process | conflict, duplicate, already contacted, ownership |
+| **Way out** | one of a stage's statuses out of process (Not interested, Unresponsive, Withdrew…): the first field of the dialog that asks why someone left — "Choose a way out", "Moving them out of process at Approach." | exit status, closing status |
+| **Recently approached** | the amber note before an email, a sequence or an add: who on the team already reached the person (an email, a reply, a sequence, a logged call, LinkedIn, WhatsApp or meeting), when, and for which position, and where else they are in process. A call that got No answer or a Wrong number reached nobody and is left out | conflict, duplicate, already contacted, ownership |
+| **Last call** | the newest call anyone on the team logged with the person, on any position: the day, how it went and who | last contact, last touch |
 | **Conversation** | everything with one executive on one position on the Outreach page: emails both ways, run events, notes, meetings | thread, inbox |
 | **Filter** / **Add filter** / **Clear all** | a grid's toolbar button beside the search, its panel's "add one on any column", and the one place every filter in force is cleared; a column header's own menu says **Filter by** | Advanced filter, a Clear all in a column header |
 | **To do** | the Outreach page's filter of the people waiting on someone; its groups are Needs reply, Follow-ups, Before first email and Delivery problems | Action queue, Needs action, inbox |
@@ -71,6 +74,8 @@ changes. Copy no mockup draws — toasts, errors, banners, empty states — foll
 | **Live profiles** / **Profile index** | Find executives' two sources, in *How we searched*: today's titles bought a profile at a time, and who works where, searched cheaply | the vendors' names |
 | **Strong** / **Good** / **Possible** | how well someone who fits the role fits it, from their score | score, rank, rating |
 | **Connected** / **Left voicemail** / **No answer** / **Wrong number**; **Sent a message** / **They replied** | how a logged call, or a logged WhatsApp, went: the sequence call step's own words. An outcome that is not the note kind's own is refused with "That outcome doesn't fit this kind of note" | disposition, status, result, call result |
+| **Not now** / **Done** / **N more to log** / **Fix number** | the log-it tray's words: a card set aside unlogged, one closed after Wrong number, the cards folded under the newest, and the way to Edit contact details after a wrong number | dismiss, skip, snooze, queue |
+| **Call logged** / **WhatsApp logged** | the toast once a log that says how it went is saved (from the tray or the composer); "Call logged · Wrong number" for that outcome | note saved, call saved |
 | **12d** | a trial's days left, where a phone has room for nothing longer (the topbar chip; its spoken name is "Trial · 12 days left") | — |
 
 ## Never on screen

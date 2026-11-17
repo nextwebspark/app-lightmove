@@ -64,7 +64,8 @@ export function CompanyDrawer({
   customColumns: readonly CustomColumn[];
   canWrite: boolean;
   onClose: () => void;
-  onSaved: () => void;
+  /** A write's answer, when it was this company's: the panel goes on to show it. */
+  onSaved: (saved?: TriageCompany) => void;
   onMove: (company: TriageCompany, status: TriageCompanyStatus) => void;
   onDelete: (company: TriageCompany) => void;
   /** Maps somebody at this company, from the panel that is already open on it. */
@@ -95,21 +96,27 @@ export function CompanyDrawer({
   const saveCustomFields = useMutation({
     mutationFn: (values: CustomFieldValues) =>
       triageApi.editCompanyCustomFields(projectId, company!.id, values),
-    onSuccess: () => {
-      onSaved();
+    onSuccess: (saved) => {
+      onSaved(saved);
       toast("Columns saved");
     },
     onError: (error) => toast.error(messageFor(error)),
   });
 
-  // Reopening should show the company being read, never the half-typed edit that was abandoned.
+  // Reopening should show the company being read, never the half-typed edit that was abandoned. Keyed on the id, so
+  // the panel's own save, which hands it the saved company, leaves the tab where the reader is.
+  const companyId = company?.id ?? null;
   useEffect(() => {
     if (!open) return;
-    setCustomFields(company?.customFields ?? {});
     setEditing(false);
     setTab(initialTab);
     setNotesOpened(initialTab === "notes");
-  }, [open, company, initialTab]);
+  }, [open, companyId, initialTab]);
+  const savedColumns = JSON.stringify(company?.customFields ?? {});
+  useEffect(() => {
+    if (!open) return;
+    setCustomFields(JSON.parse(savedColumns) as CustomFieldValues);
+  }, [open, companyId, savedColumns]);
 
   // A company the mandate supplied itself is the mandate's to rewrite; one carrying a market snapshot
   // is the export's. Keyed on `apolloAccountId` and not on `source`, because that is the test the
@@ -227,7 +234,7 @@ export function CompanyDrawer({
             })
           }
           onSaved={(saved) => {
-            onSaved();
+            onSaved(saved);
             toast(`${saved.companyName} updated`);
             setEditing(false);
           }}

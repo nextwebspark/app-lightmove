@@ -25,6 +25,7 @@ vi.mock("../../workspace/api/pipelineApi", async (importOriginal) => ({
   statusRetirePreview: vi.fn(),
   statusAutomations: vi.fn(),
   updateStatusAutomation: vi.fn(),
+  exitReasons: vi.fn(),
 }));
 
 let currentUser: User = aUser();
@@ -44,8 +45,11 @@ function renderPage() {
 
 const AUTOMATION_CARD = "Move candidates automatically";
 const card = (label: string) => screen.getByRole("region", { name: label });
+const REASONS_CARD = "Reasons for leaving the process";
 const stageRegions = () =>
-  screen.getAllByRole("region").filter((region) => region.getAttribute("aria-label") !== AUTOMATION_CARD);
+  screen
+    .getAllByRole("region")
+    .filter((region) => ![AUTOMATION_CARD, REASONS_CARD].includes(region.getAttribute("aria-label") ?? ""));
 const stageListItems = () => stageRegions().flatMap((region) => within(region).queryAllByRole("listitem"));
 
 function seededAutomations(overrides: Partial<Record<StatusAutomationTrigger, Partial<StatusAutomation>>> = {}) {
@@ -87,6 +91,7 @@ describe("PipelineStagesPage", () => {
     currentUser = aUser();
     vi.mocked(pipelineApi.pipelineCatalog).mockResolvedValue(aSeededCatalog());
     vi.mocked(pipelineApi.statusAutomations).mockResolvedValue(seededAutomations());
+    vi.mocked(pipelineApi.exitReasons).mockResolvedValue({ reasons: [] });
     vi.mocked(pipelineApi.statusRetirePreview).mockImplementation(async (statusId) => ({
       statuses: [{ statusId, label: statusId, holders: 0 }],
       automations: [],
@@ -408,7 +413,23 @@ describe("PipelineStagesPage", () => {
     expect(within(dialog).getByText("12 candidates")).toBeInTheDocument();
     expect(within(dialog).getByText("No candidates")).toBeInTheDocument();
     expect(within(dialog).getByText("An outreach email is sent → Contacted")).toBeInTheDocument();
-    await userEvent.click(within(dialog).getByRole("button", { name: "Retire stage and statuses" }));
+    // Nobody is moved off a status by retiring it: while anyone holds one, the retire is not offered.
+    expect(within(dialog).getByRole("alert")).toHaveTextContent(
+      "12 candidates are still on these statuses. Move them to another status before retiring them.",
+    );
+    expect(within(dialog).getByRole("button", { name: "Retire stage and statuses" })).toBeDisabled();
+    await userEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+
+    vi.mocked(pipelineApi.stageRetirePreview).mockResolvedValue({
+      statuses: [
+        { statusId: "status-contacted", label: "Contacted", holders: 0 },
+        { statusId: "status-followUpSent", label: "Follow-up sent", holders: 0 },
+      ],
+      automations: [],
+    });
+    await choose(card("Contacted"), "Contacted stage options", "Retire stage");
+    const emptied = await screen.findByRole("dialog", { name: "Retire Contacted and its 4 statuses?" });
+    await userEvent.click(within(emptied).getByRole("button", { name: "Retire stage and statuses" }));
     await waitFor(() =>
       expect(pipelineApi.updateStage).toHaveBeenCalledWith("stage-contacted", { retired: true, retireStatuses: true }),
     );

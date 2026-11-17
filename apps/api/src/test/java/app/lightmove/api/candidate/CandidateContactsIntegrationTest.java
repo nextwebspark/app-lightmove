@@ -144,6 +144,25 @@ class CandidateContactsIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("a profile already past ten addresses, from a lookup once uncapped, still saves an edit that adds none")
+    void aProfilePastTheCapStillSavesAnEditThatAddsNone() throws Exception {
+        String projectId = mandate("Overfull Ledger Firm");
+        String candidateId = executive(projectId, """
+                {"fullName":"Sample Person","emails":[%s]}""".formatted(tenAddresses()));
+        db.update("""
+                insert into app_lm_person_contact (person_id, channel, value, value_key, kind, source)
+                select person_id, 'EMAIL', 'found@lookup.example', 'found@lookup.example', 'WORK', 'CONTACTOUT'
+                from app_lm_project_candidate where id = ?::uuid""", candidateId);
+
+        mvc.perform(put(candidatesUrl(projectId) + "/" + candidateId)
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fullName":"Sample Person","summary":"Edited after the lookup."}"""))
+                .andExpect(status().isOk());
+    }
+
+    @Test
     @DisplayName("an address listed twice in the Add form is refused like the section's save")
     void aDuplicateInTheAddFormIsRefused() throws Exception {
         String projectId = mandate("Add Form Duplicate Firm");

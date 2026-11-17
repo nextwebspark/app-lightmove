@@ -248,6 +248,7 @@ export function PreviewOf({ preview, taskState = "open" }: { preview: ActivityPr
           {preview.from && <Icon d={ICONS.arrowRight} size={13} className="text-u-text3" />}
           <StatusPill label={preview.to} isCurrent />
           {preview.cause && <span>{preview.cause}</span>}
+          {preview.reason && <span>Why: {preview.reason}</span>}
         </span>
       );
     case "changes":

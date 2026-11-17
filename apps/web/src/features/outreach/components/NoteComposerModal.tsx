@@ -4,7 +4,7 @@ import { callRowsOf } from "../lib/notetakerChip";
 import { useComposerDialog } from "../lib/useComposerDialog";
 import { useNotetaker } from "../lib/useNotetaker";
 import { Modal } from "../../../components/ui";
-import type { PersonNoteKind } from "../../candidates/api/types";
+import type { NoteOutcome, PersonNoteKind } from "../../candidates/api/types";
 import { PositionNoteComposer } from "../../candidates/components/PersonSections";
 import { LOGGED_CONTACT_KINDS } from "../../candidates/lib/noteKinds";
 
@@ -28,6 +28,8 @@ export function NoteComposerModal({
   fullName,
   kind,
   presetMeetingId = null,
+  presetOutcome = null,
+  presetOccurredAt = null,
   onClose,
   onSaved,
 }: {
@@ -38,6 +40,10 @@ export function NoteComposerModal({
   kind: PersonNoteKind | null;
   /** Log meeting notes from a past call's ⋯: the dialog opens on that call. */
   presetMeetingId?: string | null;
+  /** From the log-it tray: Connected, picked already. */
+  presetOutcome?: NoteOutcome | null;
+  /** From the log-it tray: when the number was pressed. */
+  presetOccurredAt?: string | null;
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -74,13 +80,15 @@ export function NoteComposerModal({
     >
       {kind !== null && (
         <PositionNoteComposer
-          key={`${kind}:${presetMeetingId ?? ""}`}
+          key={`${kind}:${presetMeetingId ?? ""}:${presetOutcome ?? ""}:${presetOccurredAt ?? ""}`}
           projectId={projectId}
           candidateId={candidateId}
           initialKind={kind}
           kindChoices={logsContact ? [kind] : undefined}
           pastMeetings={pastMeetings}
           presetMeetingId={presetMeetingId}
+          presetOutcome={presetOutcome}
+          presetOccurredAt={presetOccurredAt}
           title={title}
           presentation="dialog"
           onExpandChange={dialog.onExpandChange}

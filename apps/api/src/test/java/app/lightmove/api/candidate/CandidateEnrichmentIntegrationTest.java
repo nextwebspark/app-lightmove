@@ -211,6 +211,67 @@ class CandidateEnrichmentIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("an address corrected in the drawer is researched, and that research replaces the old person's")
+    void aCorrectedAddressReplacesTheOldResearch() throws Exception {
+        String projectId = mandate("Corrected Profile Firm");
+        String candidateId = researchedCapture(projectId);
+        enricher.clear();
+        enricher.answerWith(new EnrichedProfile("Treasurer", null, null, null, null, null, null, List.of(),
+                List.of(new CandidateEducationEntry("LBS", "MSc Finance", "2015")), List.of("Treasury"), List.of(),
+                null, EnrichmentVendor.HARVESTAPI));
+
+        correctAddress(projectId, candidateId, "https://www.linkedin.com/in/another-person");
+
+        assertThat(enricher.fetchedUrls()).containsExactly("https://www.linkedin.com/in/another-person");
+        JsonNode corrected = firstCandidateOf(projectId);
+        assertThat(corrected.get("education").get(0).get("school").asText()).isEqualTo("LBS");
+        assertThat(corrected.get("skills").get(0).asText()).isEqualTo("Treasury");
+        // The old person's photo is gone with their research; the new profile had none.
+        mvc.perform(get(candidatesUrl(projectId) + "/" + candidateId + "/photo")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @DisplayName("an address corrected to a profile research cannot read keeps everything it had")
+    void aCorrectionResearchCannotReadLosesNothing() throws Exception {
+        String projectId = mandate("Typo Profile Firm");
+        String candidateId = researchedCapture(projectId);
+        enricher.clear();
+
+        correctAddress(projectId, candidateId, "https://www.linkedin.com/in/anothre-persno");
+
+        JsonNode kept = firstCandidateOf(projectId);
+        assertThat(kept.get("education").get(0).get("school").asText()).isEqualTo("AUC");
+        assertThat(kept.get("enrichedAt").isNull()).isFalse();
+        mvc.perform(get(candidatesUrl(projectId) + "/" + candidateId + "/photo")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk());
+    }
+
+    private String researchedCapture(String projectId) throws Exception {
+        enricher.answerWith(RESEARCH);
+        return body(mvc.perform(post(candidatesUrl(projectId))
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fullName":"Sample Person","source":"extension",
+                                 "linkedinUrl":"https://www.linkedin.com/in/sample-profile",
+                                 "sourceUrl":"https://www.linkedin.com/in/sample-profile"}"""))
+                .andExpect(status().isCreated())
+                .andReturn()).get("id").asText();
+    }
+
+    private void correctAddress(String projectId, String candidateId, String linkedinUrl) throws Exception {
+        mvc.perform(put(candidatesUrl(projectId) + "/" + candidateId)
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fullName":"Sample Person","linkedinUrl":"%s"}""".formatted(linkedinUrl)))
+                .andExpect(status().isOk());
+    }
+
+    @Test
     @DisplayName("research mapping someone at an already-held company clears its no-executive-found flag too")
     void researchMappingClearsNoExecutiveFoundOnAnAlreadyHeldCompany() throws Exception {
         String projectId = mandate("Already Flagged Employer Firm");
@@ -306,6 +367,70 @@ class CandidateEnrichmentIntegrationTest extends FlowTestSupport {
                 select metadata ->> 'companyRemoved' from app_lm_audit_event
                 where event_type = 'CANDIDATE_REMOVED' and target_id = ?""", String.class, projectId))
                 .isEqualTo("true");
+    }
+
+    @Test
+    @DisplayName("research maps the person to the company the position holds for that LinkedIn page, whatever it is called")
+    void researchMapsToTheCompanyHeldForItsPage() throws Exception {
+        String projectId = mandate("Held Page Firm");
+        // The market does not carry it, so the consultant's capture is a hand-shaped row under the page's own name.
+        String heldId = body(mvc.perform(post(triageUrl(projectId) + "/capture")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"companyName":"Rawabi","source":"extension",
+                                 "companyLinkedinUrl":"https://www.linkedin.com/company/alrawabi/"}"""))
+                .andExpect(status().isCreated())
+                .andReturn()).get("id").asText();
+        enricher.answerWith(RESEARCH);
+
+        capture(projectId, "Sample Person", "sample-profile");
+
+        // Research spells the employer "Al Rawabi Dairy"; a second company under that name used to take the person.
+        assertThat(companiesInUniverse(projectId)).hasSize(1);
+        assertThat(firstCandidateOf(projectId).get("triageCompanyId").asText()).isEqualTo(heldId);
+    }
+
+    @Test
+    @DisplayName("a capture at LinkedIn's member-id address takes the vanity address research names")
+    void aMemberIdCaptureTakesTheVanityAddress() throws Exception {
+        String projectId = mandate("Member Id Firm");
+        enricher.answerWith(RESEARCH.withPublicProfileUrl("https://www.linkedin.com/in/sample-profile/"));
+
+        String candidateId = capture(projectId, "Sample Person", "ACoAAB1234567890abcdefGHIJ");
+
+        // Found at the address every later visit to their profile uses, and never filed a second time from it.
+        mvc.perform(get(candidatesUrl(projectId) + "/held")
+                        .param("linkedinUrl", "https://www.linkedin.com/in/sample-profile/")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.candidate.id").value(candidateId));
+        mvc.perform(post(candidatesUrl(projectId))
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fullName":"Sample Person","source":"extension",
+                                 "linkedinUrl":"https://www.linkedin.com/in/sample-profile/"}"""))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("CANDIDATE_ALREADY_MAPPED"));
+    }
+
+    @Test
+    @DisplayName("a member-id capture keeps its address when the vanity profile is already somebody else's")
+    void aMemberIdCaptureLeavesAHeldVanityAlone() throws Exception {
+        String projectId = mandate("Member Id Held Firm");
+        enricher.answerWith(RESEARCH);
+        capture(projectId, "Sample Person", "sample-profile");
+        String otherPosition = mandateInSameWorkspace("Chief Operating Officer");
+        enricher.answerWith(RESEARCH.withPublicProfileUrl("https://www.linkedin.com/in/sample-profile/"));
+
+        String candidateId = capture(otherPosition, "Sample Person", "ACoAAB1234567890abcdefGHIJ");
+
+        // Two people of the workspace now name one profile: the merge tool folds them, research never steals a key.
+        assertThat(body(mvc.perform(get(candidatesUrl(otherPosition) + "/" + candidateId)
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andReturn()).get("linkedinUrl").asText()).containsIgnoringCase("/in/ACoAAB1234567890abcdefGHIJ");
     }
 
     @Test

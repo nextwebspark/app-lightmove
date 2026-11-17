@@ -20,10 +20,13 @@ export async function heldCompany(
   projectId: string,
   linkedinUrl: string | null,
   name: string | null,
+  throughMarket = false,
 ): Promise<TriagedCompany | null> {
   const query = new URLSearchParams();
   if (linkedinUrl) query.set("linkedinUrl", linkedinUrl);
   if (name) query.set("name", name);
+  // Only after a save was refused as held: it scans the company universe, which no page view should pay for.
+  if (throughMarket) query.set("throughMarket", "true");
   return (await api.request<TriagedCompany | undefined>(`/projects/${projectId}/triage/held?${query}`)) ?? null;
 }
 

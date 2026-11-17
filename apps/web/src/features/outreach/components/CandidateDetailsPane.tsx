@@ -8,9 +8,9 @@ import { cn } from "../../../lib/cn";
 import * as shareConsentApi from "../../candidates/api/shareConsentApi";
 import { ShareConsentPromptDialog } from "../../candidates/components/consent/ShareConsentPromptDialog";
 import { PersonAvatar } from "../../candidates/components/pool/PersonAvatar";
-import { CopyContactButton } from "../../contactlookup/components/CopyContactButton";
 import { isReachable } from "../../contactlookup/lib/phoneReach";
 import {
+  CopyPhoneButton,
   PhoneNumberLink,
   WhatsAppLink,
   type PhoneReach,
@@ -21,7 +21,8 @@ import { messageFor } from "../../../lib/errorCodes";
 import { pipelineColourClass, pipelineSwatchClass } from "../../candidates/lib/pipelineStatus";
 import { useClientVisibility } from "../../pipeline/lib/usePipelineWrites";
 import { CONVERSATION_KEY, type Conversation } from "../api/conversationApi";
-import { keyDateOf } from "../lib/conversationVocabulary";
+import { keyDateOf, lastCallKeyDateOf } from "../lib/conversationVocabulary";
+import { lastCallTitle } from "../../candidates/lib/lastCall";
 import { isLive, RUN_STATES, runNoteOf, sendTimeOf } from "../lib/runVocabulary";
 
 /**
@@ -80,6 +81,13 @@ export function CandidateDetailsPane({
     locationCountry: contact.locationCountry,
     mayReachOut: true,
     doNotContact: contact.doNotContact,
+    target: {
+      projectId,
+      candidateId: executive.candidateId,
+      personName: executive.fullName,
+      positionTitle: outlet?.project.positionTitle ?? null,
+      approach: conversation.composer?.recentApproach ?? null,
+    },
   };
   const clientVisible = clientVisibility.isPending
     ? (clientVisibility.variables?.clientVisible ?? executive.clientVisible)
@@ -162,7 +170,7 @@ export function CandidateDetailsPane({
                   className={cn("font-mono", isReachable(phoneReach) && "text-u-accent")}
                 />
                 <WhatsAppLink phone={phone} reach={phoneReach} size={12} />
-                {isReachable(phoneReach) && <CopyContactButton what="Phone" value={phone.number} size={11} />}
+                {isReachable(phoneReach) && <CopyPhoneButton phone={phone} reach={phoneReach} size={11} />}
               </div>
             ))
           )}
@@ -186,6 +194,11 @@ export function CandidateDetailsPane({
         <DetailRow label="Last updated" mono>
           {keyDateOf(keyDates.lastActivityAt)}
         </DetailRow>
+        {keyDates.lastCall && (
+          <DetailRow label="Last call" mono>
+            <span title={lastCallTitle(keyDates.lastCall)}>{lastCallKeyDateOf(keyDates.lastCall)}</span>
+          </DetailRow>
+        )}
       </DetailBlock>
 
       <DetailBlock

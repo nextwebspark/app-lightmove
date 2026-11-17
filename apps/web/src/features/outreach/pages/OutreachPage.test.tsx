@@ -189,7 +189,7 @@ function conversation(overrides: Partial<Conversation> = {}): Conversation {
       },
     ],
     currentRun: { run: null, steps: [] },
-    keyDates: { addedAt: "2026-09-20T05:00:00Z", firstContactedAt: "2026-10-01T05:00:00Z", repliedAt: null, lastActivityAt: null },
+    keyDates: { addedAt: "2026-09-20T05:00:00Z", firstContactedAt: "2026-10-01T05:00:00Z", repliedAt: null, lastActivityAt: null, lastCall: null },
     contact: {
       emails: [{ address: "fatima@gulfports.example", kind: "work", verified: true } as never],
       phones: [],
@@ -607,6 +607,26 @@ describe("OutreachPage", () => {
     expect(within(composer).queryByRole("button", { name: "Send now" })).not.toBeInTheDocument();
   });
 
+  it("puts the newest logged call in Key dates with how it went, and no row where nobody called", async () => {
+    const open = conversation();
+    vi.mocked(conversationApi.getConversation).mockResolvedValue(
+      conversation({
+        keyDates: {
+          ...open.keyDates,
+          lastCall: { at: "2026-10-05T08:00:00Z", outcome: "connected", byUserId: "u2", byName: "Sara Al-Mansour" },
+        },
+      }),
+    );
+    const called = renderPage(OPEN);
+    expect((await screen.findAllByText("05 OCT 2026 · CONNECTED")).length).toBeGreaterThan(0);
+
+    vi.mocked(conversationApi.getConversation).mockResolvedValue(open);
+    called.unmount();
+    renderPage(OPEN);
+    expect((await screen.findAllByText("First contacted")).length).toBeGreaterThan(0);
+    expect(screen.queryByText("Last call")).not.toBeInTheDocument();
+  });
+
   it("with no mailbox and nobody to open, offers one way in where the conversation goes, and no banner", async () => {
     vi.mocked(mailboxApi.getMailbox).mockResolvedValue(nothingConnected);
     vi.mocked(conversationApi.listConversations).mockResolvedValue(NOBODY);
@@ -824,7 +844,7 @@ describe("OutreachPage", () => {
     expect(screen.getByRole("dialog", { name: "Add a note on Fatima Al Mazrouei" })).toBeInTheDocument();
   });
 
-  it("grows the email dialog on Expand, sends from it, and closes it", async () => {
+  it("opens the email dialog expanded, collapses and grows it in place, sends from it, and closes it", async () => {
     vi.mocked(conversationApi.sendMessage).mockResolvedValue({
       id: "m9",
       status: "SCHEDULED",
@@ -836,6 +856,7 @@ describe("OutreachPage", () => {
     const dialog = await openEmail();
     await typeInto(await within(dialog).findByRole("textbox", { name: "Message" }), "Thursday at 10?");
 
+    await userEvent.click(within(dialog).getByRole("button", { name: "Collapse" }));
     await userEvent.click(within(dialog).getByRole("button", { name: "Expand" }));
     expect(screen.getAllByRole("dialog")).toEqual([dialog]);
     expect(within(dialog).getByText("Re: A confidential conversation")).toBeInTheDocument();

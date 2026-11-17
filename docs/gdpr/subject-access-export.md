@@ -111,5 +111,6 @@ its logic text, or listed as leaving nothing on a person.
 | `app_lm_storage_deletion` | Excluded | bucket keys queued for deletion, no data about anyone |
 | `app_lm_executive_sourcing_run` | Excluded | Find executives' record of a run; the people it filed are the `positions` rows |
 | `app_lm_executive_sourcing_suggestion` | Excluded | Find executives' ranked finds: a profile slug and our judgement, never a name; erasure deletes the person's rows |
+| `app_lm_import_enrichment_item` | Excluded | An import's enrichment queue: a profile slug and our outcome, never a name; the research it filed is the person's own profile; erasure deletes the person's rows |
 | `app_lm_vendor_person` | Excluded | Uncava's own cache of a vendor's record, shared by every workspace: Uncava is its controller, and answers for it through its own request channel (website #28) |
 | `app_lm_vendor_people_search` | Excluded | the same cache's index of which profiles a search returned |

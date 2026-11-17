@@ -8,5 +8,7 @@ public record ImportColumnDto(
         String header,
         String valueShape,
         List<String> sampleValues,
-        ProposedColumnMappingDto mapping
+        ProposedColumnMappingDto mapping,
+        int linkedinProfileCount,
+        int linkedinCompanyCount
 ) {}

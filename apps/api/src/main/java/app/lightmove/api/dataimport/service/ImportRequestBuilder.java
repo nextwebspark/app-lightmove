@@ -30,7 +30,7 @@ class ImportRequestBuilder {
                 RowValues.number(fields.field(COMPANY_REVENUE)),
                 foundedYearOf(fields),
                 RowValues.text(fields.field(COMPANY_WEBSITE), 500),
-                RowValues.text(fields.field(COMPANY_LINKEDIN), 500),
+                RowValues.linkedinCompany(fields.field(COMPANY_LINKEDIN)),
                 RowValues.text(fields.field(COMPANY_DESCRIPTION), 2000),
                 null,
                 companyNoteOf(fields),
@@ -52,7 +52,7 @@ class ImportRequestBuilder {
                 firstOf(RowValues.number(fields.field(COMPANY_REVENUE)), held.annualRevenue()),
                 firstOf(foundedYearOf(fields), held.foundedYear()),
                 firstOf(RowValues.text(fields.field(COMPANY_WEBSITE), 500), held.website()),
-                firstOf(RowValues.text(fields.field(COMPANY_LINKEDIN), 500), held.companyLinkedinUrl()),
+                firstOf(RowValues.linkedinCompany(fields.field(COMPANY_LINKEDIN)), held.companyLinkedinUrl()),
                 firstOf(RowValues.text(fields.field(COMPANY_DESCRIPTION), 2000), held.shortDescription()),
                 fields.customValues(CustomColumnTarget.COMPANY));
     }
@@ -69,11 +69,11 @@ class ImportRequestBuilder {
                 storedOf(held, CandidateResponse::status),
                 overlay(RowValues.text(companyName, 200), held, CandidateResponse::companyName),
                 // Only the file's contacts: the ledger keeps what the person already holds.
-                RowValues.text(fields.field(CANDIDATE_EMAIL), 320),
+                RowValues.email(fields.field(CANDIDATE_EMAIL)),
                 RowValues.text(fields.field(CANDIDATE_PHONE), 50),
                 null,
                 null,
-                overlay(RowValues.text(fields.field(CANDIDATE_LINKEDIN), 500), held, CandidateResponse::linkedinUrl),
+                overlay(RowValues.linkedinProfile(fields.field(CANDIDATE_LINKEDIN)), held, CandidateResponse::linkedinUrl),
                 overlay(RowValues.text(fields.field(CANDIDATE_COUNTRY), 100), held, CandidateResponse::locationCountry),
                 overlay(RowValues.text(fields.field(CANDIDATE_CITY), 100), held, CandidateResponse::locationCity),
                 overlay(RowValues.text(fields.field(CANDIDATE_NATIONALITY), 100), held, CandidateResponse::nationality),

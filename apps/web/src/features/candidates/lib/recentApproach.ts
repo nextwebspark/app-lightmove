@@ -1,5 +1,6 @@
 import { formatTimeAgo } from "../../../lib/format";
 import type { ApproachKind, ApproachPosition, ApproachTouch, RecentApproach } from "../api/types";
+import { outcomeLabel } from "./noteOutcomes";
 
 /** One thing a screen says, and the position it opens when the reader may open it. */
 export interface ApproachLine {
@@ -19,17 +20,26 @@ function whenOf(at: string, now: Date): string {
   return new Date(at).getTime() > now.getTime() ? "scheduled" : formatTimeAgo(at, now);
 }
 
+/** A logged call or WhatsApp message says how it went: "called (left voicemail)", not "logged a call". */
+function loggedOf(touch: ApproachTouch): string {
+  if (touch.kind === "CALL_LOGGED" && touch.outcome) return `called (${outcomeLabel(touch.outcome).toLowerCase()})`;
+  if (touch.kind === "WHATSAPP_LOGGED" && touch.outcome === "sent") return "sent a WhatsApp message";
+  return LOGGED[touch.kind] ?? "approached";
+}
+
 function whatOf(touch: ApproachTouch): string {
   const who = touch.byYou ? "You" : (touch.byName ?? "A former member");
   switch (touch.kind) {
     case "REPLIED":
       return touch.byYou ? "Replied to you" : `Replied to ${who}`;
+    case "WHATSAPP_REPLIED":
+      return touch.byYou ? "Replied to you on WhatsApp" : `Replied to ${who} on WhatsApp`;
     case "IN_SEQUENCE":
       return touch.byYou ? "In your sequence" : `In ${who}'s sequence`;
     case "EMAILED":
       return `${who} emailed`;
     default:
-      return `${who} ${LOGGED[touch.kind] ?? "approached"}`;
+      return `${who} ${loggedOf(touch)}`;
   }
 }
 

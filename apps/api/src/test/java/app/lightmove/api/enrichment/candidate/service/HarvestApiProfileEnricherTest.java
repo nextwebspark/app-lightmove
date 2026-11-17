@@ -52,10 +52,17 @@ class HarvestApiProfileEnricherTest {
     }
 
     @Test
+    @DisplayName("the payload names the profile's vanity address beside its member id")
+    void thePayloadNamesTheVanityAddress() {
+        // What heals a capture made at /in/ACoAA…: the member id is `id`, the vanity name `publicIdentifier`.
+        assertThat(fixture().element().publicIdentifier()).isEqualTo("sample-profile");
+    }
+
+    @Test
     @DisplayName("a profile the provider found nothing on maps to an empty answer, not a crash")
     void aBareProfileMapsToEmpty() {
         HarvestApiProfile bare =
-                new HarvestApiProfile(null, null, null, null, null, null, null, null, null, null, null);
+                new HarvestApiProfile(null, null, null, null, null, null, null, null, null, null, null, null);
 
         EnrichedProfile enriched = HarvestApiProfileEnricher.toEnrichedProfile(bare);
 

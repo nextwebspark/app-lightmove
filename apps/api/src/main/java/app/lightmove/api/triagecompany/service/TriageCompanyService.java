@@ -8,6 +8,7 @@ import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.stream.ProjectStreamKind;
 import app.lightmove.api.core.stream.ProjectStreamPublisher;
+import app.lightmove.api.core.text.service.LikePatterns;
 import app.lightmove.api.core.text.service.LinkedInUrls;
 import app.lightmove.api.customcolumn.constant.CustomColumnTarget;
 import app.lightmove.api.customcolumn.service.CustomColumnService;
@@ -33,6 +34,7 @@ import app.lightmove.api.triagecompany.model.TriageCompany;
 import app.lightmove.api.triagecompany.model.TriageCompanyCapturedEvent;
 import app.lightmove.api.triagecompany.model.TriageCompanyMoved;
 import app.lightmove.api.triagecompany.model.TriageCompanyRemoved;
+import app.lightmove.api.triagecompany.model.TriageCompanyRenamed;
 import app.lightmove.api.triagecompany.model.TriageCompanyWorked;
 import app.lightmove.api.triagecompany.repository.TriageCompanyRepository;
 import app.lightmove.api.triagecompany.repository.TriageCompanyWriter;
@@ -102,9 +104,10 @@ public class TriageCompanyService {
         if (companyName == null || companyName.isBlank()) {
             return Optional.empty();
         }
-        return triaged.findByProjectIdAndCompanyNameIgnoreCase(projectId, companyName.trim()).stream()
-                .min(Comparator.comparing(TriageCompany::getCreatedAt))
-                .map(TriageCompanyResponseMapper::toDto);
+        // preferred(), not the oldest: the oldest same-named row can be a Declined one, where nobody looks for
+        // the people an import maps there.
+        List<TriageCompany> named = triaged.findByProjectIdAndCompanyNameIgnoreCase(projectId, companyName.trim());
+        return named.isEmpty() ? Optional.empty() : Optional.of(TriageCompanyResponseMapper.toDto(preferred(named)));
     }
 
     @Transactional
@@ -288,8 +291,14 @@ public class TriageCompanyService {
     private ResolvedCapture resolveCapture(UUID projectId, UUID addedBy,
                                            CapturedCompanyDetails details,
                                            TriageCompanySource source, TriageCompanyStatus status) {
-        Optional<CompanyRow> matched = market.matchEmployer(
-                LinkedInUrls.companySlugOrNull(details.companyLinkedinUrl()), details.companyName());
+        String slug = LinkedInUrls.companySlugOrNull(details.companyLinkedinUrl());
+        // The position's own row for the page outranks any name: research spelled the employer "Acme Gulf Trading
+        // LLC" where the consultant had captured the page as "Acme Gulf", and the person landed at a second company.
+        List<TriageCompany> heldAtPage = slug == null ? List.of() : atCompanySlug(triaged, projectId, slug);
+        if (!heldAtPage.isEmpty()) {
+            return new ResolvedCapture(preferred(heldAtPage), false);
+        }
+        Optional<CompanyRow> matched = market.matchEmployer(slug, details.companyName());
 
         if (matched.isPresent()) {
             CompanyRow row = matched.get();
@@ -324,6 +333,15 @@ public class TriageCompanyService {
         List<TriageCompany> byName =
                 triaged.findByProjectIdAndCompanyNameIgnoreCase(projectId, row.companyName());
         return byName.isEmpty() ? Optional.empty() : Optional.of(preferred(byName));
+    }
+
+    /** The position's companies whose LinkedIn page is exactly {@code slug}'s, oldest first. */
+    static List<TriageCompany> atCompanySlug(TriageCompanyRepository triaged, UUID projectId, String slug) {
+        return triaged.findByProjectIdAndCompanySlugLike(projectId, LikePatterns.escape(slug),
+                        LikePatterns.escape(LinkedInUrls.percentEncodedSlug(slug))).stream()
+                .filter(company -> slug.equals(LinkedInUrls.companySlugOrNull(company.getCompanyLinkedinUrl())))
+                .sorted(Comparator.comparing(TriageCompany::getCreatedAt))
+                .toList();
     }
 
     /**
@@ -490,9 +508,14 @@ public class TriageCompanyService {
             throw ApiException.of(ErrorCode.TRIAGE_COMPANY_ALREADY_HELD);
         }
 
+        String nameBefore = company.getCompanyName();
         company.describe(details);
         company.describeCustomFields(customColumns.applyTo(
                 projectId, CustomColumnTarget.COMPANY, company.getCustomFields(), request.customFields()));
+        if (!company.getCompanyName().equals(nameBefore)) {
+            events.publishEvent(new TriageCompanyRenamed(projectId, triageCompanyId, company.getCompanyName()));
+        }
+        stream.publish(projectId, ProjectStreamKind.COMPANY_EDITED);
 
         audit.projectEvent(ProjectEventType.TRIAGE_COMPANY_EDITED, userId, workspaceId, projectId, httpRequest)
                 .detail("triageCompanyId", triageCompanyId.toString())

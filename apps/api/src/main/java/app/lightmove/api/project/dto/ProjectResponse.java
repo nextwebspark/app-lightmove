@@ -12,6 +12,8 @@ import java.util.UUID;
  * {@code companies} excludes declined ones and {@code candidates} those out of the running;
  * {@code mappedCandidates} is everyone ever mapped, {@code mappedCompanies} the coverage bar's count.
  * {@code archivedAt} is set on a position put away; the list carries those only when asked for them.
+ * {@code viewerCanWork} is the list's alone (null elsewhere): whether the caller may file into the position — staff
+ * browse every mandate, but only a seat or a workspace admin works one.
  */
 public record ProjectResponse(
         UUID id,
@@ -35,5 +37,6 @@ public record ProjectResponse(
         long mappedCompanies,
         Instant createdAt,
         Instant archivedAt,
-        String archivedByName
+        String archivedByName,
+        Boolean viewerCanWork
 ) {}

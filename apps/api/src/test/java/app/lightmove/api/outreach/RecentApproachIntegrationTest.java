@@ -276,6 +276,48 @@ class RecentApproachIntegrationTest extends FlowTestSupport {
         assertThat(workspace.get("recentlyApproachedDays").asInt()).isEqualTo(30);
     }
 
+    @Test
+    @DisplayName("a call that rang out or reached a wrong number warns nobody, before the window or in it")
+    void anUnansweredCallIsNoApproach() throws Exception {
+        loggedOutcome(saraId, creditRiskSearch, "CALL", "VOICEMAIL", Duration.ofDays(40));
+        loggedOutcome(saraId, creditRiskSearch, "CALL", "NO_ANSWER", Duration.ofDays(35));
+        loggedOutcome(saraId, creditRiskSearch, "CALL", "NO_ANSWER", Duration.ofDays(3));
+        loggedOutcome(saraId, creditRiskSearch, "CALL", "WRONG_NUMBER", Duration.ofDays(1));
+        changeWindow(yara, 30).andExpect(status().isOk());
+
+        JsonNode approach = composerApproach();
+        assertThat(approach.get("touches")).isEmpty();
+        assertThat(approach.at("/lastApproach/kind").asText()).isEqualTo("CALL_LOGGED");
+        assertThat(approach.at("/lastApproach/outcome").asText()).isEqualTo("voicemail");
+    }
+
+    @Test
+    @DisplayName("a connected call names how it went, and a logged WhatsApp reply ranks as their reply")
+    void loggedOutcomesNameTheTouch() throws Exception {
+        loggedOutcome(saraId, creditRiskSearch, "CALL", "CONNECTED", Duration.ofDays(4));
+        loggedOutcome(yaraId, creditRiskSearch, "WHATSAPP", "REPLIED", Duration.ofDays(6));
+
+        JsonNode touches = composerApproach().get("touches");
+        assertThat(touches.at("/0/kind").asText()).isEqualTo("WHATSAPP_REPLIED");
+        assertThat(touches.at("/0/outcome").asText()).isEqualTo("replied");
+        assertThat(touches.at("/1/kind").asText()).isEqualTo("CALL_LOGGED");
+        assertThat(touches.at("/1/outcome").asText()).isEqualTo("connected");
+    }
+
+    @Test
+    @DisplayName("an emailed reply and a WhatsApp one to the same teammate on the same position are two lines")
+    void anEmailedAndAWhatsAppReplyAreTwoLines() throws Exception {
+        email(saraId, creditRiskSearch, "INBOUND", "REPLY", "RECEIVED", Duration.ofDays(2));
+        loggedOutcome(saraId, creditRiskSearch, "WHATSAPP", "REPLIED", Duration.ofDays(5));
+
+        JsonNode touches = composerApproach().get("touches");
+        assertThat(touches).hasSize(2);
+        assertThat(touches.at("/0/kind").asText()).isEqualTo("REPLIED");
+        assertThat(touches.at("/0/outcome").isNull()).isTrue();
+        assertThat(touches.at("/1/kind").asText()).isEqualTo("WHATSAPP_REPLIED");
+        assertThat(touches.at("/1/outcome").asText()).isEqualTo("replied");
+    }
+
     private JsonNode composerApproach() throws Exception {
         return body(as(yara, get("/api/v1/projects/" + cfoSearch + "/outreach/conversations/" + laylaOnCfo))
                 .andExpect(status().isOk()).andReturn()).at("/composer/recentApproach");
@@ -306,6 +348,15 @@ class RecentApproachIntegrationTest extends FlowTestSupport {
                     occurred_at)
                 values (?::uuid, ?::uuid, ?::uuid, ?, 'Spoke about the move', ?::uuid, ?)""",
                 workspaceId, laylaPersonId, projectId, kind, authorId, Timestamp.from(Instant.now().minus(ago)));
+    }
+
+    private void loggedOutcome(String authorId, String projectId, String kind, String outcome, Duration ago) {
+        jdbc.update("""
+                insert into app_lm_person_note (workspace_id, person_id, project_id, kind, outcome, body,
+                    author_user_id, occurred_at)
+                values (?::uuid, ?::uuid, ?::uuid, ?, ?, '', ?::uuid, ?)""",
+                workspaceId, laylaPersonId, projectId, kind, outcome, authorId,
+                Timestamp.from(Instant.now().minus(ago)));
     }
 
     private void email(String senderId, String projectId, String direction, String kind, String status,

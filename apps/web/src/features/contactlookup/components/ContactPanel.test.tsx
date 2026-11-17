@@ -11,7 +11,7 @@ import * as candidatesApi from "../../candidates/api/candidatesApi";
 import type { Candidate, CandidateContacts, CandidateEmail } from "../../candidates/api/types";
 import * as contactLookupApi from "../api/contactLookupApi";
 import { ContactDetailsDialog } from "./ContactDetailsDialog";
-import { ContactPanel } from "./ContactPanel";
+import { ContactChannels, ContactPanel } from "./ContactPanel";
 
 vi.mock("../api/contactLookupApi", async (importOriginal) => ({
   ...(await importOriginal<typeof contactLookupApi>()),
@@ -578,5 +578,26 @@ describe("ContactPanel", () => {
         }),
       );
     });
+  });
+});
+
+describe("ContactChannels", () => {
+  it("says under the phone who last called and how it went, and nothing where nobody has", () => {
+    const { rerender } = render(
+      <ToastProvider>
+        <ContactChannels
+          contacts={NONE}
+          lastCall={{ at: "2026-09-14T08:30:00Z", outcome: "no_answer", byUserId: "u2", byName: "Sara Al-Mansour" }}
+        />
+      </ToastProvider>,
+    );
+    expect(screen.getByText(/^Last call .* · No answer · Sara Al-Mansour$/)).toBeInTheDocument();
+
+    rerender(
+      <ToastProvider>
+        <ContactChannels contacts={NONE} />
+      </ToastProvider>,
+    );
+    expect(screen.queryByText(/Last call/)).not.toBeInTheDocument();
   });
 });

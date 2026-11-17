@@ -11,5 +11,7 @@ public record ImportSummaryResponse(
         int candidatesCreated,
         int candidatesUpdated,
         List<String> customColumnsCreated,
-        List<ImportRowErrorDto> rowErrors
+        List<ImportRowErrorDto> rowErrors,
+        /** Null when the import did not ask for enrichment. */
+        ImportEnrichmentQueuedDto enrichment
 ) {}

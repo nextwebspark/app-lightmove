@@ -176,7 +176,7 @@ describe("EnrolDialog", () => {
           windowDays: 90,
           touches: [
             { kind: "EMAILED", byUserId: "u2", byName: "Sara Al-Mansour", at: new Date(Date.now() - 12 * 86_400_000).toISOString(),
-              projectId: "p2", positionTitle: "Head of Credit Risk", samePosition: false, byYou: false, positionHidden: false },
+              projectId: "p2", positionTitle: "Head of Credit Risk", samePosition: false, byYou: false, positionHidden: false, outcome: null },
           ],
           elsewhere: [],
           lastApproach: null,
@@ -217,7 +217,7 @@ describe("EnrolDialog", () => {
       windowDays: 90,
       touches: [
         { kind: "EMAILED" as const, byUserId: "u2", byName: "Sara Al-Mansour", at: new Date(Date.now() - 86_400_000).toISOString(),
-          projectId: "p1", positionTitle: "Group CFO", samePosition: true, byYou: false, positionHidden: false },
+          projectId: "p1", positionTitle: "Group CFO", samePosition: true, byYou: false, positionHidden: false, outcome: null },
       ],
       elsewhere: [],
       lastApproach: null,

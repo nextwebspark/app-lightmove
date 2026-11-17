@@ -1,4 +1,5 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { useOutletContext } from "react-router-dom";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Button, useToast } from "../../../components/ui";
@@ -16,13 +17,15 @@ import * as contactLookupApi from "../../contactlookup/api/contactLookupApi";
 import { ContactDetailsDialog } from "../../contactlookup/components/ContactDetailsDialog";
 import { ContactsReadDialog } from "../../contactlookup/components/ContactsReadDialog";
 import { ContactChannels } from "../../contactlookup/components/ContactPanel";
-import { CopyContactButton } from "../../contactlookup/components/CopyContactButton";
 import { isReachable } from "../../contactlookup/lib/phoneReach";
 import {
+  CopyPhoneButton,
   PhoneNumberLink,
   WhatsAppLink,
   type PhoneReach,
 } from "../../contactlookup/components/PhoneActions";
+import { CONVERSATION_KEY, getConversation } from "../../outreach/api/conversationApi";
+import type { ProjectOutletContext } from "../../../components/layout/ProjectLayout";
 import type { CustomColumn, CustomFieldValues } from "../../customcolumns/api/types";
 import { CustomFieldsFieldset } from "../../customcolumns/components/CustomFieldsFieldset";
 import { CandidateOutreachButtons } from "../../outreach/components/CandidateOutreachButtons";
@@ -54,7 +57,9 @@ import type {
 import { replayOf, type ProfileFormSection } from "../lib/candidateForm";
 import type { ActivityExecutive } from "../lib/activityPresentation";
 import { candidateGenderLabel } from "../lib/candidateVocabulary";
-import { statusStyle } from "../lib/pipelineStatus";
+import { isOutOfProcess, statusStyle } from "../lib/pipelineStatus";
+import { usePipelineCatalog } from "../../workspace/lib/usePipelineCatalog";
+import { ExitReasonLine } from "./ExitReasonLine";
 import { careerSummary } from "../lib/careerTimeline";
 import { compensationFoldSummary, documentsFoldSummary, scrollToFold } from "../lib/profileFolds";
 import { useBackgroundSuggestion } from "../lib/useBackgroundSuggestion";
@@ -157,6 +162,14 @@ export function CandidateProfile({
   focusTab?: DrawerTab | null;
 }) {
   const sections = useProfileSections();
+  const outlet = useOutletContext<ProjectOutletContext | undefined>();
+  // A writer's Contact section reads it: Last call under Phone, phone or none, and the caution before a press. The
+  // Outreach tab's timeline reads the same conversation, so it costs nothing more.
+  const conversation = useQuery({
+    queryKey: CONVERSATION_KEY(projectId, candidate.id),
+    queryFn: ({ signal }) => getConversation(projectId, candidate.id, signal),
+    enabled: canWrite,
+  });
   /**
    * Whether this deployment looks contacts up. A deployment fact, not a row one, so it is read once
    * and kept — and a refused or failed read means no buttons rather than buttons that cannot work.
@@ -298,6 +311,12 @@ export function CandidateProfile({
   };
 
   const changeStatus = useChangeCandidateStatus(projectId, onSaved);
+  const { catalog } = usePipelineCatalog();
+  const exitReasons = useQuery({
+    queryKey: candidatesApi.EXIT_REASONS_OF_KEY(projectId),
+    queryFn: ({ signal }) => candidatesApi.exitReasonsOf(projectId, signal),
+    enabled: canWrite && isOutOfProcess(candidate.status, catalog),
+  });
   const documentScope: DocumentScope = { kind: "position", projectId, candidateId: candidate.id };
   const documents = usePersonDocuments(documentScope, canWrite);
   const [preview, setPreview] = useState<PreviewTarget | null>(null);
@@ -345,6 +364,15 @@ export function CandidateProfile({
     doNotContact,
     onSaveInternational: saveInternational.isPending ? undefined : (phone) => saveInternational.mutate(phone),
     onAddCountryCode: canWrite ? () => setContactWindow("details") : undefined,
+    target: canWrite
+      ? {
+          projectId,
+          candidateId: candidate.id,
+          personName: candidate.fullName,
+          positionTitle: outlet?.project.positionTitle ?? null,
+          approach: conversation.data?.composer.recentApproach ?? null,
+        }
+      : undefined,
   };
   const primaryPhone = candidate.contacts.phones[0];
 
@@ -409,6 +437,7 @@ export function CandidateProfile({
 
   return (
     <>
+      {changeStatus.dialog}
       <div className="relative flex-none border-b border-u-border px-5 pt-4">
         <PanelCloseButton onClose={onClose} />
         <PersonHeaderLayout
@@ -431,7 +460,7 @@ export function CandidateProfile({
                   aria-label="Status"
                   disabled={changeStatus.isPending}
                   onChange={(status) =>
-                    changeStatus.mutate({ candidateId: candidate.id, status, previous: candidate.status })
+                    changeStatus.mutate({ candidateId: candidate.id, name: candidate.fullName, status, previous: candidate.status })
                   }
                   className="h-7"
                 />
@@ -445,6 +474,20 @@ export function CandidateProfile({
             </>
           }
           title={candidate.title}
+          statusLine={
+            canWrite && isOutOfProcess(candidate.status, catalog) ? (
+              <ExitReasonLine
+                projectId={projectId}
+                candidateId={candidate.id}
+                name={candidate.fullName}
+                statusKey={candidate.status}
+                given={exitReasons.data?.find((given) => given.candidateId === candidate.id) ?? null}
+                canChange
+              />
+            ) : (
+              <StageLine candidate={candidate} />
+            )
+          }
           contacts={candidate.contacts}
           onEditContacts={canWrite ? () => setContactWindow("details") : undefined}
           onShowContacts={() => setContactWindow("read")}
@@ -455,7 +498,7 @@ export function CandidateProfile({
               <>
                 <PhoneNumberLink phone={primaryPhone} reach={phoneReach} className="transition hover:text-u-accent" />
                 <WhatsAppLink phone={primaryPhone} reach={phoneReach} size={12} />
-                {isReachable(phoneReach) && <CopyContactButton what="Phone" value={primaryPhone.number} size={11} />}
+                {isReachable(phoneReach) && <CopyPhoneButton phone={primaryPhone} reach={phoneReach} size={11} />}
               </>
             ) : undefined
           }
@@ -825,7 +868,7 @@ export function CandidateProfile({
                       onToggle={() => sections.toggle("outreach")}
                       isSettingStatus={changeStatus.isPending}
                       onSetStatus={(status) =>
-                        changeStatus.mutate({ candidateId: candidate.id, status, previous: candidate.status })
+                        changeStatus.mutate({ candidateId: candidate.id, name: candidate.fullName, status, previous: candidate.status })
                       }
                     />
                   </>
@@ -853,7 +896,11 @@ export function CandidateProfile({
                     <Icon d={ICONS.pencil} size={13} />
                   </button>
                 </div>
-                <ContactChannels contacts={candidate.contacts} reach={phoneReach} />
+                <ContactChannels
+                  contacts={candidate.contacts}
+                  reach={phoneReach}
+                  lastCall={conversation.data?.keyDates.lastCall}
+                />
               </section>
               <NoteComposerModal
                 projectId={projectId}
@@ -1157,4 +1204,18 @@ function scrollToOutreachSection(section: OutreachPart): () => void {
   };
   timer = window.setTimeout(find, 0);
   return () => window.clearTimeout(timer);
+}
+
+/** In process: the stage they are at, and how long since their status last changed. */
+function StageLine({ candidate }: { candidate: Candidate }) {
+  if (!candidate.pipelineStage) return null;
+  const days = candidate.statusChangedAt
+    ? Math.max(0, Math.floor((Date.now() - new Date(candidate.statusChangedAt).getTime()) / 86_400_000))
+    : null;
+  return (
+    <span className="truncate font-mono text-meta text-u-text3">
+      {candidate.pipelineStage.label}
+      {days !== null && ` · ${days === 1 ? "1 day" : `${days} days`} at this status`}
+    </span>
+  );
 }

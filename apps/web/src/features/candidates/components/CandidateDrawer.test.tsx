@@ -7,6 +7,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../../../components/ui/Toast";
 import { ApiRequestError } from "../../../lib/apiClient";
 import * as contactLookupApi from "../../contactlookup/api/contactLookupApi";
+import * as conversationApi from "../../outreach/api/conversationApi";
 import * as notetakerApi from "../../outreach/api/notetakerApi";
 import type { NotetakerRecording } from "../../outreach/api/notetakerApi";
 import * as candidatesApi from "../api/candidatesApi";
@@ -82,6 +83,11 @@ vi.mock("../../projects/api/projectsApi", async (importOriginal) => ({
 vi.mock("../../outreach/api/notetakerApi", async (importOriginal) => ({
   ...(await importOriginal<typeof notetakerApi>()),
   getNotetaker: vi.fn(),
+}));
+
+vi.mock("../../outreach/api/conversationApi", async (importOriginal) => ({
+  ...(await importOriginal<typeof conversationApi>()),
+  getConversation: vi.fn(),
 }));
 
 // The copilot itself streams a live call; here it only has to say which call it is and report what it holds.
@@ -655,6 +661,8 @@ describe("CandidateDrawer", () => {
     expect(payload.triageCompanyId).toBe("co1");
     // And the columns are left to their own section: omitted, the server leaves every one alone.
     expect(payload.customFields).toBeUndefined();
+    // So is the status: replayed from a panel opened before a colleague moved the pill, it moved them back.
+    expect(payload).not.toHaveProperty("status");
 
     // The reader had not finished: the panel shows what the server now holds, and stays.
     expect(onSaved).toHaveBeenCalledWith(expect.objectContaining({ id: "c1" }));
@@ -675,6 +683,54 @@ describe("CandidateDrawer", () => {
 
     await waitFor(() => expect(candidatesApi.updateCandidate).toHaveBeenCalled());
     expect(vi.mocked(candidatesApi.updateCandidate).mock.calls[0][2].compensation?.baseSalary).toBeNull();
+  });
+
+  it("saves a section of a profile research filled past what a save carries, keeping the most recent", async () => {
+    const posts = Array.from({ length: 30 }, (_, index) => ({
+      company: `Company ${index + 1}`,
+      title: "Director",
+      period: `${2025 - index}`,
+    }));
+    const languages = Array.from({ length: 24 }, (_, index) => `Language ${index + 1}`);
+    vi.mocked(candidatesApi.updateCandidate).mockResolvedValue(yasmin);
+    renderDrawer({ candidate: { ...yasmin, career: posts, languages }, company: null });
+
+    await openTab("Compensation");
+    await userEvent.click(screen.getByRole("button", { name: /Edit compensation/i }));
+    await userEvent.click(screen.getByRole("button", { name: /^Save$/i }));
+
+    await waitFor(() => expect(candidatesApi.updateCandidate).toHaveBeenCalled());
+    const payload = vi.mocked(candidatesApi.updateCandidate).mock.calls[0][2];
+    expect(payload.career).toHaveLength(25);
+    expect(payload.career?.[0].company).toBe("Company 1");
+    expect(payload.languages).toHaveLength(20);
+  });
+
+  it("refuses an allowance with pence on the line, rather than saving it cut to a whole amount", async () => {
+    renderDrawer({ candidate: yasmin, company: null });
+
+    await openTab("Compensation");
+    await userEvent.click(screen.getByRole("button", { name: /Edit compensation/i }));
+    await userEvent.clear(screen.getByLabelText("Allowance 1 amount"));
+    await userEvent.type(screen.getByLabelText("Allowance 1 amount"), "2,500.75");
+    await userEvent.click(screen.getByRole("button", { name: /^Save$/i }));
+
+    expect(await screen.findByText("Allowance must be a whole number")).toBeInTheDocument();
+    expect(candidatesApi.updateCandidate).not.toHaveBeenCalled();
+  });
+
+  it("shows a career post's own refusal on its row instead of saving nothing in silence", async () => {
+    renderDrawer({ candidate: yasmin, company: null });
+
+    await openTab("Experience");
+    await userEvent.click(screen.getByRole("button", { name: /Edit experience/i }));
+    const period = screen.getByLabelText("Career 1 period");
+    await userEvent.clear(period);
+    await userEvent.type(period, "x".repeat(61));
+    await userEvent.click(screen.getByRole("button", { name: /^Save$/i }));
+
+    expect(await screen.findByRole("alert")).toBeInTheDocument();
+    expect(candidatesApi.updateCandidate).not.toHaveBeenCalled();
   });
 
   it("offers the currency as a pick, and keeps a stored code the list does not carry", async () => {
@@ -1368,7 +1424,7 @@ describe("CandidateDrawer", () => {
     await pickStatus(/^Status:/, "Contacted");
 
     await waitFor(() =>
-      expect(candidatesApi.changeCandidateStatus).toHaveBeenCalledWith("p1", "c1", "contacted"),
+      expect(candidatesApi.changeCandidateStatus).toHaveBeenCalledWith("p1", "c1", "contacted", null),
     );
     // The point of the separate write: a pill flicked while reading must not re-submit a profile that
     // has been on screen for a while.
@@ -1385,7 +1441,7 @@ describe("CandidateDrawer", () => {
     await userEvent.click(await screen.findByRole("button", { name: "Undo" }));
 
     await waitFor(() =>
-      expect(candidatesApi.changeCandidateStatus).toHaveBeenLastCalledWith("p1", "c1", "interested"),
+      expect(candidatesApi.changeCandidateStatus).toHaveBeenLastCalledWith("p1", "c1", "interested", null),
     );
     expect(await screen.findByText("Yasmin El-Sayed is now interested")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Undo" })).not.toBeInTheDocument();
@@ -1544,6 +1600,27 @@ describe("CandidateDrawer", () => {
 
     await userEvent.click(within(contact).getByRole("button", { name: "Edit contact details" }));
     expect(await screen.findByRole("dialog", { name: /Contact details/ })).toBeInTheDocument();
+  });
+
+  it("says who last called under Phone, even for someone with no phone on record", async () => {
+    vi.mocked(conversationApi.getConversation).mockResolvedValue({
+      keyDates: {
+        addedAt: null,
+        firstContactedAt: null,
+        repliedAt: null,
+        lastActivityAt: null,
+        lastCall: { at: "2026-09-14T08:30:00Z", outcome: "wrong_number", byUserId: "u2", byName: "Sara Al-Mansour" },
+      },
+      composer: { recentApproach: null },
+      events: [],
+      truncated: false,
+    } as unknown as conversationApi.Conversation);
+    renderDrawer({ candidate: yasmin, company: null, focusSection: "outreach" });
+
+    const panel = await screen.findByRole("tabpanel", { name: "Outreach" });
+    const contact = within(panel).getByRole("region", { name: "Contact" });
+    expect(await within(contact).findByText(/^Last call .* · Wrong number · Sara Al-Mansour$/)).toBeInTheDocument();
+    expect(within(contact).queryByRole("link", { name: /^Call / })).not.toBeInTheDocument();
   });
 
   it("opens the contact details window for a bounce, on the tab the viewer reads", async () => {

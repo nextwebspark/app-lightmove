@@ -652,6 +652,33 @@ class TriageFlowIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("renaming a company renames it on everyone mapped there")
+    void renameReachesTheExecutivesMappedThere() throws Exception {
+        String admin = adminOf("Universe Rename Firm");
+        String projectId = project(admin);
+        String id = capture(admin, projectId, "Acme");
+        String candidateId = body(mvc.perform(post(candidatesUrl(projectId))
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"triageCompanyId":"%s","fullName":"John Mercer"}""".formatted(id)))
+                .andExpect(status().isCreated())
+                .andReturn()).get("id").asText();
+
+        mvc.perform(put(triageUrl(projectId) + "/" + id)
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"companyName":"Acme Holdings"}"""))
+                .andExpect(status().isOk());
+
+        mvc.perform(get(candidatesUrl(projectId) + "/" + candidateId)
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.companyName").value("Acme Holdings"));
+    }
+
+    @Test
     @DisplayName("a company taken from the market cannot be edited")
     void aMarketCompanyCannotBeEdited() throws Exception {
         String admin = adminOf("Universe Not Editable Firm");

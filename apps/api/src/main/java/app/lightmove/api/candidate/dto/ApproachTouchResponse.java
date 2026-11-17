@@ -10,4 +10,6 @@ import java.util.UUID;
  */
 public record ApproachTouchResponse(ApproachKind kind, UUID byUserId, String byName, Instant at, UUID projectId,
                                     String positionTitle, boolean samePosition, boolean byYou,
-                                    boolean positionHidden) {}
+                                    boolean positionHidden,
+                                    /** A {@code NoteOutcome} wire token for a logged call or WhatsApp message; else null. */
+                                    String outcome) {}

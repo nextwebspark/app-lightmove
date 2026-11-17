@@ -28,6 +28,15 @@ export const optionalNumber = (label: string, max: number) =>
     });
 
 /**
+ * {@link optionalNumber} for a field the server stores as a whole number. It read "2,500.75" as 2500 without a word,
+ * and an itemised package whose lines no longer summed to its total lost the lines.
+ */
+export const optionalWholeNumber = (label: string, max: number) =>
+  optionalNumber(label, max).refine((value) => value === undefined || Number.isInteger(value), {
+    message: `${label} must be a whole number`,
+  });
+
+/**
  * The server drops an address it cannot parse rather than refusing the whole write, which is right
  * for the plugin — a bad URL should not cost the record — and wrong for a form, where it means a typo
  * posts, toasts success, and vanishes. So a form holds itself to the stricter rule: what the server

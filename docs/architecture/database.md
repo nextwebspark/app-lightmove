@@ -327,6 +327,8 @@ two rows mid-write, and V39's index refused every later save of that chart.
 V140 makes every pipeline status the workspace's: it drops V131's CHECK that kept a seeded status live (its
 `system_key` stays, as a wire key only), so an admin retires any status, or a stage with its statuses
 (`retireStatuses`, after a confirmation read off `…/retire-preview`: who holds each, and the automations it stops).
+A status anyone holds is not retired, alone or with its stage (`PIPELINE_STATUS_HELD`): they are moved off it first.
+Statuses retired while held before that rule keep their holders, whose profile saves repeat it without refusal.
 It adds `app_lm_workspace_status_automation` — per workspace, the status each outreach event (`EMAIL_SENT`,
 `REPLIED`, `CALL_BOOKED`) moves a candidate forward to, set on Settings → Pipeline stages' Move candidates
 automatically (`StatusAutomationService`). No row is the seeded behaviour (an email to Contacted, a booking to
@@ -506,6 +508,41 @@ scan's V191-style resolver; the activity and notification kind lists gain the co
 V224 adds `app_lm_person_note.outcome` (#1337): how a logged call (`CONNECTED | VOICEMAIL | NO_ANSWER | WRONG_NUMBER`)
 or WhatsApp message (`SENT | REPLIED`) went, each value checked against its kind, and lets the body be empty once an
 outcome says what happened (`app_lm_person_note_body_chk`, V142's limit kept). Company notes take none.
+V226 makes a status's name unique within its stage rather than the workspace
+(`app_lm_workspace_candidate_status_stage_label_uk`, case ignored; its key stays unique per workspace, since the public
+API, MCP and the plugin speak keys), so a way out such as Withdrew is one status per stage it can happen at and where
+someone left from is their status's stage. The seed now labels `outOfScope` **Not approached** and adds Withdrew to
+Shortlist (`withdrewShortlist`) and Offer (`withdrewOffer`). An existing workspace gained those two only where it still
+runs V163's shape (its own `withdrew` a way out under the `INTERESTED` stage), on a live stage, under a key it does not
+hold; nothing existing was renamed.
+V228 records why a mandate's candidate left: `app_lm_project_candidate.exit_reason_id` (one of the workspace's
+reasons, no `ON DELETE`: a held reason is retired, never deleted), `exit_note` (≤ 500, never blank),
+`exit_reason_set_at`, `exit_reason_set_by`, a check keeping the last three empty without a reason. Held only while the
+status is out of process: any status move clears it (`Candidate.moveTo`), and the status pill's PATCH asks a new one
+of a way out that offers reasons. Other doors (a whole-record save, an automation, an import) move without one, which
+reads "Not given". Changed in place by `PUT …/candidates/{id}/exit-reason`, a timeline line of its own
+(`EXIT_REASON_CHANGED`, added to the kind check). Staff-only: on the Pipeline rows, the person's positions and `GET
+…/candidates/exit-reasons` (`WORK_EXECUTE`), never on `CandidateResponse`.
+V227 adds the reasons for leaving the process: `app_lm_workspace_exit_reason` (a workspace's list — key, label ≤ 60
+unique per workspace case ignored, `requires_note` for Other, position, retired never deleted) and
+`app_lm_workspace_status_exit_reason`, which out-of-process statuses offer each reason (a status offering none asks for
+none). Both forced RLS, the link through its reason. Staff-only: served by `GET /workspace/pipeline/reasons`
+(`staffOnly`), never on the catalog a client seat reads. `app_lm_seed_exit_reasons` seeds the starting list linked by
+status key to live ways out only, once per workspace: V227 ran it for every workspace with a pipeline, and
+`app_lm_seed_candidate_pipeline` now calls it, so a pipeline seeded by any door brings its reasons. A status brought
+back into process loses its links (`ExitReasonRepository.withdrawFromStatus`), so a reason is only ever offered out of
+process.
+V225 adds `app_lm_import_enrichment_item` (`docs/spreadsheet-import.md`): one row per person or company a spreadsheet
+import asked to have researched from LinkedIn — `kind` `PERSON | COMPANY`, the candidate's or triage company's id in
+`target_id` (no foreign key: two tables), the profile or company slug, `status` from `QUEUED` through `RUNNING` to one
+outcome, `attempts` (given up as `FAILED` after three stale claims). `run_id` groups one import's rows; there is no run
+table. `OVER_ALLOWANCE` is a row whose paid read fair use refused at the worker. Forced RLS;
+`app_lm_workspaces_with_import_enrichment_due` is the worker's V191-style resolver and
+`app_lm_workspaces_with_import_enrichment_expired` the daily purge's (`ImportEnrichmentPurge`, apart from the drain, so a
+workspace that never imports again still loses its rows). Finished rows go after
+`lightmove.spreadsheet-import.enrichment-keep-for`, an erased person's at once. It also adds `PROFILE_ENRICH` to
+`app_lm_usage_event_kind_chk`: without it every enrichment record was refused and swallowed by `UsageRecorder`, so the
+fair-use ceiling never saw a lookup.
 V195 adds `app_lm_workspace_suppression` (`kind` `PROFILE_SLUG | EMAIL`, a keyed `value_hash` unique per workspace and
 kind, the `key_id` it was taken under, `reason` `ERASED | OBJECTED | MANUAL`, an admin's `note`), forced row-level security
 in the same migration.

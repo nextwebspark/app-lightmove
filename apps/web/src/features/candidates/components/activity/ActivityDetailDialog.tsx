@@ -185,6 +185,7 @@ function DetailBody({
           <Facts
             rows={[
               ["How", details.automation ? "Moved automatically by the pipeline's rule" : "Moved by hand"],
+              ["Why", details.reason ?? null],
               ["Set off by", details.automation ? causeOf(entry) : null],
             ]}
           />
@@ -639,6 +640,7 @@ function wayOf(entry: PersonTimelineEntry, position: PositionOfLine | null, to: 
       case "MAPPED":
       case "UNMAPPED":
       case "STATUS_CHANGED":
+      case "EXIT_REASON_CHANGED":
       case "TRIAGE_STATUS_CHANGED":
         return { kind: "action", label: "Open Positions", run: () => to.onOpenTab("positions") };
     }
@@ -713,6 +715,8 @@ function titleOf(entry: PersonTimelineEntry): string {
       return "Call cancelled";
     case "STATUS_CHANGED":
       return `Status changed to ${statusLabel(entry.details.to, entry.details.toLabel)}`;
+    case "EXIT_REASON_CHANGED":
+      return `Why they left: ${entry.details.reason}`;
     case "PROFILE_EDITED":
       return entry.changes && entry.changes.length > 0
         ? `Profile edited · ${entry.changes.length} ${entry.changes.length === 1 ? "field" : "fields"}`

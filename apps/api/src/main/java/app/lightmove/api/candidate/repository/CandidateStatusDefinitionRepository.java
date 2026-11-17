@@ -20,8 +20,11 @@ public interface CandidateStatusDefinitionRepository extends JpaRepository<Candi
 
     boolean existsByWorkspaceIdAndStatusKey(UUID workspaceId, String statusKey);
 
-    @Query("select s from CandidateStatusDefinition s where s.workspaceId = :workspaceId and lower(s.label) = lower(:label)")
-    Optional<CandidateStatusDefinition> findByLabel(UUID workspaceId, String label);
+    /** A status's name is unique within its stage only (V226): Withdrew may be a way out at several. */
+    @Query("""
+            select s from CandidateStatusDefinition s
+            where s.workspaceId = :workspaceId and s.stage.id = :stageId and lower(s.label) = lower(:label)""")
+    Optional<CandidateStatusDefinition> findByLabelInStage(UUID workspaceId, UUID stageId, String label);
 
     /** How many of the workspace's mapped executives hold each status; a status nobody holds is absent. */
     @Query(value = """

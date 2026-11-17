@@ -21,5 +21,7 @@ public record PersonPositionResponse(
         String statusColour,
         CandidatePipelineStageDto pipelineStage,
         Instant statusChangedAt,
-        boolean positionArchived
+        boolean positionArchived,
+        /** Why they left this mandate's process; null when in process or not given, and on the pool's chips. */
+        CandidateExitReasonResponse exitReason
 ) {}

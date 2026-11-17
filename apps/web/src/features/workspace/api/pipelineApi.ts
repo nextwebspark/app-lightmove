@@ -1,5 +1,7 @@
 import { request } from "../../../lib/apiClient";
 import type {
+  ExitReasonCatalog,
+  ExitReasonChange,
   PipelineCatalog,
   PipelineRetirePreview,
   PipelineStageChange,
@@ -13,6 +15,7 @@ import type {
 
 export const PIPELINE_CATALOG_KEY = ["pipeline-catalog"] as const;
 export const STATUS_AUTOMATIONS_KEY = ["pipeline-automations"] as const;
+export const EXIT_REASONS_KEY = ["pipeline-exit-reasons"] as const;
 
 export function pipelineCatalog(signal?: AbortSignal): Promise<PipelineCatalog> {
   return request<PipelineCatalog>("/workspace/pipeline", { signal });
@@ -68,4 +71,17 @@ export function updateStatusAutomation(
   change: StatusAutomationChange,
 ): Promise<StatusAutomation[]> {
   return request<StatusAutomation[]>(`/workspace/pipeline/automations/${trigger}`, { method: "PUT", body: change });
+}
+
+/** Staff only: why someone left is never a client seat's to read. Every write, an admin's, answers the list whole. */
+export function exitReasons(signal?: AbortSignal): Promise<ExitReasonCatalog> {
+  return request<ExitReasonCatalog>("/workspace/pipeline/reasons", { signal });
+}
+
+export function createExitReason(label: string): Promise<ExitReasonCatalog> {
+  return request<ExitReasonCatalog>("/workspace/pipeline/reasons", { method: "POST", body: { label } });
+}
+
+export function updateExitReason(reasonId: string, change: ExitReasonChange): Promise<ExitReasonCatalog> {
+  return request<ExitReasonCatalog>(`/workspace/pipeline/reasons/${reasonId}`, { method: "PATCH", body: change });
 }

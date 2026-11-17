@@ -84,10 +84,16 @@ export type ApiErrorCode =
   | "PIPELINE_STAGE_NOT_EMPTY"
   | "PIPELINE_STAGE_REQUIRED"
   | "PIPELINE_DEFAULT_IN_PROCESS"
+  | "PIPELINE_STATUS_HELD"
   | "PIPELINE_STATUS_REQUIRED"
   | "PIPELINE_LABEL_TAKEN"
   | "PIPELINE_STATUS_RETIRED"
   | "PIPELINE_ORDER_INVALID"
+  | "EXIT_REASON_TAKEN"
+  | "EXIT_REASON_RETIRED"
+  | "EXIT_REASON_REQUIRED"
+  | "EXIT_REASON_NOTE_REQUIRED"
+  | "EXIT_REASON_NOT_OFFERED"
   | "PERSON_OWNER_NOT_STAFF"
   | "PERSON_DO_NOT_CONTACT"
   | "PERSON_SUPPRESSED"
@@ -116,6 +122,7 @@ export type ApiErrorCode =
   | "UNSUPPORTED_FILE_TYPE"
   | "IMPORT_FILE_UNREADABLE"
   | "IMPORT_TOO_MANY_ROWS"
+  | "IMPORT_ENRICHMENT_TOO_LARGE"
   | "CUSTOM_COLUMN_NAME_TAKEN"
   | "CUSTOM_COLUMN_LIMIT_REACHED"
   | "POSITION_DOCUMENT_UNREADABLE"
@@ -320,10 +327,16 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   PIPELINE_STAGE_NOT_EMPTY: "This stage still has statuses. Retire them with the stage, or retire them first.",
   PIPELINE_STAGE_REQUIRED: "The pipeline keeps at least one stage.",
   PIPELINE_DEFAULT_IN_PROCESS: "A stage's default status stays in process. Make another status the default first.",
+  PIPELINE_STATUS_HELD: "Someone is still on this status. Move them to another status before retiring it.",
   PIPELINE_STATUS_REQUIRED: "The pipeline keeps at least one status in process for new candidates to start at.",
   PIPELINE_LABEL_TAKEN: "That name is already in use.",
   PIPELINE_STATUS_RETIRED: "That status is retired. Ask an admin to restore it in Settings.",
   PIPELINE_ORDER_INVALID: "The pipeline changed meanwhile. Reload and try again.",
+  EXIT_REASON_TAKEN: "Your team already has that reason.",
+  EXIT_REASON_RETIRED: "That reason is retired. Restore it in Settings to use it again.",
+  EXIT_REASON_REQUIRED: "Choose why they left.",
+  EXIT_REASON_NOTE_REQUIRED: "Add a note for this reason.",
+  EXIT_REASON_NOT_OFFERED: "That reason is not offered for this status. Pick another.",
   PERSON_OWNER_NOT_STAFF: "The owner must be someone on your team.",
   PERSON_DO_NOT_CONTACT: "This person is marked do not contact, so contact lookups are off.",
   PERSON_SUPPRESSED: "This person is on your workspace's suppression list, so they can't be added.",
@@ -440,6 +453,8 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   TRIAGE_COMPANY_HAS_EXECUTIVES:
     "Executives are mapped at this company, so nothing was removed. Check who is there, then try again.",
   IMPORT_FILE_UNREADABLE: "That file couldn't be read as a table. Check it has a header row, then try again.",
+  IMPORT_ENRICHMENT_TOO_LARGE:
+    "That file has too many LinkedIn links to enrich in one import. Untick enrichment to import it.",
   MAILBOX_CONNECT_CANCELLED: "Your mailbox was not connected.",
   OUTREACH_BOOKING_LINK_UNAVAILABLE:
     "Booking links aren't available for your mailbox. Remove the booking link from the emails to start this sequence.",

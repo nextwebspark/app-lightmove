@@ -81,7 +81,7 @@ function conversation(overrides: Partial<Conversation> = {}): Conversation {
     },
     openTasks: [],
     currentRun: { run: null, steps: [] },
-    keyDates: { addedAt: null, firstContactedAt: null, repliedAt: null, lastActivityAt: null },
+    keyDates: { addedAt: null, firstContactedAt: null, repliedAt: null, lastActivityAt: null, lastCall: null },
     contact: {
       emails: [{ address: "fatima@gulfports.example", kind: "work", verified: true } as never],
       phones: [],
@@ -545,7 +545,7 @@ describe("ReplyComposer", () => {
 
     it("reads each variable as the executive's value, still a variable underneath", async () => {
       render(composerFor(conversation({ composer: WITH_TOKENS })), { wrapper });
-      await typeInto(await screen.findByRole("textbox", { name: "Message" }), "Hi {{firstName}}, at {{currentCompany|your firm}}.");
+      await typeInto(await screen.findByRole("textbox", { name: "Message" }), " at {{currentCompany|your firm}}.");
       expect(await screen.findByRole("button", { name: "First name: Fatima" })).toHaveTextContent("Fatima");
       expect(screen.getByRole("button", { name: "Current company: Gulf Ports" })).toHaveTextContent("Gulf Ports");
 
@@ -582,7 +582,7 @@ describe("ReplyComposer", () => {
 
     it("settles only the chip that was pressed when its value is made plain text or removed", async () => {
       render(composerFor(conversation({ composer: WITH_TOKENS })), { wrapper });
-      await typeInto(await screen.findByRole("textbox", { name: "Message" }), "Hi {{firstName}}, dear {{firstName}}.");
+      await typeInto(await screen.findByRole("textbox", { name: "Message" }), " dear {{firstName}}.");
       expect(await screen.findAllByRole("button", { name: "First name: Fatima" })).toHaveLength(2);
 
       await userEvent.click(screen.getAllByRole("button", { name: "First name: Fatima" })[0]);
@@ -611,7 +611,6 @@ describe("ReplyComposer", () => {
 
     it("opens a chip from the keyboard, and Escape closes it", async () => {
       render(composerFor(conversation({ composer: WITH_TOKENS })), { wrapper });
-      await typeInto(await screen.findByRole("textbox", { name: "Message" }), "Hi {{firstName}}");
       const chip = await screen.findByRole("button", { name: "First name: Fatima" });
       expect(chip).toHaveAttribute("tabindex", "0");
       chip.focus();
@@ -667,7 +666,7 @@ describe("ReplyComposer", () => {
       vi.mocked(emailTemplatesApi.createEmailTemplate).mockResolvedValue(aTemplate({ id: "t9", name: "Saved" }));
       render(composerFor(conversation({ composer: WITH_TOKENS })), { wrapper });
       await userEvent.type(screen.getByRole("textbox", { name: "Subject" }), "For {{{{firstName}}");
-      await typeInto(await screen.findByRole("textbox", { name: "Message" }), "Hi {{firstName}}");
+      await typeInto(await screen.findByRole("textbox", { name: "Message" }), " Thursday?");
       await userEvent.click(screen.getByRole("button", { name: "Templates" }));
       await userEvent.click(await screen.findByRole("button", { name: "Save as template" }));
       const dialog = await screen.findByRole("dialog", { name: "Save as template" });
@@ -678,7 +677,7 @@ describe("ReplyComposer", () => {
         expect(emailTemplatesApi.createEmailTemplate).toHaveBeenCalledWith({
           name: "Saved",
           subject: "For {{firstName}}",
-          body: "Hi {{firstName}}",
+          body: "Hi {{firstName}}, Thursday?",
           shared: true,
         }),
       );
@@ -706,7 +705,7 @@ describe("ReplyComposer", () => {
           windowDays: 90,
           touches: [
             { kind: "EMAILED", byUserId: "u2", byName: "Sara Al-Mansour", at: twelveDaysAgo, projectId: null,
-              positionTitle: null, samePosition: false, byYou: false, positionHidden: true },
+              positionTitle: null, samePosition: false, byYou: false, positionHidden: true, outcome: null },
           ],
           elsewhere: [
             { projectId: null, positionTitle: null, statusLabel: null, statusColour: null, stageLabel: "Approach",
@@ -737,7 +736,7 @@ describe("ReplyComposer", () => {
     vi.mocked(conversationApi.sendMessage).mockRejectedValue(new Error("offline"));
     const sarasEmail: ApproachTouch = { kind: "EMAILED", byUserId: "u2", byName: "Sara Al-Mansour",
       at: new Date(Date.now() - 12 * 86_400_000).toISOString(), projectId: "p2", positionTitle: "Head of Credit Risk",
-      samePosition: false, byYou: false, positionHidden: false };
+      samePosition: false, byYou: false, positionHidden: false, outcome: null };
     const approached = (touches: ApproachTouch[]) =>
       conversation({
         composer: {

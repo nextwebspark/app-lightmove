@@ -28,6 +28,20 @@ export interface ImportColumn {
   valueShape: string;
   sampleValues: string[];
   mapping: ProposedColumnMapping;
+  /** Distinct LinkedIn profile and company links in the column — what enriching it would look up. */
+  linkedinProfileCount: number;
+  linkedinCompanyCount: number;
+}
+
+/**
+ * Whether enrichment is on offer here, the most links one file may carry for it, and what this month's fair use
+ * leaves (`null` when nothing bounds it).
+ */
+export interface ImportEnrichmentOffer {
+  profilesOffered: boolean;
+  companiesOffered: boolean;
+  autoEnrichLimit: number;
+  allowanceLeft: number | null;
 }
 
 /**
@@ -41,6 +55,7 @@ export interface ImportPreview {
   availableFields: ImportTargetField[];
   /** What worked the mapping out. The three are worth different amounts of scrutiny. */
   mappingSource: MappingSource;
+  enrichment: ImportEnrichmentOffer;
 }
 
 /**
@@ -65,4 +80,26 @@ export interface ImportSummary {
   candidatesUpdated: number;
   customColumnsCreated: string[];
   rowErrors: ImportRowError[];
+  /** What the import handed to enrichment; `null` when it was not asked to enrich. */
+  enrichment: ImportEnrichmentQueued | null;
+}
+
+export interface ImportEnrichmentQueued {
+  runId: string;
+  peopleQueued: number;
+  companiesQueued: number;
+}
+
+/** One import's enrichment so far. `pending` is what has not been looked up yet. */
+export interface ImportEnrichmentProgress {
+  total: number;
+  pending: number;
+  researched: number;
+  alreadyResearched: number;
+  notFound: number;
+  refused: number;
+  overAllowance: number;
+  unavailable: number;
+  failed: number;
+  done: boolean;
 }

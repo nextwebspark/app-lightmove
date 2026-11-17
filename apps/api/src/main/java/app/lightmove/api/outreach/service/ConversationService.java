@@ -7,6 +7,7 @@ import app.lightmove.api.candidate.model.NoteViewpoint;
 import app.lightmove.api.candidate.dto.CandidateContactsDto;
 import app.lightmove.api.candidate.model.OutreachRecipient;
 import app.lightmove.api.candidate.service.CandidateOutreachService;
+import app.lightmove.api.candidate.service.LastCallReader;
 import app.lightmove.api.candidate.service.OutreachPrivacyService;
 import app.lightmove.api.candidate.service.NextActionLookup;
 import app.lightmove.api.candidate.service.PersonNoteService;
@@ -136,6 +137,7 @@ public class ConversationService {
     private final Clock clock;
     private final OutreachPrivacyService privacy;
     private final RecentApproachReader recentApproaches;
+    private final LastCallReader lastCalls;
 
     @Transactional(readOnly = true)
     public ConversationListResponse list(UUID userId, UUID workspaceId, UUID projectId, ConversationView view,
@@ -207,7 +209,8 @@ public class ConversationService {
         Instant repliedAt = runs.stream().map(OutreachEnrollment::getRepliedAt).filter(Objects::nonNull)
                 .max(Comparator.naturalOrder()).orElse(null);
         return new ConversationResponse(executive, openTasks, currentRun,
-                new ConversationKeyDatesResponse(executive.addedAt(), firstContactedAt, repliedAt, lastActivityAt),
+                new ConversationKeyDatesResponse(executive.addedAt(), firstContactedAt, repliedAt, lastActivityAt,
+                        lastCalls.lastCallOf(workspaceId, personId).orElse(null)),
                 contactOf(workspaceId, projectId, candidateId),
                 composerOf(userId, workspaceId, projectId, candidateId, personId),
                 List.copyOf(shown), truncated);

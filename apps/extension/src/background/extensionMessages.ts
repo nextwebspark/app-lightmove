@@ -30,8 +30,8 @@ export type ExtensionRequest =
   | { kind: "getPairedUser" }
   | { kind: "signOut" }
   | { kind: "openConnectPage" }
-  | { kind: "readActivePage" }
-  | { kind: "activePageKey" }
+  | { kind: "readActivePage"; windowId?: number | null }
+  | { kind: "activePageKey"; windowId?: number | null }
   | { kind: "listProjects" }
   | { kind: "captureCompany"; projectId: string; capture: CaptureCompanyRequest }
   | { kind: "captureCandidate"; projectId: string; candidate: SaveCandidateRequest }
@@ -40,7 +40,7 @@ export type ExtensionRequest =
   | { kind: "recentProjects" }
   | { kind: "readPipeline" }
   | { kind: "heldCandidate"; projectId: string; linkedinUrl: string }
-  | { kind: "heldCompany"; projectId: string; linkedinUrl: string | null; name: string | null }
+  | { kind: "heldCompany"; projectId: string; linkedinUrl: string | null; name: string | null; throughMarket?: boolean }
   | { kind: "readCandidate"; projectId: string; candidateId: string }
   | { kind: "candidatePhoto"; projectId: string; candidateId: string }
   | { kind: "changeCandidateStatus"; projectId: string; candidateId: string; status: string }

@@ -10,7 +10,13 @@ import { messageFor } from "../../../lib/errorCodes";
 import { creditsLabel, shownPricesOf } from "../../billing/lib/billingView";
 import { useBillingRead } from "../../billing/lib/useBilling";
 import * as candidatesApi from "../../candidates/api/candidatesApi";
-import type { Candidate, CandidateContacts, CandidateEmail, CandidatePhone } from "../../candidates/api/types";
+import type {
+  Candidate,
+  CandidateContacts,
+  CandidateEmail,
+  CandidatePhone,
+  LastCall,
+} from "../../candidates/api/types";
 import { ContactEntriesFields, PrimaryStar } from "../../candidates/components/CandidateFieldGroups";
 import { ProfileSectionForm } from "../../candidates/components/ProfileSectionForm";
 import {
@@ -21,12 +27,14 @@ import {
   type ContactSectionForm,
   type ParsedContactSectionForm,
 } from "../../candidates/lib/candidateForm";
+import { lastCallLine, lastCallTitle } from "../../candidates/lib/lastCall";
 import { useContactLookup } from "../lib/useContactLookup";
 import { dialHrefOf } from "../lib/phoneLinks";
 import { CopyContactButton } from "./CopyContactButton";
 import { isReachable } from "../lib/phoneReach";
 import {
   AddedCodePill,
+  CopyPhoneButton,
   PhoneNumberLink,
   SaveInternationalButton,
   WhatsAppLink,
@@ -157,7 +165,8 @@ function ContactReadView({
  * Email and phone as read: every value on the ledger with its pills and a copy button, the primary first and
  * starred once a channel holds more than one. The position drawer hangs its Find buttons on the rows and offers
  * Make primary on the others; the workspace drawer reads them bare. The profile link is the header's. Given `reach`, a
- * phone is the button (#1337): Call, WhatsApp and Copy, its added calling code named and offered to keep.
+ * phone is the button (#1337): Call, WhatsApp and Copy, its added calling code named and offered to keep. Given
+ * `lastCall`, a staff-only read, the Phone row says who last called and how it went.
  */
 export function ContactChannels({
   contacts,
@@ -167,6 +176,7 @@ export function ContactChannels({
   phoneError,
   onMakePrimary,
   reach,
+  lastCall,
 }: {
   contacts: CandidateContacts;
   emailAction?: ReactNode;
@@ -175,6 +185,7 @@ export function ContactChannels({
   phoneError?: string | null;
   onMakePrimary?: (channel: "email" | "phone", value: string) => void;
   reach?: PhoneReach;
+  lastCall?: LastCall | null;
 }) {
   const starOf = (channel: "email" | "phone", count: number, value: string, index: number) =>
     count > 1 ? (
@@ -211,6 +222,13 @@ export function ContactChannels({
         label="Phone"
         action={phoneAction}
         error={phoneError}
+        footnote={
+          lastCall ? (
+            <p title={lastCallTitle(lastCall)} className="mt-1.5 font-mono text-meta text-u-text3">
+              {lastCallLine(lastCall)}
+            </p>
+          ) : null
+        }
       >
         {contacts.phones.length === 0 ? (
           <EmptyLine asked={Boolean(contacts.phonesLookedUpAt)} label="No phone on record" />
@@ -295,12 +313,14 @@ function ContactChannel({
   action,
   error,
   children,
+  footnote,
 }: {
   icon: ReactNode;
   label: string;
   action?: ReactNode;
   error?: string | null;
   children: ReactNode;
+  footnote?: ReactNode;
 }) {
   return (
     <div className="flex gap-3 py-3 first:pt-1 last:pb-1">
@@ -314,6 +334,7 @@ function ContactChannel({
               {label}
             </div>
             <ul className="space-y-1">{children}</ul>
+            {footnote}
           </div>
           {action}
         </div>
@@ -367,7 +388,7 @@ function PhoneLine({
         <AddedCodePill phone={entry} reach={reach} />
         <span className="ms-auto flex flex-none items-center gap-0.5">
           <WhatsAppLink phone={entry} reach={reach} />
-          {isReachable(reach) && <CopyContactButton what="Phone" value={entry.number} />}
+          {isReachable(reach) && <CopyPhoneButton phone={entry} reach={reach} />}
         </span>
         <SaveInternationalButton phone={entry} reach={reach} />
       </li>

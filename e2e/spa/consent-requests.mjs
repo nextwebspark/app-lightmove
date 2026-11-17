@@ -4,7 +4,8 @@
 // them visible on the Pipeline asks first, Ask first emails a share request, a yes on their page marks the card
 // Consent given, and the position's consent register carries it.
 //
-// Needs `npm run dev` (or its two halves) with DATA_PROTECTION_ENABLED=true; mail prints to the API console.
+// Needs `DATA_PROTECTION_ENABLED=true SUPPRESSION_LIST_ENABLED=true npm run dev` (both off by default); mail prints
+// to the API console.
 //
 //   API_LOG=<the API's console log> node e2e/spa/consent-requests.mjs
 

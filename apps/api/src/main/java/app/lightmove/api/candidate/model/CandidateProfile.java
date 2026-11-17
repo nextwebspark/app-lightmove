@@ -13,6 +13,11 @@ public record CandidateProfile(List<CandidateCareerEntry> career, List<String> l
                                List<CandidateEducationEntry> education, List<String> skills,
                                String enrichedAt, ResearchedEmployerMark employer) {
 
+    /** What a profile save accepts ({@code SaveCandidateRequest}); research is held to it so every save can replay it. */
+    public static final int MOST_CAREER_POSTS = 25;
+    public static final int MOST_LANGUAGES = 20;
+    public static final int LONGEST_LANGUAGE = 60;
+
     public CandidateProfile {
         career = career == null ? List.of() : career.stream().filter(entry -> !entry.isEmpty()).toList();
         languages = languages == null ? List.of() : List.copyOf(languages);

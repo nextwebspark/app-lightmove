@@ -9,7 +9,9 @@ import app.lightmove.api.candidate.constant.PersonActivityKind;
 import app.lightmove.api.candidate.constant.ProfileClaim;
 import app.lightmove.api.candidate.dto.CandidateListCriteria;
 import app.lightmove.api.candidate.dto.AddedByResponse;
+import app.lightmove.api.candidate.dto.CandidateExitReasonResponse;
 import app.lightmove.api.candidate.dto.CandidateResponse;
+import app.lightmove.api.candidate.dto.ChangeExitReasonRequest;
 import app.lightmove.api.candidate.dto.CandidatesResponse;
 import app.lightmove.api.candidate.dto.HeldCandidateResponse;
 import app.lightmove.api.candidate.dto.MapPeopleToPositionResponse;
@@ -30,6 +32,7 @@ import app.lightmove.api.candidate.model.CandidateSearchMatches;
 import app.lightmove.api.candidate.model.CandidateStatusDefinition;
 import app.lightmove.api.candidate.model.ContactEntry;
 import app.lightmove.api.candidate.model.EnrichedProfile;
+import app.lightmove.api.candidate.model.ExitReason;
 import app.lightmove.api.candidate.model.ResearchedCandidate;
 import app.lightmove.api.candidate.model.ResearchedEmployer;
 import app.lightmove.api.candidate.model.ResearchedFiling;
@@ -60,6 +63,7 @@ import app.lightmove.api.core.security.repository.UserRepository;
 import app.lightmove.api.core.stream.ProjectStreamKind;
 import app.lightmove.api.core.stream.ProjectStreamPublisher;
 import app.lightmove.api.core.text.model.SearchText;
+import app.lightmove.api.core.text.service.LikePatterns;
 import app.lightmove.api.core.text.service.LinkedInUrls;
 import app.lightmove.api.customcolumn.constant.CustomColumnTarget;
 import app.lightmove.api.customcolumn.service.CustomColumnService;
@@ -127,6 +131,7 @@ public class CandidateService {
     private final CandidateResponseMapper responses;
     private final CompanyListSettings listConfig;
     private final CandidatePipelineCatalog pipeline;
+    private final CandidateExitReasons exitReasons;
     private final PersonEmployerResolver employerResolver;
     private final UserRepository users;
     private final CandidateSearchService searches;
@@ -135,6 +140,7 @@ public class CandidateService {
     private final WorkspaceAiControlsReader aiControls;
     private final WorkspaceSettingsService workspaceSettings;
     private final LookedUpResearch lookedUp;
+    private final CorrectedProfileResearch correctedProfiles;
 
     public CandidateService(CandidateRepository candidates, PersonRepository people, PersonMatcher matcher,
                             PersonActivityRecorder activity, PersonNoteService personNotes,
@@ -143,11 +149,13 @@ public class CandidateService {
                             CustomColumnService customColumns, AuditService audit,
                             ApplicationEventPublisher events, ProjectStreamPublisher stream,
                             CandidateRequestReader requests, CandidateResponseMapper responses,
-                            CandidatePipelineCatalog pipeline, PersonEmployerResolver employerResolver,
+                            CandidatePipelineCatalog pipeline, CandidateExitReasons exitReasons,
+                            PersonEmployerResolver employerResolver,
                             UserRepository users, CandidateSearchService searches,
                             CandidateRemoval removal, SuppressionGate suppression,
                             WorkspaceAiControlsReader aiControls, WorkspaceSettingsService workspaceSettings,
-                            LookedUpResearch lookedUp, LightMoveProperties properties) {
+                            LookedUpResearch lookedUp, CorrectedProfileResearch correctedProfiles,
+                            LightMoveProperties properties) {
         this.candidates = candidates;
         this.people = people;
         this.matcher = matcher;
@@ -164,6 +172,7 @@ public class CandidateService {
         this.stream = stream;
         this.listConfig = properties.company().list();
         this.pipeline = pipeline;
+        this.exitReasons = exitReasons;
         this.employerResolver = employerResolver;
         this.users = users;
         this.searches = searches;
@@ -172,6 +181,7 @@ public class CandidateService {
         this.aiControls = aiControls;
         this.workspaceSettings = workspaceSettings;
         this.lookedUp = lookedUp;
+        this.correctedProfiles = correctedProfiles;
     }
 
     /**
@@ -293,9 +303,8 @@ public class CandidateService {
         if (slug == null) {
             return Optional.empty();
         }
-        return candidates.findByProjectIdAndProfileSlugLike(projectId, slug).stream()
-                .filter(held -> slug.equals(LinkedInUrls.profileSlugOrNull(held.getPerson().getLinkedinUrl())))
-                .findFirst()
+        return candidatesAtProfile(projectId, slug).stream()
+                .min(Comparator.comparing(Candidate::getCreatedAt))
                 .map(held -> new HeldCandidateResponse(responses.toDto(held), adderOf(projectId, held.getId()),
                         employerResolver.logoOfMapping(workspaceId, held)));
     }
@@ -352,16 +361,26 @@ public class CandidateService {
     }
 
     /**
-     * The person this mandate already has for a spreadsheet row. Email first, then name — a name identifies someone only
-     * within a company (V36's index scope); oldest first when several answer.
+     * The person this mandate already has for a spreadsheet row: LinkedIn profile first, then email, then name — a name
+     * identifies someone only within a company (V36's index scope); oldest first when several answer. An email match
+     * follows {@link PersonMatcher}'s rule: never a role inbox, and only where the names agree.
      */
     @Transactional(readOnly = true)
-    public Optional<CandidateResponse> findCandidateOfProject(UUID projectId, UUID triageCompanyId,
+    public Optional<CandidateResponse> findCandidateOfProject(UUID projectId, UUID triageCompanyId, String linkedinUrl,
                                                               String email, String fullName) {
-        if (email != null && !email.isBlank()) {
+        String slug = LinkedInUrls.profileSlugOrNull(linkedinUrl);
+        if (slug != null) {
+            Optional<Candidate> byProfile = candidatesAtProfile(projectId, slug).stream()
+                    .min(Comparator.comparing(Candidate::getCreatedAt));
+            if (byProfile.isPresent()) {
+                return byProfile.map(responses::toDto);
+            }
+        }
+        if (email != null && !email.isBlank() && !RoleAddresses.isRoleAddress(email)) {
             Optional<Candidate> byEmail = candidates
                     .findByProjectIdAndEmailKey(projectId, CandidateContact.keyOf(ContactChannel.EMAIL, email))
                     .stream()
+                    .filter(held -> PersonNames.agree(held.getPerson().getFullName(), fullName))
                     .min(Comparator.comparing(Candidate::getCreatedAt));
             if (byEmail.isPresent()) {
                 return byEmail.map(responses::toDto);
@@ -376,6 +395,15 @@ public class CandidateService {
         return byName.stream()
                 .min(Comparator.comparing(Candidate::getCreatedAt))
                 .map(responses::toDto);
+    }
+
+    /** LIKE narrows; the exact slug decides — "jon-smith" must not answer for "jon-smith-acwa". */
+    private List<Candidate> candidatesAtProfile(UUID projectId, String slug) {
+        return candidates.findByProjectIdAndProfileSlugLike(projectId, slug, LikePatterns.escape(slug),
+                        LikePatterns.escape(LinkedInUrls.percentEncodedSlug(slug)))
+                .stream()
+                .filter(held -> slug.equals(LinkedInUrls.profileSlugOrNull(held.getPerson().getLinkedinUrl())))
+                .toList();
     }
 
     @Transactional
@@ -400,7 +428,7 @@ public class CandidateService {
             details = details.employedAt(researchedEmployer.get().companyName());
         }
 
-        refuseDuplicate(projectId, triageCompanyId, details.fullName(), null);
+        refuseDuplicate(projectId, triageCompanyId, details.fullName(), details.linkedinUrl(), null);
         refuseHeldProfile(projectId, details.linkedinUrl(), null);
         suppression.refuseSuppressed(workspaceId, details.linkedinUrl(), emailsOf(details.emails()));
 
@@ -471,7 +499,7 @@ public class CandidateService {
         UUID triageCompanyId = requests.companyOf(projectId, request, candidate);
         CandidateDetails details = requests.detailsOf(projectId, request.withTriageCompanyId(triageCompanyId),
                 candidate.getTriageCompanyId());
-        refuseDuplicate(projectId, triageCompanyId, details.fullName(), candidateId);
+        refuseDuplicate(projectId, triageCompanyId, details.fullName(), details.linkedinUrl(), candidateId);
         refuseHeldProfile(projectId, details.linkedinUrl(), candidateId);
         ProfileClaim claim = matcher.claimOf(workspaceId, details.linkedinUrl(), person);
         if (claim == ProfileClaim.HELD) {
@@ -482,21 +510,25 @@ public class CandidateService {
         boolean confirmBackground = Boolean.TRUE.equals(request.confirmBackground());
         candidate.remapTo(triageCompanyId, triageStatusOfCompany(projectId, triageCompanyId));
         candidate.describe(details);
-        // A whole-record save that names a status moves them like the status pill does, line and all; one
-        // that names none (a re-imported sheet) leaves them where they stand.
-        if (request.status() != null && !request.status().isBlank()) {
+        // Naming the status they hold is no move: a retired one, re-checked, refused every edit of whoever held it.
+        if (request.status() != null && !request.status().isBlank()
+                && !request.status().strip().equals(candidate.getStatus().getStatusKey())) {
             moveTo(candidate, userId, pipeline.requireOfferable(workspaceId, request.status()));
         }
         // The person is the workspace's: an edit made through this mandate is what every other mandate
         // mapping them now reads.
+        boolean wasResearched = person.isResearched();
+        String previousUrl = person.getLinkedinUrl();
+        ContactChannelSizes contactsBefore = requests.channelSizesOf(person);
         person.describe(details, door);
+        correctedProfiles.researchIfCorrected(candidate, wasResearched, previousUrl, door);
         if (claim == ProfileClaim.SHARED) {
             person.yieldProfileKey();
         }
         if (confirmBackground) {
             person.confirmBackground();
         }
-        requests.refuseOverfullChannels(person);
+        requests.refuseOverfullChannels(person, contactsBefore);
         candidate.describeCustomFields(customColumns.applyTo(projectId, CustomColumnTarget.CANDIDATE,
                 candidate.getCustomFields(), request.customFields()));
         List<Map<String, String>> changed = changes.after(person);
@@ -505,6 +537,7 @@ public class CandidateService {
                 .and(ProfileChanges.DETAIL_KEY, changed.isEmpty() ? null : changed));
         // A note sent with an edit (a re-imported sheet's Note column) is filed as a note, once.
         personNotes.fileFromDoor(candidate, userId, details.note());
+        stream.publish(projectId, ProjectStreamKind.CANDIDATE_EDITED);
 
         audit.projectEvent(ProjectEventType.CANDIDATE_UPDATED, userId, workspaceId, projectId, httpRequest)
                 .detail("candidateId", candidateId.toString())
@@ -524,14 +557,58 @@ public class CandidateService {
         projects.requireInWorkspace(projectId, workspaceId);
         Candidate candidate = candidates.requireInProject(candidateId, projectId);
 
-        moveTo(candidate, userId, pipeline.requireOfferable(workspaceId, request.status()));
+        CandidateStatusDefinition to = pipeline.requireOfferable(workspaceId, request.status());
+        ExitReason reason;
+        if (to.getId().equals(candidate.getStatus().getId())) {
+            // A reason rides a move; one for the status already held is changed by PUT …/exit-reason instead.
+            if (request.reasonId() != null) {
+                throw ApiException.of(ErrorCode.EXIT_REASON_NOT_OFFERED);
+            }
+            reason = null;
+        } else {
+            reason = exitReasons.requireForMove(workspaceId, to, request.reasonId(), request.note());
+        }
+        moveTo(candidate, userId, to, reason, request.note());
+        stream.publish(projectId, ProjectStreamKind.CANDIDATE_EDITED);
 
-        audit.projectEvent(ProjectEventType.CANDIDATE_UPDATED, userId, workspaceId, projectId, httpRequest)
+        var event = audit.projectEvent(ProjectEventType.CANDIDATE_UPDATED, userId, workspaceId, projectId,
+                        httpRequest)
                 .detail("candidateId", candidateId.toString())
                 .detail("status", candidate.getStatus().getStatusKey())
-                .detail("statusLabel", candidate.getStatus().getLabel())
-                .record();
+                .detail("statusLabel", candidate.getStatus().getLabel());
+        if (reason != null) {
+            event.detail("exitReasonId", reason.getId().toString());
+        }
+        event.record();
         return responses.toDto(candidate);
+    }
+
+    /** A different reason or note for someone already out of process: the drawer's status line, changed in place. */
+    @Transactional
+    public CandidateExitReasonResponse changeExitReason(UUID userId, UUID workspaceId, UUID projectId,
+                                                        UUID candidateId, ChangeExitReasonRequest request,
+                                                        HttpServletRequest httpRequest) {
+        projects.requireInWorkspace(projectId, workspaceId);
+        Candidate candidate = candidates.requireInProject(candidateId, projectId);
+        ExitReason reason = exitReasons.requireForChange(workspaceId, candidate, request.reasonId(), request.note());
+        String fromReason = exitReasons.labelOf(workspaceId, candidate.getExitReasonId());
+        if (candidate.giveExitReason(reason.getId(), request.note(), userId)) {
+            activity.record(candidate, userId, PersonActivityKind.EXIT_REASON_CHANGED, PersonActivityDetails
+                    .of("reason", reason.getLabel()).and("fromReason", fromReason)
+                    .and("status", candidate.getStatus().getLabel()));
+            audit.projectEvent(ProjectEventType.CANDIDATE_UPDATED, userId, workspaceId, projectId, httpRequest)
+                    .detail("candidateId", candidateId.toString())
+                    .detail("exitReasonId", reason.getId().toString())
+                    .record();
+        }
+        return exitReasons.givenTo(workspaceId, candidate);
+    }
+
+    /** Why each of the mandate's candidates left, for those who have; staff-only. */
+    @Transactional(readOnly = true)
+    public List<CandidateExitReasonResponse> exitReasonsOf(UUID workspaceId, UUID projectId) {
+        projects.requireInWorkspace(projectId, workspaceId);
+        return exitReasons.givenTo(workspaceId, candidates.findByProjectIdAndExitReasonIdIsNotNull(projectId));
     }
 
     /**
@@ -561,10 +638,20 @@ public class CandidateService {
     }
 
     private void moveTo(Candidate candidate, UUID userId, CandidateStatusDefinition to) {
+        moveTo(candidate, userId, to, null, null);
+    }
+
+    /** Every door's move: a reason, where the door asked for one, is given with it and named on its timeline line. */
+    private void moveTo(Candidate candidate, UUID userId, CandidateStatusDefinition to, ExitReason reason,
+                        String note) {
         CandidateStatusDefinition from = candidate.getStatus();
         if (candidate.moveTo(to)) {
+            if (reason != null) {
+                candidate.giveExitReason(reason.getId(), note, userId);
+            }
             activity.record(candidate, userId, PersonActivityKind.STATUS_CHANGED,
-                    PersonActivityDetails.statusChange(from, to));
+                    PersonActivityDetails.statusChange(from, to)
+                            .and("reason", reason == null ? null : reason.getLabel()));
         }
     }
 
@@ -574,6 +661,19 @@ public class CandidateService {
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void applyResearch(UUID projectId, UUID candidateId, EnrichedProfile enriched) {
+        fileResearch(projectId, candidateId, enriched, true);
+    }
+
+    /**
+     * {@link #applyResearch} with no AI background run after it: an import's enrichment box consents to LinkedIn
+     * research, not to inference, which stays a press of Suggest with AI.
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void applyResearchWithoutAi(UUID projectId, UUID candidateId, EnrichedProfile enriched) {
+        fileResearch(projectId, candidateId, enriched, false);
+    }
+
+    private void fileResearch(UUID projectId, UUID candidateId, EnrichedProfile enriched, boolean requestsAi) {
         candidates.findByIdAndProjectId(candidateId, projectId).ifPresentOrElse(candidate -> {
             Person person = candidate.getPerson();
             if (person.isProcessingRestricted()) {
@@ -593,10 +693,42 @@ public class CandidateService {
             mapToEmployer(projectId, candidate, CapturedCompanyDetails.employerNamed(enriched.employerName(),
                     enriched.employerLinkedinUrl(), enriched.employerLogoUrl()), capturedBy(projectId, candidate));
             stream.publish(projectId, ProjectStreamKind.CANDIDATE_ENRICHED);
-            projects.findById(projectId).ifPresent(project -> events.publishEvent(
-                    new CandidateAiEnrichRequested(candidateId, projectId, project.getWorkspaceId(),
-                            candidate.getAddedBy(), AiEnrichTrigger.CAPTURE)));
+            if (requestsAi) {
+                projects.findById(projectId).ifPresent(project -> events.publishEvent(
+                        new CandidateAiEnrichRequested(candidateId, projectId, project.getWorkspaceId(),
+                                candidate.getAddedBy(), AiEnrichTrigger.CAPTURE)));
+            }
         }, () -> log.info("Candidate {} was removed before its research landed", candidateId));
+    }
+
+    /**
+     * A person captured at LinkedIn's member-id address ({@code /in/ACoAA…}) takes the vanity address research named,
+     * so the next capture or lookup by that address finds them rather than founding a second person. Left alone when
+     * the workspace already holds the vanity profile as somebody else: folding two people is the merge tool's.
+     *
+     * <p>Its own transaction, run once the research has committed: a capture founding the vanity profile between the
+     * lookup and this write trips V95's unique index, and that must cost the address change, never the research.
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void adoptPublicProfile(UUID projectId, UUID candidateId, EnrichedProfile enriched) {
+        candidates.findByIdAndProjectId(candidateId, projectId)
+                .ifPresent(candidate -> adoptPublicProfile(candidate.getPerson(), enriched));
+    }
+
+    private void adoptPublicProfile(Person person, EnrichedProfile enriched) {
+        String held = LinkedInUrls.profileSlugOrNull(person.getLinkedinUrl());
+        String vanity = LinkedInUrls.profileSlugOrNull(enriched.publicProfileUrl());
+        if (!LinkedInUrls.isMemberIdSlug(held) || vanity == null || LinkedInUrls.isMemberIdSlug(vanity)) {
+            return;
+        }
+        Optional<Person> holder = people.findByWorkspaceIdAndProfileSlug(person.getWorkspaceId(), vanity);
+        if (holder.isPresent() && !holder.get().getId().equals(person.getId())) {
+            log.info("Person {} keeps its member-id address: person {} holds the public profile", person.getId(),
+                    holder.get().getId());
+            return;
+        }
+        // Spelled as the plugin stores a captured address, so the column never holds two spellings of one profile.
+        person.adoptPublicProfile(LinkedInUrls.profileUrlOf(LinkedInUrls.percentEncodedSlug(vanity)));
     }
 
     /**
@@ -620,7 +752,7 @@ public class CandidateService {
             details = details.employedAt(employer.companyName());
         }
 
-        refuseDuplicate(projectId, triageCompanyId, details.fullName(), null);
+        refuseDuplicate(projectId, triageCompanyId, details.fullName(), details.linkedinUrl(), null);
         refuseHeldProfile(projectId, details.linkedinUrl(), null);
 
         Filed filed = file(userId, workspaceId, projectId, triageCompanyId, filing.source(),
@@ -927,11 +1059,12 @@ public class CandidateService {
         FiledCompany row = filings.rowFor(employer);
         TriageCompanyResponse company = row.company();
 
+        String slug = LinkedInUrls.profileSlugOrNull(candidate.getPerson().getLinkedinUrl());
         boolean nameHeldThere = candidates
                 .findByProjectIdAndTriageCompanyIdAndPersonFullNameIgnoreCase(
                         projectId, company.id(), candidate.getPerson().getFullName())
                 .stream()
-                .anyMatch(other -> !other.getId().equals(candidate.getId()));
+                .anyMatch(other -> !other.getId().equals(candidate.getId()) && !isAnotherProfile(other, slug));
         if (nameHeldThere) {
             log.info("Leaving candidate {} unmapped — {} already maps that name", candidate.getId(),
                     company.companyName());
@@ -944,10 +1077,37 @@ public class CandidateService {
 
     /** Filed as the door the person came through: a hand-typed add researched behind its save is still hand-typed. */
     private EmployerFilings capturedBy(UUID projectId, Candidate candidate) {
-        TriageCompanySource door = candidate.getSource() == CandidateSource.MANUAL
-                ? TriageCompanySource.MANUAL
-                : TriageCompanySource.EXTENSION;
+        // CSV is its own door: a spreadsheet person researched by an import's enrichment was badged a plugin capture.
+        TriageCompanySource door = switch (candidate.getSource()) {
+            case MANUAL -> TriageCompanySource.MANUAL;
+            case CSV -> TriageCompanySource.CSV;
+            default -> TriageCompanySource.EXTENSION;
+        };
         return new EmployerFilings(triage, projectId, candidate.getAddedBy(), door);
+    }
+
+    /**
+     * The research of a corrected profile, which replaces the old one's — no AI run follows: correcting an address
+     * asked for research, not inference. Skipped when the address was corrected again while research ran.
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void applyCorrectedResearch(UUID projectId, UUID candidateId, String researchedUrl,
+                                       EnrichedProfile enriched) {
+        candidates.findByIdAndProjectId(candidateId, projectId).ifPresent(candidate -> {
+            Person person = candidate.getPerson();
+            String held = LinkedInUrls.profileSlugOrNull(person.getLinkedinUrl());
+            if (person.isProcessingRestricted() || held == null
+                    || !held.equalsIgnoreCase(LinkedInUrls.profileSlugOrNull(researchedUrl))) {
+                return;
+            }
+            person.replaceResearch(enriched);
+            photos.findByPersonId(person.getId()).ifPresent(photos::delete);
+            photos.flush();
+            keepPhoto(person.getId(), enriched);
+            activity.record(candidate, candidate.getAddedBy(), PersonActivityKind.RESEARCHED,
+                    PersonActivityDetails.of("vendor", enriched.vendor()));
+            stream.publish(projectId, ProjectStreamKind.CANDIDATE_ENRICHED);
+        });
     }
 
     private void keepPhoto(UUID personId, EnrichedProfile enriched) {
@@ -1020,16 +1180,31 @@ public class CandidateService {
      * row being edited. Both finders carry the project id: scoping by company alone would make this 409 an oracle for
      * another workspace's company ids.
      */
-    private void refuseDuplicate(UUID projectId, UUID triageCompanyId, String fullName, UUID selfId) {
+    private void refuseDuplicate(UUID projectId, UUID triageCompanyId, String fullName, String linkedinUrl,
+                                 UUID selfId) {
         List<Candidate> sameName = triageCompanyId == null
                 ? candidates.findByProjectIdAndTriageCompanyIdIsNullAndPersonFullNameIgnoreCase(projectId, fullName)
                 : candidates.findByProjectIdAndTriageCompanyIdAndPersonFullNameIgnoreCase(
                         projectId, triageCompanyId, fullName);
 
-        boolean held = sameName.stream().anyMatch(other -> !other.getId().equals(selfId));
+        String slug = LinkedInUrls.profileSlugOrNull(linkedinUrl);
+        boolean held = sameName.stream()
+                .anyMatch(other -> !other.getId().equals(selfId) && !isAnotherProfile(other, slug));
         if (held) {
             throw ApiException.of(ErrorCode.CANDIDATE_ALREADY_MAPPED);
         }
+    }
+
+    /**
+     * Two vanity profiles are two people, whatever they are called: the name rule exists for rows nobody can tell
+     * apart, and a plugin capture is never mapped when it lands, so it refused every namesake of an unmapped capture.
+     * A member-id address ({@code /in/ACoAA…}) is no such proof — it may be the same human's vanity profile seen from
+     * Sales Navigator, which only research can pair — so the name rule still holds against it.
+     */
+    private static boolean isAnotherProfile(Candidate other, String slug) {
+        String otherSlug = LinkedInUrls.profileSlugOrNull(other.getPerson().getLinkedinUrl());
+        return slug != null && otherSlug != null && !slug.equals(otherSlug)
+                && !LinkedInUrls.isMemberIdSlug(slug) && !LinkedInUrls.isMemberIdSlug(otherSlug);
     }
 
     /**
@@ -1037,6 +1212,18 @@ public class CandidateService {
      * capture (no company) against a first since mapped to its employer, leaving a duplicate "Not in universe" line.
      * {@code selfId} is the row being edited.
      */
+    private void refuseHeldProfile(UUID projectId, String linkedinUrl, UUID selfId) {
+        String slug = LinkedInUrls.profileSlugOrNull(linkedinUrl);
+        if (slug == null) {
+            return;
+        }
+        boolean held = candidatesAtProfile(projectId, slug).stream()
+                .anyMatch(other -> !other.getId().equals(selfId));
+        if (held) {
+            throw ApiException.of(ErrorCode.CANDIDATE_ALREADY_MAPPED);
+        }
+    }
+
     private AddedByResponse adderOf(UUID projectId, UUID candidateId) {
         return candidates.findAttributionByProjectIdAndIdIn(projectId, List.of(candidateId)).stream()
                 .map(CandidateAttribution::getAddedBy)
@@ -1045,19 +1232,6 @@ public class CandidateService {
                 .flatMap(users::findById)
                 .map(adder -> new AddedByResponse(adder.getId(), adder.getFullName(), adder.getAvatarUrl()))
                 .orElse(null);
-    }
-
-    private void refuseHeldProfile(UUID projectId, String linkedinUrl, UUID selfId) {
-        String slug = LinkedInUrls.profileSlugOrNull(linkedinUrl);
-        if (slug == null) {
-            return;
-        }
-        boolean held = candidates.findByProjectIdAndProfileSlugLike(projectId, slug).stream()
-                .filter(other -> !other.getId().equals(selfId))
-                .anyMatch(other -> slug.equals(LinkedInUrls.profileSlugOrNull(other.getPerson().getLinkedinUrl())));
-        if (held) {
-            throw ApiException.of(ErrorCode.CANDIDATE_ALREADY_MAPPED);
-        }
     }
 
     /**
@@ -1085,6 +1259,7 @@ public class CandidateService {
         if (known.isPresent() && known.get().isProcessingRestricted()) {
             throw ApiException.of(ErrorCode.PERSON_PROCESSING_RESTRICTED);
         }
+        ContactChannelSizes contactsBefore = known.map(requests::channelSizesOf).orElse(ContactChannelSizes.NONE);
         Person person = known.orElseGet(() -> people.save(Person.founded(workspaceId, userId, source, details)));
         if (known.isPresent()) {
             person.fillFrom(details, ContactSource.ofDoor(source));
@@ -1092,7 +1267,7 @@ public class CandidateService {
         if (source == CandidateSource.EXTENSION) {
             person.lockProfileUrl(details.linkedinUrl());
         }
-        requests.refuseOverfullChannels(person);
+        requests.refuseOverfullChannels(person, contactsBefore);
         Candidate candidate = candidates.save(Candidate.mapped(projectId, userId, triageCompanyId,
                 triageStatusOfCompany(projectId, triageCompanyId), person, source, status, details));
         activity.record(candidate, userId,
@@ -1115,7 +1290,7 @@ public class CandidateService {
             return known;
         }
         if (request.existingPersonId() != null) {
-            return Optional.of(answeredPerson(workspaceId, request.existingPersonId(), known, details));
+            return Optional.of(answeredPerson(workspaceId, request.existingPersonId(), details));
         }
         if (known.isEmpty() && !Boolean.TRUE.equals(request.addAsNewPerson())) {
             List<UUID> namesakes = matcher.possibleDuplicates(workspaceId, details).stream()
@@ -1134,13 +1309,13 @@ public class CandidateService {
      * two people one key. Without a key match, only a namesake the 409 could have named is taken — any
      * other id would map a stranger under a typed name the mandate's own name rule never saw.
      */
-    private Person answeredPerson(UUID workspaceId, UUID existingPersonId, Optional<Person> known,
-                                  CandidateDetails details) {
-        if (known.isPresent()) {
-            if (!known.get().getId().equals(existingPersonId)) {
+    private Person answeredPerson(UUID workspaceId, UUID existingPersonId, CandidateDetails details) {
+        Optional<Person> keyHolder = matcher.keyHolderOf(workspaceId, details);
+        if (keyHolder.isPresent()) {
+            if (!keyHolder.get().getId().equals(existingPersonId)) {
                 throw ApiException.of(ErrorCode.CANDIDATE_KEYS_NAME_ANOTHER);
             }
-            return known.get();
+            return keyHolder.get();
         }
         return matcher.possibleDuplicates(workspaceId, details).stream()
                 .filter(namesake -> namesake.getId().equals(existingPersonId))

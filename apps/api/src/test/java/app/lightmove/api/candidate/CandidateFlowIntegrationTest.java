@@ -309,6 +309,83 @@ class CandidateFlowIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("two plugin captures of one name are two people when their profiles differ")
+    void namesakesWithTheirOwnProfilesAreBothFiled() throws Exception {
+        String projectId = mandate("Namesake Firm");
+
+        // Neither carries an employer, so both sit unmapped — the scope the name rule used to refuse the second in.
+        captureProfile(projectId, "Mohammed Ali", "https://www.linkedin.com/in/mohammed-ali-1/");
+        captureProfile(projectId, "Mohammed Ali", "https://www.linkedin.com/in/mohammed-ali-2/");
+
+        mvc.perform(get(candidatesUrl(projectId)).header("Authorization", "Bearer " + admin()))
+                .andExpect(jsonPath("$.totalCount").value(2));
+    }
+
+    // A member-id address (/in/ACoAA…) may be the same human's vanity profile seen from Sales Navigator, which only
+    // research can pair: until then the name rule is the one thing standing between them and a second filing.
+    @Test
+    @DisplayName("a namesake at a member-id address is still refused against a vanity capture, either way round")
+    void aMemberIdAddressDoesNotExemptANamesake() throws Exception {
+        String projectId = mandate("Member Id Namesake Firm");
+        captureProfile(projectId, "Jane Doe", "https://www.linkedin.com/in/ACoAAB1234567890abcdefGHIJ");
+
+        mvc.perform(post(candidatesUrl(projectId))
+                        .header("Authorization", "Bearer " + admin())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fullName":"Jane Doe","source":"extension",
+                                 "linkedinUrl":"https://www.linkedin.com/in/jane-doe/"}"""))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("CANDIDATE_ALREADY_MAPPED"));
+
+        String otherProjectId = secondMandate(projectId);
+        captureProfile(otherProjectId, "Jane Doe", "https://www.linkedin.com/in/jane-doe/");
+        mvc.perform(post(candidatesUrl(otherProjectId))
+                        .header("Authorization", "Bearer " + admin())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fullName":"Jane Doe","source":"extension",
+                                 "linkedinUrl":"https://www.linkedin.com/in/ACoAAB1234567890abcdefGHIJ"}"""))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("CANDIDATE_ALREADY_MAPPED"));
+    }
+
+    @Test
+    @DisplayName("an unmapped name without a profile to tell them apart is still refused")
+    void anUnmappedNamesakeWithNoProfileIsRefused() throws Exception {
+        String projectId = mandate("Profileless Namesake Firm");
+        captureProfile(projectId, "Mohammed Ali", "https://www.linkedin.com/in/mohammed-ali-1/");
+
+        mvc.perform(post(candidatesUrl(projectId))
+                        .header("Authorization", "Bearer " + admin())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fullName":"mohammed ali"}"""))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("CANDIDATE_ALREADY_MAPPED"));
+    }
+
+    @Test
+    @DisplayName("the plugin finds a profile filed under its percent-encoded address")
+    void aNonAsciiProfileIsFoundAsHeld() throws Exception {
+        String projectId = mandate("Encoded Profile Firm");
+        // How the plugin builds it from the address bar: encodeURIComponent of the decoded slug.
+        String encoded = "https://www.linkedin.com/in/j%C3%A9r%C3%B4me-dupont/";
+        String candidateId = captureProfile(projectId, "Jérôme Dupont", encoded);
+
+        mvc.perform(get(candidatesUrl(projectId) + "/held")
+                        .param("linkedinUrl", encoded)
+                        .header("Authorization", "Bearer " + admin()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.candidate.id").value(candidateId));
+        mvc.perform(get(candidatesUrl(projectId) + "/held")
+                        .param("linkedinUrl", "https://www.linkedin.com/in/jérôme-dupont")
+                        .header("Authorization", "Bearer " + admin()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.candidate.id").value(candidateId));
+    }
+
+    @Test
     @DisplayName("a slug that merely starts with another's is a different person")
     void aLongerSlugIsNotADuplicate() throws Exception {
         String projectId = mandate("Slug Prefix Firm");
@@ -851,6 +928,18 @@ class CandidateFlowIntegrationTest extends FlowTestSupport {
                         .content("""
                                 {"triageCompanyId":"%s","fullName":"%s","linkedinUrl":"%s"}
                                 """.formatted(triageCompanyId, fullName, linkedinUrl)))
+                .andExpect(status().isCreated())
+                .andReturn()).get("id").asText();
+    }
+
+    /** A person filed the way the plugin files them: a name and a profile, no employer. */
+    private String captureProfile(String projectId, String fullName, String linkedinUrl) throws Exception {
+        return body(mvc.perform(post(candidatesUrl(projectId))
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fullName":"%s","source":"extension","linkedinUrl":"%s"}
+                                """.formatted(fullName, linkedinUrl)))
                 .andExpect(status().isCreated())
                 .andReturn()).get("id").asText();
     }

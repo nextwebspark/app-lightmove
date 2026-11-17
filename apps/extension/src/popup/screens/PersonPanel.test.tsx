@@ -1,5 +1,5 @@
 import { fireEvent, screen, waitFor } from "@testing-library/react";
-import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { installChromeStub } from "../../test/chromeStub";
 import { PersonPanel } from "./PersonPanel";
 import { PIPELINE, PROJECTS, USER, candidate, pageRead, renderPanel } from "./panelTestKit";
@@ -11,28 +11,42 @@ describe("a LinkedIn profile against the chosen position", () => {
   let heldAnswer: unknown = null;
   let captureAnswer: { ok: boolean; value?: unknown; code?: string; message?: string } = { ok: true };
   let undoAnswer: unknown = { ok: true, value: null };
+  let heldFailure: { ok: false; code: string; message: string } | null = null;
+  let closesAfterSave = false;
+  let tagCatalog: unknown[] = [];
+  let tagPersonAnswer: unknown = { ok: true, value: { personId: "person-1", tagIds: [] } };
+  let statusAnswer: unknown = null;
 
   beforeEach(() => {
     requests = [];
     heldAnswer = null;
     undoAnswer = { ok: true, value: null };
+    heldFailure = null;
+    closesAfterSave = false;
+    tagCatalog = [];
+    tagPersonAnswer = { ok: true, value: { personId: "person-1", tagIds: [] } };
+    statusAnswer = null;
     captureAnswer = { ok: true, value: candidate({ status: "identified", enrichedAt: null }) };
     installChromeStub().answer((raw) => {
       const request = raw as Request;
       requests.push(request);
       switch (request.kind) {
         case "heldCandidate":
-          return { ok: true, value: heldAnswer };
+          return heldFailure ?? { ok: true, value: heldAnswer };
         case "readPipeline":
           return { ok: true, value: PIPELINE };
         case "listCandidateTags":
-          return { ok: true, value: [] };
+          return { ok: true, value: tagCatalog };
+        case "tagPerson":
+          return tagPersonAnswer;
+        case "changeCandidateStatus":
+          return statusAnswer;
         case "readPersonTags":
           return { ok: true, value: { personId: "person-1", tagIds: [] } };
         case "listNotes":
           return { ok: true, value: [] };
         case "readSettings":
-          return { ok: true, value: { defaultProjectId: null, closesAfterSave: false } };
+          return { ok: true, value: { defaultProjectId: null, closesAfterSave } };
         case "candidatePhoto":
           return { ok: true, value: null };
         case "captureCandidate":
@@ -45,6 +59,7 @@ describe("a LinkedIn profile against the chosen position", () => {
     });
   });
 
+  afterEach(() => vi.useRealTimers());
   afterAll(() => vi.unstubAllGlobals());
 
   it("opens the record of someone the position already maps, with no form to file them again", async () => {
@@ -127,5 +142,85 @@ describe("a LinkedIn profile against the chosen position", () => {
 
     expect((await screen.findByRole("alert")).textContent).toContain("Try Undo again");
     expect(screen.getByText("Added to the position")).toBeDefined();
+  });
+
+  it("opens the record when a save raced another for the same profile", async () => {
+    captureAnswer = { ok: false, code: "PERSON_PROFILE_HELD", message: "held" };
+    renderPanel(<PersonPanel page={pageRead()} projects={PROJECTS} user={USER} />);
+
+    const add = await screen.findByRole("button", { name: /Add to position/ });
+    heldAnswer = { candidate: candidate(), addedBy: null, companyLogoUrl: null };
+    fireEvent.click(add);
+
+    expect(await screen.findByText("Already on this position")).toBeDefined();
+  });
+
+  it("says the position could not be checked rather than passing them off as new", async () => {
+    heldFailure = { ok: false, code: "UNEXPECTED_RESPONSE", message: "The workspace answered 503." };
+    renderPanel(<PersonPanel page={pageRead()} projects={PROJECTS} user={USER} />);
+
+    expect((await screen.findByRole("alert")).textContent).toContain("Couldn't check whether this position");
+    heldFailure = null;
+    heldAnswer = { candidate: candidate(), addedBy: null, companyLogoUrl: null };
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+
+    expect(await screen.findByText("Already on this position")).toBeDefined();
+  });
+
+  // The record was looked up at the page's address; a row the web app filed as linkedin.com/in/… kept its old status.
+  it("shows a status change on someone whose row spells the profile differently", async () => {
+    heldAnswer = {
+      candidate: candidate({ linkedinUrl: "https://linkedin.com/in/faisal-al-nuaimi" }),
+      addedBy: null,
+      companyLogoUrl: null,
+    };
+    statusAnswer = {
+      ok: true,
+      value: candidate({ linkedinUrl: "https://linkedin.com/in/faisal-al-nuaimi", status: "identified", statusLabel: "Identified" }),
+    };
+    renderPanel(<PersonPanel page={pageRead()} projects={PROJECTS} user={USER} />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Status: Call arranged" }));
+    fireEvent.click(await screen.findByRole("option", { name: /Identified/ }));
+
+    expect(await screen.findByRole("button", { name: "Status: Identified" })).toBeDefined();
+  });
+
+  it("stays open after a save whose tags did not all land, so they can be added again", async () => {
+    closesAfterSave = true;
+    tagCatalog = [{ id: "t1", label: "Board-ready", colour: "violet", retired: false, holders: 3 }];
+    tagPersonAnswer = { ok: false, code: "UNEXPECTED_RESPONSE", message: "The workspace answered 503." };
+    const close = vi.spyOn(window, "close").mockImplementation(() => undefined);
+    renderPanel(<PersonPanel page={pageRead()} projects={PROJECTS} user={USER} />);
+
+    const add = await screen.findByRole("button", { name: /Add to position/ });
+    await screen.findByText("Identified");
+    fireEvent.click(screen.getByRole("button", { name: /Add tag/ }));
+    fireEvent.click(await screen.findByRole("option", { name: /Board-ready/ }));
+    heldAnswer = { candidate: candidate({ status: "identified", enrichedAt: null }), addedBy: null, companyLogoUrl: null };
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    fireEvent.click(add);
+    expect(await screen.findByText("Some tags were not added. Add them again above.")).toBeDefined();
+    vi.advanceTimersByTime(10_000);
+
+    expect(close).not.toHaveBeenCalled();
+    close.mockRestore();
+  });
+
+  it("still closes after a save that landed whole, when Settings ask it to", async () => {
+    closesAfterSave = true;
+    const close = vi.spyOn(window, "close").mockImplementation(() => undefined);
+    renderPanel(<PersonPanel page={pageRead()} projects={PROJECTS} user={USER} />);
+
+    const add = await screen.findByRole("button", { name: /Add to position/ });
+    await screen.findByText("Identified");
+    heldAnswer = { candidate: candidate({ status: "identified", enrichedAt: null }), addedBy: null, companyLogoUrl: null };
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    fireEvent.click(add);
+    await screen.findByText("Added to the position");
+    vi.advanceTimersByTime(10_000);
+
+    expect(close).toHaveBeenCalled();
+    close.mockRestore();
   });
 });

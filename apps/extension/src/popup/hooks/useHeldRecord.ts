@@ -54,6 +54,15 @@ export function useHeldCache() {
       queryClient.invalidateQueries({ queryKey: heldPersonKey(projectId, linkedinUrl) }),
     refreshCompany: (projectId: string, linkedinUrl: string | null, name: string | null) =>
       queryClient.invalidateQueries({ queryKey: heldCompanyKey(projectId, linkedinUrl, name) }),
+    /**
+     * After a save refused as held: asks again through the market row capture matched, which a page view never pays
+     * for, and opens what it finds. False when there is still nothing to open.
+     */
+    recheckCompanyThroughMarket: async (projectId: string, linkedinUrl: string | null, name: string | null) => {
+      const found = await askOrThrow({ kind: "heldCompany", projectId, linkedinUrl, name, throughMarket: true });
+      if (found) queryClient.setQueryData(heldCompanyKey(projectId, linkedinUrl, name), found);
+      return Boolean(found);
+    },
     /** Every company read on the position, dropped rather than shown stale: an undone person may have taken theirs. */
     forgetCompanies: (projectId: string) =>
       queryClient.removeQueries({ queryKey: heldCompaniesKey(projectId) }),
