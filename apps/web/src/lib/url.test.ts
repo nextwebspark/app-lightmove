@@ -28,6 +28,21 @@ describe("toBrowsableUrl", () => {
     expect(toBrowsableUrl("javascript:alert(1)")).toBeNull();
   });
 
+  it("refuses what the server's URI parse would drop, and keeps what it keeps", () => {
+    expect(toBrowsableUrl("linkedin.com/in/john doe")).toBeNull();
+    expect(toBrowsableUrl("my_company.com")).toBeNull();
+    expect(toBrowsableUrl("https://example.com/a|b")).toBeNull();
+    expect(toBrowsableUrl("https://example.com/100%")).toBeNull();
+    expect(toBrowsableUrl("https://-bad.example")).toBeNull();
+    expect(toBrowsableUrl("linkedin.com/in/john-doe-1a2b3c/")).toBe("https://linkedin.com/in/john-doe-1a2b3c/");
+    expect(toBrowsableUrl("https://www.linkedin.com/in/j%C3%B6rg?trk=x#top")).toBe(
+      "https://www.linkedin.com/in/j%C3%B6rg?trk=x#top",
+    );
+    expect(toBrowsableUrl("http://user@example.co.uk:8080/path")).toBe("http://user@example.co.uk:8080/path");
+    expect(toBrowsableUrl("https://192.168.0.1/x")).toBe("https://192.168.0.1/x");
+    expect(toBrowsableUrl("https://[::1]:8080/")).toBe("https://[::1]:8080/");
+  });
+
   it("treats absent as absent", () => {
     expect(toBrowsableUrl(null)).toBeNull();
     expect(toBrowsableUrl(undefined)).toBeNull();

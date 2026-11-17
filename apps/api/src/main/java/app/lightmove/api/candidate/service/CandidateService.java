@@ -514,6 +514,7 @@ public class CandidateService {
         // The person is the workspace's: an edit made through this mandate is what every other mandate
         // mapping them now reads.
         boolean wasResearched = person.isResearched();
+        ContactChannelSizes contactsBefore = requests.channelSizesOf(person);
         person.describe(details, door);
         boolean researchForgotten = wasResearched && !person.isResearched();
         if (researchForgotten) {
@@ -525,7 +526,7 @@ public class CandidateService {
         if (confirmBackground) {
             person.confirmBackground();
         }
-        requests.refuseOverfullChannels(person);
+        requests.refuseOverfullChannels(person, contactsBefore);
         candidate.describeCustomFields(customColumns.applyTo(projectId, CustomColumnTarget.CANDIDATE,
                 candidate.getCustomFields(), request.customFields()));
         List<Map<String, String>> changed = changes.after(person);
@@ -1150,6 +1151,7 @@ public class CandidateService {
         if (known.isPresent() && known.get().isProcessingRestricted()) {
             throw ApiException.of(ErrorCode.PERSON_PROCESSING_RESTRICTED);
         }
+        ContactChannelSizes contactsBefore = known.map(requests::channelSizesOf).orElse(ContactChannelSizes.NONE);
         Person person = known.orElseGet(() -> people.save(Person.founded(workspaceId, userId, source, details)));
         if (known.isPresent()) {
             person.fillFrom(details, ContactSource.ofDoor(source));
@@ -1157,7 +1159,7 @@ public class CandidateService {
         if (source == CandidateSource.EXTENSION) {
             person.lockProfileUrl(details.linkedinUrl());
         }
-        requests.refuseOverfullChannels(person);
+        requests.refuseOverfullChannels(person, contactsBefore);
         Candidate candidate = candidates.save(Candidate.mapped(projectId, userId, triageCompanyId,
                 triageStatusOfCompany(projectId, triageCompanyId), person, source, status, details));
         activity.record(candidate, userId,

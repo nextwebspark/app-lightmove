@@ -700,6 +700,33 @@ describe("CandidateDrawer", () => {
     expect(payload.languages).toHaveLength(20);
   });
 
+  it("refuses an allowance with pence on the line, rather than saving it cut to a whole amount", async () => {
+    renderDrawer({ candidate: yasmin, company: null });
+
+    await openTab("Compensation");
+    await userEvent.click(screen.getByRole("button", { name: /Edit compensation/i }));
+    await userEvent.clear(screen.getByLabelText("Allowance 1 amount"));
+    await userEvent.type(screen.getByLabelText("Allowance 1 amount"), "2,500.75");
+    await userEvent.click(screen.getByRole("button", { name: /^Save$/i }));
+
+    expect(await screen.findByText("Allowance must be a whole number")).toBeInTheDocument();
+    expect(candidatesApi.updateCandidate).not.toHaveBeenCalled();
+  });
+
+  it("shows a career post's own refusal on its row instead of saving nothing in silence", async () => {
+    renderDrawer({ candidate: yasmin, company: null });
+
+    await openTab("Experience");
+    await userEvent.click(screen.getByRole("button", { name: /Edit experience/i }));
+    const period = screen.getByLabelText("Career 1 period");
+    await userEvent.clear(period);
+    await userEvent.type(period, "x".repeat(61));
+    await userEvent.click(screen.getByRole("button", { name: /^Save$/i }));
+
+    expect(await screen.findByRole("alert")).toBeInTheDocument();
+    expect(candidatesApi.updateCandidate).not.toHaveBeenCalled();
+  });
+
   it("offers the currency as a pick, and keeps a stored code the list does not carry", async () => {
     renderDrawer({
       candidate: { ...yasmin, compensation: { ...yasmin.compensation, currency: "INR" } },

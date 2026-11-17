@@ -2,7 +2,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import type { Resolver } from "react-hook-form";
 import { z } from "zod";
 import { formatNumber } from "../../../lib/format";
-import { optionalNumber, optionalWebAddress } from "../../../lib/formFields";
+import { optionalNumber, optionalWebAddress, optionalWholeNumber } from "../../../lib/formFields";
 import {
   allowanceTotalOf,
   annualBaseOf,
@@ -148,7 +148,7 @@ export const candidateSchema = z.object({
   nationality: z.string().trim().max(100),
   // "" is "not recorded", which the report counts apart from "other" — see CandidateGender.
   gender: z.enum(["", "female", "male", "other"]),
-  yearsExperience: optionalNumber("Years of experience", 70),
+  yearsExperience: optionalWholeNumber("Years of experience", 70),
   summary: z.string().trim().max(4000),
   // The Add form's first note: filed as a note on the person, never read back onto the row.
   note: z.string().trim().max(4000),
@@ -185,7 +185,7 @@ function money(label: string) {
   return z
     .string()
     .transform((value) => value.replace(/[,\s]/g, ""))
-    .pipe(optionalNumber(label, Number.MAX_SAFE_INTEGER));
+    .pipe(optionalWholeNumber(label, Number.MAX_SAFE_INTEGER));
 }
 
 /** The bonus, which alone may carry a "%": a share of base is shown as "45%". */
@@ -204,6 +204,9 @@ export function refineCompensation(
   values: { baseSalary?: number; bonus?: number; bonusBasis?: string },
   context: z.RefinementCtx,
 ) {
+  if (values.bonusBasis === "fixed" && values.bonus !== undefined && !Number.isInteger(values.bonus)) {
+    context.addIssue({ code: "custom", path: ["bonus"], message: "Bonus must be a whole number" });
+  }
   if (values.bonusBasis === "percent" && values.bonus !== undefined && values.baseSalary === undefined) {
     context.addIssue({
       code: "custom",

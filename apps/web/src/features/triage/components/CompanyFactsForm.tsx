@@ -5,7 +5,7 @@ import { Controller, useForm, type Control } from "react-hook-form";
 import { z } from "zod";
 import { Button, Field, FormError, Input, TextArea } from "../../../components/ui";
 import { codeOf, messageFor } from "../../../lib/errorCodes";
-import { optionalNumber, optionalWebAddress } from "../../../lib/formFields";
+import { optionalWebAddress, optionalWholeNumber } from "../../../lib/formFields";
 import type { CustomColumn, CustomFieldValues } from "../../customcolumns/api/types";
 import { CustomFieldsFieldset } from "../../customcolumns/components/CustomFieldsFieldset";
 import * as companiesApi from "../../strategy/api/companiesApi";
@@ -26,8 +26,8 @@ const companyFactsSchema = z.object({
   industry: z.string().trim().max(200),
   companyCountry: z.string().trim().max(100),
   companyCity: z.string().trim().max(100),
-  numEmployees: optionalNumber("Employees", 10_000_000),
-  annualRevenue: optionalNumber("Revenue", Number.MAX_SAFE_INTEGER),
+  numEmployees: optionalWholeNumber("Employees", 10_000_000),
+  annualRevenue: optionalWholeNumber("Revenue", Number.MAX_SAFE_INTEGER),
   foundedYear: z
     .string()
     .trim()

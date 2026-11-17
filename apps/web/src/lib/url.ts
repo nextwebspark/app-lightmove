@@ -16,6 +16,9 @@ export function toBrowsableUrl(value: string | null | undefined): string | null 
   // would inherit the page's — harmless here, but it is not what the server stores, and the two must
   // agree. Treated as a bare host.
   const candidate = trimmed.includes("://") ? trimmed : `https://${trimmed.replace(/^\/+/, "")}`;
+  // The browser forgives what the server's java.net.URI does not. "linkedin.com/in/john doe" or "my_company.com"
+  // passed the form, the server dropped it as unparseable, and the save wiped the URL that was stored.
+  if (!parsesAsServerUri(candidate)) return null;
   try {
     const parsed = new URL(candidate);
     if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return null;
@@ -25,6 +28,28 @@ export function toBrowsableUrl(value: string | null | undefined): string | null 
   } catch {
     return null;
   }
+}
+
+/** Characters `java.net.URI` refuses anywhere, and a `%` that does not start an escape. */
+const URI_ILLEGAL = /[\s<>"{}|\\^`]|%(?![0-9A-Fa-f]{2})/;
+const HOST_LABEL = /^[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?$/;
+const IPV4 = /^\d{1,3}(?:\.\d{1,3}){3}$/;
+
+/**
+ * Whether the server's `SuppliedText.browsableUrlOrNull` keeps this address: `URI.create` parses it and finds a host,
+ * which Java does only for a registry name of letters, digits and inner hyphens whose last label starts with a letter,
+ * an IPv4 address, or a bracketed IPv6 literal.
+ */
+function parsesAsServerUri(candidate: string): boolean {
+  if (URI_ILLEGAL.test(candidate)) return false;
+  const afterScheme = candidate.slice(candidate.indexOf("://") + 3);
+  const authority = afterScheme.split(/[/?#]/, 1)[0];
+  const hostAndPort = authority.slice(authority.lastIndexOf("@") + 1);
+  if (hostAndPort.startsWith("[")) return /^\[[0-9A-Fa-f:.]+\](?::\d*)?$/.test(hostAndPort);
+  const host = hostAndPort.replace(/:\d*$/, "").replace(/\.$/, "");
+  if (IPV4.test(host)) return true;
+  const labels = host.split(".");
+  return labels.every((label) => HOST_LABEL.test(label)) && /^[A-Za-z]/.test(labels[labels.length - 1]);
 }
 
 /**
