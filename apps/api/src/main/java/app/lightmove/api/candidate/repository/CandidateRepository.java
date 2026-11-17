@@ -218,14 +218,15 @@ public interface CandidateRepository extends JpaRepository<Candidate, UUID>, Jpa
 
     /**
      * Narrows the mandate's rows that might name one LinkedIn profile ({@code like}: one profile is written several
-     * ways, decoded or percent-encoded). It never decides — {@code john} matches {@code /in/johnny} — so the caller
-     * settles identity on the slug.
+     * ways, decoded or percent-encoded; both patterns {@code LikePatterns}-escaped). It never decides — {@code john}
+     * matches {@code /in/johnny} — so the caller settles identity on the slug.
      */
     @Query("select c from Candidate c where c.projectId = :projectId "
             + "and (c.person.profileSlug = :slug "
-            + "or lower(c.person.linkedinUrl) like concat('%/in/', :slug, '%') "
-            + "or lower(c.person.linkedinUrl) like concat('%/in/', :encodedSlug, '%'))")
-    List<Candidate> findByProjectIdAndProfileSlugLike(UUID projectId, String slug, String encodedSlug);
+            + "or lower(c.person.linkedinUrl) like concat('%/in/', :slugPattern, '%') escape '\\' "
+            + "or lower(c.person.linkedinUrl) like concat('%/in/', :encodedSlugPattern, '%') escape '\\')")
+    List<Candidate> findByProjectIdAndProfileSlugLike(UUID projectId, String slug, String slugPattern,
+                                                      String encodedSlugPattern);
 
     /** Every profile URL the mandate holds — a sourcing run's "already mapped" set, settled on the slug by the caller. */
     @Query("select c.person.linkedinUrl from Candidate c where c.projectId = :projectId and c.person.linkedinUrl is not null")

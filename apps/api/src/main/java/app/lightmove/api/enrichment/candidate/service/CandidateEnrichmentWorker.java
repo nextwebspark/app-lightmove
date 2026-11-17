@@ -1,9 +1,11 @@
 package app.lightmove.api.enrichment.candidate.service;
 
 import app.lightmove.api.candidate.model.CandidateCapturedEvent;
+import app.lightmove.api.candidate.model.EnrichedProfile;
 import app.lightmove.api.candidate.service.CandidateService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
@@ -30,13 +32,26 @@ class CandidateEnrichmentWorker {
     void enrich(CandidateCapturedEvent event) {
         try {
             enricher.fetch(event.linkedinUrl()).ifPresentOrElse(
-                    profile -> candidates.applyResearch(event.projectId(), event.candidateId(), profile),
+                    profile -> {
+                        candidates.applyResearch(event.projectId(), event.candidateId(), profile);
+                        adoptPublicProfile(event, profile);
+                    },
                     () -> log.info("No research found for candidate {}", event.candidateId()));
         } catch (ObjectOptimisticLockingFailureException raced) {
             // A re-capture inside the research window: @Version refusing the second write is the guard working.
             log.info("Candidate {} was enriched by a concurrent event", event.candidateId());
         } catch (RuntimeException ex) {
             log.error("Failed to enrich candidate {}", event.candidateId(), ex);
+        }
+    }
+
+    /** After the research has committed, so losing the race for the vanity profile costs the address alone. */
+    private void adoptPublicProfile(CandidateCapturedEvent event, EnrichedProfile profile) {
+        try {
+            candidates.adoptPublicProfile(event.projectId(), event.candidateId(), profile);
+        } catch (DataIntegrityViolationException taken) {
+            log.info("Candidate {} keeps its member-id address: its vanity profile was filed meanwhile",
+                    event.candidateId());
         }
     }
 }

@@ -321,6 +321,35 @@ class CandidateFlowIntegrationTest extends FlowTestSupport {
                 .andExpect(jsonPath("$.totalCount").value(2));
     }
 
+    // A member-id address (/in/ACoAA…) may be the same human's vanity profile seen from Sales Navigator, which only
+    // research can pair: until then the name rule is the one thing standing between them and a second filing.
+    @Test
+    @DisplayName("a namesake at a member-id address is still refused against a vanity capture, either way round")
+    void aMemberIdAddressDoesNotExemptANamesake() throws Exception {
+        String projectId = mandate("Member Id Namesake Firm");
+        captureProfile(projectId, "Jane Doe", "https://www.linkedin.com/in/ACoAAB1234567890abcdefGHIJ");
+
+        mvc.perform(post(candidatesUrl(projectId))
+                        .header("Authorization", "Bearer " + admin())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fullName":"Jane Doe","source":"extension",
+                                 "linkedinUrl":"https://www.linkedin.com/in/jane-doe/"}"""))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("CANDIDATE_ALREADY_MAPPED"));
+
+        String otherProjectId = secondMandate(projectId);
+        captureProfile(otherProjectId, "Jane Doe", "https://www.linkedin.com/in/jane-doe/");
+        mvc.perform(post(candidatesUrl(otherProjectId))
+                        .header("Authorization", "Bearer " + admin())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fullName":"Jane Doe","source":"extension",
+                                 "linkedinUrl":"https://www.linkedin.com/in/ACoAAB1234567890abcdefGHIJ"}"""))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("CANDIDATE_ALREADY_MAPPED"));
+    }
+
     @Test
     @DisplayName("an unmapped name without a profile to tell them apart is still refused")
     void anUnmappedNamesakeWithNoProfileIsRefused() throws Exception {
