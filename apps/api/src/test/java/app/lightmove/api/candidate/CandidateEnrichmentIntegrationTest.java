@@ -331,6 +331,48 @@ class CandidateEnrichmentIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("a capture at LinkedIn's member-id address takes the vanity address research names")
+    void aMemberIdCaptureTakesTheVanityAddress() throws Exception {
+        String projectId = mandate("Member Id Firm");
+        enricher.answerWith(RESEARCH.withPublicProfileUrl("https://www.linkedin.com/in/sample-profile/"));
+
+        String candidateId = capture(projectId, "Sample Person", "ACoAAB1234567890abcdefGHIJ");
+
+        // Found at the address every later visit to their profile uses, and never filed a second time from it.
+        mvc.perform(get(candidatesUrl(projectId) + "/held")
+                        .param("linkedinUrl", "https://www.linkedin.com/in/sample-profile/")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.candidate.id").value(candidateId));
+        mvc.perform(post(candidatesUrl(projectId))
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fullName":"Sample Person","source":"extension",
+                                 "linkedinUrl":"https://www.linkedin.com/in/sample-profile/"}"""))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("CANDIDATE_ALREADY_MAPPED"));
+    }
+
+    @Test
+    @DisplayName("a member-id capture keeps its address when the vanity profile is already somebody else's")
+    void aMemberIdCaptureLeavesAHeldVanityAlone() throws Exception {
+        String projectId = mandate("Member Id Held Firm");
+        enricher.answerWith(RESEARCH);
+        capture(projectId, "Sample Person", "sample-profile");
+        String otherPosition = mandateInSameWorkspace("Chief Operating Officer");
+        enricher.answerWith(RESEARCH.withPublicProfileUrl("https://www.linkedin.com/in/sample-profile/"));
+
+        String candidateId = capture(otherPosition, "Sample Person", "ACoAAB1234567890abcdefGHIJ");
+
+        // Two people of the workspace now name one profile: the merge tool folds them, research never steals a key.
+        assertThat(body(mvc.perform(get(candidatesUrl(otherPosition) + "/" + candidateId)
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andReturn()).get("linkedinUrl").asText()).containsIgnoringCase("/in/ACoAAB1234567890abcdefGHIJ");
+    }
+
+    @Test
     @DisplayName("undoing a capture keeps a company the position already held")
     void undoingACaptureKeepsACompanyThePositionAlreadyHeld() throws Exception {
         String projectId = mandate("Undo Held Firm");

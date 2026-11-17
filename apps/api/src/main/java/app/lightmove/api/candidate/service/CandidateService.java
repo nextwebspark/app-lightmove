@@ -610,6 +610,7 @@ public class CandidateService {
                 log.info("Candidate {} was restricted before its research landed; it is not kept", candidateId);
                 return;
             }
+            adoptPublicProfile(person, enriched);
             boolean fresh = !person.isResearched();
             // Two mandates capturing one new person before either's research lands each queue a call;
             // the second finds the person researched, but its own mandate still wants the employer
@@ -629,6 +630,26 @@ public class CandidateService {
                                 candidate.getAddedBy(), AiEnrichTrigger.CAPTURE)));
             }
         }, () -> log.info("Candidate {} was removed before its research landed", candidateId));
+    }
+
+    /**
+     * A person captured at LinkedIn's member-id address ({@code /in/ACoAA…}) took the vanity address research named,
+     * so the next capture or lookup by that address finds them rather than founding a second person. Left alone when
+     * the workspace already holds the vanity profile as somebody else: folding two people is the merge tool's.
+     */
+    private void adoptPublicProfile(Person person, EnrichedProfile enriched) {
+        String held = LinkedInUrls.profileSlugOrNull(person.getLinkedinUrl());
+        String vanity = LinkedInUrls.profileSlugOrNull(enriched.publicProfileUrl());
+        if (!LinkedInUrls.isMemberIdSlug(held) || vanity == null || LinkedInUrls.isMemberIdSlug(vanity)) {
+            return;
+        }
+        Optional<Person> holder = people.findByWorkspaceIdAndProfileSlug(person.getWorkspaceId(), vanity);
+        if (holder.isPresent() && !holder.get().getId().equals(person.getId())) {
+            log.info("Person {} keeps its member-id address: person {} holds the public profile", person.getId(),
+                    holder.get().getId());
+            return;
+        }
+        person.adoptPublicProfile(LinkedInUrls.profileUrlOf(vanity));
     }
 
     /**

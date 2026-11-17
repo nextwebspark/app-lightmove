@@ -76,6 +76,9 @@ says why when it leaves something: a person's takes the company filed for them (
 while it is still In universe with nobody else at it and no note on it, and a company's is refused once anyone is mapped there.
 Two LinkedIn profiles are two people: the same-name refusal skips a namesake whose profile slug differs, and an employer
 filed from research lands on the position's company for that LinkedIn page before any name match (`resolveCapture`).
+A capture at LinkedIn's member-id address (`/in/ACoAA…`) takes the vanity address research names (HarvestAPI's
+`publicIdentifier`, Bright Data's `linkedin_id`), unless another person of the workspace already holds it — the merge
+tool's to fold.
 **The add form leads with a LinkedIn lookup** (`ProfileLookupStep`, `POST …/candidates/profile-lookup`,
 `enrichment/candidate`'s `ProfileLookupService` over `candidate`'s `LookedUpResearch`): a pasted profile is researched
 exactly as a capture is (the same `LinkedInProfileEnricher`, name and photo included) and answered to the form before

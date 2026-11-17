@@ -14,12 +14,21 @@ public final class LinkedInUrls {
 
     private static final Pattern PROFILE_SLUG = Pattern.compile("^/in/([^/?#]+)");
     private static final Pattern COMPANY_SLUG = Pattern.compile("^/company/([^/?#]+)");
+    private static final Pattern MEMBER_ID_SLUG = Pattern.compile("^acoa[a-z0-9_-]{15,}$");
 
     private LinkedInUrls() {}
 
     /** The {@code /in/<slug>} a member profile URL names, or null when it is not one. */
     public static String profileSlugOrNull(String url) {
         return slugOrNull(url, PROFILE_SLUG);
+    }
+
+    /**
+     * Whether a (lower-cased) profile slug is LinkedIn's member id — {@code /in/ACoAA…}, what Sales Navigator and search
+     * links open — rather than the person's vanity name. Both address one human, and only research can pair them.
+     */
+    public static boolean isMemberIdSlug(String slug) {
+        return slug != null && MEMBER_ID_SLUG.matcher(slug).matches();
     }
 
     /** The canonical address of a member profile, as research and the stored profile spell it. */
