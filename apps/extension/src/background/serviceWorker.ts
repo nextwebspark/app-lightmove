@@ -177,9 +177,9 @@ async function handle(message: ExtensionRequest): Promise<unknown> {
     case "openConnectPage":
       return openConnectPage();
     case "readActivePage":
-      return readActivePage(activePageDeps);
+      return readActivePage(activePageDeps, message.windowId ?? null);
     case "activePageKey":
-      return activePageKey(activePageDeps);
+      return activePageKey(activePageDeps, message.windowId ?? null);
     case "listProjects":
       return listProjects(api);
     case "captureCompany":

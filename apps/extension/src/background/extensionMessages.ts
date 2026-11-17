@@ -30,8 +30,8 @@ export type ExtensionRequest =
   | { kind: "getPairedUser" }
   | { kind: "signOut" }
   | { kind: "openConnectPage" }
-  | { kind: "readActivePage" }
-  | { kind: "activePageKey" }
+  | { kind: "readActivePage"; windowId?: number | null }
+  | { kind: "activePageKey"; windowId?: number | null }
   | { kind: "listProjects" }
   | { kind: "captureCompany"; projectId: string; capture: CaptureCompanyRequest }
   | { kind: "captureCandidate"; projectId: string; candidate: SaveCandidateRequest }
