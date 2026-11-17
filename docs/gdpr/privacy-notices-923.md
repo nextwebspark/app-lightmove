@@ -15,7 +15,7 @@ controls, and is staff-only: it never reaches `CandidateResponse`, the talent ma
 | Send privacy notice, one or many | the drawer's ⋯, the Candidates selection bar | V218 |
 | Mark as notified | the drawer's ⋯ and Privacy block | V218 |
 | The public page a notice links to | `/privacy/:token` | V218 |
-| Not notified quick view | Candidates | V218 |
+| Not notified view (Filter → Show) | Candidates | V218 |
 | The outreach footer, its stop link and one-click unsubscribe (#924) | every sequence step and consultant's own email | V220 |
 
 ## The firm's details
@@ -129,7 +129,7 @@ Stop emails from us". With the firm's details not yet set it reads "We hold …"
 
 ## Not notified
 
-The Candidates quick view `not_notified`: held more than 30 days and never told. It is a list to act on, not a rule:
+The Candidates view `not_notified` (Filter → Show): held more than 30 days and never told. It is a list to act on, not a rule:
 nothing sends a notice on its own.
 
 ## Data protection of the feature itself
