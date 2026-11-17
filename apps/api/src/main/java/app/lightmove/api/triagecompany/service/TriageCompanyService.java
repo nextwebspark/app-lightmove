@@ -8,6 +8,7 @@ import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.stream.ProjectStreamKind;
 import app.lightmove.api.core.stream.ProjectStreamPublisher;
+import app.lightmove.api.core.text.service.LikePatterns;
 import app.lightmove.api.core.text.service.LinkedInUrls;
 import app.lightmove.api.customcolumn.constant.CustomColumnTarget;
 import app.lightmove.api.customcolumn.service.CustomColumnService;
@@ -292,7 +293,7 @@ public class TriageCompanyService {
         String slug = LinkedInUrls.companySlugOrNull(details.companyLinkedinUrl());
         // The position's own row for the page outranks any name: research spelled the employer "Acme Gulf Trading
         // LLC" where the consultant had captured the page as "Acme Gulf", and the person landed at a second company.
-        List<TriageCompany> heldAtPage = slug == null ? List.of() : triaged.findAtCompanySlug(projectId, slug);
+        List<TriageCompany> heldAtPage = slug == null ? List.of() : atCompanySlug(triaged, projectId, slug);
         if (!heldAtPage.isEmpty()) {
             return new ResolvedCapture(preferred(heldAtPage), false);
         }
@@ -331,6 +332,15 @@ public class TriageCompanyService {
         List<TriageCompany> byName =
                 triaged.findByProjectIdAndCompanyNameIgnoreCase(projectId, row.companyName());
         return byName.isEmpty() ? Optional.empty() : Optional.of(preferred(byName));
+    }
+
+    /** The position's companies whose LinkedIn page is exactly {@code slug}'s, oldest first. */
+    static List<TriageCompany> atCompanySlug(TriageCompanyRepository triaged, UUID projectId, String slug) {
+        return triaged.findByProjectIdAndCompanySlugLike(projectId, LikePatterns.escape(slug),
+                        LikePatterns.escape(LinkedInUrls.percentEncodedSlug(slug))).stream()
+                .filter(company -> slug.equals(LinkedInUrls.companySlugOrNull(company.getCompanyLinkedinUrl())))
+                .sorted(Comparator.comparing(TriageCompany::getCreatedAt))
+                .toList();
     }
 
     /**

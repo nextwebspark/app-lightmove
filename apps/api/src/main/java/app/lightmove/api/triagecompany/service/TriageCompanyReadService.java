@@ -447,7 +447,7 @@ public class TriageCompanyReadService {
         Optional<TriageCompany> held = Optional.empty();
         String slug = LinkedInUrls.companySlugOrNull(linkedinUrl);
         if (slug != null) {
-            held = triaged.findAtCompanySlug(projectId, slug).stream().findFirst();
+            held = TriageCompanyService.atCompanySlug(triaged, projectId, slug).stream().findFirst();
         }
         String name = companyName == null || companyName.isBlank() ? null : companyName.trim();
         if (held.isEmpty() && name != null) {
