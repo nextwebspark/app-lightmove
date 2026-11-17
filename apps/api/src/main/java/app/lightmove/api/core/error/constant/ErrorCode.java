@@ -322,6 +322,9 @@ public enum ErrorCode {
     /** Stage labels are unique among stages, status labels among statuses, whatever their case. */
     PIPELINE_LABEL_TAKEN(HttpStatus.CONFLICT, "That name is already in use"),
 
+    /** Nobody is moved off a status by retiring it: whoever holds it is moved first. */
+    PIPELINE_STATUS_HELD(HttpStatus.CONFLICT, "Someone is still on this status. Move them to another before retiring it"),
+
     /** A retired status stays on whoever holds it, but can no longer be given to anyone. */
     PIPELINE_STATUS_RETIRED(HttpStatus.CONFLICT, "That status is retired. Restore it in Settings to use it again"),
 

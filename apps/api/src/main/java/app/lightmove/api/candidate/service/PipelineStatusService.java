@@ -31,6 +31,7 @@ public class PipelineStatusService {
     private final CandidateStageRepository stages;
     private final CandidateStatusDefinitionRepository statuses;
     private final PipelineDefaultMarks defaults;
+    private final HeldStatusGuard heldStatuses;
     private final PipelineEditAudit audit;
 
     @Transactional
@@ -80,6 +81,7 @@ public class PipelineStatusService {
         }
         if (Boolean.TRUE.equals(request.retired()) && !status.isRetired()) {
             PipelineRules.refuseLeavingNoStart(catalog, List.of(status));
+            heldStatuses.refuseRetiringHeld(List.of(status));
             defaults.retire(catalog, status);
         } else if (Boolean.FALSE.equals(request.retired()) && status.isRetired()) {
             PipelineRules.refuseRetiredStage(status.getStage());

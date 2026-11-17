@@ -327,6 +327,8 @@ two rows mid-write, and V39's index refused every later save of that chart.
 V140 makes every pipeline status the workspace's: it drops V131's CHECK that kept a seeded status live (its
 `system_key` stays, as a wire key only), so an admin retires any status, or a stage with its statuses
 (`retireStatuses`, after a confirmation read off `…/retire-preview`: who holds each, and the automations it stops).
+A status anyone holds is not retired, alone or with its stage (`PIPELINE_STATUS_HELD`): they are moved off it first.
+Statuses retired while held before that rule keep their holders, whose profile saves repeat it without refusal.
 It adds `app_lm_workspace_status_automation` — per workspace, the status each outreach event (`EMAIL_SENT`,
 `REPLIED`, `CALL_BOOKED`) moves a candidate forward to, set on Settings → Pipeline stages' Move candidates
 automatically (`StatusAutomationService`). No row is the seeded behaviour (an email to Contacted, a booking to

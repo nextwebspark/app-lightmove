@@ -84,6 +84,7 @@ export type ApiErrorCode =
   | "PIPELINE_STAGE_NOT_EMPTY"
   | "PIPELINE_STAGE_REQUIRED"
   | "PIPELINE_DEFAULT_IN_PROCESS"
+  | "PIPELINE_STATUS_HELD"
   | "PIPELINE_STATUS_REQUIRED"
   | "PIPELINE_LABEL_TAKEN"
   | "PIPELINE_STATUS_RETIRED"
@@ -321,6 +322,7 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   PIPELINE_STAGE_NOT_EMPTY: "This stage still has statuses. Retire them with the stage, or retire them first.",
   PIPELINE_STAGE_REQUIRED: "The pipeline keeps at least one stage.",
   PIPELINE_DEFAULT_IN_PROCESS: "A stage's default status stays in process. Make another status the default first.",
+  PIPELINE_STATUS_HELD: "Someone is still on this status. Move them to another status before retiring it.",
   PIPELINE_STATUS_REQUIRED: "The pipeline keeps at least one status in process for new candidates to start at.",
   PIPELINE_LABEL_TAKEN: "That name is already in use.",
   PIPELINE_STATUS_RETIRED: "That status is retired. Ask an admin to restore it in Settings.",

@@ -298,6 +298,7 @@ function StatusRow({
         open={preview !== null}
         title={`Retire ${status.label}?`}
         confirmLabel="Retire status"
+        retiring
         catalog={catalog}
         preview={preview}
         pending={isPending}
