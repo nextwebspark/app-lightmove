@@ -53,7 +53,7 @@ export function useToast(): ToastFn {
 }
 
 /**
- * A stack of up to three fixed-width cards in the bottom-right corner (`.toast-stack`, global.css): a
+ * A stack of up to three fixed-width cards in the bottom-left corner (`.toast-stack`, global.css): a
  * success or notice leaves on its own (later when it offers Undo), an error stays until it is
  * dismissed, and hovering or focusing a toast holds it.
  */

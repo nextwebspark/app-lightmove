@@ -117,9 +117,10 @@ function PendingCard({
               ? `Done with the call to ${card.personName}`
               : `Not now — don't log ${isWhatsApp ? "the WhatsApp" : "the call"} with ${card.personName}`
           }
-          className="flex-none rounded-md px-1.5 py-0.5 text-note font-medium text-u-text3 hover:bg-u-raised hover:text-u-text"
+          title={isWrong ? "Done" : "Not now"}
+          className="-my-0.5 flex-none rounded p-1 text-u-text3 hover:bg-u-raised hover:text-u-text focus-visible:outline-2 focus-visible:outline-u-accent"
         >
-          {isWrong ? "Done" : "Not now"}
+          <Icon d={ICONS.close} size={14} />
         </button>
       </div>
       {isWrong ? (

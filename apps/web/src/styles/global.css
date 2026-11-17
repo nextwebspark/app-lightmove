@@ -193,13 +193,11 @@ html:has(> body.dark),
   animation: dot-pop 0.28s ease both;
 }
 
-/* Toasts stack in the bottom-right corner, clear of any panel docked on the right: a drawer's footer
-   holds its Save and Remove, and an error that stays must never sit on the button that answers it. The log-it tray
-   (#1337) shares the corner and the clearance, risen above the stack by its height (`--toast-stack-height`, set by
-   ToastProvider): over a drawer (z 97 to its 95), so a number pressed there leaves a card in reach, under a dialog. */
+/* Toasts stack in the bottom-left corner, over the sidebar's foot: every panel docks on the right, so the stack
+   never moves when one opens and never sits on a drawer's Save. The log-it tray (#1337) shares the corner, risen
+   above the stack by its height (`--toast-stack-height`, set by ToastProvider), under a dialog. */
 .toast-stack,
 .log-tray {
-  --toast-clearance: 0px;
   --log-tray-rise: 0px;
   position: fixed;
   bottom: calc(16px + var(--log-tray-rise));
@@ -241,26 +239,17 @@ html:has(> body.dark),
 @media (min-width: 640px) {
   .toast-stack,
   .log-tray {
-    bottom: calc(24px + var(--log-tray-rise));
-    left: auto;
-    right: max(24px, min(calc(24px + var(--toast-clearance)), calc(100vw - 384px)));
+    bottom: calc(16px + var(--log-tray-rise));
+    left: 16px;
+    right: auto;
     width: 360px;
-  }
-  body:has([data-edge-panel="drawer"]) :is(.toast-stack, .log-tray) {
-    --toast-clearance: 430px;
-  }
-  body:has([data-edge-panel="drawer-wide"]) :is(.toast-stack, .log-tray) {
-    --toast-clearance: 570px;
-  }
-  body:has([data-edge-panel="report"]) :is(.toast-stack, .log-tray) {
-    --toast-clearance: 384px;
   }
 }
 
 @keyframes toast-in {
   from {
     opacity: 0;
-    transform: translateX(12px);
+    transform: translateX(-12px);
   }
   to {
     opacity: 1;
