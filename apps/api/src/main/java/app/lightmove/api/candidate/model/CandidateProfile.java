@@ -13,6 +13,11 @@ public record CandidateProfile(List<CandidateCareerEntry> career, List<String> l
                                List<CandidateEducationEntry> education, List<String> skills,
                                String enrichedAt, ResearchedEmployerMark employer) {
 
+    /** What a profile save accepts ({@code SaveCandidateRequest}); research is held to it so every save can replay it. */
+    public static final int MOST_CAREER_POSTS = 25;
+    public static final int MOST_LANGUAGES = 20;
+    public static final int LONGEST_LANGUAGE = 60;
+
     public CandidateProfile {
         career = career == null ? List.of() : career.stream().filter(entry -> !entry.isEmpty()).toList();
         languages = languages == null ? List.of() : List.copyOf(languages);
@@ -24,6 +29,11 @@ public record CandidateProfile(List<CandidateCareerEntry> career, List<String> l
     /** What a profile reads as before anyone has filled anything in. */
     public static CandidateProfile empty() {
         return new CandidateProfile(List.of(), List.of(), List.of(), List.of(), null, null);
+    }
+
+    /** The drawer's own components, with research's taken back out: the profile it read is not this person's. */
+    public CandidateProfile forgettingResearch() {
+        return new CandidateProfile(career, languages, List.of(), List.of(), null, null);
     }
 
     /** The drawer edits what it renders; the components it has never heard of ride along untouched. */

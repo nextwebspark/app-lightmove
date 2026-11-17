@@ -188,6 +188,13 @@ public class Candidate extends BaseEntity {
         this.companyFiledForThem = filedForThem;
     }
 
+    /** The company they are mapped at was renamed; the snapshot is that company's name, so it follows. */
+    public void followCompanyRename(String renamedTo) {
+        if (triageCompanyId != null) {
+            this.companyName = renamedTo;
+        }
+    }
+
     /** Someone chose their company on its own account, so taking them back off the mandate leaves it. */
     public void keepCompany() {
         this.companyFiledForThem = false;

@@ -9,8 +9,10 @@ import app.lightmove.api.candidate.constant.EnrichmentVendor;
 import app.lightmove.api.candidate.constant.Gender;
 import app.lightmove.api.common.constant.Seniority;
 import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.IntStream;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -50,6 +52,45 @@ class CandidateEnrichmentTest {
         assertThat(person.getProfile().skills()).containsExactly("Financial Planning");
         assertThat(person.getProfile().enrichedAt()).isNotNull();
         assertThat(person.getEnrichedBy()).isEqualTo(EnrichmentVendor.BRIGHTDATA);
+    }
+
+    @Test
+    @DisplayName("research holds no more posts or languages than a profile save carries, the most recent kept")
+    void researchFitsWhatAProfileSaveCarries() {
+        List<CandidateCareerEntry> posts = IntStream.rangeClosed(1, 30)
+                .mapToObj(index -> new CandidateCareerEntry("Company " + index, "Director", null, null))
+                .toList();
+        List<String> languages = new ArrayList<>(IntStream.rangeClosed(1, 24)
+                .mapToObj(index -> "Language " + index).toList());
+        languages.add("x".repeat(CandidateProfile.LONGEST_LANGUAGE + 1));
+
+        EnrichedProfile research = new EnrichedProfile(null, null, null, null, null, null, null, posts, List.of(),
+                List.of(), languages, null, EnrichmentVendor.HARVESTAPI);
+
+        assertThat(research.career()).hasSize(CandidateProfile.MOST_CAREER_POSTS);
+        assertThat(research.career().getFirst().company()).isEqualTo("Company 1");
+        assertThat(research.languages()).hasSize(CandidateProfile.MOST_LANGUAGES)
+                .allMatch(language -> language.length() <= CandidateProfile.LONGEST_LANGUAGE);
+    }
+
+    @Test
+    @DisplayName("a URL corrected to another person forgets the old profile's research, and a respelling keeps it")
+    void aCorrectedProfileForgetsTheOldResearch() {
+        Person person = captured(details("Sample Person", null, null, null, null, null));
+        person.enrich(RESEARCH);
+
+        person.describe(atProfile("https://www.linkedin.com/in/sample-profile/?trk=public"), ContactSource.MANUAL);
+        assertThat(person.isResearched()).isTrue();
+        assertThat(person.getProfile().education()).hasSize(1);
+
+        person.describe(atProfile("https://www.linkedin.com/in/another-person"), ContactSource.MANUAL);
+        assertThat(person.isResearched()).isFalse();
+        assertThat(person.getEnrichedBy()).isNull();
+        assertThat(person.getProfile().education()).isEmpty();
+        assertThat(person.getProfile().skills()).isEmpty();
+        assertThat(person.getProfile().employer()).isNull();
+        // What the drawer itself edits is the researcher's, and stays.
+        assertThat(person.getProfile().languages()).containsExactly("English", "Arabic");
     }
 
     @Test
@@ -279,6 +320,13 @@ class CandidateEnrichmentTest {
                 null, null, "https://www.linkedin.com/in/sample-profile", null, null, null, null,
                 null, summary, null, CandidateCompensation.unknown(),
                 new CandidateProfile(career, languages, null, null, null, null), null);
+    }
+
+    private static CandidateDetails atProfile(String linkedinUrl) {
+        return new CandidateDetails("Sample Person", null, null, null,
+                null, null, linkedinUrl, null, null, null, null,
+                null, null, null, CandidateCompensation.unknown(),
+                new CandidateProfile(List.of(), List.of("English", "Arabic"), null, null, null, null), null);
     }
 
     private static NationalityReading reading(String category, String confidence) {

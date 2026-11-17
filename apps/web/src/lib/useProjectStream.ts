@@ -16,10 +16,14 @@ const COALESCE_MS = 500;
 /** What a `change` frame names, so a caller can refetch the half that moved. */
 export type ProjectStreamKind =
   | "candidate-captured"
+  /** Someone's profile or status was saved. */
+  | "candidate-edited"
   | "candidate-enriched"
   /** An executive changed Companies stage, alone or with their company. */
   | "candidate-moved"
   | "company-captured"
+  /** A company's facts were corrected, its name included — which its people carry. */
+  | "company-edited"
   | "company-enriched"
   | "executive-sourcing"
   /** A company in the running search moved to its next step: only the run is reread. */
@@ -31,9 +35,11 @@ export type ProjectStreamKind =
 
 const EVERY_KIND: ProjectStreamKind[] = [
   "candidate-captured",
+  "candidate-edited",
   "candidate-enriched",
   "candidate-moved",
   "company-captured",
+  "company-edited",
   "company-enriched",
   "executive-sourcing",
   "executive-sourcing-progress",

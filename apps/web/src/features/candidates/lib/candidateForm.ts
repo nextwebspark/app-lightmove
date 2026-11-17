@@ -28,6 +28,10 @@ const EMAIL_SHAPE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 /** The server's `MAX_CONTACTS_PER_CHANNEL`. */
 export const CONTACTS_PER_CHANNEL = 10;
 
+/** The server's `CandidateProfile.MOST_CAREER_POSTS` and `MOST_LANGUAGES`: what one profile save accepts. */
+export const CAREER_POSTS_PER_PROFILE = 25;
+export const LANGUAGES_PER_PROFILE = 20;
+
 /** What one email or phone line holds while it is being edited. `source` rides along, read-only. */
 export const contactEntrySchema = z.object({
   value: z.string().trim().max(320),
@@ -173,7 +177,7 @@ export const candidateSchema = z.object({
         location: z.string().nullable().optional(),
       }),
     )
-    .max(25, "A career history holds 25 posts at most"),
+    .max(CAREER_POSTS_PER_PROFILE, "A career history holds 25 posts at most"),
 });
 
 /** A figure typed with the thousands separators the field shows it with — "420,000" is 420000. */
@@ -330,13 +334,13 @@ export function formOf(candidate: Candidate): CandidateForm {
     yearsExperience: candidate.yearsExperience?.toString() ?? "",
     summary: candidate.summary ?? "",
     note: "",
-    languages: candidate.languages.join(", "),
+    languages: candidate.languages.slice(0, LANGUAGES_PER_PROFILE).join(", "),
     currency: candidate.compensation.currency ?? "",
     ...compensationFormOf(candidate),
     longTermIncentive: amountOf(candidate.compensation.longTermIncentive),
     longTermIncentiveTypes: [...candidate.compensation.longTermIncentiveTypes],
     noticePeriod: candidate.compensation.noticePeriod ?? "",
-    career: candidate.career.map((entry) => ({
+    career: heldCareerOf(candidate).map((entry) => ({
       company: entry.company ?? "",
       title: entry.title ?? "",
       period: entry.period ?? "",
@@ -379,7 +383,8 @@ export function amountOf(amount: number | null): string {
 
 /**
  * The stored profile as the request that would store it again unchanged: the server replaces the whole record, so a
- * section save writes over this. Custom columns and contacts are left out — omitted, the server leaves them alone.
+ * section save writes over this. Custom columns and contacts are left out — omitted, the server leaves them alone —
+ * and so is the status: replayed from a drawer opened before a colleague moved the pill, it moved them straight back.
  */
 export function replayOf(candidate: Candidate): SaveCandidatePayload {
   return {
@@ -387,7 +392,6 @@ export function replayOf(candidate: Candidate): SaveCandidatePayload {
     fullName: candidate.fullName,
     title: candidate.title ?? undefined,
     seniority: candidate.seniority ?? undefined,
-    status: candidate.status,
     employerName: candidate.triageCompanyId ? undefined : (candidate.companyName ?? undefined),
     linkedinUrl: candidate.linkedinUrl ?? undefined,
     locationCountry: candidate.locationCountry ?? undefined,
@@ -397,9 +401,17 @@ export function replayOf(candidate: Candidate): SaveCandidatePayload {
     yearsExperience: candidate.yearsExperience ?? undefined,
     summary: candidate.summary ?? undefined,
     compensation: { ...candidate.compensation },
-    career: candidate.career.map((entry) => ({ ...entry })),
-    languages: [...candidate.languages],
+    career: heldCareerOf(candidate).map((entry) => ({ ...entry })),
+    languages: candidate.languages.slice(0, LANGUAGES_PER_PROFILE),
   };
+}
+
+/**
+ * The most recent posts a save can carry. Research once stored every post a profile listed, and replaying 26 of them
+ * refused every section's save, Summary included; the oldest beyond the limit go on the next save.
+ */
+function heldCareerOf(candidate: Candidate): Candidate["career"] {
+  return candidate.career.slice(0, CAREER_POSTS_PER_PROFILE);
 }
 
 /**

@@ -40,13 +40,19 @@ public record EnrichedProfile(String title, String about, String employerName,
         employerLogoUrl = blankToNull(employerLogoUrl);
         locationCity = Countries.cityOf(blankToNull(locationCity));
         locationCountry = Countries.nameOf(blankToNull(locationCountry));
+        // Held to what a profile save accepts: a researched career of 26 posts refused every later edit of the
+        // person, Summary included, because each save replays the whole profile.
         career = career == null ? List.of()
-                : career.stream().filter(entry -> !entry.isEmpty()).toList();
+                : career.stream().filter(entry -> !entry.isEmpty()).limit(CandidateProfile.MOST_CAREER_POSTS).toList();
         education = education == null ? List.of()
                 : education.stream().filter(entry -> !entry.isEmpty()).toList();
         skills = skills == null ? List.of() : skills.stream().filter(skill -> blankToNull(skill) != null).toList();
         languages = languages == null ? List.of()
-                : languages.stream().filter(language -> blankToNull(language) != null).toList();
+                : languages.stream()
+                        .filter(language -> blankToNull(language) != null
+                                && language.length() <= CandidateProfile.LONGEST_LANGUAGE)
+                        .limit(CandidateProfile.MOST_LANGUAGES)
+                        .toList();
     }
 
     public EnrichedProfile withPhoto(EnrichedPhoto fetched) {

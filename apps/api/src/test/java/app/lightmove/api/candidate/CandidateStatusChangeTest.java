@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.test.web.servlet.MvcResult;
 import tools.jackson.databind.JsonNode;
 
 /**
@@ -114,6 +115,30 @@ class CandidateStatusChangeTest extends PipelineFlowSupport {
                 {"fullName":"Omar Farouk","title":"Group CFO"}""");
         assertThat(read(projectId, candidateId).get("status").asText()).isEqualTo("interested");
         assertThat(statusLines(projectId, candidateId)).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("a save that repeats a retired status they still hold edits the profile and leaves the status alone")
+    void aRetiredStatusTheyHoldDoesNotRefuseAnEdit() throws Exception {
+        firm("Status Retired Edit Firm");
+        String projectId = mandate("Chief Financial Officer");
+        String interested = stageIn(catalog(), "interested").get("id").asText();
+        String waiting = statusIn(body(write(admin, "POST", PIPELINE + "/statuses", """
+                {"stageId":"%s","label":"Waiting on board"}""".formatted(interested))), "waitingOnBoard")
+                .get("id").asText();
+        String candidateId = add(projectId, """
+                {"fullName":"Laila Haddad","status":"waitingOnBoard"}""").get("id").asText();
+        write(admin, "PATCH", PIPELINE + "/statuses/" + waiting, """
+                {"retired":true}""");
+
+        MvcResult edited = write(admin, "PUT", candidatesUrl(projectId) + "/" + candidateId, """
+                {"fullName":"Laila Haddad","title":"Group CFO","status":"waitingOnBoard"}""");
+
+        assertThat(edited.getResponse().getStatus()).isEqualTo(200);
+        JsonNode held = read(projectId, candidateId);
+        assertThat(held.get("title").asText()).isEqualTo("Group CFO");
+        assertThat(held.get("status").asText()).isEqualTo("waitingOnBoard");
+        assertThat(statusLines(projectId, candidateId)).isEmpty();
     }
 
     @Test

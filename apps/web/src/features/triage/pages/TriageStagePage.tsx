@@ -383,11 +383,14 @@ function TriageStage() {
    * entirely: only an import defines one, and the import dialog refreshes them itself.
    */
   const refreshWhatMoved = (kinds: ProjectStreamKind[]) => {
-    // A move changes which companies a stage lists and its badges, not only its people.
-    if (kinds.some((kind) => kind.startsWith("company-") || kind === "candidate-moved")) {
+    // A move changes which companies a stage lists and its badges, not only its people; an edit changes the lines.
+    if (
+      kinds.some((kind) => kind.startsWith("company-") || kind === "candidate-moved" || kind === "candidate-edited")
+    ) {
       refreshEveryStage();
     }
-    if (kinds.some((kind) => kind.startsWith("candidate-"))) {
+    // A renamed company is renamed on everyone mapped there.
+    if (kinds.some((kind) => kind.startsWith("candidate-") || kind === "company-edited")) {
       refreshPeople();
     }
     if (kinds.includes("executive-sourcing")) {

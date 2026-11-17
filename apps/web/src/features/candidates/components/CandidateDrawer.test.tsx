@@ -655,6 +655,8 @@ describe("CandidateDrawer", () => {
     expect(payload.triageCompanyId).toBe("co1");
     // And the columns are left to their own section: omitted, the server leaves every one alone.
     expect(payload.customFields).toBeUndefined();
+    // So is the status: replayed from a panel opened before a colleague moved the pill, it moved them back.
+    expect(payload).not.toHaveProperty("status");
 
     // The reader had not finished: the panel shows what the server now holds, and stays.
     expect(onSaved).toHaveBeenCalledWith(expect.objectContaining({ id: "c1" }));
@@ -675,6 +677,27 @@ describe("CandidateDrawer", () => {
 
     await waitFor(() => expect(candidatesApi.updateCandidate).toHaveBeenCalled());
     expect(vi.mocked(candidatesApi.updateCandidate).mock.calls[0][2].compensation?.baseSalary).toBeNull();
+  });
+
+  it("saves a section of a profile research filled past what a save carries, keeping the most recent", async () => {
+    const posts = Array.from({ length: 30 }, (_, index) => ({
+      company: `Company ${index + 1}`,
+      title: "Director",
+      period: `${2025 - index}`,
+    }));
+    const languages = Array.from({ length: 24 }, (_, index) => `Language ${index + 1}`);
+    vi.mocked(candidatesApi.updateCandidate).mockResolvedValue(yasmin);
+    renderDrawer({ candidate: { ...yasmin, career: posts, languages }, company: null });
+
+    await openTab("Compensation");
+    await userEvent.click(screen.getByRole("button", { name: /Edit compensation/i }));
+    await userEvent.click(screen.getByRole("button", { name: /^Save$/i }));
+
+    await waitFor(() => expect(candidatesApi.updateCandidate).toHaveBeenCalled());
+    const payload = vi.mocked(candidatesApi.updateCandidate).mock.calls[0][2];
+    expect(payload.career).toHaveLength(25);
+    expect(payload.career?.[0].company).toBe("Company 1");
+    expect(payload.languages).toHaveLength(20);
   });
 
   it("offers the currency as a pick, and keeps a stored code the list does not carry", async () => {

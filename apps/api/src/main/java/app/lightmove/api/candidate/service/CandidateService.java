@@ -485,6 +485,12 @@ public class CandidateService {
         ProfileChanges changes = ProfileChanges.before(person);
 
         UUID triageCompanyId = requests.companyOf(projectId, request, candidate);
+        if (isUnchangedEmployerNowHeld(request, candidate, triageCompanyId)
+                && isNameMappedAt(projectId, triageCompanyId, request.fullName(), candidateId)) {
+            // As mapToEmployer leaves them: someone else of that name is there. Mapping them refused every later save
+            // of the profile, a Summary included, since each one replays the employer it was filed with.
+            triageCompanyId = null;
+        }
         CandidateDetails details = requests.detailsOf(projectId, request.withTriageCompanyId(triageCompanyId),
                 candidate.getTriageCompanyId());
         refuseDuplicate(projectId, triageCompanyId, details.fullName(), candidateId);
@@ -499,13 +505,20 @@ public class CandidateService {
         candidate.remapTo(triageCompanyId, triageStatusOfCompany(projectId, triageCompanyId));
         candidate.describe(details);
         // A whole-record save that names a status moves them like the status pill does, line and all; one
-        // that names none (a re-imported sheet) leaves them where they stand.
-        if (request.status() != null && !request.status().isBlank()) {
+        // that names none, or the one they already hold, leaves them where they stand. The status they hold
+        // is never re-checked: a retired one stays on whoever holds it, and replaying it refused every edit.
+        if (request.status() != null && !request.status().isBlank()
+                && !request.status().strip().equals(candidate.getStatus().getStatusKey())) {
             moveTo(candidate, userId, pipeline.requireOfferable(workspaceId, request.status()));
         }
         // The person is the workspace's: an edit made through this mandate is what every other mandate
         // mapping them now reads.
+        boolean wasResearched = person.isResearched();
         person.describe(details, door);
+        boolean researchForgotten = wasResearched && !person.isResearched();
+        if (researchForgotten) {
+            photos.findByPersonId(person.getId()).ifPresent(photos::delete);
+        }
         if (claim == ProfileClaim.SHARED) {
             person.yieldProfileKey();
         }
@@ -521,6 +534,10 @@ public class CandidateService {
                 .and(ProfileChanges.DETAIL_KEY, changed.isEmpty() ? null : changed));
         // A note sent with an edit (a re-imported sheet's Note column) is filed as a note, once.
         personNotes.fileFromDoor(candidate, userId, details.note());
+        stream.publish(projectId, ProjectStreamKind.CANDIDATE_EDITED);
+        if (researchForgotten) {
+            events.publishEvent(new CandidateCapturedEvent(candidateId, projectId, details.linkedinUrl()));
+        }
 
         audit.projectEvent(ProjectEventType.CANDIDATE_UPDATED, userId, workspaceId, projectId, httpRequest)
                 .detail("candidateId", candidateId.toString())
@@ -541,6 +558,7 @@ public class CandidateService {
         Candidate candidate = candidates.requireInProject(candidateId, projectId);
 
         moveTo(candidate, userId, pipeline.requireOfferable(workspaceId, request.status()));
+        stream.publish(projectId, ProjectStreamKind.CANDIDATE_EDITED);
 
         audit.projectEvent(ProjectEventType.CANDIDATE_UPDATED, userId, workspaceId, projectId, httpRequest)
                 .detail("candidateId", candidateId.toString())
@@ -1064,6 +1082,20 @@ public class CandidateService {
         if (held) {
             throw ApiException.of(ErrorCode.CANDIDATE_ALREADY_MAPPED);
         }
+    }
+
+    /** Someone at no company whose save repeats the employer they hold, which the position now holds as a company. */
+    private static boolean isUnchangedEmployerNowHeld(SaveCandidateRequest request, Candidate candidate,
+                                                      UUID resolvedTriageCompanyId) {
+        return request.triageCompanyId() == null && candidate.getTriageCompanyId() == null
+                && resolvedTriageCompanyId != null && request.employerName() != null
+                && request.employerName().strip().equalsIgnoreCase(candidate.getCompanyName());
+    }
+
+    private boolean isNameMappedAt(UUID projectId, UUID triageCompanyId, String fullName, UUID selfId) {
+        return candidates.findByProjectIdAndTriageCompanyIdAndPersonFullNameIgnoreCase(projectId, triageCompanyId,
+                        fullName).stream()
+                .anyMatch(other -> !other.getId().equals(selfId));
     }
 
     /**
