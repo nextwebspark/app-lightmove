@@ -309,6 +309,28 @@ class CandidateEnrichmentIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("research maps the person to the company the position holds for that LinkedIn page, whatever it is called")
+    void researchMapsToTheCompanyHeldForItsPage() throws Exception {
+        String projectId = mandate("Held Page Firm");
+        // The market does not carry it, so the consultant's capture is a hand-shaped row under the page's own name.
+        String heldId = body(mvc.perform(post(triageUrl(projectId) + "/capture")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"companyName":"Rawabi","source":"extension",
+                                 "companyLinkedinUrl":"https://www.linkedin.com/company/alrawabi/"}"""))
+                .andExpect(status().isCreated())
+                .andReturn()).get("id").asText();
+        enricher.answerWith(RESEARCH);
+
+        capture(projectId, "Sample Person", "sample-profile");
+
+        // Research spells the employer "Al Rawabi Dairy"; a second company under that name used to take the person.
+        assertThat(companiesInUniverse(projectId)).hasSize(1);
+        assertThat(firstCandidateOf(projectId).get("triageCompanyId").asText()).isEqualTo(heldId);
+    }
+
+    @Test
     @DisplayName("undoing a capture keeps a company the position already held")
     void undoingACaptureKeepsACompanyThePositionAlreadyHeld() throws Exception {
         String projectId = mandate("Undo Held Firm");

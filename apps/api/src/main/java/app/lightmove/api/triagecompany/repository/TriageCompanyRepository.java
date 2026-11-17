@@ -2,11 +2,13 @@ package app.lightmove.api.triagecompany.repository;
 
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
+import app.lightmove.api.core.text.service.LinkedInUrls;
 import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
 import app.lightmove.api.triagecompany.model.TriageCompany;
 import app.lightmove.api.triagecompany.model.TriageCompanyCount;
 import app.lightmove.api.triagecompany.model.TriageCompanyLogo;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -120,10 +122,22 @@ public interface TriageCompanyRepository extends JpaRepository<TriageCompany, UU
 
     List<TriageCompany> findByProjectIdAndCompanyNameIgnoreCase(UUID projectId, String companyName);
 
-    /** Narrows to the rows whose LinkedIn page may be {@code slug}'s; a prefix matches too, so the caller settles it. */
+    /**
+     * Narrows to the rows whose LinkedIn page may be {@code slug}'s, decoded or percent-encoded; a prefix matches too,
+     * so {@link #findAtCompanySlug} settles it.
+     */
     @Query("select t from TriageCompany t where t.projectId = :projectId "
-            + "and lower(t.companyLinkedinUrl) like concat('%/company/', :slug, '%')")
-    List<TriageCompany> findByProjectIdAndCompanySlugLike(UUID projectId, String slug);
+            + "and (lower(t.companyLinkedinUrl) like concat('%/company/', :slug, '%') "
+            + "or lower(t.companyLinkedinUrl) like concat('%/company/', :encodedSlug, '%'))")
+    List<TriageCompany> findByProjectIdAndCompanySlugLike(UUID projectId, String slug, String encodedSlug);
+
+    /** The position's companies whose LinkedIn page is exactly {@code slug}'s, oldest first. */
+    default List<TriageCompany> findAtCompanySlug(UUID projectId, String slug) {
+        return findByProjectIdAndCompanySlugLike(projectId, slug, LinkedInUrls.percentEncodedSlug(slug)).stream()
+                .filter(company -> slug.equals(LinkedInUrls.companySlugOrNull(company.getCompanyLinkedinUrl())))
+                .sorted(Comparator.comparing(TriageCompany::getCreatedAt))
+                .toList();
+    }
 
     List<TriageCompany> findByProjectIdAndApolloAccountIdIn(UUID projectId, Collection<String> apolloAccountIds);
 

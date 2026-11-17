@@ -289,8 +289,14 @@ public class TriageCompanyService {
     private ResolvedCapture resolveCapture(UUID projectId, UUID addedBy,
                                            CapturedCompanyDetails details,
                                            TriageCompanySource source, TriageCompanyStatus status) {
-        Optional<CompanyRow> matched = market.matchEmployer(
-                LinkedInUrls.companySlugOrNull(details.companyLinkedinUrl()), details.companyName());
+        String slug = LinkedInUrls.companySlugOrNull(details.companyLinkedinUrl());
+        // The position's own row for the page outranks any name: research spelled the employer "Acme Gulf Trading
+        // LLC" where the consultant had captured the page as "Acme Gulf", and the person landed at a second company.
+        List<TriageCompany> heldAtPage = slug == null ? List.of() : triaged.findAtCompanySlug(projectId, slug);
+        if (!heldAtPage.isEmpty()) {
+            return new ResolvedCapture(preferred(heldAtPage), false);
+        }
+        Optional<CompanyRow> matched = market.matchEmployer(slug, details.companyName());
 
         if (matched.isPresent()) {
             CompanyRow row = matched.get();

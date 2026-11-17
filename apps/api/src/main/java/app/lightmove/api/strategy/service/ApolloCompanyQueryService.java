@@ -2,6 +2,7 @@ package app.lightmove.api.strategy.service;
 
 import app.lightmove.api.common.constant.ApiValueEnum;
 import app.lightmove.api.core.text.service.LikePatterns;
+import app.lightmove.api.core.text.service.LinkedInUrls;
 import app.lightmove.api.strategy.constant.CompanySizeBand;
 import app.lightmove.api.strategy.constant.CompanySortField;
 import app.lightmove.api.strategy.constant.EmployeeBand;
@@ -124,16 +125,22 @@ public class ApolloCompanyQueryService {
      */
     public Optional<CompanyRow> matchEmployer(String linkedInSlug, String companyName) {
         if (linkedInSlug != null && !linkedInSlug.isBlank()) {
-            String pattern = LikePatterns.escape(linkedInSlug.toLowerCase(Locale.ROOT));
+            String slug = linkedInSlug.toLowerCase(Locale.ROOT);
+            String pattern = LikePatterns.escape(slug);
+            String encodedPattern = LikePatterns.escape(LinkedInUrls.percentEncodedSlug(slug));
             List<CompanyRow> bySlug = jdbc.sql("""
                             SELECT %s
                             FROM app_lm_apollo_companies
                             WHERE lower(company_linkedin_url) LIKE :exact ESCAPE '\\'
                                OR lower(company_linkedin_url) LIKE :trailing ESCAPE '\\'
+                               OR lower(company_linkedin_url) LIKE :encodedExact ESCAPE '\\'
+                               OR lower(company_linkedin_url) LIKE :encodedTrailing ESCAPE '\\'
                             LIMIT 1
                             """.formatted(ROW_COLUMNS))
                     .param("exact", "%linkedin.com/company/" + pattern)
                     .param("trailing", "%linkedin.com/company/" + pattern + "/%")
+                    .param("encodedExact", "%linkedin.com/company/" + encodedPattern)
+                    .param("encodedTrailing", "%linkedin.com/company/" + encodedPattern + "/%")
                     .query(COMPANY_ROW_MAPPER)
                     .list();
             if (!bySlug.isEmpty()) {
