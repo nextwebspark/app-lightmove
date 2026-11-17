@@ -92,7 +92,7 @@ describe("the LinkedIn company page", () => {
     expect(linkedInCompanyExtractor(elsewhere)).toEqual({});
   });
 
-  it.each(["About", "Insights", "Events", "Videos", "Products", "Services"])(
+  it.each(["About", "Insights", "Events", "Videos", "Products", "Services", "What We Do"])(
     "drops the %s tab's suffix from a title read, so the name is not locked as 'Acme: …'",
     (section) => {
       const onTab = new JSDOM(`<title>(2) Al Rawabi Dairy Company: ${section} | LinkedIn</title><main></main>`, {

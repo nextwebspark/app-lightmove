@@ -33,7 +33,7 @@ function nameFromDocumentTitle(document: Document): string | null {
     ?.replace(/^\(\d+\+?\)\s*/, "")
     .replace(/\s*[|│]\s*LinkedIn\s*$/i, "")
     // The company tab title carries a section suffix: "Acme: About", "Acme: Jobs".
-    .replace(/:\s*(about|jobs|people|posts|life|overview|insights|events|videos|products|services)\s*$/i, "");
+    .replace(/:\s*(about|jobs|people|posts|life|overview|insights|events|videos|products|services|what we do)\s*$/i, "");
   const name = cleanText(titleText);
   // LinkedIn rewrites the title mid-navigation to its own section names; see the profile extractor.
   return name && !/^(linkedin|feed|home|messaging|notifications|my network|jobs|search)$/i.test(name)
