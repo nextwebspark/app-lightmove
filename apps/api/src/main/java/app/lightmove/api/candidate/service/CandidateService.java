@@ -136,6 +136,7 @@ public class CandidateService {
     private final WorkspaceAiControlsReader aiControls;
     private final WorkspaceSettingsService workspaceSettings;
     private final LookedUpResearch lookedUp;
+    private final CorrectedProfileResearch correctedProfiles;
 
     public CandidateService(CandidateRepository candidates, PersonRepository people, PersonMatcher matcher,
                             PersonActivityRecorder activity, PersonNoteService personNotes,
@@ -148,7 +149,8 @@ public class CandidateService {
                             UserRepository users, CandidateSearchService searches,
                             CandidateRemoval removal, SuppressionGate suppression,
                             WorkspaceAiControlsReader aiControls, WorkspaceSettingsService workspaceSettings,
-                            LookedUpResearch lookedUp, LightMoveProperties properties) {
+                            LookedUpResearch lookedUp, CorrectedProfileResearch correctedProfiles,
+                            LightMoveProperties properties) {
         this.candidates = candidates;
         this.people = people;
         this.matcher = matcher;
@@ -173,6 +175,7 @@ public class CandidateService {
         this.aiControls = aiControls;
         this.workspaceSettings = workspaceSettings;
         this.lookedUp = lookedUp;
+        this.correctedProfiles = correctedProfiles;
     }
 
     /**
@@ -488,12 +491,6 @@ public class CandidateService {
         ProfileChanges changes = ProfileChanges.before(person);
 
         UUID triageCompanyId = requests.companyOf(projectId, request, candidate);
-        if (isUnchangedEmployerNowHeld(request, candidate, triageCompanyId)
-                && isNameMappedAt(projectId, triageCompanyId, request.fullName(), candidateId)) {
-            // As mapToEmployer leaves them: someone else of that name is there. Mapping them refused every later save
-            // of the profile, a Summary included, since each one replays the employer it was filed with.
-            triageCompanyId = null;
-        }
         CandidateDetails details = requests.detailsOf(projectId, request.withTriageCompanyId(triageCompanyId),
                 candidate.getTriageCompanyId());
         refuseDuplicate(projectId, triageCompanyId, details.fullName(), details.linkedinUrl(), candidateId);
@@ -507,9 +504,7 @@ public class CandidateService {
         boolean confirmBackground = Boolean.TRUE.equals(request.confirmBackground());
         candidate.remapTo(triageCompanyId, triageStatusOfCompany(projectId, triageCompanyId));
         candidate.describe(details);
-        // A whole-record save that names a status moves them like the status pill does, line and all; one
-        // that names none, or the one they already hold, leaves them where they stand. The status they hold
-        // is never re-checked: a retired one stays on whoever holds it, and replaying it refused every edit.
+        // Naming the status they hold is no move: a retired one, re-checked, refused every edit of whoever held it.
         if (request.status() != null && !request.status().isBlank()
                 && !request.status().strip().equals(candidate.getStatus().getStatusKey())) {
             moveTo(candidate, userId, pipeline.requireOfferable(workspaceId, request.status()));
@@ -519,9 +514,8 @@ public class CandidateService {
         boolean wasResearched = person.isResearched();
         ContactChannelSizes contactsBefore = requests.channelSizesOf(person);
         person.describe(details, door);
-        boolean researchForgotten = wasResearched && !person.isResearched();
-        if (researchForgotten) {
-            photos.findByPersonId(person.getId()).ifPresent(photos::delete);
+        if (wasResearched && !person.isResearched()) {
+            correctedProfiles.researchAgain(candidate, details.linkedinUrl());
         }
         if (claim == ProfileClaim.SHARED) {
             person.yieldProfileKey();
@@ -539,9 +533,6 @@ public class CandidateService {
         // A note sent with an edit (a re-imported sheet's Note column) is filed as a note, once.
         personNotes.fileFromDoor(candidate, userId, details.note());
         stream.publish(projectId, ProjectStreamKind.CANDIDATE_EDITED);
-        if (researchForgotten) {
-            events.publishEvent(new CandidateCapturedEvent(candidateId, projectId, details.linkedinUrl()));
-        }
 
         audit.projectEvent(ProjectEventType.CANDIDATE_UPDATED, userId, workspaceId, projectId, httpRequest)
                 .detail("candidateId", candidateId.toString())
@@ -1120,20 +1111,6 @@ public class CandidateService {
         if (held) {
             throw ApiException.of(ErrorCode.CANDIDATE_ALREADY_MAPPED);
         }
-    }
-
-    /** Someone at no company whose save repeats the employer they hold, which the position now holds as a company. */
-    private static boolean isUnchangedEmployerNowHeld(SaveCandidateRequest request, Candidate candidate,
-                                                      UUID resolvedTriageCompanyId) {
-        return request.triageCompanyId() == null && candidate.getTriageCompanyId() == null
-                && resolvedTriageCompanyId != null && request.employerName() != null
-                && request.employerName().strip().equalsIgnoreCase(candidate.getCompanyName());
-    }
-
-    private boolean isNameMappedAt(UUID projectId, UUID triageCompanyId, String fullName, UUID selfId) {
-        return candidates.findByProjectIdAndTriageCompanyIdAndPersonFullNameIgnoreCase(projectId, triageCompanyId,
-                        fullName).stream()
-                .anyMatch(other -> !other.getId().equals(selfId));
     }
 
     /**

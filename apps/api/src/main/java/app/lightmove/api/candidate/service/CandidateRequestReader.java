@@ -18,6 +18,7 @@ import app.lightmove.api.candidate.model.CandidateProfile;
 import app.lightmove.api.candidate.model.CompensationBreakdown;
 import app.lightmove.api.candidate.model.ContactEntry;
 import app.lightmove.api.candidate.model.Person;
+import app.lightmove.api.candidate.repository.CandidateRepository;
 import app.lightmove.api.common.constant.ApiValueEnum;
 import app.lightmove.api.common.constant.Seniority;
 import app.lightmove.api.core.error.constant.ErrorCode;
@@ -41,6 +42,7 @@ class CandidateRequestReader {
     private static final int MAX_CONTACTS_PER_CHANNEL = Person.MOST_CONTACTS_PER_CHANNEL;
 
     private final TriageCompanyService triage;
+    private final CandidateRepository candidates;
 
     /**
      * The company it names; else the one they are at while it names no other employer (a stale drawer or a
@@ -56,9 +58,25 @@ class CandidateRequestReader {
                 && (employerName == null || employerName.equalsIgnoreCase(current.getCompanyName()))) {
             return current.getTriageCompanyId();
         }
-        return triage.findCompanyOfProjectByName(projectId, employerName)
+        UUID named = triage.findCompanyOfProjectByName(projectId, employerName)
                 .map(TriageCompanyResponse::id)
                 .orElse(null);
+        return named != null && isNamesakeHeldAt(projectId, named, request, current) ? null : named;
+    }
+
+    /**
+     * Someone at no company whose save repeats their employer, now a company where somebody else of their name is
+     * mapped, stays at no company, as research filing leaves them: mapped, every later save of theirs was refused.
+     */
+    private boolean isNamesakeHeldAt(UUID projectId, UUID triageCompanyId, SaveCandidateRequest request,
+                                     Candidate current) {
+        if (current == null || current.getTriageCompanyId() != null || request.employerName() == null
+                || !request.employerName().strip().equalsIgnoreCase(current.getCompanyName())) {
+            return false;
+        }
+        return candidates.findByProjectIdAndTriageCompanyIdAndPersonFullNameIgnoreCase(projectId, triageCompanyId,
+                        request.fullName()).stream()
+                .anyMatch(other -> !other.getId().equals(current.getId()));
     }
 
     /**

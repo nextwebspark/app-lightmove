@@ -255,10 +255,10 @@ public class Person extends BaseEntity {
         this.title = details.title();
         confirmIfChanged(BackgroundField.SENIORITY, seniorityLevel, details.seniority());
         this.seniorityLevel = details.seniority();
-        boolean namesAnotherPerson = LinkedInUrls.profileSlugOrNull(linkedinUrl) != null
-                && LinkedInUrls.profileSlugOrNull(details.linkedinUrl()) != null
-                && pointsAtAnotherProfile(details.linkedinUrl());
-        if (pointsAtAnotherProfile(details.linkedinUrl())) {
+        boolean anotherPage = pointsAtAnotherProfile(details.linkedinUrl());
+        boolean anotherPerson = anotherPage && LinkedInUrls.profileSlugOrNull(linkedinUrl) != null
+                && LinkedInUrls.profileSlugOrNull(details.linkedinUrl()) != null;
+        if (anotherPage) {
             linkedinUrlLocked = false;
             emailsLookedUpAt = null;
             phonesLookedUpAt = null;
@@ -273,11 +273,9 @@ public class Person extends BaseEntity {
         // languages), and a wholesale overwrite here silently wiped enrichment's fields on the first
         // edit after a capture was enriched.
         this.profile = details.profile().keepingEnrichmentOf(this.profile);
-        if (namesAnotherPerson) {
-            // The schools, skills and research mark were the old profile's: kept, they read as this person's, and
-            // the mark stopped the corrected profile from ever being researched.
-            this.profile = profile.forgettingResearch();
-            this.enrichedBy = null;
+        if (anotherPerson) {
+            // The old profile's research, kept, read as this person's and stopped the new one from being researched.
+            forgetResearch();
         }
         remember(ContactChannel.EMAIL, details.emails(), door);
         remember(ContactChannel.PHONE, details.phones(), door);
@@ -353,6 +351,11 @@ public class Person extends BaseEntity {
      */
     public void adoptPublicProfile(String vanityUrl) {
         recordLinkedinUrl(vanityUrl);
+    }
+
+    private void forgetResearch() {
+        this.profile = profile.forgettingResearch();
+        this.enrichedBy = null;
     }
 
     /** Another person of the workspace holds this profile; the merge tool is what folds the two. */
