@@ -36,11 +36,11 @@ class OutreachApproachHistory implements PersonApproachHistory {
         }
         Stream<PersonTouch> emails = messages.findTouchesOfPeople(workspaceId, personIds, since).stream()
                 .map(row -> new PersonTouch(row.getPersonId(), row.getProjectId(), row.getSenderUserId(),
-                        kindOf(row.getDirection()), row.getAt()));
+                        kindOf(row.getDirection()), row.getAt(), null));
         Stream<PersonTouch> sequences = enrollments
                 .findByWorkspaceIdAndPersonIdInAndStatusIn(workspaceId, personIds, EnrollmentStatus.LIVE).stream()
                 .map(run -> new PersonTouch(run.getPersonId(), run.getProjectId(), run.getSenderUserId(),
-                        ApproachKind.IN_SEQUENCE, run.getEnrolledAt()));
+                        ApproachKind.IN_SEQUENCE, run.getEnrolledAt(), null));
         return Stream.concat(emails, sequences).toList();
     }
 
@@ -54,7 +54,7 @@ class OutreachApproachHistory implements PersonApproachHistory {
                 .map(message -> new PersonTouch(message.getPersonId(), message.getProjectId(),
                         message.getSenderUserId(), kindOf(message.getDirection()),
                         Stream.of(message.getSentAt(), message.getSendAt(), message.getOccurredAt())
-                                .filter(Objects::nonNull).findFirst().orElse(null)))
+                                .filter(Objects::nonNull).findFirst().orElse(null), null))
                 .toList();
     }
 

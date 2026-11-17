@@ -12,7 +12,7 @@ import { NoteEditor } from "../../../notes/components/NoteEditor";
 import { NextActionModal, type NextActionTarget } from "../../../tasks/components/NextActionModal";
 import { NOTE_MAX_STORED, NOTE_TOO_LONG, withoutMentionTokens } from "../../../tasks/lib/mentions";
 import { usePositionTeam } from "../../../tasks/lib/usePositionTeam";
-import { invalidateEveryConversation } from "../../../outreach/api/conversationApi";
+import { invalidateConversationsOf } from "../../../outreach/api/conversationApi";
 
 /**
  * The Notes tab: a plain note about a position or about the person, and the team's plain notes, pinned first. Calls,
@@ -194,6 +194,6 @@ function useNoteRefresh(personId: string) {
     void queryClient.invalidateQueries({ queryKey: [...poolApi.POOL_KEY, "timeline", personId] });
     void queryClient.invalidateQueries({ queryKey: [...poolApi.POOL_KEY, "activity"] });
     void queryClient.invalidateQueries({ queryKey: [...poolApi.POOL_KEY, "page"] });
-    invalidateEveryConversation(queryClient);
+    invalidateConversationsOf(queryClient, { personId });
   };
 }

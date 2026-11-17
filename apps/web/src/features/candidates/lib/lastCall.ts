@@ -1,16 +1,12 @@
-import { dayKeyOf, formatInstantDate, formatInstantDateTime, formatShortDate } from "../../../lib/datetime";
+import { formatInstantDateTime } from "../../../lib/datetime";
 import type { LastCall } from "../api/types";
+import { shortWhen } from "./candidateActivity";
 import { outcomeLabel } from "./noteOutcomes";
-
-function dayOf(at: string, now: Date): string | null {
-  const sameYear = dayKeyOf(new Date(at)).slice(0, 4) === dayKeyOf(now).slice(0, 4);
-  return sameYear ? formatShortDate(at) : formatInstantDate(at);
-}
 
 /** "Last call 14 Sep · No answer · Sara Al-Mansour": when, how it went and who logged it. An older year names itself. */
 export function lastCallLine(call: LastCall, now: Date = new Date()): string {
   const outcome = call.outcome ? outcomeLabel(call.outcome) : null;
-  return [`Last call ${dayOf(call.at, now) ?? ""}`.trim(), outcome, call.byName ?? "A former member"]
+  return [`Last call ${shortWhen(call.at, now)}`, outcome, call.byName ?? "A former member"]
     .filter(Boolean)
     .join(" · ");
 }

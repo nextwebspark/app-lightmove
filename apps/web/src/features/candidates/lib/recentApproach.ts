@@ -30,10 +30,10 @@ function loggedOf(touch: ApproachTouch): string {
 function whatOf(touch: ApproachTouch): string {
   const who = touch.byYou ? "You" : (touch.byName ?? "A former member");
   switch (touch.kind) {
-    case "REPLIED": {
-      const channel = touch.outcome === "replied" ? " on WhatsApp" : "";
-      return touch.byYou ? `Replied to you${channel}` : `Replied to ${who}${channel}`;
-    }
+    case "REPLIED":
+      return touch.byYou ? "Replied to you" : `Replied to ${who}`;
+    case "WHATSAPP_REPLIED":
+      return touch.byYou ? "Replied to you on WhatsApp" : `Replied to ${who} on WhatsApp`;
     case "IN_SEQUENCE":
       return touch.byYou ? "In your sequence" : `In ${who}'s sequence`;
     case "EMAILED":

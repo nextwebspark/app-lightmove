@@ -844,7 +844,7 @@ describe("OutreachPage", () => {
     expect(screen.getByRole("dialog", { name: "Add a note on Fatima Al Mazrouei" })).toBeInTheDocument();
   });
 
-  it("grows the email dialog on Expand, sends from it, and closes it", async () => {
+  it("opens the email dialog expanded, collapses and grows it in place, sends from it, and closes it", async () => {
     vi.mocked(conversationApi.sendMessage).mockResolvedValue({
       id: "m9",
       status: "SCHEDULED",
@@ -856,6 +856,7 @@ describe("OutreachPage", () => {
     const dialog = await openEmail();
     await typeInto(await within(dialog).findByRole("textbox", { name: "Message" }), "Thursday at 10?");
 
+    await userEvent.click(within(dialog).getByRole("button", { name: "Collapse" }));
     await userEvent.click(within(dialog).getByRole("button", { name: "Expand" }));
     expect(screen.getAllByRole("dialog")).toEqual([dialog]);
     expect(within(dialog).getByText("Re: A confidential conversation")).toBeInTheDocument();

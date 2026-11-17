@@ -47,6 +47,7 @@ export default function RichNoteEditor({
   footer,
   fillsDialog = false,
   onExpandChange,
+  startsExpanded = false,
   editorRef,
   pictures,
   extraExtensions,
@@ -59,7 +60,7 @@ export default function RichNoteEditor({
   const picturesRef = useRef(pictures);
   // The schema is fixed when the editor is built: a stored picture must be read with the node that keeps it.
   const schema = useMemo(() => ({ pictures: pictures !== undefined }), []); // eslint-disable-line react-hooks/exhaustive-deps
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(startsExpanded);
   const [linkOpen, setLinkOpen] = useState(false);
   const pickerRef = useRef<Picker | null>(null);
   const surfaceRef = useRef<HTMLDivElement>(null);
