@@ -128,19 +128,16 @@ function CheckFilterList({ filter }: { filter: DataGridCheckFilter }) {
   );
 }
 
-/** One filter in the panel: column, operator, value, and its own ✕. A checkbox filter opens its list beneath. */
+/** One filter in the panel: column, operator, value, and its own ✕. A checkbox filter's list drops over the panel. */
 function FilterPanelRow({
   filter,
-  expanded,
-  focusOnMount,
-  onToggleExpanded,
+  justAdded,
   onRemove,
   onEnter,
 }: {
   filter: DataGridColumnFilter;
-  expanded: boolean;
-  focusOnMount: boolean;
-  onToggleExpanded: () => void;
+  /** Opens its list, or takes the caret, as it is added. */
+  justAdded: boolean;
   onRemove: () => void;
   onEnter: () => void;
 }) {
@@ -152,20 +149,30 @@ function FilterPanelRow({
           {filter.kind === "check" ? "is any of" : "contains"}
         </span>
         {filter.kind === "check" ? (
-          <button
-            type="button"
-            aria-expanded={expanded}
-            aria-label={`${filter.label} values`}
-            onClick={onToggleExpanded}
-            className={PANEL_FIELD}
+          <Popover
+            label={`${filter.label} values`}
+            hasPopup="listbox"
+            placement="auto"
+            width="trigger"
+            openOnMount={justAdded}
+            triggerClassName={PANEL_FIELD}
+            trigger={(open) => (
+              <>
+                <span className={cn("truncate", filter.selected.length === 0 && "text-u-text3")}>
+                  {filter.selected.length > 0 ? filterSummary(filter) : "Choose…"}
+                </span>
+                <Icon
+                  d={ICONS.chevronDown}
+                  size={12}
+                  className={cn("flex-none text-u-text3 transition-transform", open && "rotate-180")}
+                />
+              </>
+            )}
           >
-            <span className={cn("truncate", filter.selected.length === 0 && "text-u-text3")}>
-              {filter.selected.length > 0 ? filterSummary(filter) : "Choose…"}
-            </span>
-            <Icon d={ICONS.chevronDown} size={12} className="flex-none text-u-text3" />
-          </button>
+            {() => <ColumnFilterEditor filter={filter} onEnter={onEnter} />}
+          </Popover>
         ) : (
-          <ColumnFilterEditor filter={filter} onEnter={onEnter} focusOnMount={focusOnMount} />
+          <ColumnFilterEditor filter={filter} onEnter={onEnter} focusOnMount={justAdded} />
         )}
         <button
           type="button"
@@ -176,11 +183,6 @@ function FilterPanelRow({
           <Icon d={ICONS.close} size={13} />
         </button>
       </div>
-      {filter.kind === "check" && expanded && (
-        <div className="rounded-[6px] border border-u-border bg-u-bg p-1.5">
-          <ColumnFilterEditor filter={filter} onEnter={onEnter} />
-        </div>
-      )}
     </li>
   );
 }
@@ -223,7 +225,7 @@ export function GridFilterButton({
   resultLabel?: string;
 }) {
   const [added, setAdded] = useState<string[]>([]);
-  const [expanded, setExpanded] = useState<string | null>(null);
+  const [justAdded, setJustAdded] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const [announcement, setAnnouncement] = useState("");
   const [refocus, setRefocus] = useState<"trigger" | "add" | null>(null);
@@ -250,7 +252,7 @@ export function GridFilterButton({
   const clearAll = (then: "trigger" | "add") => {
     for (const [, filter] of entries) clearFilter(filter);
     setAdded([]);
-    setExpanded(null);
+    setJustAdded(null);
     setAdding(false);
     setAnnouncement("All filters cleared");
     setRefocus(then);
@@ -259,14 +261,14 @@ export function GridFilterButton({
   const remove = (id: string, filter: DataGridColumnFilter) => {
     clearFilter(filter);
     setAdded((current) => current.filter((entry) => entry !== id));
-    if (expanded === id) setExpanded(null);
+    if (justAdded === id) setJustAdded(null);
     setAnnouncement(`${filter.label} filter removed`);
     setRefocus("add");
   };
 
   const add = (id: string) => {
     setAdded((current) => [...current, id]);
-    setExpanded(id);
+    setJustAdded(id);
     setAdding(false);
   };
 
@@ -309,9 +311,7 @@ export function GridFilterButton({
                 <FilterPanelRow
                   key={id}
                   filter={filter}
-                  expanded={expanded === id}
-                  focusOnMount={expanded === id}
-                  onToggleExpanded={() => setExpanded(expanded === id ? null : id)}
+                  justAdded={justAdded === id}
                   onRemove={() => remove(id, filter)}
                   onEnter={close}
                 />

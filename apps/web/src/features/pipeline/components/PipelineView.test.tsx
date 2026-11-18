@@ -745,11 +745,11 @@ describe("PipelineView", () => {
         "Unresponsive",
       ]);
       expect(dialog.getByRole("combobox", { name: "Reason" })).toBeDisabled();
-      expect(dialog.getByRole("button", { name: "Move out of process" })).toBeDisabled();
+      expect(dialog.getByRole("button", { name: "Done" })).toBeDisabled();
 
       await userEvent.selectOptions(wayOut, "Not interested");
       await userEvent.selectOptions(dialog.getByRole("combobox", { name: "Reason" }), "Timing");
-      await userEvent.click(dialog.getByRole("button", { name: "Move to Not interested" }));
+      await userEvent.click(dialog.getByRole("button", { name: "Done" }));
 
       await waitFor(() =>
         expect(candidatesApi.changeCandidateStatus).toHaveBeenCalledWith("p1", "a", "notInterested", { reasonId: "timing", note: null }),
@@ -766,7 +766,7 @@ describe("PipelineView", () => {
       await userEvent.selectOptions(dialog.getByRole("combobox", { name: "Way out" }), "Unresponsive");
 
       expect(dialog.getByText("Unresponsive asks for no reason.")).toBeInTheDocument();
-      await userEvent.click(dialog.getByRole("button", { name: "Move to Unresponsive" }));
+      await userEvent.click(dialog.getByRole("button", { name: "Done" }));
       await waitFor(() => expect(candidatesApi.changeCandidateStatus).toHaveBeenCalledWith("p1", "a", "unresponsive", null));
     });
 
@@ -797,7 +797,7 @@ describe("PipelineView", () => {
       expect(dialog.queryByRole("combobox", { name: "Way out" })).not.toBeInTheDocument();
       expect(dialog.getByRole("textbox", { name: "Way out" })).toHaveTextContent("Client rejected");
       await userEvent.selectOptions(dialog.getByRole("combobox", { name: "Reason" }), "Senior");
-      await userEvent.click(dialog.getByRole("button", { name: "Move to Client rejected" }));
+      await userEvent.click(dialog.getByRole("button", { name: "Done" }));
 
       await waitFor(() =>
         expect(candidatesApi.changeCandidateStatus).toHaveBeenCalledWith("p1", "a", "clientRejected", { reasonId: "senior", note: null }),

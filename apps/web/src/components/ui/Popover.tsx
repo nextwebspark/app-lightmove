@@ -18,6 +18,7 @@ export function Popover({
   width = 280,
   disabled,
   hasPopup,
+  openOnMount = false,
   children,
 }: {
   /** The button's contents. Receives the open state so a caret can flip. */
@@ -30,9 +31,11 @@ export function Popover({
   align?: "left" | "right";
   /** `auto` opens above a trigger too near the foot of the window to fit the panel beneath it. */
   placement?: "below" | "auto";
-  width?: number;
+  /** `trigger` matches the trigger's own width, as a select's list does. */
+  width?: number | "trigger";
   disabled?: boolean;
   hasPopup?: "listbox" | "menu" | "dialog";
+  openOnMount?: boolean;
   children: (close: () => void) => ReactNode;
 }) {
   const [anchor, setAnchor] = useState<DOMRect | null>(null);
@@ -44,16 +47,18 @@ export function Popover({
   useEffect(() => {
     if (!open) return;
     const close = () => setAnchor(null);
+    const isInside = (target: EventTarget | null) =>
+      target instanceof Node &&
+      (Boolean(panelRef.current?.contains(target)) || isInLaterPanel(panelRef.current, target));
     const closeOnOutside = (event: MouseEvent) => {
-      const target = event.target as Node;
-      if (triggerRef.current?.contains(target) || panelRef.current?.contains(target)) return;
+      if (triggerRef.current?.contains(event.target as Node) || isInside(event.target)) return;
       close();
     };
     // A scroll inside the panel itself — the checkbox list, or the panel's own overflow — must not
     // close it; only a scroll of whatever sits *behind* it (the table, the page) would strand the
     // fixed position, and that is the one this exists to answer.
     const closeOnOutsideScroll = (event: Event) => {
-      if (event.target instanceof Node && panelRef.current?.contains(event.target)) return;
+      if (isInside(event.target)) return;
       close();
     };
     document.addEventListener("mousedown", closeOnOutside);
@@ -94,6 +99,12 @@ export function Popover({
     setAnchor((current) => (current ? null : (triggerRef.current?.getBoundingClientRect() ?? null)));
   };
 
+  useEffect(() => {
+    if (openOnMount) setAnchor(triggerRef.current?.getBoundingClientRect() ?? null);
+  }, [openOnMount]);
+
+  const panelWidth = (box: DOMRect) => (width === "trigger" ? Math.max(box.width, 200) : width);
+
   const placed = (box: DOMRect) => {
     const side = verticalPlacement(box, placement, wanted);
     return { ...side, maxHeight: Math.min(side.maxHeight, window.innerHeight * 0.7) };
@@ -119,13 +130,14 @@ export function Popover({
         createPortal(
           <div
             ref={panelRef}
+            data-popover-panel=""
             style={{
               ...placed(anchor),
               left:
                 align === "right"
-                  ? Math.max(EDGE_GAP, anchor.right - width)
-                  : Math.max(EDGE_GAP, Math.min(anchor.left, window.innerWidth - width - EDGE_GAP)),
-              width,
+                  ? Math.max(EDGE_GAP, anchor.right - panelWidth(anchor))
+                  : Math.max(EDGE_GAP, Math.min(anchor.left, window.innerWidth - panelWidth(anchor) - EDGE_GAP)),
+              width: panelWidth(anchor),
               maxWidth: "calc(100vw - 24px)",
             }}
             // Above the drawers (90/95) and the modal (100), below the toast (120): the tag picker in the
@@ -138,4 +150,15 @@ export function Popover({
         )}
     </>
   );
+}
+
+/**
+ * Whether `target` sits in a popover opened from inside this one. Every panel is portalled to the end of `<body>` as it
+ * opens, so one opened from this panel always comes after it in the document, and the panel this one was opened from
+ * comes before it: a click there is still outside. Two unrelated popovers are never open at once, since opening one is
+ * a click outside the other.
+ */
+function isInLaterPanel(own: HTMLElement | null, target: Node): boolean {
+  const other = (target instanceof Element ? target : target.parentElement)?.closest("[data-popover-panel]");
+  return Boolean(own && other && other !== own && own.compareDocumentPosition(other) & Node.DOCUMENT_POSITION_FOLLOWING);
 }

@@ -11,7 +11,9 @@ import {
   triageStageLabel,
 } from "./candidateActivity";
 import { formatFull, formatInstantTime, formatWeekdayDate, formatWeekdayDateTime } from "../../../lib/datetime";
+import type { PipelineCatalog } from "../../workspace/api/types";
 import { noteKindOf } from "./noteKinds";
+import { isOutOfProcess } from "./pipelineStatus";
 
 /**
  * The executive drawer's Activity tab, worked out in data: which kind of event a line is, how it is drawn, who did it
@@ -462,7 +464,7 @@ export interface NoteEdit {
 /** What a card shows under its first line; the dialog then shows the rest. */
 export type ActivityPreview =
   | { type: "note"; excerpt: string | null; noteKind: string; aboutThePerson: boolean; edited: NoteEdit | null }
-  | { type: "status"; from: string | null; to: string; cause: string | null; reason: string | null }
+  | { type: "status"; from: string | null; to: string; leftProcess: boolean; cause: string | null; reason: string | null }
   | { type: "changes"; changes: FieldChange[]; hidden: number }
   | { type: "fields"; labels: string[] }
   | { type: "meeting"; startsAt: string; previousStartsAt: string | null; cancelled: boolean }
@@ -500,7 +502,7 @@ export function taskStatesOf(entries: readonly PersonTimelineEntry[]): Map<strin
   return states;
 }
 
-export function previewOf(entry: PersonTimelineEntry): ActivityPreview | null {
+export function previewOf(entry: PersonTimelineEntry, catalog?: PipelineCatalog | null): ActivityPreview | null {
   const { details } = entry;
   switch (entry.kind) {
     case "NOTE_ADDED":
@@ -518,6 +520,7 @@ export function previewOf(entry: PersonTimelineEntry): ActivityPreview | null {
         type: "status",
         from: details.from ? statusLabel(details.from, details.fromLabel) : null,
         to: statusLabel(details.to, details.toLabel),
+        leftProcess: details.to ? isOutOfProcess(details.to, catalog) : false,
         cause: automationCauseOf(entry),
         reason: details.reason ?? null,
       };

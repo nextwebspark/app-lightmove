@@ -25,6 +25,7 @@ import {
   type ActivityScope,
 } from "../../lib/activityPresentation";
 import { groupByDay } from "../../lib/timelineGroups";
+import { usePipelineCatalog } from "../../../workspace/lib/usePipelineCatalog";
 import { ActivityDetailDialog, type ActivityDestinations } from "./ActivityDetailDialog";
 import { ActivityFilterMenu, type FilterMenuOption } from "./ActivityFilterMenu";
 import { ActivityCard, ActivityFold } from "./ActivityItems";
@@ -79,6 +80,7 @@ export function ActivityTimeline({
   const shown = entries.filter((entry) => byFamily(entry) && byActor(entry) && byPosition(entry));
   const isFiltering = families.size > 0 || actors.size > 0 || positions.size > 0;
 
+  const { catalog } = usePipelineCatalog();
   if (history.isPending) return <LinesSkeleton lines={6} />;
   if (history.isError) {
     return (
@@ -137,7 +139,7 @@ export function ActivityTimeline({
       return next;
     });
   const taskStates = taskStatesOf(entries);
-  const itemProps = { executive, now, onOpen: setOpened, notes: notesById, taskStates, showsPosition: !onPosition };
+  const itemProps = { executive, now, onOpen: setOpened, notes: notesById, taskStates, showsPosition: !onPosition, catalog };
 
   return (
     <div data-activity-root className="flex flex-col">

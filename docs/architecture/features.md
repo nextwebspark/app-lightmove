@@ -253,8 +253,8 @@ upload tray says what each file will become before sending, and a duplicate is t
 a person's URL is always editable, and an edit that changes it clears the flag.
 **The workspace's Candidates page** (`/candidates`, `RequireStaff`, `Candidates.dc.html`, Phase 4) reads
 those routes: a People list the server searches (name, title, employer, an email; a plain scan per
-workspace, V33's reasoning), pages, sorts and narrows — quick views (owned by me, in an active position,
-in none) in the toolbar, then every column's own filter in its header menu, listed and cleared by the toolbar's
+workspace, V33's reasoning), pages, sorts and narrows — one view at a time (owned by me, in an active position,
+in none) from the toolbar Filter's Show, then every column's own filter in its header menu, listed and cleared by the toolbar's
 Filter button and shown or hidden from Columns as In universe's grid is: person, title and company typed
 (company reads the employer the row draws — the newest position's, else research's first post); LinkedIn,
 country, experience bands, seniority, contact on file, positions, status (each stage's statuses under "All
@@ -465,7 +465,7 @@ in `candidate`). Workspaces founded since V216 start with all four off; see `doc
 lawful basis per person (null follows the workspace's default), Mark as notified, and Send privacy notice from the
 drawer or the selection bar (`PersonPrivacyService`), sent by Uncava in the firm's name with its reply-to. The notice
 links to the public `/privacy/:token` page (`PrivacyPageService`, resolved through V218's resolver), where the person
-objects (do not contact plus suppression) or asks the admins for a copy or a deletion; a Not notified quick view lists
+objects (do not contact plus suppression) or asks the admins for a copy or a deletion; a Not notified view (Filter → Show) lists
 anyone held over a month and never told. **Every outreach email** (#924, V220) ends with a privacy footer naming the
 firm, where the details came from and a link to stop emails, minted per email and also its one-click
 `List-Unsubscribe` target (Gmail, Nylas; not Microsoft Graph); taking it sets do not contact, suppresses, and stops

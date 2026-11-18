@@ -2,6 +2,8 @@ import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { Icon, ICONS } from "../../../../components/layout/Icon";
 import { cn } from "../../../../lib/cn";
 import { NoteText } from "../../../notes/components/NoteText";
+import type { PipelineCatalog } from "../../../workspace/api/types";
+import { NoteOutcomePill } from "../NoteParts";
 import type { FieldChange, PersonNote, PersonTimelineEntry } from "../../api/types";
 import {
   actorOf,
@@ -33,6 +35,8 @@ interface ItemProps {
   taskStates?: ReadonlyMap<string, TaskState>;
   /** On the person-wide timeline, a card made on a position names it. */
   showsPosition?: boolean;
+  /** The workspace's statuses, so a move out of process reads red. */
+  catalog?: PipelineCatalog;
 }
 
 const CARD = cn(
@@ -44,10 +48,10 @@ const CARD = cn(
  * Every event is one card on the spine, its kind's tile beside it and who and when on top: a note or a call runs
  * taller with its preview, a tag or a ticked task is the header and one line.
  */
-export function ActivityCard({ entry, executive, now, onOpen, notes, taskStates, showsPosition = false }: ItemProps) {
+export function ActivityCard({ entry, executive, now, onOpen, notes, taskStates, showsPosition = false, catalog }: ItemProps) {
   const actor = actorOf(entry);
   const name = actorNameOf(actor, executive);
-  const preview = previewOf(entry);
+  const preview = previewOf(entry, catalog);
   const note = preview?.type === "note" && entry.details.noteId ? notes?.get(entry.details.noteId) : undefined;
   const taskState = entry.details.taskId ? taskStates?.get(entry.details.taskId) : undefined;
   const aside = preview ? null : asideOf(entry);
@@ -212,18 +216,21 @@ function NoteQuickView({
   }, [note.body]);
   return (
     <span className="flex flex-col gap-1.5">
+      {note.outcome && <NoteOutcomePill outcome={note.outcome} className="self-start" />}
       {/* Inert: a note's links and checklist boxes are not controls inside a card that is itself one button. */}
-      <span
-        ref={box}
-        inert
-        className={cn(
-          "pointer-events-none block max-h-[5.4rem] overflow-hidden text-u-text",
-          "[&_h2]:mt-0 [&_h2]:text-body [&_h3]:mt-0 [&_ul]:my-0.5 [&_ol]:my-0.5 [&_.note-prose]:text-u-text",
-          isCut && "[mask-image:linear-gradient(to_bottom,black_60%,transparent)]",
-        )}
-      >
-        <NoteText body={note.body} format={note.format} className="text-body" />
-      </span>
+      {note.body.trim() && (
+        <span
+          ref={box}
+          inert
+          className={cn(
+            "pointer-events-none block max-h-[5.4rem] overflow-hidden text-u-text",
+            "[&_h2]:mt-0 [&_h2]:text-body [&_h3]:mt-0 [&_ul]:my-0.5 [&_ol]:my-0.5 [&_.note-prose]:text-u-text",
+            isCut && "[mask-image:linear-gradient(to_bottom,black_60%,transparent)]",
+          )}
+        >
+          <NoteText body={note.body} format={note.format} className="text-body" />
+        </span>
+      )}
       {isCut && <span className="text-note font-medium text-u-accent">Read the whole note</span>}
       <NoteChips aboutThePerson={aboutThePerson} edited={edited} />
     </span>
@@ -246,7 +253,7 @@ export function PreviewOf({ preview, taskState = "open" }: { preview: ActivityPr
         <span className="flex flex-wrap items-center gap-1.5 text-note text-u-text3">
           {preview.from && <StatusPill label={preview.from} />}
           {preview.from && <Icon d={ICONS.arrowRight} size={13} className="text-u-text3" />}
-          <StatusPill label={preview.to} isCurrent />
+          <StatusPill label={preview.to} isCurrent leftProcess={preview.leftProcess} />
           {preview.cause && <span>{preview.cause}</span>}
           {preview.reason && <span>Why: {preview.reason}</span>}
         </span>
@@ -378,12 +385,25 @@ export function ChangeLine({ change }: { change: FieldChange }) {
   );
 }
 
-export function StatusPill({ label, isCurrent = false }: { label: string; isCurrent?: boolean }) {
+/** The status a move landed on reads green, or red where it took them out of process. */
+export function StatusPill({
+  label,
+  isCurrent = false,
+  leftProcess = false,
+}: {
+  label: string;
+  isCurrent?: boolean;
+  leftProcess?: boolean;
+}) {
   return (
     <span
       className={cn(
         "inline-flex items-center rounded-full px-2 py-px text-note font-medium",
-        isCurrent ? "bg-u-direct-tint text-u-direct" : "bg-u-raised text-u-text2",
+        isCurrent && leftProcess
+          ? "bg-u-offlimits-tint text-u-offlimits"
+          : isCurrent
+            ? "bg-u-direct-tint text-u-direct"
+            : "bg-u-raised text-u-text2",
       )}
     >
       {label}
