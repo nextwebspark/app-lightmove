@@ -6,8 +6,8 @@ import app.lightmove.api.core.security.apikey.ApiKeyPrincipal;
 import app.lightmove.api.core.security.apikey.ApiKeyScope;
 import app.lightmove.api.core.security.apikey.PublicReader;
 import app.lightmove.api.core.security.rbac.ProjectAction;
-import app.lightmove.api.project.repository.ProjectRepository;
 import app.lightmove.api.project.service.ProjectAccess;
+import app.lightmove.api.project.service.ProjectLookup;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -24,7 +24,7 @@ import org.springframework.stereotype.Component;
 public class PublicApiAuthorizer {
 
     private final ProjectAccess projectAccess;
-    private final ProjectRepository projects;
+    private final ProjectLookup projects;
 
     public boolean holds(ApiKeyPrincipal key, String scope) {
         requireScope(key, ApiKeyScope.valueOf(scope));

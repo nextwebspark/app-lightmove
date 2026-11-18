@@ -6,7 +6,7 @@ import app.lightmove.api.core.llm.service.TextPseudonymiser.Redaction;
 import app.lightmove.api.core.llm.service.TextPseudonymiser;
 import app.lightmove.api.core.text.service.ContactRedaction;
 import app.lightmove.api.project.model.Client;
-import app.lightmove.api.project.repository.ClientRepository;
+import app.lightmove.api.project.service.ClientLookup;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -41,10 +41,10 @@ public class PositionDocumentRedactor {
     private static final int CONTACT_BLOCK_MAX_LINES = 6;
 
     private final TextPseudonymiser pseudonymiser;
-    private final ClientRepository clients;
+    private final ClientLookup clients;
     private final PositionExtractionSettings settings;
 
-    public PositionDocumentRedactor(TextPseudonymiser pseudonymiser, ClientRepository clients,
+    public PositionDocumentRedactor(TextPseudonymiser pseudonymiser, ClientLookup clients,
                                     LightMoveProperties properties) {
         this.pseudonymiser = pseudonymiser;
         this.clients = clients;

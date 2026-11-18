@@ -16,7 +16,7 @@ import app.lightmove.api.notification.dto.UnreadCountResponse;
 import app.lightmove.api.notification.model.Notification;
 import app.lightmove.api.notification.repository.NotificationRepository;
 import app.lightmove.api.project.model.Project;
-import app.lightmove.api.project.repository.ProjectRepository;
+import app.lightmove.api.project.service.ProjectLookup;
 import app.lightmove.api.task.dto.TaskNoteDto;
 import app.lightmove.api.task.service.TaskPeople;
 import app.lightmove.api.task.service.TaskService;
@@ -47,7 +47,7 @@ public class NotificationService {
     private final TaskPeople taskPeople;
     private final TaskService tasks;
     private final CandidateTaskService people;
-    private final ProjectRepository projects;
+    private final ProjectLookup projects;
     private final UserStreamPublisher stream;
     private final Clock clock;
 

@@ -5,8 +5,8 @@ import app.lightmove.api.position.repository.PositionRepository;
 import app.lightmove.api.positiontemplate.service.PositionTemplateService;
 import app.lightmove.api.project.model.Client;
 import app.lightmove.api.project.model.Project;
-import app.lightmove.api.project.repository.ClientRepository;
-import app.lightmove.api.project.repository.ProjectRepository;
+import app.lightmove.api.project.service.ClientLookup;
+import app.lightmove.api.project.service.ProjectLookup;
 import app.lightmove.api.workspace.service.WorkspaceSettingsService;
 import java.util.Optional;
 import java.util.UUID;
@@ -23,8 +23,8 @@ import org.springframework.stereotype.Component;
 class PositionBriefLoader {
 
     private final PositionRepository positions;
-    private final ProjectRepository projects;
-    private final ClientRepository clients;
+    private final ProjectLookup projects;
+    private final ClientLookup clients;
     private final PositionTemplateService templates;
     private final WorkspaceSettingsService workspaces;
 

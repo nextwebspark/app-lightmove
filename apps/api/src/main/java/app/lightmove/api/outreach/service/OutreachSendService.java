@@ -19,17 +19,17 @@ import app.lightmove.api.outreach.model.OutreachEnrollment;
 import app.lightmove.api.outreach.model.OutreachMessage;
 import app.lightmove.api.outreach.model.OutreachSequence;
 import app.lightmove.api.outreach.model.PreparedSend;
+import app.lightmove.api.outreach.model.SenderContext;
 import app.lightmove.api.outreach.model.SendingWindow;
 import app.lightmove.api.outreach.model.SentEmail;
 import app.lightmove.api.outreach.model.SequenceStep;
 import app.lightmove.api.outreach.model.SequenceTokens;
-import app.lightmove.api.outreach.model.SenderContext;
 import app.lightmove.api.outreach.repository.MailboxConnectionRepository;
 import app.lightmove.api.outreach.repository.OutreachEnrollmentClaims;
 import app.lightmove.api.outreach.repository.OutreachEnrollmentRepository;
 import app.lightmove.api.outreach.repository.OutreachMessageRepository;
 import app.lightmove.api.outreach.repository.OutreachSequenceRepository;
-import app.lightmove.api.project.repository.ProjectRepository;
+import app.lightmove.api.project.service.ProjectLookup;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
@@ -66,7 +66,7 @@ public class OutreachSendService {
     private final CandidateOutreachService people;
     private final OutreachPersonalisation personalisation;
     private final OutreachOutcomes outcomes;
-    private final ProjectRepository projects;
+    private final ProjectLookup projects;
     private final MailboxGateway gateway;
     private final TransactionTemplate transactions;
     private final AuditService audit;
@@ -144,7 +144,7 @@ public class OutreachSendService {
             enrollment.releaseClaim();
             return null;
         }
-        if (projects.existsByIdAndArchivedAtIsNotNull(enrollment.getProjectId())) {
+        if (projects.isArchived(enrollment.getProjectId())) {
             outcomes.stop(enrollment, OutreachStopReason.POSITION_ARCHIVED, null, now, null);
             return null;
         }

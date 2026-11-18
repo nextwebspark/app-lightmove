@@ -10,7 +10,7 @@ import app.lightmove.api.core.constant.ApiValueEnum;
 import app.lightmove.api.core.constant.SortDirection;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
-import app.lightmove.api.project.repository.ProjectRepository;
+import app.lightmove.api.project.service.ProjectLookup;
 import app.lightmove.api.strategy.dto.CompanyRefDto;
 import app.lightmove.api.strategy.dto.NumericRangeDto;
 import app.lightmove.api.strategy.dto.PeopleFilterDto;
@@ -58,7 +58,7 @@ public class StrategyService {
     private static final SortDirection DEFAULT_DIRECTION = SortDirection.DESC;
 
     private final StrategyRepository strategies;
-    private final ProjectRepository projects;
+    private final ProjectLookup projects;
     private final StrategySearchService searches;
     private final AuditService audit;
     private final ApolloCompanyQueryService companies;
@@ -67,7 +67,7 @@ public class StrategyService {
     private final CompanyListSettings listConfig;
     private final CompanySearchSettings searchConfig;
 
-    public StrategyService(StrategyRepository strategies, ProjectRepository projects,
+    public StrategyService(StrategyRepository strategies, ProjectLookup projects,
                            StrategySearchService searches, AuditService audit,
                            ApolloCompanyQueryService companies, TriagedCompanyLookup triagedLookup,
                            PeopleFilterReader peopleFilters, LightMoveProperties properties) {

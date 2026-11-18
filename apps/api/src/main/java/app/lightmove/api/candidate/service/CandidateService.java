@@ -7,12 +7,12 @@ import app.lightmove.api.candidate.constant.ContactChannel;
 import app.lightmove.api.candidate.constant.ContactSource;
 import app.lightmove.api.candidate.constant.PersonActivityKind;
 import app.lightmove.api.candidate.constant.ProfileClaim;
-import app.lightmove.api.candidate.dto.CandidateListCriteria;
 import app.lightmove.api.candidate.dto.AddedByResponse;
 import app.lightmove.api.candidate.dto.CandidateExitReasonResponse;
+import app.lightmove.api.candidate.dto.CandidateListCriteria;
 import app.lightmove.api.candidate.dto.CandidateResponse;
-import app.lightmove.api.candidate.dto.ChangeExitReasonRequest;
 import app.lightmove.api.candidate.dto.CandidatesResponse;
+import app.lightmove.api.candidate.dto.ChangeExitReasonRequest;
 import app.lightmove.api.candidate.dto.HeldCandidateResponse;
 import app.lightmove.api.candidate.dto.MapPeopleToPositionResponse;
 import app.lightmove.api.candidate.dto.SaveCandidateRequest;
@@ -33,9 +33,6 @@ import app.lightmove.api.candidate.model.CandidateStatusDefinition;
 import app.lightmove.api.candidate.model.ContactEntry;
 import app.lightmove.api.candidate.model.EnrichedProfile;
 import app.lightmove.api.candidate.model.ExitReason;
-import app.lightmove.api.candidate.model.ResearchedCandidate;
-import app.lightmove.api.candidate.model.ResearchedEmployer;
-import app.lightmove.api.candidate.model.ResearchedFiling;
 import app.lightmove.api.candidate.model.FoundEmails;
 import app.lightmove.api.candidate.model.FoundPhones;
 import app.lightmove.api.candidate.model.InferredBackground;
@@ -43,18 +40,21 @@ import app.lightmove.api.candidate.model.NationalityReading;
 import app.lightmove.api.candidate.model.Person;
 import app.lightmove.api.candidate.model.PersonPhoto;
 import app.lightmove.api.candidate.model.PipelineCatalog;
+import app.lightmove.api.candidate.model.ResearchedCandidate;
+import app.lightmove.api.candidate.model.ResearchedEmployer;
+import app.lightmove.api.candidate.model.ResearchedFiling;
 import app.lightmove.api.candidate.model.StoredPhoto;
 import app.lightmove.api.candidate.repository.CandidateListFilter;
 import app.lightmove.api.candidate.repository.CandidateRepository;
 import app.lightmove.api.candidate.repository.PersonPhotoRepository;
 import app.lightmove.api.candidate.repository.PersonRepository;
-import app.lightmove.api.core.constant.ApiValueEnum;
 import app.lightmove.api.common.location.model.InternationalPhone;
 import app.lightmove.api.common.location.service.PhoneNumbers;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.config.CompanyListSettings;
 import app.lightmove.api.core.config.LightMoveProperties;
+import app.lightmove.api.core.constant.ApiValueEnum;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.security.model.User;
@@ -67,7 +67,7 @@ import app.lightmove.api.core.text.service.LikePatterns;
 import app.lightmove.api.core.text.service.LinkedInUrls;
 import app.lightmove.api.customcolumn.constant.CustomColumnTarget;
 import app.lightmove.api.customcolumn.service.CustomColumnService;
-import app.lightmove.api.project.repository.ProjectRepository;
+import app.lightmove.api.project.service.ProjectLookup;
 import app.lightmove.api.triagecompany.constant.TriageCompanySource;
 import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
 import app.lightmove.api.triagecompany.dto.TriageCompanyResponse;
@@ -87,8 +87,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.Function;
 import java.util.UUID;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
@@ -121,7 +121,7 @@ public class CandidateService {
     private final PersonActivityRecorder activity;
     private final PersonNoteService personNotes;
     private final PersonPhotoRepository photos;
-    private final ProjectRepository projects;
+    private final ProjectLookup projects;
     private final TriageCompanyService triage;
     private final CustomColumnService customColumns;
     private final AuditService audit;
@@ -145,7 +145,7 @@ public class CandidateService {
     public CandidateService(CandidateRepository candidates, PersonRepository people, PersonMatcher matcher,
                             PersonActivityRecorder activity, PersonNoteService personNotes,
                             PersonPhotoRepository photos,
-                            ProjectRepository projects, TriageCompanyService triage,
+                            ProjectLookup projects, TriageCompanyService triage,
                             CustomColumnService customColumns, AuditService audit,
                             ApplicationEventPublisher events, ProjectStreamPublisher stream,
                             CandidateRequestReader requests, CandidateResponseMapper responses,

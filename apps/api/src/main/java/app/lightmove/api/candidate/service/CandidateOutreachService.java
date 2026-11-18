@@ -17,7 +17,7 @@ import app.lightmove.api.candidate.model.RecipientEmail;
 import app.lightmove.api.candidate.repository.CandidateRepository;
 import app.lightmove.api.candidate.repository.PersonRepository;
 import app.lightmove.api.project.model.Project;
-import app.lightmove.api.project.repository.ProjectRepository;
+import app.lightmove.api.project.service.ProjectLookup;
 import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
 import java.io.InputStream;
 import java.time.Instant;
@@ -44,7 +44,7 @@ public class CandidateOutreachService {
 
     private final CandidateRepository candidates;
     private final PersonRepository persons;
-    private final ProjectRepository projects;
+    private final ProjectLookup projects;
     private final CandidateService candidateService;
     private final PersonActivityRecorder activity;
     private final StatusAutomationService automations;

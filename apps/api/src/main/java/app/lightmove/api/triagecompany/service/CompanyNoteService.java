@@ -1,16 +1,16 @@
 package app.lightmove.api.triagecompany.service;
 
-import app.lightmove.api.core.constant.ApiValueEnum;
 import app.lightmove.api.common.constant.NoteFormat;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
+import app.lightmove.api.core.constant.ApiValueEnum;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.rbac.WorkspaceAccess;
 import app.lightmove.api.core.security.rbac.WorkspaceAction;
 import app.lightmove.api.core.security.repository.UserRepository;
-import app.lightmove.api.project.repository.ProjectRepository;
+import app.lightmove.api.project.service.ProjectLookup;
 import app.lightmove.api.triagecompany.constant.CompanyNoteKind;
 import app.lightmove.api.triagecompany.dto.CompanyNoteResponse;
 import app.lightmove.api.triagecompany.dto.WriteCompanyNoteRequest;
@@ -48,7 +48,7 @@ public class CompanyNoteService {
 
     private final CompanyNoteRepository notes;
     private final TriageCompanyRepository companies;
-    private final ProjectRepository projects;
+    private final ProjectLookup projects;
     private final UserRepository users;
     private final WorkspaceAccess workspaceAccess;
     private final AuditService audit;

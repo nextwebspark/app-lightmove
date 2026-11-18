@@ -14,7 +14,7 @@ import app.lightmove.api.outreach.model.SignaturePicture;
 import app.lightmove.api.outreach.model.SignatureSender;
 import app.lightmove.api.outreach.repository.MailboxConnectionRepository;
 import app.lightmove.api.workspace.model.Workspace;
-import app.lightmove.api.workspace.repository.WorkspaceRepository;
+import app.lightmove.api.workspace.service.WorkspaceLookup;
 import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.List;
@@ -35,7 +35,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 public class SignatureSenders {
 
     private final UserRepository users;
-    private final WorkspaceRepository workspaces;
+    private final WorkspaceLookup workspaces;
     private final MailboxConnectionRepository mailboxes;
     private final BookingPages bookingPages;
     private final EmailImageService emailImages;

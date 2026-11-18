@@ -14,12 +14,12 @@ import app.lightmove.api.candidate.model.ProfileFromCall;
 import app.lightmove.api.candidate.repository.CandidateRepository;
 import app.lightmove.api.candidate.repository.CandidateScorecardRepository;
 import app.lightmove.api.candidate.repository.CandidateTagRepository;
-import app.lightmove.api.core.time.service.DateTimeFormats;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
-import app.lightmove.api.project.repository.ProjectRepository;
+import app.lightmove.api.core.time.service.DateTimeFormats;
+import app.lightmove.api.project.service.ProjectLookup;
 import app.lightmove.api.workspace.service.DateTimePreferenceService;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.Collection;
@@ -47,7 +47,7 @@ public class CandidateCallUpdates {
 
     private static final String PERSON_TARGET = "person";
 
-    private final ProjectRepository projects;
+    private final ProjectLookup projects;
     private final CandidateRepository candidates;
     private final CandidateScorecardRepository scorecards;
     private final CandidateTagRepository tags;

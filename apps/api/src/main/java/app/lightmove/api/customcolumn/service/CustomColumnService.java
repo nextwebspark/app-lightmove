@@ -1,10 +1,10 @@
 package app.lightmove.api.customcolumn.service;
 
-import app.lightmove.api.core.constant.ApiValueEnum;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.config.CustomColumnSettings;
 import app.lightmove.api.core.config.LightMoveProperties;
+import app.lightmove.api.core.constant.ApiValueEnum;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.customcolumn.constant.CustomColumnTarget;
@@ -17,7 +17,7 @@ import app.lightmove.api.customcolumn.dto.UpdateCustomColumnRequest;
 import app.lightmove.api.customcolumn.model.CustomFieldValues;
 import app.lightmove.api.customcolumn.model.ProjectCustomColumn;
 import app.lightmove.api.customcolumn.repository.ProjectCustomColumnRepository;
-import app.lightmove.api.project.repository.ProjectRepository;
+import app.lightmove.api.project.service.ProjectLookup;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -40,11 +40,11 @@ import org.springframework.transaction.annotation.Transactional;
 public class CustomColumnService {
 
     private final ProjectCustomColumnRepository columns;
-    private final ProjectRepository projects;
+    private final ProjectLookup projects;
     private final AuditService audit;
     private final CustomColumnSettings settings;
 
-    public CustomColumnService(ProjectCustomColumnRepository columns, ProjectRepository projects,
+    public CustomColumnService(ProjectCustomColumnRepository columns, ProjectLookup projects,
                                AuditService audit, LightMoveProperties properties) {
         this.columns = columns;
         this.projects = projects;

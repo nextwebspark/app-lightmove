@@ -3,7 +3,7 @@ package app.lightmove.api.notification.repository;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.notification.model.Notification;
-import app.lightmove.api.project.repository.ProjectRepository;
+import app.lightmove.api.project.model.ArchivedProjects;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -19,7 +19,7 @@ import org.springframework.data.jpa.repository.Query;
 public interface NotificationRepository extends JpaRepository<Notification, UUID> {
 
     String ON_LIVE_POSITION =
-            "  AND (project_id IS NULL OR project_id NOT IN (" + ProjectRepository.ARCHIVED_IDS_SQL + "))\n";
+            "  AND (project_id IS NULL OR project_id NOT IN (" + ArchivedProjects.IDS_SQL + "))\n";
 
     Optional<Notification> findByIdAndWorkspaceIdAndRecipientUserId(UUID id, UUID workspaceId, UUID recipientUserId);
 

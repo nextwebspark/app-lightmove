@@ -10,23 +10,22 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import app.lightmove.api.core.security.rbac.ProjectAudience;
 import app.lightmove.api.candidate.dto.CandidatesResponse;
 import app.lightmove.api.candidate.model.PipelineProgressAnchors;
 import app.lightmove.api.candidate.service.CandidatePipelineCatalog;
 import app.lightmove.api.candidate.service.CandidateService;
 import app.lightmove.api.core.config.ReportSettings;
+import app.lightmove.api.core.security.rbac.ProjectAudience;
 import app.lightmove.api.position.service.PositionService;
 import app.lightmove.api.project.model.Project;
-import app.lightmove.api.project.repository.ProjectRepository;
+import app.lightmove.api.project.service.ProjectLookup;
 import app.lightmove.api.report.model.ReportSources;
 import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
 import app.lightmove.api.triagecompany.dto.TriageCompaniesResponse;
-import app.lightmove.api.triagecompany.model.TriageCompanyFilters;
 import app.lightmove.api.triagecompany.dto.TriageCompanyResponse;
+import app.lightmove.api.triagecompany.model.TriageCompanyFilters;
 import app.lightmove.api.triagecompany.service.TriageCompanyReadService;
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.IntStream;
 import org.junit.jupiter.api.BeforeEach;
@@ -41,14 +40,14 @@ class ReportSourceLoaderTest {
     private static final ProjectAudience READER = ProjectAudience.CLIENT;
 
     private final TriageCompanyReadService triage = mock(TriageCompanyReadService.class);
-    private final ProjectRepository projects = mock(ProjectRepository.class);
+    private final ProjectLookup projects = mock(ProjectLookup.class);
     private final CandidateService candidates = mock(CandidateService.class);
     private final PositionService positions = mock(PositionService.class);
     private final CandidatePipelineCatalog pipeline = mock(CandidatePipelineCatalog.class);
 
     @BeforeEach
     void aMandateWithNobodyMapped() {
-        when(projects.findByIdAndWorkspaceId(PROJECT, WORKSPACE)).thenReturn(Optional.of(mock(Project.class)));
+        when(projects.requireInWorkspace(PROJECT, WORKSPACE)).thenReturn(mock(Project.class));
         when(candidates.listAllOfProject(eq(WORKSPACE), eq(PROJECT), anyInt(), eq(READER)))
                 .thenReturn(new CandidatesResponse(List.of(), 0, 0, 0));
         when(pipeline.progressAnchors(WORKSPACE)).thenReturn(new PipelineProgressAnchors(1, 3));

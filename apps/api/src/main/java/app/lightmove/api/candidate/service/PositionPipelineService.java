@@ -19,7 +19,7 @@ import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.security.rbac.ProjectAudience;
 import app.lightmove.api.core.text.model.SearchText;
-import app.lightmove.api.project.repository.ProjectRepository;
+import app.lightmove.api.project.service.ProjectLookup;
 import jakarta.servlet.http.HttpServletRequest;
 import java.math.BigDecimal;
 import java.math.MathContext;
@@ -62,7 +62,7 @@ public class PositionPipelineService {
             .thenComparing(STAGE_ORDER);
 
     private final CandidateRepository candidates;
-    private final ProjectRepository projects;
+    private final ProjectLookup projects;
     private final CandidatePipelineCatalog pipeline;
     private final CandidateExitReasons exitReasons;
     private final PersonActivityRecorder activity;
