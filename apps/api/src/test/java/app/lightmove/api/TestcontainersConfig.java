@@ -21,8 +21,8 @@ import org.testcontainers.utility.DockerImageName;
  * connection details would name the superuser.
  *
  * <p>A static field pulled in through {@code @ImportTestcontainers}, not a {@code @Bean}: Spring starts
- * a static container once per JVM and never stops it, so every cached context — there are four, one
- * per property variant — shares one Postgres. As a bean it was started again for each context, and
+ * a static container once per JVM and never stops it, so every cached context — one per property
+ * or {@code @Import} variant — shares one Postgres. As a bean it was started again for each context, and
  * {@code withReuse(true)} did not save CI, which has no {@code testcontainers.reuse.enable} opt-in:
  * eight containers and eight Flyway runs per build.
  */
