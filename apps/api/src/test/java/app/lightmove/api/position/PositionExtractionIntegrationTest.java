@@ -11,13 +11,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import app.lightmove.api.FixtureJdbc;
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
-import app.lightmove.api.RecordingEmailSender;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Import;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -34,7 +32,6 @@ import tools.jackson.databind.JsonNode;
  * together: the same call that degrades honestly also has to be useful.
  */
 @IntegrationTest
-@Import(RecordingEmailSender.Config.class)
 class PositionExtractionIntegrationTest extends FlowTestSupport {
 
     @Autowired @FixtureJdbc JdbcTemplate db;
