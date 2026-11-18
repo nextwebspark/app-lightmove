@@ -69,6 +69,24 @@ jobs:
         working-directory: apps/api
         run: ./mvnw -B test
 
+      - name: Slowest test classes
+        if: always()
+        working-directory: apps/api
+        run: |
+          {
+            echo "### Slowest backend test classes"
+            echo
+            echo "| seconds | tests | class |"
+            echo "|---:|---:|---|"
+            for f in target/surefire-reports/TEST-*.xml; do
+              grep -m1 -o '<testsuite [^>]*>' "$f" | sed -E 's/.* name="([^"]*)".* time="([^"]*)".* tests="([0-9]+)".*/\2 \3 \1/'
+            done | sort -rn | head -30 | awk '{printf "| %s | %s | %s |\n", $1, $2, $3}'
+            echo
+            for f in target/surefire-reports/TEST-*.xml; do
+              grep -m1 -o '<testsuite [^>]*>' "$f" | sed -E 's/.* time="([^"]*)".* tests="([0-9]+)".*/\1 \2/'
+            done | awk '{t+=$1; n+=$2; c++} END {printf "Total: %.0f s across %d classes, %d tests\n", t, c, n}'
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+
   web:
     name: Web
     runs-on: ubuntu-latest
