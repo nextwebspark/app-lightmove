@@ -197,6 +197,17 @@ class OutreachConversationIntegrationTest extends FlowTestSupport {
         JsonNode pane = body(as(consultant, get(outreach("/conversations/" + rajesh))).andExpect(status().isOk())
                 .andReturn());
         assertThat(Instant.parse(pane.get("keyDates").get("lastActivityAt").asText())).isEqualTo(calledAt);
+
+        String otherProject = mandate(consultant, "Group Treasurer");
+        note(otherProject, executive(otherProject, "Priya Raman", "priya@" + domain), "call", "Treasurer search.");
+        assertThat(candidateIdsOf(conversations("view", "all"))).containsExactly(rajesh, priya);
+
+        as(consultant, post("/api/v1/projects/" + projectId + "/candidates/" + priya + "/notes")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"kind":"general","body":"Open to a move.","allPositions":true}"""))
+                .andExpect(status().isCreated());
+        assertThat(candidateIdsOf(conversations("view", "all"))).containsExactly(priya, rajesh);
     }
 
     @Test

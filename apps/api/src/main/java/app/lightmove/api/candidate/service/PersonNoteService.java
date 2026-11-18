@@ -41,6 +41,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Limit;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -169,11 +170,12 @@ public class PersonNoteService {
             throw ApiException.of(ErrorCode.PERSON_NOTE_NOT_YOURS);
         }
         // Only a door's note has a door's twin. Matching on the words alone once answered an Undo of a meeting note
-        // with a general note in the same words, and left the meeting note to the purge.
+        // with a general note in the same words, and left the meeting note to the purge. Trap: deleted_at is stamped
+        // by the injected Clock and created_at by Hibernate's system clock; the two agree only while the Clock bean is
+        // the system clock, so a fixed or offset Clock would hide every door's copy here.
         PersonNote twin = !deleted.isFiledByADoor() ? null
-                : notes.findFirstByWorkspaceIdAndPersonIdAndProjectIdAndBodyAndAuthorUserIdAndKindAndBodyFormatAndOutcomeIsNullAndCreatedAtAfter(
-                        workspaceId, personId, deleted.getProjectId(), deleted.getBody(), deleted.getAuthorUserId(),
-                        PersonNoteKind.GENERAL, NoteFormat.PLAIN, deleted.getDeletedAt())
+                : notes.findDoorRefiledSince(workspaceId, personId, deleted.getProjectId(), deleted.getBody(),
+                        deleted.getAuthorUserId(), deleted.getDeletedAt(), Limit.of(1)).stream().findFirst()
                         .orElse(null);
         if (twin != null) {
             return asItStands(userId, workspaceId, twin);

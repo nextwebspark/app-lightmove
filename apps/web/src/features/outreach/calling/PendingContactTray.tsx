@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type KeyboardEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { NetworkMark } from "../../../components/ui/NetworkMark";
@@ -32,7 +32,8 @@ export function PendingContactTray() {
   const [isExpanded, setIsExpanded] = useState(false);
   const [writing, setWriting] = useState<Writing | null>(null);
   const now = useMinuteClock();
-  const cards = (tray?.pending ?? []).filter((card) => isFresh(card, now.getTime()));
+  const pending = tray?.pending;
+  const cards = useMemo(() => (pending ?? []).filter((card) => isFresh(card, now.getTime())), [pending, now]);
   const announcement = useNewCardAnnouncement(cards);
   if (!tray || (cards.length === 0 && !writing)) return null;
   const isCollapsed = cards.length >= COLLAPSE_FROM && !isExpanded;
@@ -211,7 +212,6 @@ function titleOf(card: PendingContact): string {
   return card.channel === "whatsapp" ? `WhatsApp to ${card.personName}` : `Call with ${card.personName}`;
 }
 
-/** Re-reads the clock each minute, so "2 minutes ago" keeps counting while the card waits. */
 /**
  * The live line changes only when a card is added. It once read the newest card's title, so settling that card named
  * the one beneath it as if it had just arrived.
@@ -219,16 +219,16 @@ function titleOf(card: PendingContact): string {
 function useNewCardAnnouncement(cards: readonly PendingContact[]): string {
   const [announcement, setAnnouncement] = useState("");
   const seen = useRef(new Set<string>());
-  const newest = cards[0];
-  const ids = cards.map((card) => card.id).join(" ");
   useEffect(() => {
+    const newest = cards[0];
     const isNew = newest !== undefined && !seen.current.has(newest.id);
-    for (const id of ids.split(" ")) seen.current.add(id);
+    for (const card of cards) seen.current.add(card.id);
     if (isNew) setAnnouncement(`${titleOf(newest)} to log`);
-  }, [ids, newest]);
+  }, [cards]);
   return announcement;
 }
 
+/** Re-reads the clock each minute, so "2 minutes ago" keeps counting while the card waits. */
 function useMinuteClock(): Date {
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
