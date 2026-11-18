@@ -199,8 +199,20 @@ describe("activity presentation", () => {
   describe("previews", () => {
     it("shows a note's opening words, or that it was deleted", () => {
       expect(previewOf(line(1, "NOTE_ADDED", { noteExcerpt: "Open to a move", projectId: null })))
-        .toEqual({ type: "note", excerpt: "Open to a move", noteKind: "GENERAL", aboutThePerson: true, edited: null });
+        .toEqual({
+          type: "note",
+          excerpt: "Open to a move",
+          outcome: null,
+          noteKind: "GENERAL",
+          aboutThePerson: true,
+          edited: null,
+        });
       expect(previewOf(line(1, "NOTE_ADDED", { noteExcerpt: null }))).toMatchObject({ type: "note", excerpt: null });
+    });
+
+    it("carries how a logged call went, for a log with no words", () => {
+      expect(previewOf(line(1, "NOTE_ADDED", { noteExcerpt: "", details: { kind: "CALL", outcome: "NO_ANSWER" } })))
+        .toMatchObject({ type: "note", excerpt: "", outcome: "no_answer", noteKind: "CALL" });
     });
 
     it("says a note was edited since, and by whom, on its one line", () => {

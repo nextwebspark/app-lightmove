@@ -176,6 +176,30 @@ class OutreachConversationIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("a logged call is a row's latest activity, as it is the conversation's")
+    void aLoggedCallIsLatestActivity() throws Exception {
+        String priya = executive("Priya Raman", "priya@" + domain);
+        String rajesh = executive("Rajesh Menon", "rajesh@" + domain);
+        start(createSequence("First approach"), List.of(person(priya, "priya@" + domain, null),
+                person(rajesh, "rajesh@" + domain, null)));
+        Instant enrolledAt = Instant.parse(rowOf(conversations("view", "all"), rajesh).get("lastActivityAt").asText());
+
+        as(consultant, post("/api/v1/projects/" + projectId + "/candidates/" + rajesh + "/notes")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"kind":"call","outcome":"connected"}"""))
+                .andExpect(status().isCreated());
+
+        JsonNode all = conversations("view", "all");
+        Instant calledAt = Instant.parse(rowOf(all, rajesh).get("lastActivityAt").asText());
+        assertThat(calledAt).isAfter(enrolledAt);
+        assertThat(candidateIdsOf(all)).containsExactly(rajesh, priya);
+        JsonNode pane = body(as(consultant, get(outreach("/conversations/" + rajesh))).andExpect(status().isOk())
+                .andReturn());
+        assertThat(Instant.parse(pane.get("keyDates").get("lastActivityAt").asText())).isEqualTo(calledAt);
+    }
+
+    @Test
     @DisplayName("the search finds people by name, title or employer, and by the words of what was sent to them")
     void theSearchReadsNamesAndEmails() throws Exception {
         String priya = executive("Priya Raman", "priya@" + domain);

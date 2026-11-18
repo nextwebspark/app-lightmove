@@ -61,15 +61,28 @@ export function writePending(pending: readonly PendingContact[]): void {
   }
 }
 
-/** The newest first; pressing the same number again on the same person only freshens its card. */
+/**
+ * The newest first; pressing the same number again on the same person only freshens its card. Copy and Call both log
+ * a call, so a Copy then a Call of one number is one card, not two.
+ */
 export function withPending(pending: readonly PendingContact[], added: PendingContact): PendingContact[] {
   const kept = pending.filter(
-    (held) => !(held.candidateId === added.candidateId && held.number === added.number && held.channel === added.channel),
+    (held) =>
+      !(
+        held.candidateId === added.candidateId &&
+        held.number === added.number &&
+        logsAsWhatsApp(held.channel) === logsAsWhatsApp(added.channel)
+      ),
   );
   return [added, ...kept];
 }
 
-function isFresh(pending: PendingContact, now: number): boolean {
+function logsAsWhatsApp(channel: PendingChannel): boolean {
+  return channel === "whatsapp";
+}
+
+/** Within the 12 hours; a tab left open past them stops offering the card, as a reload would. */
+export function isFresh(pending: PendingContact, now: number): boolean {
   const at = Date.parse(pending.at);
   return !Number.isNaN(at) && now - at < PENDING_EXPIRY_MS;
 }

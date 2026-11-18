@@ -265,8 +265,9 @@ public class ConversationService {
         Map<UUID, OutreachRunResponse> runResponses = monitor.runsOf(workspaceId, projectId,
                         List.copyOf(latestRuns.values())).stream()
                 .collect(Collectors.toMap(OutreachRunResponse::id, Function.identity()));
-        Set<UUID> met = new HashSet<>(personMeetings.findPersonIdsMetAmong(workspaceId,
-                executives.stream().map(PipelineRowResponse::personId).toList()));
+        List<UUID> personIds = executives.stream().map(PipelineRowResponse::personId).toList();
+        Set<UUID> met = new HashSet<>(personMeetings.findPersonIdsMetAmong(workspaceId, personIds));
+        Map<UUID, Instant> latestNotes = notes.latestNoteAtOfEach(workspaceId, projectId, personIds);
 
         return executives.stream().map(executive -> {
             UUID personId = executive.personId();
@@ -275,7 +276,7 @@ public class ConversationService {
             return QueueEntry.of(executive, tasks.getOrDefault(executive.candidateId(), List.of()), run,
                     run == null ? null : runResponses.get(run.getId()), latestMessages.get(personId),
                     tally == null ? null : tally.getLastSentAt(), ownSends.get(personId),
-                    senders.getOrDefault(personId, Set.of()), met.contains(personId));
+                    senders.getOrDefault(personId, Set.of()), met.contains(personId), latestNotes.get(personId));
         }).toList();
     }
 
@@ -386,7 +387,7 @@ public class ConversationService {
 
         static QueueEntry of(PipelineRowResponse executive, List<CandidateOpenTaskDto> tasks, OutreachEnrollment run,
                              OutreachRunResponse runResponse, OutreachMessage latestMessage, Instant lastSentAt,
-                             Instant ownSendAt, Set<UUID> senders, boolean met) {
+                             Instant ownSendAt, Set<UUID> senders, boolean met, Instant latestNoteAt) {
             Instant runEnded = run == null ? null : OutreachMonitorService.endedAtOf(run);
             CandidateOpenTaskDto bounceTask = firstWithRule(tasks, CandidateOpenTaskDto.BOUNCE_RULE);
             CandidateOpenTaskDto replyTask = firstWithRule(tasks, CandidateOpenTaskDto.REPLY_RULE);
@@ -409,8 +410,10 @@ public class ConversationService {
             }
             Instant scheduledAt = Stream.of(run != null && run.isLive() ? run.getNextSendAt() : null, ownSendAt)
                     .filter(Objects::nonNull).min(Comparator.naturalOrder()).orElse(null);
+            // A logged call or WhatsApp is activity too: the row once kept last month's email while the pane it opens
+            // said today.
             Instant lastActivityAt = Stream.of(latestMessage == null ? null : latestMessage.getOccurredAt(),
-                            run == null ? null : run.getEnrolledAt(), runEnded)
+                            run == null ? null : run.getEnrolledAt(), runEnded, latestNoteAt)
                     .filter(Objects::nonNull).max(Comparator.naturalOrder()).orElse(null);
             return new QueueEntry(executive, group, action, run, runResponse, latestMessage, lastSentAt, scheduledAt,
                     lastActivityAt, senders, met, !tasks.isEmpty());

@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -260,6 +260,30 @@ describe("the log-it tray", () => {
     await userEvent.click(within(tray()).getByRole("button", { name: "Wrong number" }));
     await screen.findByText("Call logged · Wrong number");
     expect(document.documentElement.style.getPropertyValue("--toast-stack-height")).not.toBe("0px");
+  });
+
+  it("names the card beneath as nothing new once the newest is settled", async () => {
+    seed([card("k2", { personName: "Priya Raman", candidateId: "c2" }), card("k1")]);
+    renderTray();
+
+    expect(screen.getByRole("status")).toHaveTextContent("Call with Priya Raman to log");
+    await userEvent.click(within(tray()).getByRole("button", { name: /Not now — don't log the call with Priya Raman/ }));
+
+    expect(screen.getByText("Call with Fatima Al Mazrouei")).toBeInTheDocument();
+    expect(screen.getByRole("status")).not.toHaveTextContent("Fatima Al Mazrouei");
+  });
+
+  it("lets a card go once twelve hours pass in a tab left open", () => {
+    vi.useFakeTimers({ toFake: ["Date", "setInterval", "clearInterval"] });
+    vi.setSystemTime(new Date("2026-11-16T09:32:00Z"));
+    seed([card("k1")]);
+    renderTray();
+    expect(screen.getByText("Call with Fatima Al Mazrouei")).toBeInTheDocument();
+
+    vi.setSystemTime(new Date("2026-11-16T21:31:00Z"));
+    act(() => vi.advanceTimersByTime(60_000));
+
+    expect(screen.queryByText("Call with Fatima Al Mazrouei")).not.toBeInTheDocument();
   });
 
   it("never shows another workspace's cards", () => {
