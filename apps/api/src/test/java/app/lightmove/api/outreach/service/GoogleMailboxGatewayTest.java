@@ -20,6 +20,7 @@ import app.lightmove.api.outreach.constant.IntegrationProvider;
 import app.lightmove.api.outreach.constant.MeetingVideo;
 import app.lightmove.api.outreach.model.BusyInterval;
 import app.lightmove.api.outreach.model.CalendarEvent;
+import app.lightmove.api.outreach.model.CalendarRead;
 import app.lightmove.api.outreach.model.GrantedMailbox;
 import app.lightmove.api.outreach.model.MailboxGrants;
 import app.lightmove.api.outreach.model.NewCalendarEvent;
@@ -289,6 +290,20 @@ class GoogleMailboxGatewayTest {
     }
 
     @Test
+    @DisplayName("a calendar read stopped at its page cap says it is cut short, so nothing it missed reads as gone")
+    void aReadPastThePageCapIsCutShort() {
+        String grantId = MailboxGrants.mintDirect("google");
+        when(mailboxTokens.accessToken(grantId)).thenReturn("access-for-yara");
+        google.answersEndlessEventPages();
+
+        CalendarRead read = gateway.calendarEvents(grantId, Instant.parse("2026-07-05T00:00:00Z"),
+                Instant.parse("2027-01-01T00:00:00Z"));
+
+        assertThat(read.complete()).isFalse();
+        assertThat(read.events()).hasSize(OAuthDirectMailboxGateway.MAX_EVENT_PAGES);
+    }
+
+    @Test
     @DisplayName("free/busy is the address's busy list; a calendar Google could not read is a failure, never free time")
     void freeBusyFailsOnAnUnreadableCalendar() {
         String grantId = MailboxGrants.mintDirect("google");
@@ -523,6 +538,7 @@ class GoogleMailboxGatewayTest {
         private volatile int createEventStatus = 200;
         private volatile int cancelEventStatus = 204;
         private volatile boolean freeBusyErrors;
+        private volatile boolean endlessEventPages;
 
         void answer(HttpExchange exchange) throws IOException {
             String path = exchange.getRequestURI().getPath();
@@ -575,7 +591,9 @@ class GoogleMailboxGatewayTest {
                 respond(exchange, found == null || id.equals("m4") ? 403 : 200,
                         found == null || id.equals("m4") ? "{\"error\":{\"code\":403}}" : found.toString());
             } else if (key.equals("GET /api/calendar/v3/calendars/primary/events")) {
-                respond(exchange, 200, exchange.getRequestURI().getQuery().contains("pageToken=page-2") ? """
+                boolean lastPage = !endlessEventPages
+                        && exchange.getRequestURI().getQuery().contains("pageToken=page-2");
+                respond(exchange, 200, lastPage ? """
                         {"items":[
                           {"id":"evt-page-2","status":"confirmed","summary":"Debrief",
                            "start":{"dateTime":"2026-10-08T10:00:00+04:00"},"end":{"dateTime":"2026-10-08T10:30:00+04:00"},
@@ -627,6 +645,10 @@ class GoogleMailboxGatewayTest {
 
         void cancelEventAnswers(int status) {
             this.cancelEventStatus = status;
+        }
+
+        void answersEndlessEventPages() {
+            this.endlessEventPages = true;
         }
 
         void freeBusyAnswersErrors() {
