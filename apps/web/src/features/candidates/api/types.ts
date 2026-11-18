@@ -226,6 +226,9 @@ export interface AddedBy {
 export interface SaveCandidatePayload {
   /** The Add form's LinkedIn lookup found this profile: the save files that research. */
   lookedUpProfile?: boolean;
+  /** Why they left, for an add straight to a way out that offers reasons. */
+  exitReasonId?: string;
+  exitNote?: string | null;
   triageCompanyId?: string | null;
   fullName: string;
   title?: string;

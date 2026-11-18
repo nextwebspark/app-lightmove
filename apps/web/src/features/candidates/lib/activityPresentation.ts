@@ -471,7 +471,7 @@ export type ActivityPreview =
   | { type: "email"; label: string; detail: string | null }
   | { type: "document"; title: string | null; noun: string; version: string | null }
   | { type: "task"; title: string; dueAt: string | null; assignee: string | null }
-  | { type: "origin"; door: string | null; mapped: boolean }
+  | { type: "origin"; door: string | null; mapped: boolean; reason: string | null }
   | { type: "assessment"; label: string };
 
 /** How many changes a card lists before "+N more". */
@@ -576,7 +576,12 @@ export function previewOf(entry: PersonTimelineEntry, catalog?: PipelineCatalog 
         : null;
     case "ADDED_TO_POOL":
     case "MAPPED":
-      return { type: "origin", door: doorOf(details.door), mapped: entry.kind === "MAPPED" };
+      return {
+        type: "origin",
+        door: doorOf(details.door),
+        mapped: entry.kind === "MAPPED",
+        reason: details.reason ?? null,
+      };
     case "AI_ASSESSED":
       return details.scope === "BACKGROUND" ? null : { type: "assessment", label: "Scored against this brief" };
   }

@@ -127,7 +127,13 @@ public record SaveCandidateRequest(
          * True from the Add form when its LinkedIn lookup found this profile: the save files that research, or, when the
          * server no longer holds it, researches the profile in the background as a capture does. Read on a hand-typed add.
          */
-        Boolean lookedUpProfile
+        Boolean lookedUpProfile,
+
+        /** Why they left, where {@code status} is a way out that offers reasons; read on an add and a status move. */
+        UUID exitReasonId,
+
+        @Size(max = 500, message = "Keep the note to 500 characters")
+        String exitNote
 ) {
 
     /** An executive found by a people search: who and where they are, everything else left to research. */
@@ -136,7 +142,7 @@ public record SaveCandidateRequest(
                                                         String locationCity) {
         return new SaveCandidateRequest(triageCompanyId, fullName, title, null, null, null, null, null, null, null,
                 linkedinUrl, locationCountry, locationCity, null, null, null, null, null, null, null, null, null,
-                null, null, null, null, null, null);
+                null, null, null, null, null, null, null, null);
     }
 
     /** The same write, landing at the company the server resolved for it. */
@@ -144,6 +150,6 @@ public record SaveCandidateRequest(
         return new SaveCandidateRequest(resolvedTriageCompanyId, fullName, title, seniority, status, employerName,
                 email, phone, emails, phones, linkedinUrl, locationCountry, locationCity, nationality, gender,
                 yearsExperience, summary, note, compensation, career, languages, source, sourceUrl, customFields,
-                confirmBackground, addAsNewPerson, existingPersonId, lookedUpProfile);
+                confirmBackground, addAsNewPerson, existingPersonId, lookedUpProfile, exitReasonId, exitNote);
     }
 }

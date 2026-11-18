@@ -63,7 +63,12 @@ export interface StatusGroup {
  * What the picker offers: the live stages in order, each with its live statuses that match the query. A status the
  * person holds is kept though retired, so the picker never reads as if they stood nowhere.
  */
-export function pickableGroups(catalog: PipelineCatalog, query: string, heldKey: string | null): StatusGroup[] {
+export function pickableGroups(
+  catalog: PipelineCatalog,
+  query: string,
+  heldKey: string | null,
+  inProcessOnly = false,
+): StatusGroup[] {
   const typed = query.trim().toLowerCase();
   return [...catalog.stages]
     .sort((a, b) => a.position - b.position)
@@ -73,6 +78,7 @@ export function pickableGroups(catalog: PipelineCatalog, query: string, heldKey:
       statuses: [...stage.statuses]
         .sort((a, b) => a.position - b.position)
         .filter((status) => !status.retired || status.key === heldKey)
+        .filter((status) => !inProcessOnly || !status.outOfProcess || status.key === heldKey)
         .filter((status) => !typed || status.label.toLowerCase().includes(typed) || stage.label.toLowerCase().includes(typed)),
     }))
     .filter((group) => group.statuses.length > 0);

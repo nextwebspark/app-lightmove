@@ -457,7 +457,8 @@ class CandidatePoolIntegrationTest extends FlowTestSupport {
                  "status":"engaged","note":"Shortlist for the board."}""").get("id").asText();
         add(second, """
                 {"fullName":"Aisha Karim","linkedinUrl":"https://www.linkedin.com/in/aisha-karim",
-                 "status":"notInterested","note":"Declined the credit role: competing client."}""");
+                 "status":"notInterested","exitReasonId":"%s",
+                 "note":"Declined the credit role: competing client."}""".formatted(exitReasonId(adminToken, "company")));
 
         String clientEmail = "client@pool-client-" + domain;
         mvc.perform(post("/api/v1/projects/" + first + "/representatives/invitations")

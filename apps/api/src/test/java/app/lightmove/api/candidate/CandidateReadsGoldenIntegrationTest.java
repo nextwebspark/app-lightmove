@@ -93,7 +93,8 @@ class CandidateReadsGoldenIntegrationTest extends FlowTestSupport {
         // The same person on a second mandate, with that mandate's own decision about her.
         JsonNode yasminOnTreasury = candidate(admin, treasury, """
                 {"fullName":"Yasmin El-Sayed","linkedinUrl":"https://linkedin.com/in/Golden-Yasmin/",
-                 "status":"notInterested","note":"Not for treasury."}""");
+                 "status":"notInterested","exitReasonId":"%s","note":"Not for treasury."}"""
+                .formatted(exitReasonId(admin, "scope")));
         alias(yasminOnTreasury.get("id").asText(), "candidate:yasmin@treasury");
         assertThat(yasminOnTreasury.get("personId").asText()).isEqualTo(yasmin.get("personId").asText());
 

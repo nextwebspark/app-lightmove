@@ -654,6 +654,10 @@ class ProjectFlowIntegrationTest extends FlowTestSupport {
         String companyClause = triageCompanyId == null ? ""
                 : "\"triageCompanyId\":\"%s\",".formatted(triageCompanyId);
         String statusClause = status == null ? "" : ",\"status\":\"%s\"".formatted(status);
+        if ("notInterested".equals(status)) {
+            // A way out that asks why is given a reason, as the Add form asks for one.
+            statusClause += ",\"exitReasonId\":\"%s\"".formatted(exitReasonId(token, "timing"));
+        }
         mvc.perform(post("/api/v1/projects/" + projectId + "/candidates")
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
