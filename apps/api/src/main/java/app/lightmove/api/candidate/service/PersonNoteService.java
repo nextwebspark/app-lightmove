@@ -6,6 +6,7 @@ import app.lightmove.api.candidate.constant.PersonNoteKind;
 import app.lightmove.api.candidate.dto.PersonNoteResponse;
 import app.lightmove.api.candidate.dto.WritePersonNoteRequest;
 import app.lightmove.api.candidate.model.Candidate;
+import app.lightmove.api.candidate.model.LatestNoteRow;
 import app.lightmove.api.candidate.model.NoteOccurrence;
 import app.lightmove.api.candidate.model.NoteViewpoint;
 import app.lightmove.api.candidate.model.Person;
@@ -30,6 +31,8 @@ import app.lightmove.api.project.model.Project;
 import app.lightmove.api.project.repository.ProjectRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Clock;
+import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -38,6 +41,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Limit;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -120,7 +124,7 @@ public class PersonNoteService {
         NoteOutcome outcome = loggedNotes.outcomeOf(request, kind, note.getOutcome(), body);
         NoteOccurrence occurrence = loggedNotes.revisedOccurrence(current, request, kind, workspaceId,
                 note.getProjectId(), personId);
-        note.revise(kind, outcome, body, formatOf(request), userId);
+        note.revise(kind, outcome, body, revisedFormatOf(request, note.getBodyFormat()), userId);
         note.placeAt(occurrence);
         mentions.keep(note, userId);
         audit.event(ProjectEventType.PERSON_NOTE_EDITED).actor(userId).workspace(workspaceId)
@@ -165,9 +169,13 @@ public class PersonNoteService {
         if (!deleted.getAuthorUserId().equals(userId) && !mayEditAny(userId, workspaceId)) {
             throw ApiException.of(ErrorCode.PERSON_NOTE_NOT_YOURS);
         }
-        PersonNote twin = deleted.getOutcome() != null ? null
-                : notes.findFirstByWorkspaceIdAndPersonIdAndProjectIdAndBodyAndAuthorUserIdAndOutcomeIsNull(
-                        workspaceId, personId, deleted.getProjectId(), deleted.getBody(), deleted.getAuthorUserId())
+        // Only a door's note has a door's twin. Matching on the words alone once answered an Undo of a meeting note
+        // with a general note in the same words, and left the meeting note to the purge. Trap: deleted_at is stamped
+        // by the injected Clock and created_at by Hibernate's system clock; the two agree only while the Clock bean is
+        // the system clock, so a fixed or offset Clock would hide every door's copy here.
+        PersonNote twin = !deleted.isFiledByADoor() ? null
+                : notes.findDoorRefiledSince(workspaceId, personId, deleted.getProjectId(), deleted.getBody(),
+                        deleted.getAuthorUserId(), deleted.getDeletedAt(), Limit.of(1)).stream().findFirst()
                         .orElse(null);
         if (twin != null) {
             return asItStands(userId, workspaceId, twin);
@@ -203,6 +211,16 @@ public class PersonNoteService {
                 .detail("pinned", Boolean.toString(pinned))
                 .record();
         return toDto(note, usersOf(List.of(note)), mayEdit(userId, workspaceId, note));
+    }
+
+    /** When each of these people's newest note this position reads happened, for the Outreach queue's last activity. */
+    @Transactional(readOnly = true)
+    public Map<UUID, Instant> latestNoteAtOfEach(UUID workspaceId, UUID projectId, Collection<UUID> personIds) {
+        if (personIds.isEmpty()) {
+            return Map.of();
+        }
+        return notes.findLatestNoteOfEachPerson(workspaceId, projectId, personIds, clock.instant()).stream()
+                .collect(Collectors.toMap(LatestNoteRow::getPersonId, LatestNoteRow::getAt));
     }
 
     /**
@@ -274,6 +292,17 @@ public class PersonNoteService {
 
     private static NoteFormat formatOf(WritePersonNoteRequest request) {
         return ApiValueEnum.parse(NoteFormat.class, request.format(), NoteFormat.PLAIN, "note format");
+    }
+
+    /**
+     * Kept words keep the format they were written in: an outcome-only edit once re-read a plain call's {@code *} and
+     * {@code 1.} as Markdown, and one sending no format turned a Markdown note's headings into raw {@code ##}.
+     */
+    private static NoteFormat revisedFormatOf(WritePersonNoteRequest request, NoteFormat current) {
+        if (request.body() == null) {
+            return current;
+        }
+        return ApiValueEnum.parse(NoteFormat.class, request.format(), current, "note format");
     }
 
     private Map<UUID, User> usersOf(List<PersonNote> found) {

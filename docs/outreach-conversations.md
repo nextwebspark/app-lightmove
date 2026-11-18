@@ -302,7 +302,9 @@ rows[], truncated)`. Each `ConversationRowResponse` carries the executive as the
 employer, `enrichedAt`, status key, label and colour), `group`, `action` (a `CandidateOpenTaskDto`: task id, title,
 kind, `rule`, `dueAt`, assignee), `run` (their latest run, the `OutreachRunResponse` the old table used),
 `latest{channel, direction, kind, at, preview}` (the first 140 characters of their latest line), `lastSentAt`,
-`scheduledAt` and `lastActivityAt`.
+`scheduledAt` and `lastActivityAt` — the latest of their newest line, run start or end, and newest note this position
+reads (a logged call or WhatsApp, by when it happened, never ahead of now), so a row says what its pane's Last updated
+says. A note alone still never puts someone in `all`.
 
 The list is answered whole, held to 500 rows with `truncated` set past that, as the old overview held its runs: a
 position maps hundreds of executives at most, so the cursor paging the plan sketched would only have cost a

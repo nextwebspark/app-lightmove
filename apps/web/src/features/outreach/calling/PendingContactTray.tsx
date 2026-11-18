@@ -1,4 +1,4 @@
-import { useEffect, useState, type KeyboardEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { NetworkMark } from "../../../components/ui/NetworkMark";
@@ -9,7 +9,7 @@ import { outcomeQuestionOf, outcomesOf } from "../../candidates/lib/noteOutcomes
 import { positionPipelinePath } from "../../pipeline/lib/pipelinePath";
 import { NoteComposerModal } from "../components/NoteComposerModal";
 import { usePendingContacts } from "./pendingContactsContext";
-import type { PendingContact } from "./pendingContactStore";
+import { isFresh, type PendingContact } from "./pendingContactStore";
 import { kindOfCard, useLogPendingContact } from "./useLogPendingContact";
 
 /** From this many cards on, the newest shows and the rest wait a press away. */
@@ -32,16 +32,17 @@ export function PendingContactTray() {
   const [isExpanded, setIsExpanded] = useState(false);
   const [writing, setWriting] = useState<Writing | null>(null);
   const now = useMinuteClock();
-  const cards = tray?.pending ?? [];
+  const pending = tray?.pending;
+  const cards = useMemo(() => (pending ?? []).filter((card) => isFresh(card, now.getTime())), [pending, now]);
+  const announcement = useNewCardAnnouncement(cards);
   if (!tray || (cards.length === 0 && !writing)) return null;
   const isCollapsed = cards.length >= COLLAPSE_FROM && !isExpanded;
   const shown = isCollapsed ? cards.slice(0, 1) : cards;
-  const newest = cards[0];
   return (
     <>
       {/* Announces a new card once; the cards stay out of the live region, their clock ticking each minute. */}
       <p className="sr-only" role="status">
-        {newest ? `${titleOf(newest)} to log` : ""}
+        {announcement}
       </p>
       {cards.length > 0 && (
         <div role="region" aria-label="Calls and messages to log" className="log-tray z-[97] flex flex-col gap-2">
@@ -209,6 +210,22 @@ function CardMark({ card }: { card: PendingContact }) {
 
 function titleOf(card: PendingContact): string {
   return card.channel === "whatsapp" ? `WhatsApp to ${card.personName}` : `Call with ${card.personName}`;
+}
+
+/**
+ * The live line changes only when a card is added. It once read the newest card's title, so settling that card named
+ * the one beneath it as if it had just arrived.
+ */
+function useNewCardAnnouncement(cards: readonly PendingContact[]): string {
+  const [announcement, setAnnouncement] = useState("");
+  const seen = useRef(new Set<string>());
+  useEffect(() => {
+    const newest = cards[0];
+    const isNew = newest !== undefined && !seen.current.has(newest.id);
+    for (const card of cards) seen.current.add(card.id);
+    if (isNew) setAnnouncement(`${titleOf(newest)} to log`);
+  }, [cards]);
+  return announcement;
 }
 
 /** Re-reads the clock each minute, so "2 minutes ago" keeps counting while the card waits. */

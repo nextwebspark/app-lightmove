@@ -1,6 +1,12 @@
 import type { ReactNode } from "react";
 import { ICONS } from "../../../components/layout/Icon";
-import type { FieldChange, PersonActivityKind, PersonNoteKind, PersonTimelineEntry } from "../api/types";
+import type {
+  FieldChange,
+  NoteOutcome,
+  PersonActivityKind,
+  PersonNoteKind,
+  PersonTimelineEntry,
+} from "../api/types";
 import {
   consentAnswerPhrase,
   consentPurposePhrase,
@@ -13,6 +19,7 @@ import {
 import { formatFull, formatInstantTime, formatWeekdayDate, formatWeekdayDateTime } from "../../../lib/datetime";
 import type { PipelineCatalog } from "../../workspace/api/types";
 import { noteKindOf } from "./noteKinds";
+import { noteOutcomeOf } from "./noteOutcomes";
 import { isOutOfProcess } from "./pipelineStatus";
 
 /**
@@ -463,7 +470,14 @@ export interface NoteEdit {
 
 /** What a card shows under its first line; the dialog then shows the rest. */
 export type ActivityPreview =
-  | { type: "note"; excerpt: string | null; noteKind: string; aboutThePerson: boolean; edited: NoteEdit | null }
+  | {
+      type: "note";
+      excerpt: string | null;
+      outcome: NoteOutcome | null;
+      noteKind: string;
+      aboutThePerson: boolean;
+      edited: NoteEdit | null;
+    }
   | { type: "status"; from: string | null; to: string; leftProcess: boolean; cause: string | null; reason: string | null }
   | { type: "changes"; changes: FieldChange[]; hidden: number }
   | { type: "fields"; labels: string[] }
@@ -511,6 +525,7 @@ export function previewOf(entry: PersonTimelineEntry, catalog?: PipelineCatalog 
       return {
         type: "note",
         excerpt: entry.noteExcerpt,
+        outcome: noteOutcomeOf(details.outcome),
         noteKind: details.kind ?? "GENERAL",
         aboutThePerson: entry.projectId === null,
         edited: entry.noteEditedAt ? { at: entry.noteEditedAt, byName: entry.noteEditedByName } : null,
