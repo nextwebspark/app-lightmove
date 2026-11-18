@@ -1,6 +1,7 @@
 package app.lightmove.api.enrichment.candidate.service;
 
 import app.lightmove.api.candidate.model.CandidateCapturedEvent;
+import app.lightmove.api.candidate.model.CandidateProfileCorrectedEvent;
 import app.lightmove.api.candidate.model.EnrichedProfile;
 import app.lightmove.api.candidate.service.CandidateService;
 import lombok.RequiredArgsConstructor;
@@ -42,6 +43,20 @@ class CandidateEnrichmentWorker {
             log.info("Candidate {} was enriched by a concurrent event", event.candidateId());
         } catch (RuntimeException ex) {
             log.error("Failed to enrich candidate {}", event.candidateId(), ex);
+        }
+    }
+
+    /** A corrected address's research; nothing found leaves the person's research as it was. */
+    @Async
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    void researchCorrected(CandidateProfileCorrectedEvent event) {
+        try {
+            enricher.fetch(event.linkedinUrl()).ifPresentOrElse(
+                    profile -> candidates.applyCorrectedResearch(event.projectId(), event.candidateId(),
+                            event.linkedinUrl(), profile),
+                    () -> log.info("No research found for the corrected profile of candidate {}", event.candidateId()));
+        } catch (RuntimeException ex) {
+            log.error("Failed to research the corrected profile of candidate {}", event.candidateId(), ex);
         }
     }
 

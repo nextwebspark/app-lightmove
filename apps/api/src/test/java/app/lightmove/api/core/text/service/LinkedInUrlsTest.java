@@ -27,6 +27,20 @@ class LinkedInUrlsTest {
     }
 
     @Test
+    @DisplayName("only two different vanity profiles name another person; a member-id address may be the same human")
+    void namesAnotherPerson() {
+        String member = "https://www.linkedin.com/in/ACoAABcdEfGhIjKlMnOpQrSt";
+        assertThat(LinkedInUrls.namesAnotherPerson("https://www.linkedin.com/in/jane-doe",
+                "https://www.linkedin.com/in/john-roe")).isTrue();
+        assertThat(LinkedInUrls.namesAnotherPerson("https://www.linkedin.com/in/jane-doe",
+                "linkedin.com/in/Jane-Doe/?trk=public")).isFalse();
+        assertThat(LinkedInUrls.namesAnotherPerson(member, "https://www.linkedin.com/in/jane-doe")).isFalse();
+        assertThat(LinkedInUrls.namesAnotherPerson("https://www.linkedin.com/in/jane-doe", member)).isFalse();
+        assertThat(LinkedInUrls.namesAnotherPerson(null, "https://www.linkedin.com/in/jane-doe")).isFalse();
+        assertThat(LinkedInUrls.namesAnotherPerson("https://www.linkedin.com/in/jane-doe", null)).isFalse();
+    }
+
+    @Test
     @DisplayName("a company URL yields its slug the same way")
     void aCompanyUrlYieldsItsSlug() {
         assertThat(LinkedInUrls.companySlugOrNull("https://www.linkedin.com/company/FINEOS/"))

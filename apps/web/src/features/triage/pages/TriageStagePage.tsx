@@ -383,11 +383,14 @@ function TriageStage() {
    * entirely: only an import defines one, and the import dialog refreshes them itself.
    */
   const refreshWhatMoved = (kinds: ProjectStreamKind[]) => {
-    // A move changes which companies a stage lists and its badges, not only its people.
-    if (kinds.some((kind) => kind.startsWith("company-") || kind === "candidate-moved")) {
+    // A move changes which companies a stage lists and its badges, not only its people; an edit changes the lines.
+    if (
+      kinds.some((kind) => kind.startsWith("company-") || kind === "candidate-moved" || kind === "candidate-edited")
+    ) {
       refreshEveryStage();
     }
-    if (kinds.some((kind) => kind.startsWith("candidate-"))) {
+    // A renamed company is renamed on everyone mapped there.
+    if (kinds.some((kind) => kind.startsWith("candidate-") || kind === "company-edited")) {
       refreshPeople();
     }
     if (kinds.includes("executive-sourcing")) {
@@ -1080,7 +1083,7 @@ function TriageStage() {
           onChangeCandidateStatus={(candidate, status) => {
             markBusy(candidate.id);
             changeCandidateStatus.mutate(
-              { candidateId: candidate.id, status, previous: candidate.status },
+              { candidateId: candidate.id, name: candidate.fullName, status, previous: candidate.status },
               { onSettled: () => clearBusy(candidate.id) },
             );
           }}
@@ -1139,7 +1142,14 @@ function TriageStage() {
         customColumns={companyColumns}
         canWrite={canWrite}
         onClose={() => setOpenCompany(null)}
-        onSaved={refreshEverything}
+        onSaved={(saved) => {
+          if (saved) {
+            setOpenCompany((held) =>
+              held?.company?.id === saved.id ? { ...held, company: withSavedFacts(held.company, saved) } : held,
+            );
+          }
+          refreshEverything();
+        }}
         onMove={(company, status) => {
           setOpenCompany(null);
           void requestMove(company, status);
@@ -1243,6 +1253,7 @@ function TriageStage() {
         onCancel={() => setPendingCandidateRemoval(null)}
         onConfirm={(candidate, { withCompany }) => removeCandidate.mutate({ candidate, withCompany })}
       />
+      {changeCandidateStatus.dialog}
     </div>
   );
 }
@@ -1286,6 +1297,22 @@ interface OpenProfile {
  * "closed" and "open on a new company" are both null on their own and the panel has to tell them
  * apart — one shows nothing, the other shows the Add form.
  */
+/**
+ * The panel's company after its own save. Kept rather than reread from the grid, it went on showing the facts it
+ * opened with, and the next edit, a full replace, wrote them back. A write's answer carries none of the staff reads'
+ * fields, so those stay as the panel had them.
+ */
+function withSavedFacts(held: TriageCompany, saved: TriageCompany): TriageCompany {
+  return {
+    ...saved,
+    noteCount: held.noteCount,
+    addedAt: held.addedAt,
+    addedByUserId: held.addedByUserId,
+    addedByName: held.addedByName,
+    addedByAvatarUrl: held.addedByAvatarUrl,
+  };
+}
+
 interface OpenCompany {
   company: TriageCompany | null;
   /** The panel's tab to open on; its Overview when not said. */

@@ -6,6 +6,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import app.lightmove.api.IntegrationTest;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.test.web.servlet.MvcResult;
 import tools.jackson.databind.JsonNode;
 
 /**
@@ -88,6 +89,27 @@ class CandidateCompanyResolutionIntegrationTest extends PipelineFlowSupport {
 
         assertThat(added.get("triageCompanyId").isNull()).isTrue();
         assertThat(added.get("companyName").asText()).isEqualTo("Outside Holdings");
+    }
+
+    @Test
+    @DisplayName("a namesake at the company their employer now names leaves them at no company, and the save goes through")
+    void aNamesakeAtTheEmployerDoesNotRefuseTheirEdits() throws Exception {
+        firm("Namesake Employer Firm");
+        String projectId = mandate("Head of Retail");
+        String unmappedId = add(projectId, """
+                {"fullName":"John Smith","employerName":"Spinneys Group"}""").get("id").asText();
+        String companyId = capture(projectId, "Spinneys Group");
+        add(projectId, """
+                {"triageCompanyId":"%s","fullName":"John Smith","addAsNewPerson":true}""".formatted(companyId));
+
+        MvcResult edited = write(admin, "PUT", candidatesUrl(projectId) + "/" + unmappedId, """
+                {"fullName":"John Smith","employerName":"Spinneys Group","summary":"Retail operations lead."}""");
+
+        assertThat(edited.getResponse().getStatus()).isEqualTo(200);
+        JsonNode saved = body(edited);
+        assertThat(saved.get("triageCompanyId").isNull()).isTrue();
+        assertThat(saved.get("companyName").asText()).isEqualTo("Spinneys Group");
+        assertThat(saved.get("summary").asText()).isEqualTo("Retail operations lead.");
     }
 
     private JsonNode replace(String projectId, String candidateId, String json) throws Exception {

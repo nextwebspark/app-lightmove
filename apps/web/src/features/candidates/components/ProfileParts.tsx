@@ -48,6 +48,7 @@ export function PersonHeaderLayout({
   linkedinUrl,
   nameAction,
   title,
+  statusLine,
   contacts,
   onEditContacts,
   onShowContacts,
@@ -64,6 +65,11 @@ export function PersonHeaderLayout({
   linkedinUrl: string | null;
   nameAction?: ReactNode;
   title: string | null;
+  /**
+   * One line under the title, the same height whatever it holds — the stage and days in it, or why they left — so a
+   * status change never moves the header.
+   */
+  statusLine?: ReactNode;
   contacts: CandidateContacts;
   /** Opens the contact details window: the pencil, "+N" and the Add links. Absent for a reader who may not edit. */
   onEditContacts?: () => void;
@@ -91,6 +97,7 @@ export function PersonHeaderLayout({
             {nameAction}
           </span>
           <p className="mt-0.5 truncate font-mono text-note text-u-text2">{title ?? "—"}</p>
+          {statusLine !== undefined && <div className="mt-0.5 flex h-5 min-w-0 items-center">{statusLine}</div>}
           <HeaderEmployerLine employer={employer} location={location} />
           <HeaderContacts
             contacts={contacts}

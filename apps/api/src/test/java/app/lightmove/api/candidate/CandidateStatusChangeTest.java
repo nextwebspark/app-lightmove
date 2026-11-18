@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.test.web.servlet.MvcResult;
 import tools.jackson.databind.JsonNode;
 
 /**
@@ -66,8 +67,7 @@ class CandidateStatusChangeTest extends PipelineFlowSupport {
                 {"stageId":"%s","label":"Waiting on board"}""".formatted(ourInterested))), "waitingOnBoard")
                 .get("id").asText();
         assertThat(moveTo(projectId, candidateId, "waitingOnBoard").getResponse().getStatus()).isEqualTo(200);
-        write(admin, "PATCH", PIPELINE + "/statuses/" + waiting, """
-                {"retired":true}""");
+        retiredWhileHeld(waiting);
 
         String other = add(projectId, """
                 {"fullName":"Hana Aziz"}""").get("id").asText();
@@ -114,6 +114,29 @@ class CandidateStatusChangeTest extends PipelineFlowSupport {
                 {"fullName":"Omar Farouk","title":"Group CFO"}""");
         assertThat(read(projectId, candidateId).get("status").asText()).isEqualTo("interested");
         assertThat(statusLines(projectId, candidateId)).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("a save that repeats a retired status they still hold (retired before holders blocked it) edits the profile")
+    void aRetiredStatusTheyHoldDoesNotRefuseAnEdit() throws Exception {
+        firm("Status Retired Edit Firm");
+        String projectId = mandate("Chief Financial Officer");
+        String interested = stageIn(catalog(), "interested").get("id").asText();
+        String waiting = statusIn(body(write(admin, "POST", PIPELINE + "/statuses", """
+                {"stageId":"%s","label":"Waiting on board"}""".formatted(interested))), "waitingOnBoard")
+                .get("id").asText();
+        String candidateId = add(projectId, """
+                {"fullName":"Laila Haddad","status":"waitingOnBoard"}""").get("id").asText();
+        retiredWhileHeld(waiting);
+
+        MvcResult edited = write(admin, "PUT", candidatesUrl(projectId) + "/" + candidateId, """
+                {"fullName":"Laila Haddad","title":"Group CFO","status":"waitingOnBoard"}""");
+
+        assertThat(edited.getResponse().getStatus()).isEqualTo(200);
+        JsonNode held = read(projectId, candidateId);
+        assertThat(held.get("title").asText()).isEqualTo("Group CFO");
+        assertThat(held.get("status").asText()).isEqualTo("waitingOnBoard");
+        assertThat(statusLines(projectId, candidateId)).isEmpty();
     }
 
     @Test
@@ -197,6 +220,34 @@ class CandidateStatusChangeTest extends PipelineFlowSupport {
                         .header("Authorization", "Bearer " + admin))
                 .andExpect(status().isOk())
                 .andReturn());
+    }
+
+    @Test
+    @DisplayName("a status anyone holds is not retired, alone or with its stage, until they are moved off it")
+    void aHeldStatusIsNotRetired() throws Exception {
+        firm("Status Held Retire Firm");
+        String projectId = mandate("Chief Financial Officer");
+        String interested = stageIn(catalog(), "interested").get("id").asText();
+        String waiting = statusIn(body(write(admin, "POST", PIPELINE + "/statuses", """
+                {"stageId":"%s","label":"Waiting on board"}""".formatted(interested))), "waitingOnBoard")
+                .get("id").asText();
+        String candidateId = add(projectId, """
+                {"fullName":"Samir Aoun","status":"waitingOnBoard"}""").get("id").asText();
+
+        assertThat(codeOf(write(admin, "PATCH", PIPELINE + "/statuses/" + waiting, """
+                {"retired":true}"""))).isEqualTo("PIPELINE_STATUS_HELD");
+        assertThat(codeOf(write(admin, "PATCH", PIPELINE + "/stages/" + interested, """
+                {"retired":true,"retireStatuses":true}"""))).isEqualTo("PIPELINE_STATUS_HELD");
+        assertThat(statusIn(catalog(), "waitingOnBoard").get("retired").asBoolean()).isFalse();
+
+        moveTo(projectId, candidateId, "contacted");
+        assertThat(write(admin, "PATCH", PIPELINE + "/statuses/" + waiting, """
+                {"retired":true}""").getResponse().getStatus()).isEqualTo(200);
+    }
+
+    /** A status retired while someone held it, as the workspace could before holders blocked a retire. */
+    private void retiredWhileHeld(String statusId) {
+        db.update("UPDATE app_lm_workspace_candidate_status SET retired_at = now() WHERE id = ?::uuid", statusId);
     }
 
     private List<JsonNode> statusLines(String projectId, String candidateId) throws Exception {

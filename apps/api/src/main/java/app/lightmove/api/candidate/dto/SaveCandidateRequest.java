@@ -1,7 +1,8 @@
 package app.lightmove.api.candidate.dto;
 
-import app.lightmove.api.core.email.service.EmailAddressNormaliser;
+import app.lightmove.api.candidate.model.CandidateProfile;
 import app.lightmove.api.candidate.model.PersonNote;
+import app.lightmove.api.core.email.service.EmailAddressNormaliser;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.Max;
@@ -87,11 +88,11 @@ public record SaveCandidateRequest(
         @Valid
         CandidateCompensationDto compensation,
 
-        @Size(max = 25, message = "A career history holds 25 posts at most")
+        @Size(max = CandidateProfile.MOST_CAREER_POSTS, message = "A career history holds {max} posts at most")
         List<@Valid CandidateCareerEntryDto> career,
 
-        @Size(max = 20, message = "20 languages is more than anyone speaks")
-        List<@Size(max = 60) String> languages,
+        @Size(max = CandidateProfile.MOST_LANGUAGES, message = "{max} languages is more than anyone speaks")
+        List<@Size(max = CandidateProfile.LONGEST_LANGUAGE) String> languages,
 
         /** A {@code CandidateSource} wire token. Omitted means typed in by hand. */
         @Size(max = 32)

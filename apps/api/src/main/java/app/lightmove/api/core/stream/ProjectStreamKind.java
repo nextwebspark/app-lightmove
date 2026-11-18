@@ -7,10 +7,14 @@ import java.util.Optional;
  * costs nothing on the frontend; the enum exists so a publish site cannot invent a misspelt one. */
 public enum ProjectStreamKind {
     CANDIDATE_CAPTURED,
+    /** Someone's profile or status was saved: a colleague's open drawer rereads it rather than saving over it. */
+    CANDIDATE_EDITED,
     CANDIDATE_ENRICHED,
     /** An executive changed Companies stage, alone or with their company: both halves of a stage page move. */
     CANDIDATE_MOVED,
     COMPANY_CAPTURED,
+    /** A company's facts were corrected — its name too, which everyone mapped there carries. */
+    COMPANY_EDITED,
     COMPANY_ENRICHED,
     /** A Find executives run moved: started, a company finished, or the run ended. Staff-only, as outreach is. */
     EXECUTIVE_SOURCING,

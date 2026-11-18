@@ -14,7 +14,9 @@ import {
 } from "../lib/pipelineView";
 import { stageMarkOf } from "../lib/stageIcons";
 import { useBandHeight } from "../lib/useBandHeight";
-import { OutOfProcessBandHeader, OutOfProcessChooser } from "./OutOfProcessBand";
+import type { ExitReasonChoice } from "../../candidates/api/types";
+import { useExitReasonPrompt } from "../../candidates/lib/useExitReasonPrompt";
+import { OutOfProcessBandHeader } from "./OutOfProcessBand";
 import { OutOfProcessCard, PipelineCard, type CardDrag } from "./PipelineCard";
 import { PipelineCardActions, type CardActionKind, type CardActionsUnavailable } from "./PipelineCardActions";
 
@@ -70,11 +72,7 @@ export function PipelineBoard({
   const [dragging, setDragging] = useState<PipelineRow | null>(null);
   const [over, setOver] = useState<DropSlot | null>(null);
   const [landed, setLanded] = useState<{ basis: readonly PipelineRow[]; rows: PipelineRow[] } | null>(null);
-  const [choosing, setChoosing] = useState<{
-    row: PipelineRow;
-    stage: CandidatePipelineStage;
-    choices: PipelineStatus[];
-  } | null>(null);
+  const exitPrompt = useExitReasonPrompt();
   if (landed && landed.basis !== rows) setLanded(null);
   const shown = landed?.basis === rows ? landed.rows : rows;
 
@@ -130,10 +128,20 @@ export function PipelineBoard({
     },
   });
 
-  const giveWayOut = (row: PipelineRow, stage: CandidatePipelineStage, status: PipelineStatus) =>
-    land(boardPlacementOf(shown, row.candidateId, { stage, status, beforeId: null }));
+  const giveWayOut = (
+    row: PipelineRow,
+    stage: CandidatePipelineStage,
+    status: PipelineStatus,
+    reason: ExitReasonChoice | null,
+  ) => {
+    const placement = boardPlacementOf(shown, row.candidateId, { stage, status, beforeId: null });
+    land(placement && { ...placement, reason });
+  };
 
-  /** Dropped in a cell of the band: the stage's one way out is taken at once, several are asked about. */
+  /**
+   * Dropped in a cell of the band: the same question every status picker asks — which way out, where the stage offers
+   * several, and why, where that way out offers reasons. A cell with one way out and no reasons moves them at once.
+   */
   const cellDrop = (cell: OutOfProcessCell) => {
     const key = `band:${cell.stage.key}`;
     const isOwn = (row: PipelineRow) => row.outOfProcess && row.pipelineStage.key === cell.stage.key;
@@ -155,8 +163,10 @@ export function PipelineBoard({
         setDragging(null);
         setOver(null);
         if (isOwn(row)) return;
-        if (cell.waysOut.length === 1) giveWayOut(row, cell.stage, cell.waysOut[0]);
-        else setChoosing({ row, stage: cell.stage, choices: cell.waysOut });
+        void exitPrompt.ask({ name: row.fullName, ways: cell.waysOut, stageLabel: cell.stage.label }, (key, reason) => {
+          const status = cell.waysOut.find((way) => way.key === key);
+          if (status) giveWayOut(row, cell.stage, status, reason);
+        });
       },
     };
   };
@@ -168,7 +178,6 @@ export function PipelineBoard({
         event.dataTransfer.effectAllowed = "move";
         event.dataTransfer.setData("text/plain", row.candidateId);
       }
-      setChoosing(null);
       setDragging(row);
     },
     onDragEnd: () => {
@@ -183,6 +192,7 @@ export function PipelineBoard({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col px-2 pb-2 pt-3">
+      {exitPrompt.dialog}
       <div
         ref={gridRef}
         style={{
@@ -274,7 +284,6 @@ export function PipelineBoard({
         {hasBand &&
           cells.map((cell, index) => {
             const isOver = dragging !== null && over?.key === `band:${cell.stage.key}` && over.lands;
-            const chooser = choosing?.stage.key === cell.stage.key ? choosing : null;
             return (
               <div
                 key={cell.stage.key}
@@ -295,17 +304,6 @@ export function PipelineBoard({
                 {!cell.underColumn && (
                   <span className="px-1.5 pt-1 text-note font-semibold text-u-text2">{cell.stage.label}</span>
                 )}
-                {chooser && (
-                  <OutOfProcessChooser
-                    name={chooser.row.fullName}
-                    choices={chooser.choices}
-                    onChoose={(status) => {
-                      setChoosing(null);
-                      giveWayOut(chooser.row, chooser.stage, status);
-                    }}
-                    onCancel={() => setChoosing(null)}
-                  />
-                )}
                 {cell.rows.map((row) => (
                   <OutOfProcessCard
                     key={row.candidateId}
@@ -319,7 +317,7 @@ export function PipelineBoard({
                     shareBadge={shareBadgeOf?.(row)}
                   />
                 ))}
-                {cell.rows.length === 0 && !chooser && (
+                {cell.rows.length === 0 && (
                   <span className="grid h-[60px] place-items-center text-meta text-u-text3">—</span>
                 )}
               </div>

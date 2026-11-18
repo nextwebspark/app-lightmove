@@ -48,6 +48,7 @@ vi.mock("../api/pipelineApi", async (importOriginal) => ({
 vi.mock("../../workspace/api/pipelineApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../workspace/api/pipelineApi")>()),
   pipelineCatalog: vi.fn(),
+  exitReasons: vi.fn(),
 }));
 vi.mock("../../tasks/api/tasksApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../tasks/api/tasksApi")>()),
@@ -499,7 +500,7 @@ describe("PipelineView", () => {
 
     dropOn("Amal Haddad", qualified);
 
-    await waitFor(() => expect(candidatesApi.changeCandidateStatus).toHaveBeenCalledWith("p1", "a", "screened"));
+    await waitFor(() => expect(candidatesApi.changeCandidateStatus).toHaveBeenCalledWith("p1", "a", "screened", null));
     await waitFor(() =>
       expect(pipelineApi.movePipelineRank).toHaveBeenCalledWith("p1", "a", {
         afterCandidateId: "d",
@@ -548,7 +549,7 @@ describe("PipelineView", () => {
     dropOn("Amal Haddad", qualified);
 
     expect(await screen.findByText("The pipeline changed meanwhile. Reload and try again.")).toBeInTheDocument();
-    expect(candidatesApi.changeCandidateStatus).toHaveBeenCalledWith("p1", "a", "screened");
+    expect(candidatesApi.changeCandidateStatus).toHaveBeenCalledWith("p1", "a", "screened", null);
     expect(screen.queryByText("Amal Haddad moved to Qualified · Screened")).not.toBeInTheDocument();
   });
 
@@ -709,6 +710,7 @@ describe("PipelineView", () => {
     beforeEach(() => {
       vi.mocked(catalogApi.pipelineCatalog).mockResolvedValue(current);
       vi.mocked(pipelineApi.getPipeline).mockResolvedValue(aPipelinePage(flaggedRows, current));
+      vi.mocked(catalogApi.exitReasons).mockResolvedValue({ reasons: [] });
     });
 
     it("draws someone at a status out of process in the band under their stage, not in its column", async () => {
@@ -723,22 +725,83 @@ describe("PipelineView", () => {
       expect(screen.queryByRole("group", { name: "Out of process · Declined" })).not.toBeInTheDocument();
     });
 
-    it("asks which of a stage's ways out a card dropped in its cell takes, offering that stage's alone", async () => {
+    it("asks which way out and why in one dialog, offering the stage's ways out alone", async () => {
+      const notInterested = current.stages.flatMap((stage) => stage.statuses).find((status) => status.key === "notInterested")!;
+      vi.mocked(catalogApi.exitReasons).mockResolvedValue({
+        reasons: [{ id: "timing", key: "timing", label: "Timing", requiresNote: false, position: 1, retired: false, statusIds: [notInterested.id] }],
+      });
       vi.mocked(candidatesApi.changeCandidateStatus).mockReturnValue(new Promise(() => {}));
       renderView();
       await screen.findByRole("region", { name: "Approach" });
 
       dropOn("Amal Haddad", screen.getByRole("group", { name: "Out of process · Approach" }));
 
-      const chooser = within(screen.getByRole("group", { name: "Mark Amal Haddad out of process" }));
-      expect(chooser.getAllByRole("button").map((button) => button.textContent)).toEqual([
+      const dialog = within(await screen.findByRole("dialog", { name: "Why did Amal Haddad leave?" }));
+      expect(dialog.getByText("Moving them out of process at Approach.")).toBeInTheDocument();
+      const wayOut = dialog.getByRole("combobox", { name: "Way out" });
+      expect(within(wayOut).getAllByRole("option").map((option) => option.textContent)).toEqual([
+        "Choose a way out",
         "Not interested",
         "Unresponsive",
-        "Cancel",
       ]);
-      await userEvent.click(chooser.getByRole("button", { name: "Unresponsive" }));
+      expect(dialog.getByRole("combobox", { name: "Reason" })).toBeDisabled();
+      expect(dialog.getByRole("button", { name: "Move out of process" })).toBeDisabled();
 
-      await waitFor(() => expect(candidatesApi.changeCandidateStatus).toHaveBeenCalledWith("p1", "a", "unresponsive"));
+      await userEvent.selectOptions(wayOut, "Not interested");
+      await userEvent.selectOptions(dialog.getByRole("combobox", { name: "Reason" }), "Timing");
+      await userEvent.click(dialog.getByRole("button", { name: "Move to Not interested" }));
+
+      await waitFor(() =>
+        expect(candidatesApi.changeCandidateStatus).toHaveBeenCalledWith("p1", "a", "notInterested", { reasonId: "timing", note: null }),
+      );
+    });
+
+    it("takes a way out that asks for no reason from the same dialog, with nothing more to fill in", async () => {
+      vi.mocked(candidatesApi.changeCandidateStatus).mockReturnValue(new Promise(() => {}));
+      renderView();
+      await screen.findByRole("region", { name: "Approach" });
+
+      dropOn("Amal Haddad", screen.getByRole("group", { name: "Out of process · Approach" }));
+      const dialog = within(await screen.findByRole("dialog", { name: "Why did Amal Haddad leave?" }));
+      await userEvent.selectOptions(dialog.getByRole("combobox", { name: "Way out" }), "Unresponsive");
+
+      expect(dialog.getByText("Unresponsive asks for no reason.")).toBeInTheDocument();
+      await userEvent.click(dialog.getByRole("button", { name: "Move to Unresponsive" }));
+      await waitFor(() => expect(candidatesApi.changeCandidateStatus).toHaveBeenCalledWith("p1", "a", "unresponsive", null));
+    });
+
+    it("leaves the card where it was when the dialog is cancelled", async () => {
+      renderView();
+      await screen.findByRole("region", { name: "Approach" });
+
+      dropOn("Amal Haddad", screen.getByRole("group", { name: "Out of process · Approach" }));
+      await userEvent.click(await screen.findByRole("button", { name: "Cancel" }));
+
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+      expect(candidatesApi.changeCandidateStatus).not.toHaveBeenCalled();
+      expect(within(screen.getByRole("region", { name: "Approach" })).getByText("Amal Haddad")).toBeInTheDocument();
+    });
+
+    it("asks only why for a drop on a stage with one way out, which it takes without asking", async () => {
+      const clientRejected = current.stages.flatMap((stage) => stage.statuses).find((status) => status.key === "clientRejected")!;
+      vi.mocked(catalogApi.exitReasons).mockResolvedValue({
+        reasons: [{ id: "senior", key: "senior", label: "Senior", requiresNote: false, position: 1, retired: false, statusIds: [clientRejected.id] }],
+      });
+      vi.mocked(candidatesApi.changeCandidateStatus).mockReturnValue(new Promise(() => {}));
+      renderView();
+      await screen.findByRole("region", { name: "Approach" });
+
+      dropOn("Amal Haddad", screen.getByRole("group", { name: "Out of process · Shortlist" }));
+
+      const dialog = within(await screen.findByRole("dialog", { name: "Why did Amal Haddad leave?" }));
+      expect(dialog.queryByRole("combobox", { name: "Way out" })).not.toBeInTheDocument();
+      expect(dialog.getByRole("textbox", { name: "Way out" })).toHaveTextContent("Client rejected");
+      await userEvent.selectOptions(dialog.getByRole("combobox", { name: "Reason" }), "Senior");
+      await userEvent.click(dialog.getByRole("button", { name: "Move to Client rejected" }));
+
+      await waitFor(() =>
+        expect(candidatesApi.changeCandidateStatus).toHaveBeenCalledWith("p1", "a", "clientRejected", { reasonId: "senior", note: null }),
+      );
     });
 
     it("gives a card dropped in a cell with one way out that way out at once", async () => {
@@ -748,8 +811,8 @@ describe("PipelineView", () => {
 
       dropOn("Amal Haddad", screen.getByRole("group", { name: "Out of process · Shortlist" }));
 
-      await waitFor(() => expect(candidatesApi.changeCandidateStatus).toHaveBeenCalledWith("p1", "a", "clientRejected"));
-      expect(screen.queryByRole("group", { name: "Mark Amal Haddad out of process" })).not.toBeInTheDocument();
+      await waitFor(() => expect(candidatesApi.changeCandidateStatus).toHaveBeenCalledWith("p1", "a", "clientRejected", null));
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     });
 
     it("brings a card out of process dropped on its own stage back to that stage's default", async () => {
@@ -759,7 +822,7 @@ describe("PipelineView", () => {
 
       dropOn("Bilal Saeed", approach);
 
-      await waitFor(() => expect(candidatesApi.changeCandidateStatus).toHaveBeenCalledWith("p1", "b", "contacted"));
+      await waitFor(() => expect(candidatesApi.changeCandidateStatus).toHaveBeenCalledWith("p1", "b", "contacted", null));
     });
 
     it("hides someone out of process from the client from their card in the band", async () => {

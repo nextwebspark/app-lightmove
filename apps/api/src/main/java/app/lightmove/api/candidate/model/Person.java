@@ -52,6 +52,9 @@ import org.hibernate.type.SqlTypes;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Person extends BaseEntity {
 
+    /** The most addresses, and the most numbers, one profile holds. */
+    public static final int MOST_CONTACTS_PER_CHANNEL = 10;
+
     @Column(name = "workspace_id", nullable = false, updatable = false)
     private UUID workspaceId;
 
@@ -531,6 +534,17 @@ public class Person extends BaseEntity {
                 employer != null ? employer : profile.employer());
     }
 
+    /**
+     * Research of the profile a researcher corrected the address to: it replaces what research said of the old one,
+     * where {@link #enrich} would only fill gaps. What the researcher typed (title, summary, location, career,
+     * languages) stays theirs.
+     */
+    public void replaceResearch(EnrichedProfile enriched) {
+        this.enrichedBy = enriched.vendor();
+        this.profile = new CandidateProfile(profile.career(), profile.languages(), enriched.education(),
+                enriched.skills(), Instant.now().toString(), ResearchedEmployerMark.of(enriched));
+    }
+
     public boolean isResearched() {
         return profile.enrichedAt() != null;
     }
@@ -609,7 +623,7 @@ public class Person extends BaseEntity {
                     CandidateContact.keyOf(ContactChannel.EMAIL, address.address()));
             if (held != null) {
                 held.claim(provider, address, now);
-            } else {
+            } else if (hasRoomIn(ContactChannel.EMAIL)) {
                 contacts.add(CandidateContact.foundEmail(address, provider, now));
             }
         }
@@ -632,13 +646,21 @@ public class Person extends BaseEntity {
             CandidateContact held = contactOf(ContactChannel.PHONE, key);
             if (held != null) {
                 held.claim(provider, now);
-            } else {
+            } else if (hasRoomIn(ContactChannel.PHONE)) {
                 contacts.add(CandidateContact.foundPhone(number, provider, now));
             }
         }
         choosePrimary(ContactChannel.PHONE, primary);
         phonesLookedUpAt = now;
         contactsLookedUpVia = found.source();
+    }
+
+    /**
+     * A lookup fills the channel up to what a profile holds and no further: past it, every later save of the person,
+     * and every filing of them on another position, was refused for a list nobody typed.
+     */
+    private boolean hasRoomIn(ContactChannel channel) {
+        return contactsOf(channel).size() < MOST_CONTACTS_PER_CHANNEL;
     }
 
     public boolean hasAskedForEmails() {

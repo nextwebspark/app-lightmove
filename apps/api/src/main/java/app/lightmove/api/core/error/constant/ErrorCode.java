@@ -322,6 +322,9 @@ public enum ErrorCode {
     /** Stage labels are unique among stages, a status's label within its stage, whatever their case. */
     PIPELINE_LABEL_TAKEN(HttpStatus.CONFLICT, "That name is already in use"),
 
+    /** Nobody is moved off a status by retiring it: whoever holds it is moved first. */
+    PIPELINE_STATUS_HELD(HttpStatus.CONFLICT, "Someone is still on this status. Move them to another before retiring it"),
+
     /** A retired status stays on whoever holds it, but can no longer be given to anyone. */
     PIPELINE_STATUS_RETIRED(HttpStatus.CONFLICT, "That status is retired. Restore it in Settings to use it again"),
 
@@ -333,6 +336,15 @@ public enum ErrorCode {
 
     /** A retired reason stays on whoever was given it, but can no longer be chosen. */
     EXIT_REASON_RETIRED(HttpStatus.CONFLICT, "That reason is retired. Restore it in Settings to use it again"),
+
+    /** A move to a way out that offers reasons names one of them. */
+    EXIT_REASON_REQUIRED(HttpStatus.BAD_REQUEST, "Choose why they left"),
+
+    /** A reason that asks for a note (Other) is given with one. */
+    EXIT_REASON_NOTE_REQUIRED(HttpStatus.BAD_REQUEST, "Add a note for this reason"),
+
+    /** The reason is not one the candidate's status offers, or they are not out of process at all. */
+    EXIT_REASON_NOT_OFFERED(HttpStatus.CONFLICT, "That reason is not offered for this status"),
 
     /** Changing, reassigning or cancelling a task is its creator's, its assignee's, the lead's or an admin's. */
     TASK_NOT_YOURS(HttpStatus.FORBIDDEN, "Only the person who set this task, whoever holds it, or the lead can change it"),

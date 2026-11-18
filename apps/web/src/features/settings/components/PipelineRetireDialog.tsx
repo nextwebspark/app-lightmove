@@ -16,7 +16,8 @@ export function PipelineRetireDialog({
   catalog,
   preview,
   pending,
-  explanation = "Candidates keep the status they hold, but it won't be offered again. Nothing is deleted.",
+  explanation = "It won't be offered again. Nothing is deleted.",
+  retiring = false,
   onConfirm,
   onClose,
 }: {
@@ -28,16 +29,20 @@ export function PipelineRetireDialog({
   pending: boolean;
   /** What becomes of whoever holds the statuses. */
   explanation?: ReactNode;
+  /** A retire: refused while anyone holds a status it reaches, so the dialog says so and offers no confirm. */
+  retiring?: boolean;
   onConfirm: () => void;
   onClose: () => void;
 }) {
+  const holders = preview?.statuses.reduce((total, status) => total + status.holders, 0) ?? 0;
+  const blocked = retiring && holders > 0;
   return (
     <ConfirmDialog
       open={open}
       title={title}
       confirmLabel={confirmLabel}
       pending={pending}
-      confirmDisabled={!preview}
+      confirmDisabled={!preview || blocked}
       onConfirm={onConfirm}
       onClose={onClose}
     >
@@ -53,7 +58,15 @@ export function PipelineRetireDialog({
               ))}
             </ul>
           )}
-          <p className="text-body text-u-text2">{explanation}</p>
+          {blocked ? (
+            <p role="alert" className="text-body text-u-text2">
+              {holdersLabel(holders)} {holders === 1 ? "is" : "are"} still on{" "}
+              {preview.statuses.length === 1 ? "this status" : "these statuses"}. Move them to another status before
+              retiring {preview.statuses.length === 1 ? "it" : "them"}.
+            </p>
+          ) : (
+            <p className="text-body text-u-text2">{explanation}</p>
+          )}
           {preview.automations.length > 0 && (
             <div role="note" className="rounded-md border border-u-signal/40 bg-u-signal-tint px-3 py-2.5">
               <p className="flex items-center gap-1.5 text-note font-semibold text-u-text">

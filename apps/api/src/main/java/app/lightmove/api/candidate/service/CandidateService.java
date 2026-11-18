@@ -9,7 +9,9 @@ import app.lightmove.api.candidate.constant.PersonActivityKind;
 import app.lightmove.api.candidate.constant.ProfileClaim;
 import app.lightmove.api.candidate.dto.CandidateListCriteria;
 import app.lightmove.api.candidate.dto.AddedByResponse;
+import app.lightmove.api.candidate.dto.CandidateExitReasonResponse;
 import app.lightmove.api.candidate.dto.CandidateResponse;
+import app.lightmove.api.candidate.dto.ChangeExitReasonRequest;
 import app.lightmove.api.candidate.dto.CandidatesResponse;
 import app.lightmove.api.candidate.dto.HeldCandidateResponse;
 import app.lightmove.api.candidate.dto.MapPeopleToPositionResponse;
@@ -30,6 +32,7 @@ import app.lightmove.api.candidate.model.CandidateSearchMatches;
 import app.lightmove.api.candidate.model.CandidateStatusDefinition;
 import app.lightmove.api.candidate.model.ContactEntry;
 import app.lightmove.api.candidate.model.EnrichedProfile;
+import app.lightmove.api.candidate.model.ExitReason;
 import app.lightmove.api.candidate.model.ResearchedCandidate;
 import app.lightmove.api.candidate.model.ResearchedEmployer;
 import app.lightmove.api.candidate.model.ResearchedFiling;
@@ -128,6 +131,7 @@ public class CandidateService {
     private final CandidateResponseMapper responses;
     private final CompanyListSettings listConfig;
     private final CandidatePipelineCatalog pipeline;
+    private final CandidateExitReasons exitReasons;
     private final PersonEmployerResolver employerResolver;
     private final UserRepository users;
     private final CandidateSearchService searches;
@@ -136,6 +140,7 @@ public class CandidateService {
     private final WorkspaceAiControlsReader aiControls;
     private final WorkspaceSettingsService workspaceSettings;
     private final LookedUpResearch lookedUp;
+    private final CorrectedProfileResearch correctedProfiles;
 
     public CandidateService(CandidateRepository candidates, PersonRepository people, PersonMatcher matcher,
                             PersonActivityRecorder activity, PersonNoteService personNotes,
@@ -144,11 +149,13 @@ public class CandidateService {
                             CustomColumnService customColumns, AuditService audit,
                             ApplicationEventPublisher events, ProjectStreamPublisher stream,
                             CandidateRequestReader requests, CandidateResponseMapper responses,
-                            CandidatePipelineCatalog pipeline, PersonEmployerResolver employerResolver,
+                            CandidatePipelineCatalog pipeline, CandidateExitReasons exitReasons,
+                            PersonEmployerResolver employerResolver,
                             UserRepository users, CandidateSearchService searches,
                             CandidateRemoval removal, SuppressionGate suppression,
                             WorkspaceAiControlsReader aiControls, WorkspaceSettingsService workspaceSettings,
-                            LookedUpResearch lookedUp, LightMoveProperties properties) {
+                            LookedUpResearch lookedUp, CorrectedProfileResearch correctedProfiles,
+                            LightMoveProperties properties) {
         this.candidates = candidates;
         this.people = people;
         this.matcher = matcher;
@@ -165,6 +172,7 @@ public class CandidateService {
         this.stream = stream;
         this.listConfig = properties.company().list();
         this.pipeline = pipeline;
+        this.exitReasons = exitReasons;
         this.employerResolver = employerResolver;
         this.users = users;
         this.searches = searches;
@@ -173,6 +181,7 @@ public class CandidateService {
         this.aiControls = aiControls;
         this.workspaceSettings = workspaceSettings;
         this.lookedUp = lookedUp;
+        this.correctedProfiles = correctedProfiles;
     }
 
     /**
@@ -501,21 +510,25 @@ public class CandidateService {
         boolean confirmBackground = Boolean.TRUE.equals(request.confirmBackground());
         candidate.remapTo(triageCompanyId, triageStatusOfCompany(projectId, triageCompanyId));
         candidate.describe(details);
-        // A whole-record save that names a status moves them like the status pill does, line and all; one
-        // that names none (a re-imported sheet) leaves them where they stand.
-        if (request.status() != null && !request.status().isBlank()) {
+        // Naming the status they hold is no move: a retired one, re-checked, refused every edit of whoever held it.
+        if (request.status() != null && !request.status().isBlank()
+                && !request.status().strip().equals(candidate.getStatus().getStatusKey())) {
             moveTo(candidate, userId, pipeline.requireOfferable(workspaceId, request.status()));
         }
         // The person is the workspace's: an edit made through this mandate is what every other mandate
         // mapping them now reads.
+        boolean wasResearched = person.isResearched();
+        String previousUrl = person.getLinkedinUrl();
+        ContactChannelSizes contactsBefore = requests.channelSizesOf(person);
         person.describe(details, door);
+        correctedProfiles.researchIfCorrected(candidate, wasResearched, previousUrl, door);
         if (claim == ProfileClaim.SHARED) {
             person.yieldProfileKey();
         }
         if (confirmBackground) {
             person.confirmBackground();
         }
-        requests.refuseOverfullChannels(person);
+        requests.refuseOverfullChannels(person, contactsBefore);
         candidate.describeCustomFields(customColumns.applyTo(projectId, CustomColumnTarget.CANDIDATE,
                 candidate.getCustomFields(), request.customFields()));
         List<Map<String, String>> changed = changes.after(person);
@@ -524,6 +537,7 @@ public class CandidateService {
                 .and(ProfileChanges.DETAIL_KEY, changed.isEmpty() ? null : changed));
         // A note sent with an edit (a re-imported sheet's Note column) is filed as a note, once.
         personNotes.fileFromDoor(candidate, userId, details.note());
+        stream.publish(projectId, ProjectStreamKind.CANDIDATE_EDITED);
 
         audit.projectEvent(ProjectEventType.CANDIDATE_UPDATED, userId, workspaceId, projectId, httpRequest)
                 .detail("candidateId", candidateId.toString())
@@ -543,14 +557,58 @@ public class CandidateService {
         projects.requireInWorkspace(projectId, workspaceId);
         Candidate candidate = candidates.requireInProject(candidateId, projectId);
 
-        moveTo(candidate, userId, pipeline.requireOfferable(workspaceId, request.status()));
+        CandidateStatusDefinition to = pipeline.requireOfferable(workspaceId, request.status());
+        ExitReason reason;
+        if (to.getId().equals(candidate.getStatus().getId())) {
+            // A reason rides a move; one for the status already held is changed by PUT …/exit-reason instead.
+            if (request.reasonId() != null) {
+                throw ApiException.of(ErrorCode.EXIT_REASON_NOT_OFFERED);
+            }
+            reason = null;
+        } else {
+            reason = exitReasons.requireForMove(workspaceId, to, request.reasonId(), request.note());
+        }
+        moveTo(candidate, userId, to, reason, request.note());
+        stream.publish(projectId, ProjectStreamKind.CANDIDATE_EDITED);
 
-        audit.projectEvent(ProjectEventType.CANDIDATE_UPDATED, userId, workspaceId, projectId, httpRequest)
+        var event = audit.projectEvent(ProjectEventType.CANDIDATE_UPDATED, userId, workspaceId, projectId,
+                        httpRequest)
                 .detail("candidateId", candidateId.toString())
                 .detail("status", candidate.getStatus().getStatusKey())
-                .detail("statusLabel", candidate.getStatus().getLabel())
-                .record();
+                .detail("statusLabel", candidate.getStatus().getLabel());
+        if (reason != null) {
+            event.detail("exitReasonId", reason.getId().toString());
+        }
+        event.record();
         return responses.toDto(candidate);
+    }
+
+    /** A different reason or note for someone already out of process: the drawer's status line, changed in place. */
+    @Transactional
+    public CandidateExitReasonResponse changeExitReason(UUID userId, UUID workspaceId, UUID projectId,
+                                                        UUID candidateId, ChangeExitReasonRequest request,
+                                                        HttpServletRequest httpRequest) {
+        projects.requireInWorkspace(projectId, workspaceId);
+        Candidate candidate = candidates.requireInProject(candidateId, projectId);
+        ExitReason reason = exitReasons.requireForChange(workspaceId, candidate, request.reasonId(), request.note());
+        String fromReason = exitReasons.labelOf(workspaceId, candidate.getExitReasonId());
+        if (candidate.giveExitReason(reason.getId(), request.note(), userId)) {
+            activity.record(candidate, userId, PersonActivityKind.EXIT_REASON_CHANGED, PersonActivityDetails
+                    .of("reason", reason.getLabel()).and("fromReason", fromReason)
+                    .and("status", candidate.getStatus().getLabel()));
+            audit.projectEvent(ProjectEventType.CANDIDATE_UPDATED, userId, workspaceId, projectId, httpRequest)
+                    .detail("candidateId", candidateId.toString())
+                    .detail("exitReasonId", reason.getId().toString())
+                    .record();
+        }
+        return exitReasons.givenTo(workspaceId, candidate);
+    }
+
+    /** Why each of the mandate's candidates left, for those who have; staff-only. */
+    @Transactional(readOnly = true)
+    public List<CandidateExitReasonResponse> exitReasonsOf(UUID workspaceId, UUID projectId) {
+        projects.requireInWorkspace(projectId, workspaceId);
+        return exitReasons.givenTo(workspaceId, candidates.findByProjectIdAndExitReasonIdIsNotNull(projectId));
     }
 
     /**
@@ -580,10 +638,20 @@ public class CandidateService {
     }
 
     private void moveTo(Candidate candidate, UUID userId, CandidateStatusDefinition to) {
+        moveTo(candidate, userId, to, null, null);
+    }
+
+    /** Every door's move: a reason, where the door asked for one, is given with it and named on its timeline line. */
+    private void moveTo(Candidate candidate, UUID userId, CandidateStatusDefinition to, ExitReason reason,
+                        String note) {
         CandidateStatusDefinition from = candidate.getStatus();
         if (candidate.moveTo(to)) {
+            if (reason != null) {
+                candidate.giveExitReason(reason.getId(), note, userId);
+            }
             activity.record(candidate, userId, PersonActivityKind.STATUS_CHANGED,
-                    PersonActivityDetails.statusChange(from, to));
+                    PersonActivityDetails.statusChange(from, to)
+                            .and("reason", reason == null ? null : reason.getLabel()));
         }
     }
 
@@ -1018,6 +1086,30 @@ public class CandidateService {
         return new EmployerFilings(triage, projectId, candidate.getAddedBy(), door);
     }
 
+    /**
+     * The research of a corrected profile, which replaces the old one's — no AI run follows: correcting an address
+     * asked for research, not inference. Skipped when the address was corrected again while research ran.
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void applyCorrectedResearch(UUID projectId, UUID candidateId, String researchedUrl,
+                                       EnrichedProfile enriched) {
+        candidates.findByIdAndProjectId(candidateId, projectId).ifPresent(candidate -> {
+            Person person = candidate.getPerson();
+            String held = LinkedInUrls.profileSlugOrNull(person.getLinkedinUrl());
+            if (person.isProcessingRestricted() || held == null
+                    || !held.equalsIgnoreCase(LinkedInUrls.profileSlugOrNull(researchedUrl))) {
+                return;
+            }
+            person.replaceResearch(enriched);
+            photos.findByPersonId(person.getId()).ifPresent(photos::delete);
+            photos.flush();
+            keepPhoto(person.getId(), enriched);
+            activity.record(candidate, candidate.getAddedBy(), PersonActivityKind.RESEARCHED,
+                    PersonActivityDetails.of("vendor", enriched.vendor()));
+            stream.publish(projectId, ProjectStreamKind.CANDIDATE_ENRICHED);
+        });
+    }
+
     private void keepPhoto(UUID personId, EnrichedProfile enriched) {
         if (enriched.photo() == null || photos.existsByPersonId(personId)) {
             return;
@@ -1167,6 +1259,7 @@ public class CandidateService {
         if (known.isPresent() && known.get().isProcessingRestricted()) {
             throw ApiException.of(ErrorCode.PERSON_PROCESSING_RESTRICTED);
         }
+        ContactChannelSizes contactsBefore = known.map(requests::channelSizesOf).orElse(ContactChannelSizes.NONE);
         Person person = known.orElseGet(() -> people.save(Person.founded(workspaceId, userId, source, details)));
         if (known.isPresent()) {
             person.fillFrom(details, ContactSource.ofDoor(source));
@@ -1174,7 +1267,7 @@ public class CandidateService {
         if (source == CandidateSource.EXTENSION) {
             person.lockProfileUrl(details.linkedinUrl());
         }
-        requests.refuseOverfullChannels(person);
+        requests.refuseOverfullChannels(person, contactsBefore);
         Candidate candidate = candidates.save(Candidate.mapped(projectId, userId, triageCompanyId,
                 triageStatusOfCompany(projectId, triageCompanyId), person, source, status, details));
         activity.record(candidate, userId,

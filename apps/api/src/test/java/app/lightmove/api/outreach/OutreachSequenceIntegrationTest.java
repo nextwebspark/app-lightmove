@@ -139,7 +139,7 @@ class OutreachSequenceIntegrationTest extends FlowTestSupport {
         String alreadyIn = executive("Sara Nasser", "sara@target.example", null);
         markDoNotContact(doNotContact);
         as(consultant, patch("/api/v1/projects/" + projectId + "/candidates/" + outOfTheRunning)
-                .contentType(MediaType.APPLICATION_JSON).content("{\"status\":\"notInterested\"}"))
+                .contentType(MediaType.APPLICATION_JSON).content("{\"status\":\"unresponsive\"}"))
                 .andExpect(status().isOk());
         connectMailbox();
         start(sequenceId, List.of(person(alreadyIn, "sara@target.example", "An opener.", false)))
