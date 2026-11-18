@@ -408,6 +408,8 @@ class InterviewCopilotIntegrationTest extends FlowTestSupport {
         assertThat(jdbc.queryForObject("select coached_through from app_lm_meeting_recording where id = ?::uuid",
                 Long.class, recordingId)).isZero();
         assertThat(usageOf(recordingId)).isZero();
+        // Paused until more is said: the interval passing alone reads the same lines no more.
+        assertThat(coachIfDue(id, Instant.now().plusSeconds(120))).isFalse();
 
         chat.reset();
         chat.answerWhenSystemContains(COACH_MARKER, "{\"guard\":\"" + app.lightmove.api.core.llm.model.BlockedAnswer
@@ -469,6 +471,32 @@ class InterviewCopilotIntegrationTest extends FlowTestSupport {
         assertThat(copilot(recordingId, 0).get("lines")).isEmpty();
         assertThat(jdbc.queryForObject("select status from app_lm_meeting_recording where id = ?::uuid",
                 String.class, recordingId)).isEqualTo("RECORDING");
+    }
+
+    @Test
+    @DisplayName("a coach run that finishes after Stop copilot writes no reading and charges nothing")
+    void aRunFinishingAfterTheStopKeepsNothing() throws Exception {
+        String recordingId = liveRecording();
+        String bot = recall.lastBotId();
+        deliver(bot, """
+                {"event":"bot.in_call_recording","data":{"bot":{"id":"%s"},"data":{"code":"in_call_recording"}}}""");
+        liveDeliver(bot, finished("p2", "Priya Raman", "I led the refinancing.", 1.0));
+        chat.answerWhenSystemContains(COACH_MARKER, "{\"coverage\":[],\"gapsHeard\":[],\"asked\":[]}");
+        chat.whileNextPromptIsAnswered(() -> {
+            try {
+                as(consultant, post(copilotPath(recordingId) + "/stop")).andExpect(status().isOk());
+            } catch (Exception failed) {
+                throw new IllegalStateException(failed);
+            }
+        });
+
+        coachIfDue(java.util.UUID.fromString(recordingId), Instant.now().plusSeconds(120));
+
+        assertThat(usageOf(recordingId)).isZero();
+        assertThat(jdbc.queryForObject("select live_charged from app_lm_meeting_recording where id = ?::uuid",
+                Boolean.class, recordingId)).isFalse();
+        assertThat(jdbc.queryForObject("select coached_through from app_lm_meeting_recording where id = ?::uuid",
+                Long.class, recordingId)).isZero();
     }
 
     @Test

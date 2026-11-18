@@ -62,6 +62,19 @@ public class RecallBotErasureSweeper {
         sweepAfterCommit();
     }
 
+    /** Queues the media of bots already called back for deletion, in the caller's transaction, tried once it commits. */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void queueMediaDeletion(Collection<String> botIds) {
+        if (botIds.isEmpty()) {
+            return;
+        }
+        jdbc.batchUpdate("""
+                INSERT INTO app_lm_recall_bot_erasure (recall_bot_id, call_back, delete_media) VALUES (?, false, true)
+                ON CONFLICT (recall_bot_id) DO NOTHING
+                """, botIds.stream().map(botId -> new Object[] {botId}).toList());
+        sweepAfterCommit();
+    }
+
     /** Tries the queue once the caller's transaction commits; whatever Recall refuses then is the schedule's. */
     void sweepAfterCommit() {
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {

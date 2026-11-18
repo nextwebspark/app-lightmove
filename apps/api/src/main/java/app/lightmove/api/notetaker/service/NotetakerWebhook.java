@@ -44,10 +44,25 @@ public class NotetakerWebhook {
             // Recall names the bot and nothing else: the recording is read in the workspace that sent it.
             recordingNamedBy(notice).ifPresent(named -> WorkspaceScope.run(named.workspaceId(), () ->
                     transactions.executeWithoutResult(status -> recordings.findById(named.id())
-                            .filter(recording -> recording.getStatus().isLive()
-                                    || (notice instanceof RecallBotNotice.StatusChanged && recording.awaitsItsReason()))
+                            .filter(recording -> recording.getStatus().isLive() || reopens(recording, notice))
                             .ifPresent(recording -> apply(recording, notice)))));
         }
+    }
+
+    /**
+     * An ended recording takes only a leaving's reason, or the transcript of a bot read as gone unrecorded because its
+     * leaving beat its {@code in_call_recording}: a transcript proves it recorded, as {@link NotetakerReconcile} reads.
+     */
+    private static boolean reopens(MeetingRecording recording, RecallBotNotice notice) {
+        return switch (notice) {
+            case RecallBotNotice.StatusChanged changed -> isLeaving(changed.code()) && recording.awaitsItsReason();
+            case RecallBotNotice.TranscriptReady ready -> recording.leftWithoutRecording();
+            case RecallBotNotice.TranscriptFailed failed -> false;
+        };
+    }
+
+    private static boolean isLeaving(String code) {
+        return code.equals("call_ended") || code.equals("done");
     }
 
     private Optional<ResolvedRow> recordingNamedBy(RecallBotNotice notice) {
@@ -66,6 +81,10 @@ public class NotetakerWebhook {
 
     /** Must run inside a transaction: a transcript that is ready is handed to the worker only once this commits. */
     void apply(MeetingRecording recording, RecallBotNotice notice) {
+        if (notice instanceof RecallBotNotice.TranscriptReady && recording.leftWithoutRecording()) {
+            recording.recordedAfterLeaving();
+            recording.mediaHeldUntil(clock.instant().plus(RecallBotApi.MEDIA_RETENTION));
+        }
         switch (notice) {
             case RecallBotNotice.StatusChanged changed -> {
                 applyStatus(recording, changed.code(), changed.subCode(), changed.at());
