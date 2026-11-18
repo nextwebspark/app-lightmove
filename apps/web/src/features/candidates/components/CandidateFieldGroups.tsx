@@ -259,7 +259,7 @@ const MAX_ALLOWANCE_LINES = 12;
 const TOGGLE_CLASS = "mt-2 rounded-[6px] border-u-border bg-u-raised";
 
 /** The mockup's figure field: soft border, 14px bold, the currency set in the same weight as the figure. */
-const FIGURE_INPUT = "border-u-border py-[9px] text-[14px] font-bold";
+const FIGURE_INPUT = "border-u-border py-[9px] text-[14px] font-bold placeholder:font-normal placeholder:text-u-text3";
 
 type CurrencyMode = "auto" | "override" | "brief";
 
@@ -647,11 +647,12 @@ function AmountField({
   const field = register(name);
   return (
     <CompensationField label={label} error={error}>
-      <div className="relative">
+      {/* An empty field's currency is part of its example, faded with the placeholder until a figure is typed. */}
+      <div className="group relative">
         {currency && (
           <span
             aria-hidden="true"
-            className="pointer-events-none absolute inset-y-0 start-0 flex items-center ps-3 font-mono text-[14px] font-bold text-u-text"
+            className="pointer-events-none absolute inset-y-0 start-0 flex items-center ps-3 font-mono text-[14px] font-bold text-u-text group-has-[input:placeholder-shown]:font-normal group-has-[input:placeholder-shown]:text-u-text3"
           >
             {currency}
           </span>
