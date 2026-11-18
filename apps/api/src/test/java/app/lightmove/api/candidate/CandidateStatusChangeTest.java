@@ -28,8 +28,7 @@ class CandidateStatusChangeTest extends PipelineFlowSupport {
 
         for (String key : List.of("identified", "contacted", "engaged", "interested", "notInterested", "offLimits",
                 "outOfScope")) {
-            JsonNode added = add(projectId, """
-                    {"fullName":"Person %s","status":"%s"}""".formatted(key, key));
+            JsonNode added = addAt(projectId, "Person " + key, key);
             assertThat(added.get("status").asText()).isEqualTo(key);
             assertThat(added.get("statusChangedAt").isNull()).isFalse();
         }

@@ -78,7 +78,7 @@ export function pickableGroups(
       statuses: [...stage.statuses]
         .sort((a, b) => a.position - b.position)
         .filter((status) => !status.retired || status.key === heldKey)
-        .filter((status) => !inProcessOnly || !status.outOfProcess)
+        .filter((status) => !inProcessOnly || !status.outOfProcess || status.key === heldKey)
         .filter((status) => !typed || status.label.toLowerCase().includes(typed) || stage.label.toLowerCase().includes(typed)),
     }))
     .filter((group) => group.statuses.length > 0);

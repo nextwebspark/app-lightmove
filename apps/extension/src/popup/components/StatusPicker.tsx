@@ -29,8 +29,8 @@ export function StatusPicker({
   onChange: (key: string) => void;
   disabled?: boolean;
   /**
-   * A capture files someone; it cannot say why they left, and a way out that asks why is refused without it. Moving
-   * someone out of process is the web app's, where its dialog asks.
+   * The panel cannot say why someone left, and a way out that asks why is refused without it. Moving someone out of
+   * process is the web app's, where its dialog asks; the status they hold stays listed.
    */
   inProcessOnly?: boolean;
 }) {

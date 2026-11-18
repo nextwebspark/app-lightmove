@@ -103,6 +103,27 @@ public abstract class PipelineFlowSupport extends FlowTestSupport {
                 .andReturn());
     }
 
+    /** Someone added at this status, given the first reason it offers where it is a way out that asks why. */
+    protected JsonNode addAt(String projectId, String fullName, String statusKey) throws Exception {
+        String statusId = statusIn(catalog(), statusKey).get("id").asText();
+        JsonNode reasons = body(mvc.perform(get(PIPELINE + "/reasons").header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk()).andReturn()).get("reasons");
+        String reason = "";
+        for (JsonNode offered : reasons) {
+            boolean offeredHere = false;
+            for (JsonNode id : offered.get("statusIds")) {
+                offeredHere |= id.asText().equals(statusId);
+            }
+            if (offeredHere && !offered.get("retired").asBoolean()) {
+                reason = ",\"exitReasonId\":\"%s\",\"exitNote\":\"Recorded in the test\""
+                        .formatted(offered.get("id").asText());
+                break;
+            }
+        }
+        return add(projectId, """
+                {"fullName":"%s","status":"%s"%s}""".formatted(fullName, statusKey, reason));
+    }
+
     protected MvcResult moveTo(String projectId, String candidateId, String statusKey) throws Exception {
         return mvc.perform(patch(candidatesUrl(projectId) + "/" + candidateId)
                         .header("Authorization", "Bearer " + admin)
