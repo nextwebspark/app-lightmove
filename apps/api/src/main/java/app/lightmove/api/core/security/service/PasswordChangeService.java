@@ -11,7 +11,7 @@ import app.lightmove.api.core.security.model.AuthenticatedSession;
 import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.token.RevokeReason;
 import app.lightmove.api.core.security.token.TokenService;
-import app.lightmove.api.workspace.model.WorkspaceMember;
+import app.lightmove.api.core.security.membership.WorkspaceMember;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.UUID;
 import app.lightmove.api.core.security.oauth.OAuthGrantService;

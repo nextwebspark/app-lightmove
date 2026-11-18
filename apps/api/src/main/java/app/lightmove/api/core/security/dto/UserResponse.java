@@ -1,7 +1,6 @@
 package app.lightmove.api.core.security.dto;
 
 import app.lightmove.api.core.security.rbac.PlatformAction;
-import app.lightmove.api.workspace.dto.WorkspaceSummary;
 import java.util.List;
 import java.util.UUID;
 

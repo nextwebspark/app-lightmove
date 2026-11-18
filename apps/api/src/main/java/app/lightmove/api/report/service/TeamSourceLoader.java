@@ -10,7 +10,7 @@ import app.lightmove.api.project.service.ProjectService;
 import app.lightmove.api.report.constant.ResearcherRole;
 import app.lightmove.api.report.model.ResearcherIdentity;
 import app.lightmove.api.report.model.TeamSources;
-import app.lightmove.api.workspace.model.WorkspaceMember;
+import app.lightmove.api.core.security.membership.WorkspaceMember;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.LinkedHashMap;

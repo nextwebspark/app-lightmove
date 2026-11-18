@@ -1,7 +1,7 @@
 package app.lightmove.api.triagecompany.controller;
 
 import app.lightmove.api.core.security.model.AuthPrincipal;
-import app.lightmove.api.core.security.rbac.ProjectAccess;
+import app.lightmove.api.project.service.ProjectAccess;
 import app.lightmove.api.core.security.rbac.ProjectAction;
 import app.lightmove.api.core.security.rbac.RequireProjectPermission;
 import app.lightmove.api.triagecompany.dto.AddSelectedTriageCompaniesRequest;

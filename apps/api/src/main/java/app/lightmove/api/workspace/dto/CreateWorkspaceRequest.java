@@ -1,6 +1,6 @@
 package app.lightmove.api.workspace.dto;
 
-import app.lightmove.api.workspace.constant.WorkspaceMode;
+import app.lightmove.api.core.tenant.WorkspaceMode;
 import app.lightmove.api.workspace.model.CreateWorkspaceCommand;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;

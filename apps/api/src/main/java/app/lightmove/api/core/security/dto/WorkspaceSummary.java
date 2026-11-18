@@ -1,7 +1,7 @@
-package app.lightmove.api.workspace.dto;
+package app.lightmove.api.core.security.dto;
 
 import app.lightmove.api.core.security.rbac.WorkspaceRole;
-import app.lightmove.api.workspace.constant.WorkspaceMode;
+import app.lightmove.api.core.tenant.WorkspaceMode;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;

@@ -1,6 +1,7 @@
-package app.lightmove.api.core.security.rbac;
+package app.lightmove.api.project.service;
 
 import app.lightmove.api.core.security.model.AuthPrincipal;
+import app.lightmove.api.core.security.rbac.ProjectAction;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;

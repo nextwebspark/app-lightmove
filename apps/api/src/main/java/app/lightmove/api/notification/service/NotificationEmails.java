@@ -9,7 +9,7 @@ import app.lightmove.api.core.email.model.EmailMessage;
 import app.lightmove.api.core.email.service.EmailSender;
 import app.lightmove.api.core.email.service.EmailTemplates;
 import app.lightmove.api.core.security.model.User;
-import app.lightmove.api.core.security.rbac.ProjectAccess;
+import app.lightmove.api.project.service.ProjectAccess;
 import app.lightmove.api.core.security.rbac.ProjectAction;
 import app.lightmove.api.core.security.rbac.WorkspaceAccess;
 import app.lightmove.api.core.security.repository.UserRepository;

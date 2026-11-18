@@ -9,17 +9,13 @@ import app.lightmove.api.core.security.dto.OAuthPendingConsentResponse;
 import app.lightmove.api.core.security.rbac.WorkspaceAccess;
 import app.lightmove.api.core.security.rbac.WorkspaceAction;
 import app.lightmove.api.core.security.service.WorkspaceSelection;
-import app.lightmove.api.workspace.model.Workspace;
-import app.lightmove.api.workspace.model.WorkspaceMember;
-import app.lightmove.api.workspace.repository.WorkspaceRepository;
+import app.lightmove.api.core.security.membership.WorkspaceMember;
 import java.time.Clock;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 import org.springframework.security.oauth2.core.endpoint.OAuth2AuthorizationRequest;
 import org.springframework.security.oauth2.core.endpoint.OAuth2ParameterNames;
 import org.springframework.security.oauth2.server.authorization.OAuth2Authorization;
@@ -43,7 +39,7 @@ public class OAuthConsentService {
     private final OAuthClientJpaRepository clients;
     private final HashingAuthorizationService authorizations;
     private final WorkspaceSelection selection;
-    private final WorkspaceRepository workspaces;
+    private final WorkspaceNames workspaces;
     private final WorkspaceAccess access;
     private final RegisteredClientRepository registeredClients;
     private final ClientVerification verification;
@@ -51,7 +47,7 @@ public class OAuthConsentService {
     private final Clock clock;
 
     public OAuthConsentService(OAuthClientJpaRepository clients, HashingAuthorizationService authorizations,
-                               WorkspaceSelection selection, WorkspaceRepository workspaces, WorkspaceAccess access,
+                               WorkspaceSelection selection, WorkspaceNames workspaces, WorkspaceAccess access,
                                RegisteredClientRepository registeredClients, ClientVerification verification,
                                PlatformTransactionManager transactions, Clock clock) {
         this.clients = clients;
@@ -101,13 +97,12 @@ public class OAuthConsentService {
                 .toList();
 
         List<WorkspaceMember> memberships = selection.all(userId);
-        Map<UUID, Workspace> byId = workspaces
-                .findAllById(memberships.stream().map(WorkspaceMember::getWorkspaceId).toList()).stream()
-                .collect(Collectors.toMap(Workspace::getId, Function.identity()));
+        Map<UUID, String> namesById = workspaces
+                .namesOf(memberships.stream().map(WorkspaceMember::getWorkspaceId).toList());
         List<OAuthConsentWorkspace> offered = memberships.stream()
-                .filter(member -> byId.containsKey(member.getWorkspaceId()))
+                .filter(member -> namesById.containsKey(member.getWorkspaceId()))
                 .map(member -> new OAuthConsentWorkspace(member.getWorkspaceId(),
-                        byId.get(member.getWorkspaceId()).getName(),
+                        namesById.get(member.getWorkspaceId()),
                         access.holdsAction(userId, member.getWorkspaceId(), WorkspaceAction.API_KEY_MANAGE)))
                 .toList();
 

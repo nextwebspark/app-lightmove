@@ -10,7 +10,7 @@ import app.lightmove.api.assistant.repository.AssistantThreadRepository;
 import app.lightmove.api.assistant.repository.AssistantTurnRepository;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
-import app.lightmove.api.core.security.rbac.ProjectAccess;
+import app.lightmove.api.project.service.ProjectAccess;
 import app.lightmove.api.core.security.rbac.ProjectAction;
 import app.lightmove.api.triagecompany.constant.TriageCompanySource;
 import app.lightmove.api.triagecompany.dto.AddSelectedTriageCompaniesRequest;

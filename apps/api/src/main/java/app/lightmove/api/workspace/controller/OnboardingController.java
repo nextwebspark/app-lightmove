@@ -15,7 +15,7 @@ import app.lightmove.api.workspace.dto.AcceptInvitationSignupRequest;
 import app.lightmove.api.workspace.dto.CreateWorkspaceRequest;
 import app.lightmove.api.workspace.dto.WorkspaceLegalResponse;
 import app.lightmove.api.workspace.model.Workspace;
-import app.lightmove.api.workspace.model.WorkspaceMember;
+import app.lightmove.api.core.security.membership.WorkspaceMember;
 import app.lightmove.api.workspace.service.InvitationAcceptService;
 import app.lightmove.api.workspace.service.OnboardingService;
 import jakarta.servlet.http.HttpServletRequest;

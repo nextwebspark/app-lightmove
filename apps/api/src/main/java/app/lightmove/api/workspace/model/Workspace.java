@@ -10,7 +10,7 @@ import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.persistence.model.BaseEntity;
 import app.lightmove.api.workspace.constant.CalendarSync;
-import app.lightmove.api.workspace.constant.WorkspaceMode;
+import app.lightmove.api.core.tenant.WorkspaceMode;
 import app.lightmove.api.workspace.constant.WorkspaceStatus;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;

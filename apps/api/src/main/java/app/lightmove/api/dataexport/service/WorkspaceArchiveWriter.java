@@ -19,7 +19,7 @@ import app.lightmove.api.project.dto.ProjectResponse;
 import app.lightmove.api.project.service.ProjectService;
 import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
 import app.lightmove.api.triagecompany.model.TriageCompanyFilters;
-import app.lightmove.api.workspace.constant.WorkspaceMode;
+import app.lightmove.api.core.tenant.WorkspaceMode;
 import app.lightmove.api.workspace.service.AuditLogService;
 import java.io.IOException;
 import java.io.InputStream;

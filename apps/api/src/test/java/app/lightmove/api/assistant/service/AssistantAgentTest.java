@@ -31,7 +31,7 @@ import app.lightmove.api.common.persona.model.HiringCompanyProfile;
 import app.lightmove.api.common.persona.model.HiringPersona;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
-import app.lightmove.api.workspace.constant.WorkspaceMode;
+import app.lightmove.api.core.tenant.WorkspaceMode;
 import app.lightmove.api.workspace.model.Firm;
 import java.util.List;
 import java.util.Map;

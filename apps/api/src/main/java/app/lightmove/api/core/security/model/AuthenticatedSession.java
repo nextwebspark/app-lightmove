@@ -1,7 +1,7 @@
 package app.lightmove.api.core.security.model;
 import app.lightmove.api.core.security.token.TokenPair;
 
-import app.lightmove.api.workspace.model.WorkspaceMember;
+import app.lightmove.api.core.security.membership.WorkspaceMember;
 import java.util.UUID;
 
 /**

@@ -1,5 +1,6 @@
-package app.lightmove.api.core.security.apikey;
+package app.lightmove.api.publicapi.service;
 
+import app.lightmove.api.core.security.apikey.ApiKeyScope;
 import java.lang.annotation.Documented;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;

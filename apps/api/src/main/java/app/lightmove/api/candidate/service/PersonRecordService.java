@@ -21,7 +21,7 @@ import app.lightmove.api.candidate.repository.PersonRepository;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.security.model.User;
-import app.lightmove.api.core.security.rbac.ProjectAccess;
+import app.lightmove.api.project.service.ProjectAccess;
 import app.lightmove.api.core.security.rbac.ProjectAction;
 import app.lightmove.api.core.security.rbac.WorkspaceAccess;
 import app.lightmove.api.core.security.rbac.WorkspaceAction;

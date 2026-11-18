@@ -12,7 +12,7 @@ import app.lightmove.api.core.security.rbac.WorkspaceRole;
 import app.lightmove.api.core.security.repository.UserRepository;
 import app.lightmove.api.workspace.dto.ChangeRolesRequest;
 import app.lightmove.api.workspace.dto.MemberResponse;
-import app.lightmove.api.workspace.model.WorkspaceMember;
+import app.lightmove.api.core.security.membership.WorkspaceMember;
 import app.lightmove.api.workspace.service.MemberService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;

@@ -1,9 +1,10 @@
-package app.lightmove.api.core.stream;
+package app.lightmove.api.project.controller;
 
 import app.lightmove.api.core.security.model.AuthPrincipal;
-import app.lightmove.api.core.security.rbac.ProjectAccess;
 import app.lightmove.api.core.security.rbac.ProjectAction;
 import app.lightmove.api.core.security.rbac.RequireProjectPermission;
+import app.lightmove.api.core.stream.ProjectStreamRegistry;
+import app.lightmove.api.project.service.ProjectAccess;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;

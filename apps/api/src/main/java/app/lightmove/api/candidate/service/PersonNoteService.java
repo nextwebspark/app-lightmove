@@ -22,7 +22,7 @@ import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.constant.ApiValueEnum;
 import app.lightmove.api.common.constant.NoteFormat;
 import app.lightmove.api.core.security.model.User;
-import app.lightmove.api.core.security.rbac.ProjectAccess;
+import app.lightmove.api.project.service.ProjectAccess;
 import app.lightmove.api.core.security.rbac.ProjectAction;
 import app.lightmove.api.core.security.rbac.WorkspaceAccess;
 import app.lightmove.api.core.security.rbac.WorkspaceAction;

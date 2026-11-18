@@ -1,4 +1,4 @@
-package app.lightmove.api.workspace.constant;
+package app.lightmove.api.core.security.membership;
 
 /** Membership is invitation-only, so every membership starts ACTIVE; there is no pending state. */
 public enum MemberStatus {

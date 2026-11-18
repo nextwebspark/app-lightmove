@@ -1,7 +1,7 @@
 package app.lightmove.api.position.controller;
 
 import app.lightmove.api.core.security.model.AuthPrincipal;
-import app.lightmove.api.core.security.rbac.ProjectAccess;
+import app.lightmove.api.project.service.ProjectAccess;
 import app.lightmove.api.core.security.rbac.ProjectAction;
 import app.lightmove.api.core.security.rbac.ProjectAudience;
 import app.lightmove.api.core.security.rbac.RequireProjectPermission;

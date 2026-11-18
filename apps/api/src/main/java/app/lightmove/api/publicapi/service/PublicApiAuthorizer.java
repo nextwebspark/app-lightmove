@@ -1,10 +1,13 @@
-package app.lightmove.api.core.security.apikey;
+package app.lightmove.api.publicapi.service;
 
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
-import app.lightmove.api.core.security.rbac.ProjectAccess;
+import app.lightmove.api.core.security.apikey.ApiKeyPrincipal;
+import app.lightmove.api.core.security.apikey.ApiKeyScope;
+import app.lightmove.api.core.security.apikey.PublicReader;
 import app.lightmove.api.core.security.rbac.ProjectAction;
 import app.lightmove.api.project.repository.ProjectRepository;
+import app.lightmove.api.project.service.ProjectAccess;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;

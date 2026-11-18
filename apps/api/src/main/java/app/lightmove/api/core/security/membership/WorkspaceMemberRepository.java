@@ -1,7 +1,5 @@
-package app.lightmove.api.workspace.repository;
+package app.lightmove.api.core.security.membership;
 
-import app.lightmove.api.workspace.constant.MemberStatus;
-import app.lightmove.api.workspace.model.WorkspaceMember;
 import jakarta.persistence.LockModeType;
 import java.util.Collection;
 import java.util.List;

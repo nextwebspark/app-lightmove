@@ -3,7 +3,7 @@ package app.lightmove.api.assistant.service;
 import app.lightmove.api.assistant.model.HiringSide;
 import app.lightmove.api.common.persona.model.HiringCompanyProfile;
 import app.lightmove.api.common.persona.model.HiringPersona;
-import app.lightmove.api.workspace.constant.WorkspaceMode;
+import app.lightmove.api.core.tenant.WorkspaceMode;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;

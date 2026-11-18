@@ -1,7 +1,7 @@
 package app.lightmove.api.task.service;
 
 import app.lightmove.api.candidate.constant.PersonActivityKind;
-import app.lightmove.api.core.security.rbac.ProjectAccess;
+import app.lightmove.api.project.service.ProjectAccess;
 import app.lightmove.api.core.security.rbac.ProjectAction;
 import app.lightmove.api.core.security.rbac.WorkspaceAccess;
 import app.lightmove.api.project.model.ProjectSeatVacated;
