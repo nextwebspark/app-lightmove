@@ -158,7 +158,7 @@ class ZoomIntegrationTest extends FlowTestSupport {
                 VendorFailureKind.MALFORMED_RESPONSE, null));
 
         book(priya, slot, "ZOOM").andExpect(status().isBadGateway())
-                .andExpect(jsonPath("$.code").value("MEETING_BOOK_FAILED"));
+                .andExpect(jsonPath("$.code").value("MEETING_BOOK_UNCONFIRMED"));
 
         assertThat(zoom.created()).hasSize(1);
         assertThat(zoom.deleted()).isEmpty();

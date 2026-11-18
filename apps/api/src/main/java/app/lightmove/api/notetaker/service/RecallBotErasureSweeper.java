@@ -52,26 +52,24 @@ public class RecallBotErasureSweeper {
     /** Queues bots to call back and strip of media, in the caller's transaction, and tries them once it commits. */
     @Transactional(propagation = Propagation.MANDATORY)
     public void queue(Collection<String> botIds) {
-        if (botIds.isEmpty()) {
-            return;
-        }
-        jdbc.batchUpdate("""
-                INSERT INTO app_lm_recall_bot_erasure (recall_bot_id, call_back, delete_media) VALUES (?, true, true)
-                ON CONFLICT (recall_bot_id) DO NOTHING
-                """, botIds.stream().map(botId -> new Object[] {botId}).toList());
-        sweepAfterCommit();
+        enqueue(botIds, true);
     }
 
     /** Queues the media of bots already called back for deletion, in the caller's transaction, tried once it commits. */
     @Transactional(propagation = Propagation.MANDATORY)
     public void queueMediaDeletion(Collection<String> botIds) {
+        enqueue(botIds, false);
+    }
+
+    /** A bot already queued keeps its row, and its media is deleted whatever that row asked before. */
+    private void enqueue(Collection<String> botIds, boolean callBack) {
         if (botIds.isEmpty()) {
             return;
         }
         jdbc.batchUpdate("""
-                INSERT INTO app_lm_recall_bot_erasure (recall_bot_id, call_back, delete_media) VALUES (?, false, true)
-                ON CONFLICT (recall_bot_id) DO NOTHING
-                """, botIds.stream().map(botId -> new Object[] {botId}).toList());
+                INSERT INTO app_lm_recall_bot_erasure (recall_bot_id, call_back, delete_media) VALUES (?, ?, true)
+                ON CONFLICT (recall_bot_id) DO UPDATE SET delete_media = true
+                """, botIds.stream().map(botId -> new Object[] {botId, callBack}).toList());
         sweepAfterCommit();
     }
 

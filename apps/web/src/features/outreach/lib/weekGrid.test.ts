@@ -94,12 +94,12 @@ describe("weekGrid", () => {
     expect(late?.minutes).toBe(60);
     expect(fieldsOf(late!, DUBAI).to).toBe("24:00");
 
-    // Past midnight the end is its own time, never read as midnight.
-    expect(fieldsOf({ start: "2099-10-05T18:00:00.000Z", minutes: 240 }, DUBAI)).toEqual({
-      date: "2099-10-05",
-      from: "22:00",
-      to: "02:00",
-    });
+    // Past midnight the end is its own time, never read as midnight, and reads back as the same call.
+    const pastMidnight = { start: "2099-10-05T18:00:00.000Z", minutes: 240 };
+    const shown = fieldsOf(pastMidnight, DUBAI);
+    expect(shown).toEqual({ date: "2099-10-05", from: "22:00", to: "02:00" });
+    expect(choiceOfFields(shown.date, shown.from, shown.to, DUBAI, shown.to < shown.from)).toEqual(pastMidnight);
+    expect(choiceOfFields(shown.date, shown.from, "01:00", DUBAI, true)?.minutes).toBe(180);
     expect(choiceOfFields("2099-10-05", "11:00", "10:00", DUBAI)).toBeNull();
   });
 

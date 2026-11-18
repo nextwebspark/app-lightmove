@@ -548,6 +548,42 @@ class MeetingIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("a call cancelled and booked again at the same time is filed a debrief of its own")
+    void aRebookedCallIsFiledItsOwnDebrief() throws Exception {
+        String priya = executive("Priya Raman", "priya@" + domain);
+        connectMailbox();
+        Instant slot = tomorrowAt(10, 0);
+        Instant callEnd = slot.plus(Duration.ofMinutes(30));
+        book(priya, slot, 30, "priya@" + domain).andExpect(status().isOk());
+        assertThat(debriefEventually(priya, "OPEN", callEnd)).isTrue();
+        String meetingId = meetingsOf(priya).get("upcoming").get(0).get("id").asText();
+        as(consultant, delete(meetings(priya) + "/" + meetingId)).andExpect(status().isNoContent());
+        assertThat(debriefEventually(priya, "CANCELLED", callEnd)).isTrue();
+
+        book(priya, slot, 30, "priya@" + domain).andExpect(status().isOk());
+
+        assertThat(debriefEventually(priya, "OPEN", callEnd)).isTrue();
+    }
+
+    @Test
+    @DisplayName("a call booked at the time another call moved away from is filed a debrief of its own")
+    void aCallBookedAtAMovedCallsOldTimeIsFiledItsDebrief() throws Exception {
+        String priya = executive("Priya Raman", "priya@" + domain);
+        connectMailbox();
+        Instant slot = tomorrowAt(10, 0);
+        book(priya, slot, 30, "priya@" + domain).andExpect(status().isOk());
+        assertThat(debriefEventually(priya, "OPEN", slot.plus(Duration.ofMinutes(30)))).isTrue();
+        String meetingId = meetingsOf(priya).get("upcoming").get(0).get("id").asText();
+        Instant later = slot.plus(Duration.ofHours(2));
+        reschedule(priya, meetingId, later, 30).andExpect(status().isNoContent());
+        assertThat(debriefEventually(priya, "OPEN", later.plus(Duration.ofMinutes(30)))).isTrue();
+
+        book(priya, slot, 30, "priya@" + domain).andExpect(status().isOk());
+
+        assertThat(debriefEventually(priya, "OPEN", slot.plus(Duration.ofMinutes(30)))).isTrue();
+    }
+
+    @Test
     @DisplayName("cancelling a call already deleted on the calendar says so, rather than that the executive was told")
     void cancellingACallGoneFromTheCalendar() throws Exception {
         String priya = executive("Priya Raman", "priya@" + domain);

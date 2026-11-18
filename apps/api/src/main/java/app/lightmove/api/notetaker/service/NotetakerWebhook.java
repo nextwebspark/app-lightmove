@@ -50,19 +50,16 @@ public class NotetakerWebhook {
     }
 
     /**
-     * An ended recording takes only a leaving's reason, or the transcript of a bot read as gone unrecorded because its
-     * leaving beat its {@code in_call_recording}: a transcript proves it recorded, as {@link NotetakerReconcile} reads.
+     * An ended recording takes only its reason — a {@code call_ended}, {@code fatal} or permission refusal that crossed
+     * the {@code done} which failed it — or the transcript of a bot read as gone unrecorded because its leaving beat its
+     * {@code in_call_recording}: a transcript proves it recorded, as {@link NotetakerReconcile} reads.
      */
     private static boolean reopens(MeetingRecording recording, RecallBotNotice notice) {
         return switch (notice) {
-            case RecallBotNotice.StatusChanged changed -> isLeaving(changed.code()) && recording.awaitsItsReason();
+            case RecallBotNotice.StatusChanged changed -> recording.awaitsItsReason();
             case RecallBotNotice.TranscriptReady ready -> recording.leftWithoutRecording();
             case RecallBotNotice.TranscriptFailed failed -> false;
         };
-    }
-
-    private static boolean isLeaving(String code) {
-        return code.equals("call_ended") || code.equals("done");
     }
 
     private Optional<ResolvedRow> recordingNamedBy(RecallBotNotice notice) {

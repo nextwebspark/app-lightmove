@@ -256,8 +256,8 @@ public abstract class OAuthDirectMailboxGateway implements DirectMailboxGateway 
      * {@code itemsField} kept where {@code eventOf} reads one. Capped at {@link #MAX_EVENT_PAGES}.
      */
     protected <C> CalendarRead pagedEvents(String grantId, C first, Function<C, JsonNode> fetchPage,
-                                                  String itemsField, Function<JsonNode, CalendarEvent> eventOf,
-                                                  Function<JsonNode, C> nextOf) {
+                                           String itemsField, Function<JsonNode, CalendarEvent> eventOf,
+                                           Function<JsonNode, C> nextOf) {
         List<CalendarEvent> events = new ArrayList<>();
         C cursor = first;
         for (int page = 0; page < MAX_EVENT_PAGES; page++) {

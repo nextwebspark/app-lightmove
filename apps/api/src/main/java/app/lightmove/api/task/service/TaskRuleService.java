@@ -30,6 +30,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.function.Consumer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
@@ -115,43 +116,65 @@ public class TaskRuleService {
     public void onCallBooked(OutreachCallBooked booked) {
         Instant ends = callEndOf(booked.startsAt(), booked.endsAt());
         follow(new FollowUpCase(OutreachFollowUpKind.CALL_BOOKED, TaskRule.BOOKED_CALL,
-                "booked_call:" + booked.projectId() + ":" + booked.personId() + ":" + booked.startsAt().getEpochSecond(),
+                bookedCallKey(booked.projectId(), booked.personId(), booked.startsAt()),
                 booked.workspaceId(), booked.projectId(), booked.personId(), booked.candidateId(),
                 booked.consultantUserId(), TaskKind.FOLLOW_UP, "Debrief %s", ends, booked.viaLink()));
     }
 
-    /** A moved call's debrief moves with it, so it is never overdue before the call it follows. */
+    /**
+     * A moved call's debrief moves with it, so it is never overdue before the call it follows, and takes the new
+     * start's key: the old one is free for a call booked later at that time.
+     */
     @Async
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void onCallMoved(OutreachCallMoved moved) {
-        debriefsOf(moved.workspaceId(), moved.projectId(), moved.personId(),
-                callEndOf(moved.previousStartsAt(), moved.previousEndsAt()))
-                .forEach(task -> {
+        String movedKey = bookedCallKey(moved.projectId(), moved.personId(), moved.startsAt());
+        followDebriefs(moved.workspaceId(), moved.projectId(), moved.personId(),
+                callEndOf(moved.previousStartsAt(), moved.previousEndsAt()), moved.movedBy(),
+                ProjectEventType.TASK_UPDATED, task -> {
                     task.reschedule(callEndOf(moved.startsAt(), moved.endsAt()));
-                    audit.projectEvent(ProjectEventType.TASK_UPDATED, moved.movedBy(), task.getWorkspaceId(),
-                                    task.getProjectId(), null)
-                            .detail("taskId", task.getId().toString())
-                            .detail("dueAt", task.getDueAt().toString())
-                            .record();
+                    task.rekey(tasks.existsByWorkspaceIdAndRuleKey(moved.workspaceId(), movedKey)
+                            ? releasedKeyOf(task) : movedKey);
                 });
     }
 
-    /** A cancelled call has nothing to debrief. */
+    /**
+     * A cancelled call has nothing to debrief. Its task gives up the call's key: kept, the key would stop a call
+     * rebooked at the same time from being filed a debrief at all.
+     */
     @Async
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void onCallCancelled(OutreachCallCancelled cancelled) {
-        debriefsOf(cancelled.workspaceId(), cancelled.projectId(), cancelled.personId(),
-                callEndOf(cancelled.startsAt(), cancelled.endsAt()))
-                .forEach(task -> {
+        followDebriefs(cancelled.workspaceId(), cancelled.projectId(), cancelled.personId(),
+                callEndOf(cancelled.startsAt(), cancelled.endsAt()), cancelled.cancelledBy(),
+                ProjectEventType.TASK_CANCELLED, task -> {
                     task.cancel();
+                    task.rekey(releasedKeyOf(task));
                     timeline.record(task, cancelled.cancelledBy(), PersonActivityKind.TASK_CANCELLED, null);
-                    audit.projectEvent(ProjectEventType.TASK_CANCELLED, cancelled.cancelledBy(),
-                                    task.getWorkspaceId(), task.getProjectId(), null)
-                            .detail("taskId", task.getId().toString())
-                            .record();
                 });
+    }
+
+    /** A moved debrief's due date, like one changed by hand, is audited and not a timeline line. */
+    private void followDebriefs(UUID workspaceId, UUID projectId, UUID personId, Instant callEnd, UUID actor,
+                                ProjectEventType audited, Consumer<Task> change) {
+        debriefsOf(workspaceId, projectId, personId, callEnd).forEach(task -> {
+            change.accept(task);
+            audit.projectEvent(audited, actor, task.getWorkspaceId(), task.getProjectId(), null)
+                    .detail("taskId", task.getId().toString())
+                    .detailIfPresent("dueAt", audited == ProjectEventType.TASK_UPDATED
+                            ? task.getDueAt().toString() : null)
+                    .record();
+        });
+    }
+
+    private static String bookedCallKey(UUID projectId, UUID personId, Instant startsAt) {
+        return "booked_call:" + projectId + ":" + personId + ":" + startsAt.getEpochSecond();
+    }
+
+    private static String releasedKeyOf(Task task) {
+        return task.getRuleKey() + ":released:" + task.getId();
     }
 
     /**

@@ -196,6 +196,10 @@ public class MeetingService {
                 // this Zoom link, so the meeting is kept for the executive holding it.
                 log.error("Zoom meeting of user {} kept for an invite whose event could not be read back", userId);
             }
+            if (inviteSent) {
+                // Not "could not be sent": a consultant told that books again, and the executive gets two invites.
+                throw ApiException.of(ErrorCode.MEETING_BOOK_UNCONFIRMED);
+            }
             if (failed instanceof VendorException vendorFailed) {
                 throw failedAtMailService(mailbox, vendorFailed, ErrorCode.MEETING_BOOK_FAILED);
             }

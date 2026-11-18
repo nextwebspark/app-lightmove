@@ -1,9 +1,9 @@
 package app.lightmove.api;
 
-import app.lightmove.api.core.resilience.constant.VendorFailureKind;
-import app.lightmove.api.core.resilience.model.VendorException;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
+import app.lightmove.api.core.resilience.constant.VendorFailureKind;
+import app.lightmove.api.core.resilience.model.VendorException;
 import app.lightmove.api.outreach.config.MailboxGatewayConfig;
 import app.lightmove.api.outreach.model.BookingPageSpec;
 import app.lightmove.api.outreach.model.BusyInterval;

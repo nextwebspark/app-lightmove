@@ -303,6 +303,21 @@ class NotetakerIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("a host's refusal that arrives after the done still names why the bot never recorded")
+    void aRefusalAfterTheDoneIsItsReason() throws Exception {
+        String recordingId = scheduledRecordingId();
+        String bot = recall.lastBotId();
+        deliver(bot, """
+                {"event":"bot.done","data":{"bot":{"id":"%s"},"data":{"code":"done","sub_code":null}}}""");
+        deliver(bot, """
+                {"event":"bot.recording_permission_denied","data":{"bot":{"id":"%s"},
+                 "data":{"code":"recording_permission_denied","sub_code":null}}}""");
+
+        assertThat(notetaker().get("recordings").get(0).get("failureReason").asText())
+                .isEqualTo("RECORDING_PERMISSION_DENIED");
+    }
+
+    @Test
     @DisplayName("a call whose call_ended beat its in_call_recording still files its note from the transcript")
     void aLeavingThatBeatTheRecordingStillFilesTheNote() throws Exception {
         chat.answerWhenSystemContains(SUMMARY_MARKER, SUMMARY);
