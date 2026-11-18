@@ -22,6 +22,9 @@ import app.lightmove.api.outreach.model.BusyInterval;
 import app.lightmove.api.outreach.model.CalendarEvent;
 import app.lightmove.api.outreach.model.CalendarRead;
 import app.lightmove.api.outreach.model.GrantedMailbox;
+import app.lightmove.api.outreach.constant.MailboxGatewayKind;
+import app.lightmove.api.outreach.repository.MailboxConnectionRepository;
+import app.lightmove.api.outreach.model.MailboxConnection;
 import app.lightmove.api.outreach.model.MailboxGrants;
 import app.lightmove.api.outreach.model.NewCalendarEvent;
 import app.lightmove.api.outreach.model.EmailAttachment;
@@ -301,6 +304,37 @@ class GoogleMailboxGatewayTest {
 
         assertThat(read.complete()).isFalse();
         assertThat(read.events()).hasSize(OAuthDirectMailboxGateway.MAX_EVENT_PAGES);
+    }
+
+    @Test
+    @DisplayName("a drawer's refresh over a read cut short at the page cap replaces no window: nothing it missed is gone")
+    void aRefreshOverACutShortReadDeletesNothing() {
+        Instant now = Instant.parse("2026-10-05T09:00:00Z");
+        MailboxConnection mailbox = MailboxConnection.connected(WORKSPACE, UUID.randomUUID(),
+                new GrantedMailbox(MailboxGrants.mintDirect("google"), "yara@firm.example", "google", "refresh"),
+                "sealed-refresh-token", 50, MailboxConnection.DEFAULT_ZONE, now.minus(Duration.ofDays(1)));
+        org.springframework.test.util.ReflectionTestUtils.setField(mailbox, "id", UUID.randomUUID());
+        mailbox.markCalendarSynced(now.minus(Duration.ofMinutes(10)));
+        when(mailboxTokens.accessToken(mailbox.getGrantId())).thenReturn("access-for-yara");
+        MailboxConnectionRepository mailboxes = mock(MailboxConnectionRepository.class);
+        when(mailboxes.findByWorkspaceIdAndGateway(WORKSPACE, MailboxGatewayKind.DIRECT)).thenReturn(List.of(mailbox));
+        when(mailboxes.claimCalendarRefresh(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any())).thenReturn(1);
+        when(mailboxes.findById(mailbox.getId())).thenReturn(Optional.of(mailbox));
+        MeetingSync meetings = mock(MeetingSync.class);
+        MeetingBackfill backfill = new MeetingBackfill(gateway, mailboxes, meetings,
+                mock(app.lightmove.api.core.tenant.EveryWorkspace.class),
+                mock(org.springframework.transaction.PlatformTransactionManager.class),
+                java.time.Clock.fixed(now, java.time.ZoneOffset.UTC));
+        google.answersEndlessEventPages();
+
+        backfill.refreshUnpushed(WORKSPACE);
+
+        org.mockito.Mockito.verify(meetings, org.mockito.Mockito.never()).replaceWindow(
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+        org.mockito.Mockito.verify(meetings).applyAll(org.mockito.ArgumentMatchers.eq(mailbox),
+                org.mockito.ArgumentMatchers.argThat(found -> found.size() == OAuthDirectMailboxGateway.MAX_EVENT_PAGES));
     }
 
     @Test
