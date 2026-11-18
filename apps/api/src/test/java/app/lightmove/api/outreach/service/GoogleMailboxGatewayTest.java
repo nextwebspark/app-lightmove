@@ -17,10 +17,13 @@ import app.lightmove.api.core.resilience.service.VendorClientFactory;
 import app.lightmove.api.core.resilience.service.VendorRateLimiter;
 import app.lightmove.api.outreach.constant.CredentialMode;
 import app.lightmove.api.outreach.constant.IntegrationProvider;
+import app.lightmove.api.outreach.constant.MailboxGatewayKind;
 import app.lightmove.api.outreach.constant.MeetingVideo;
 import app.lightmove.api.outreach.model.BusyInterval;
 import app.lightmove.api.outreach.model.CalendarEvent;
+import app.lightmove.api.outreach.model.CalendarRead;
 import app.lightmove.api.outreach.model.GrantedMailbox;
+import app.lightmove.api.outreach.model.MailboxConnection;
 import app.lightmove.api.outreach.model.MailboxGrants;
 import app.lightmove.api.outreach.model.NewCalendarEvent;
 import app.lightmove.api.outreach.model.EmailAttachment;
@@ -29,6 +32,7 @@ import app.lightmove.api.outreach.model.ProviderCredentials;
 import app.lightmove.api.outreach.model.ReleasedGrant;
 import app.lightmove.api.outreach.model.SentEmail;
 import app.lightmove.api.outreach.model.ThreadMessage;
+import app.lightmove.api.outreach.repository.MailboxConnectionRepository;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
@@ -271,7 +275,7 @@ class GoogleMailboxGatewayTest {
         when(mailboxTokens.accessToken(grantId)).thenReturn("access-for-yara");
 
         List<CalendarEvent> events = gateway.calendarEvents(grantId, Instant.parse("2026-07-05T00:00:00Z"),
-                Instant.parse("2027-01-01T00:00:00Z"));
+                Instant.parse("2027-01-01T00:00:00Z")).events();
 
         assertThat(events).extracting(CalendarEvent::id).containsExactly("evt-meet", "evt-page-2");
         CalendarEvent meet = events.getFirst();
@@ -286,6 +290,51 @@ class GoogleMailboxGatewayTest {
         String query = decoded(google.lastQueryOf("/api/calendar/v3/calendars/primary/events"));
         assertThat(query).contains("singleEvents=true").contains("pageToken=page-2")
                 .contains("timeMin=2026-07-05T00:00:00Z").contains("fields=").doesNotContain("description");
+    }
+
+    @Test
+    @DisplayName("a calendar read stopped at its page cap says it is cut short, so nothing it missed reads as gone")
+    void aReadPastThePageCapIsCutShort() {
+        String grantId = MailboxGrants.mintDirect("google");
+        when(mailboxTokens.accessToken(grantId)).thenReturn("access-for-yara");
+        google.answersEndlessEventPages();
+
+        CalendarRead read = gateway.calendarEvents(grantId, Instant.parse("2026-07-05T00:00:00Z"),
+                Instant.parse("2027-01-01T00:00:00Z"));
+
+        assertThat(read.complete()).isFalse();
+        assertThat(read.events()).hasSize(OAuthDirectMailboxGateway.MAX_EVENT_PAGES);
+    }
+
+    @Test
+    @DisplayName("a drawer's refresh over a read cut short at the page cap replaces no window: nothing it missed is gone")
+    void aRefreshOverACutShortReadDeletesNothing() {
+        Instant now = Instant.parse("2026-10-05T09:00:00Z");
+        MailboxConnection mailbox = MailboxConnection.connected(WORKSPACE, UUID.randomUUID(),
+                new GrantedMailbox(MailboxGrants.mintDirect("google"), "yara@firm.example", "google", "refresh"),
+                "sealed-refresh-token", 50, MailboxConnection.DEFAULT_ZONE, now.minus(Duration.ofDays(1)));
+        org.springframework.test.util.ReflectionTestUtils.setField(mailbox, "id", UUID.randomUUID());
+        mailbox.markCalendarSynced(now.minus(Duration.ofMinutes(10)));
+        when(mailboxTokens.accessToken(mailbox.getGrantId())).thenReturn("access-for-yara");
+        MailboxConnectionRepository mailboxes = mock(MailboxConnectionRepository.class);
+        when(mailboxes.findByWorkspaceIdAndGateway(WORKSPACE, MailboxGatewayKind.DIRECT)).thenReturn(List.of(mailbox));
+        when(mailboxes.claimCalendarRefresh(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any())).thenReturn(1);
+        when(mailboxes.findById(mailbox.getId())).thenReturn(Optional.of(mailbox));
+        MeetingSync meetings = mock(MeetingSync.class);
+        MeetingBackfill backfill = new MeetingBackfill(gateway, mailboxes, meetings,
+                mock(app.lightmove.api.core.tenant.EveryWorkspace.class),
+                mock(org.springframework.transaction.PlatformTransactionManager.class),
+                java.time.Clock.fixed(now, java.time.ZoneOffset.UTC));
+        google.answersEndlessEventPages();
+
+        backfill.refreshUnpushed(WORKSPACE);
+
+        org.mockito.Mockito.verify(meetings, org.mockito.Mockito.never()).replaceWindow(
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+        org.mockito.Mockito.verify(meetings).applyAll(org.mockito.ArgumentMatchers.eq(mailbox),
+                org.mockito.ArgumentMatchers.argThat(found -> found.size() == OAuthDirectMailboxGateway.MAX_EVENT_PAGES));
     }
 
     @Test
@@ -523,6 +572,7 @@ class GoogleMailboxGatewayTest {
         private volatile int createEventStatus = 200;
         private volatile int cancelEventStatus = 204;
         private volatile boolean freeBusyErrors;
+        private volatile boolean endlessEventPages;
 
         void answer(HttpExchange exchange) throws IOException {
             String path = exchange.getRequestURI().getPath();
@@ -575,7 +625,9 @@ class GoogleMailboxGatewayTest {
                 respond(exchange, found == null || id.equals("m4") ? 403 : 200,
                         found == null || id.equals("m4") ? "{\"error\":{\"code\":403}}" : found.toString());
             } else if (key.equals("GET /api/calendar/v3/calendars/primary/events")) {
-                respond(exchange, 200, exchange.getRequestURI().getQuery().contains("pageToken=page-2") ? """
+                boolean lastPage = !endlessEventPages
+                        && exchange.getRequestURI().getQuery().contains("pageToken=page-2");
+                respond(exchange, 200, lastPage ? """
                         {"items":[
                           {"id":"evt-page-2","status":"confirmed","summary":"Debrief",
                            "start":{"dateTime":"2026-10-08T10:00:00+04:00"},"end":{"dateTime":"2026-10-08T10:30:00+04:00"},
@@ -627,6 +679,10 @@ class GoogleMailboxGatewayTest {
 
         void cancelEventAnswers(int status) {
             this.cancelEventStatus = status;
+        }
+
+        void answersEndlessEventPages() {
+            this.endlessEventPages = true;
         }
 
         void freeBusyAnswersErrors() {

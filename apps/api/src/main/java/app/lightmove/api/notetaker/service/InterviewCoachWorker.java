@@ -31,6 +31,7 @@ import java.time.Instant;
 import java.util.EnumSet;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
@@ -187,10 +188,18 @@ public class InterviewCoachWorker {
         if (!isEnoughTalk(unread, now)) {
             return null;
         }
+        if (coachStateOf(recording) == CoachState.PAUSED && !isSaidSince(unread, recording.getCoachedAt())) {
+            return null;
+        }
         return new CoachTurn(recording.getId(), recording.getWorkspaceId(), recording.getProjectId(),
                 recording.getPersonId(), recording.getStartsAt(),
                 recording.callClockStart(), recording.getTitle(), InterviewCopilotService.teamOf(recording),
                 unread.getLast().getSeq(), !recording.isLiveCharged(), recording.getRequestedBy());
+    }
+
+    /** A coach paused by failures reads again only once more is said, not every interval on the same lines. */
+    static boolean isSaidSince(List<MeetingLiveLine> unread, Instant pausedAt) {
+        return pausedAt == null || unread.stream().anyMatch(line -> line.getSaidAt().isAfter(pausedAt));
     }
 
     static boolean isEnoughTalk(List<MeetingLiveLine> unread, Instant now) {
@@ -205,30 +214,35 @@ public class InterviewCoachWorker {
     }
 
     private void run(CoachTurn turn, Instant now) {
+        LiveCoaching before = transactions.execute(status -> recordings.findById(turn.recordingId())
+                .map(MeetingRecording::getLive).orElse(null));
         LiveCoaching reading;
         try {
-            reading = readCall(turn);
+            reading = readCall(turn, before);
         } catch (InterviewCoach.CoachGuarded guarded) {
             log.info("Live copilot skipped a guarded stretch of recording {}", turn.recordingId());
-            transactions.executeWithoutResult(status -> recordings.findById(turn.recordingId()).ifPresent(held -> {
+            transactions.executeWithoutResult(status -> listeningLocked(turn).ifPresent(held -> {
                 held.coachSkipped(turn.throughSeq(), clock.instant());
                 publisher.publish(held.getId());
             }));
             return;
         } catch (RuntimeException failed) {
             log.warn("Live copilot run failed for recording {}: {}", turn.recordingId(), failed.toString());
-            transactions.executeWithoutResult(status -> recordings.findById(turn.recordingId()).ifPresent(held -> {
+            transactions.executeWithoutResult(status -> listeningLocked(turn).ifPresent(held -> {
                 held.coachFailed(held.getCoachFailures() + 1 >= FAILURES_BEFORE_PAUSE ? CoachState.PAUSED
                         : coachStateOf(held), clock.instant());
                 publisher.publish(held.getId());
             }));
             return;
         }
-        transactions.executeWithoutResult(status -> recordings.findById(turn.recordingId()).ifPresent(held -> {
-            held.coached(reconciled(reading, held.getLive()), turn.throughSeq(), clock.instant());
+        // Locked as a tick is, so a tick saved while this run read is never written over; and a copilot stopped
+        // meanwhile takes no reading and no charge.
+        boolean kept = Boolean.TRUE.equals(transactions.execute(status -> listeningLocked(turn).map(held -> {
+            held.coached(reconciled(reading, before, held.getLive()), turn.throughSeq(), clock.instant());
             publisher.publish(held.getId());
-        }));
-        if (turn.firstRun()) {
+            return true;
+        }).orElse(false)));
+        if (kept && turn.firstRun()) {
             // A live call is one AI use, counted once its first reading is on file whatever it goes on to cost; a
             // call no run ever answered costs nothing. The key keeps it to one.
             usage.record(new MeteredUse(turn.workspaceId(), turn.requestedBy(), turn.projectId(), UsageKind.AI_ENRICH,
@@ -238,7 +252,11 @@ public class InterviewCoachWorker {
         }
     }
 
-    private LiveCoaching readCall(CoachTurn turn) {
+    private Optional<MeetingRecording> listeningLocked(CoachTurn turn) {
+        return recordings.lockById(turn.recordingId()).filter(MeetingRecording::isListening);
+    }
+
+    private LiveCoaching readCall(CoachTurn turn, LiveCoaching before) {
         AssessmentBrief brief = positions.assessmentBriefOf(turn.workspaceId(), turn.projectId());
         List<InterviewQuestion> plan = plans.planOfCall(turn.workspaceId(), turn.projectId(), turn.personId(),
                         turn.startsAt(), turn.title())
@@ -253,8 +271,6 @@ public class InterviewCoachWorker {
                         .filter(line -> line.getSeq() <= turn.throughSeq())
                         .toList());
         List<HeardLine> heard = heardLinesOf(said, team, executiveName);
-        LiveCoaching before = transactions.execute(status -> recordings.findById(turn.recordingId())
-                .map(MeetingRecording::getLive).orElse(null));
         return coach.coach(brief, plan, missing, before, heard, turn.clockStart());
     }
 
@@ -287,13 +303,17 @@ public class InterviewCoachWorker {
         }
     }
 
-    /** A question ticked as asked while the model was reading stays ticked. */
-    static LiveCoaching reconciled(LiveCoaching reading, LiveCoaching meanwhile) {
+    /**
+     * What the consultant ticked or unticked while the model was reading wins: the run adds only the questions it
+     * newly heard asked, since every other one in its answer is the list it was given.
+     */
+    static LiveCoaching reconciled(LiveCoaching reading, LiveCoaching before, LiveCoaching meanwhile) {
         if (meanwhile == null) {
             return reading;
         }
-        Set<String> asked = new LinkedHashSet<>(reading.asked());
-        asked.addAll(meanwhile.asked());
+        Set<String> asked = new LinkedHashSet<>(meanwhile.asked());
+        List<String> given = before == null ? List.of() : before.asked();
+        reading.asked().stream().filter(question -> !given.contains(question)).forEach(asked::add);
         return reading.withAsked(List.copyOf(asked));
     }
 

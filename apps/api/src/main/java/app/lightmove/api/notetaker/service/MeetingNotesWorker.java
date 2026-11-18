@@ -118,7 +118,7 @@ class MeetingNotesWorker {
                     recordings.findById(recordingId).ifPresent(found -> found.transcribed(heard)));
         }
         if (lines.isEmpty()) {
-            fail(recordingId, "NOTHING_HEARD");
+            fail(recordingId, MeetingRecording.NOTHING_HEARD);
             return;
         }
         MeetingSummary summary;

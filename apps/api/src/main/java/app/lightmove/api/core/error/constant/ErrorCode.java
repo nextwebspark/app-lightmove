@@ -537,6 +537,10 @@ public enum ErrorCode {
     /** Never retried on our side: the calendar may still hold the invite, so the consultant checks before trying again. */
     MEETING_BOOK_FAILED(HttpStatus.BAD_GATEWAY, "The invite could not be sent. Check your calendar before trying again"),
 
+    /** The calendar made the event and sent the invite but answered nothing readable: booking again would invite twice. */
+    MEETING_BOOK_UNCONFIRMED(HttpStatus.BAD_GATEWAY,
+            "The invite was sent, but your calendar didn't confirm it. Refresh before booking again"),
+
     /** Only a call booked in Uncava, still to come, is moved or cancelled here; any other is the calendar's own. */
     MEETING_NOT_EDITABLE(HttpStatus.CONFLICT, "This call can only be changed from the calendar it is on"),
 

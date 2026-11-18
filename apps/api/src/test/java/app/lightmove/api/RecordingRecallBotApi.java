@@ -63,13 +63,13 @@ public class RecordingRecallBotApi implements RecallBotApi {
 
     @Override
     public String send(RecallBotRequest request) {
+        whileSending.run();
         if (failSends) {
             throw new VendorException(VendorCall.of("recall", "bot-create"), VendorFailureKind.UNAVAILABLE, null);
         }
         if (busySends) {
             throw ApiException.of(ErrorCode.NOTETAKER_BUSY);
         }
-        whileSending.run();
         sent.add(request);
         String botId = "bot-" + UUID.randomUUID();
         botIds.add(botId);

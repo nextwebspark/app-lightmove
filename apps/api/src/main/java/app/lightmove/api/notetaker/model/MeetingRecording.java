@@ -35,6 +35,7 @@ public class MeetingRecording extends BaseEntity {
 
     private static final int LONGEST_REASON = 64;
     public static final String NEVER_RECORDED = "NEVER_RECORDED";
+    public static final String NOTHING_HEARD = "NOTHING_HEARD";
 
     @Column(name = "workspace_id", nullable = false, updatable = false)
     private UUID workspaceId;
@@ -358,6 +359,20 @@ public class MeetingRecording extends BaseEntity {
         return status == NotetakerStatus.FAILED && NEVER_RECORDED.equals(failureReason);
     }
 
+    /**
+     * Failed by a {@code call_ended} or {@code done} that may have beaten the bot's {@code in_call_recording}: Svix
+     * keeps no order, and a recorded call read this way once lost its note for good, its transcript finding an ended row.
+     */
+    public boolean leftWithoutRecording() {
+        return status == NotetakerStatus.FAILED && noteId == null && transcriptId == null && !mediaDeleted
+                && ("call_ended".equals(recallStatus) || "done".equals(recallStatus));
+    }
+
+    public void recordedAfterLeaving() {
+        this.failureReason = null;
+        this.status = NotetakerStatus.PROCESSING;
+    }
+
     /** Only a live recording is called back: one a webhook already finished stays as it ended. */
     public void cancelled() {
         if (status.isLive()) {
@@ -367,8 +382,9 @@ public class MeetingRecording extends BaseEntity {
 
     /** A failed recording is tried again only from its transcript: the call itself cannot be recorded twice. */
     public boolean isRetryable() {
+        // A call with no speech reads the same empty transcript again: offering it only spent a request each press.
         return status == NotetakerStatus.FAILED && recallBotId != null && noteId == null && !mediaDeleted
-                && (transcriptId != null || transcript != null);
+                && (transcriptId != null || transcript != null) && !NOTHING_HEARD.equals(failureReason);
     }
 
     public void retrying() {

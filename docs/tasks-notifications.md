@@ -19,8 +19,9 @@ the drawer's Next actions, the card), `Notifications.dc.html` (the bell), `Works
 - **Presets** are the workspace's catalog (`app_lm_workspace_task_preset`): seeded on first read, edited
   under `WORKSPACE_MANAGE`, retired rather than deleted. Free text is a title only.
 - **Rules** file tasks from outreach — a reply (`Reply to {name}`), a bounce (`Find a working email for
-  {name}`), a booked call (`Debrief {name}`, due when the call ends) — for whoever started the sequence or
-  booked the call. Each carries a `rule_key`, unique while open, so a replayed webhook files nothing twice;
+  {name}`), a booked call (`Debrief {name}`, due when the call ends; moved with the call when it is moved
+  from the drawer, cancelled with it when it is cancelled or found deleted on the calendar, unless its due date was
+  set by hand) — for whoever started the sequence or booked the call. Each carries a `rule_key`, unique while open, so a replayed webhook files nothing twice;
   each rule can be switched off per workspace (`app_lm_workspace_task_rule`, absent means on). A reply's key is
   its message (`reply:<messageId>`, since outreach phase 2 stores every reply), and a reply while that person
   already has an open reply task on the position files none: three quick replies are one reply to answer.

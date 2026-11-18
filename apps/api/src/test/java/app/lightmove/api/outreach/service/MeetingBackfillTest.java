@@ -12,6 +12,7 @@ import static org.mockito.Mockito.when;
 import app.lightmove.api.core.tenant.EveryWorkspace;
 import app.lightmove.api.outreach.constant.MailboxGatewayKind;
 import app.lightmove.api.outreach.model.CalendarEvent;
+import app.lightmove.api.outreach.model.CalendarRead;
 import app.lightmove.api.outreach.model.GrantedMailbox;
 import app.lightmove.api.outreach.model.MailboxConnection;
 import app.lightmove.api.outreach.model.MailboxGrants;
@@ -67,7 +68,7 @@ class MeetingBackfillTest {
                 null));
         Instant from = NOW.minus(MeetingBackfill.RECHECKED_PAST);
         Instant to = NOW.plus(MeetingBackfill.REACH);
-        when(gateway.calendarEvents(stale.getGrantId(), from, to)).thenReturn(found);
+        when(gateway.calendarEvents(stale.getGrantId(), from, to)).thenReturn(CalendarRead.whole(found));
 
         backfill.refreshUnpushed(WORKSPACE);
 
@@ -76,6 +77,24 @@ class MeetingBackfillTest {
         verify(gateway, never()).calendarEvents(eq(fresh.getGrantId()), any(), any());
         verify(gateway, never()).calendarEvents(eq(neverRead.getGrantId()), any(), any());
         verify(meetings).replaceWindow(stale, from, to, found);
+    }
+
+    @Test
+    @DisplayName("a read cut short at its page cap keeps what it found and deletes nothing it did not reach")
+    void aCutShortReadDeletesNothing() {
+        MailboxConnection stale = direct(NOW.minus(Duration.ofMinutes(10)));
+        when(mailboxes.findByWorkspaceIdAndGateway(WORKSPACE, MailboxGatewayKind.DIRECT)).thenReturn(List.of(stale));
+        when(mailboxes.findById(stale.getId())).thenReturn(Optional.of(stale));
+        when(mailboxes.claimCalendarRefresh(any(), any(), any())).thenReturn(1);
+        List<CalendarEvent> found = List.of(new CalendarEvent("evt-1", "Call", NOW.plus(Duration.ofDays(1)),
+                NOW.plus(Duration.ofDays(1)).plus(Duration.ofMinutes(30)), List.of("priya@client.example"), null,
+                null));
+        when(gateway.calendarEvents(anyString(), any(), any())).thenReturn(CalendarRead.cutShort(found));
+
+        backfill.refreshUnpushed(WORKSPACE);
+
+        verify(meetings, never()).replaceWindow(any(), any(), any(), any());
+        verify(meetings).applyAll(stale, found);
     }
 
     @Test
@@ -116,7 +135,7 @@ class MeetingBackfillTest {
         when(mailboxes.claimCalendarRefresh(any(), any(), any())).thenReturn(1);
         when(mailboxes.findById(first.getId())).thenThrow(new IllegalStateException("row changed underneath"));
         when(mailboxes.findById(second.getId())).thenReturn(Optional.of(second));
-        when(gateway.calendarEvents(anyString(), any(), any())).thenReturn(List.of());
+        when(gateway.calendarEvents(anyString(), any(), any())).thenReturn(CalendarRead.whole(List.of()));
 
         backfill.refreshUnpushed(WORKSPACE);
 

@@ -165,8 +165,10 @@ public class NotetakerService {
         if (joinUrl == null) {
             throw ApiException.of(ErrorCode.NOTETAKER_NO_JOIN_LINK);
         }
-        boolean atOnce = join == NotetakerJoin.NOW;
-        if (atOnce) {
+        Instant joinAt = join == NotetakerJoin.NOW ? null : joinAtFor(meeting.startsAt(), now);
+        // Join at start within the minute, or once the call is under way, sends the bot at once too: the same room
+        // can still hold an earlier call, which Send now's guard would refuse.
+        if (joinAt == null) {
             requireLinkFree(workspaceId, userId, joinUrl, meeting.startsAt(), now);
         }
         // The note is one AI use, and a live copilot's coaching another.
@@ -174,7 +176,6 @@ public class NotetakerService {
         String liveToken = liveCopilot ? Tokens.generate() : null;
         UUID recordingId = claim(userId, workspaceId, projectId, recipient, meeting, joinUrl, liveCopilot,
                 liveToken == null ? null : Tokens.hash(liveToken));
-        Instant joinAt = atOnce ? null : joinAtFor(meeting.startsAt(), now);
         String botId;
         try {
             botId = recall.send(new RecallBotRequest(joinUrl, joinAt, BOT_NAME, consentLineFor(userId, liveCopilot),
@@ -182,7 +183,9 @@ public class NotetakerService {
         } catch (VendorException | ApiException refused) {
             log.warn("Recall refused the Notetaker for recording {}: {}", recordingId, refused.getMessage());
             boolean busy = isBusy(refused);
+            // A Remove pressed while Recall was being asked keeps its CANCELLED: the refusal is no attempt to retry.
             transactions.executeWithoutResult(status -> recordings.findById(recordingId)
+                    .filter(recording -> recording.getStatus().isLive())
                     .ifPresent(recording -> recording.failed(busy ? "RECALL_BUSY" : "SEND_FAILED")));
             throw ApiException.of(busy ? ErrorCode.NOTETAKER_BUSY : ErrorCode.NOTETAKER_SEND_FAILED);
         }
@@ -193,7 +196,7 @@ public class NotetakerService {
                     .detail("candidateId", candidateId.toString())
                     .detail("recordingId", recordingId.toString())
                     .detail("startsAt", meeting.startsAt().toString())
-                    .detail("join", atOnce ? NotetakerJoin.NOW.name() : NotetakerJoin.AT_START.name())
+                    .detail("join", join == NotetakerJoin.NOW ? NotetakerJoin.NOW.name() : NotetakerJoin.AT_START.name())
                     .detail("liveCopilot", String.valueOf(liveCopilot))
                     .record();
             return recording;
@@ -223,7 +226,7 @@ public class NotetakerService {
                 throw ApiException.of(ErrorCode.NOTETAKER_SEND_FAILED);
             }
         }
-        String botIdNow = transactions.execute(status -> {
+        transactions.executeWithoutResult(status -> {
             MeetingRecording held = recordings.findById(recordingId).orElseThrow();
             requireCancellable(held);
             callOff(held);
@@ -231,15 +234,16 @@ public class NotetakerService {
                     .detail("candidateId", candidateId.toString())
                     .detail("recordingId", recordingId.toString())
                     .record();
-            return held.getRecallBotId();
+            String botId = held.getRecallBotId();
+            // Queued rather than tried once: a bot asked to leave a call still holds its media for a moment, and a
+            // discarded call's recording refused then stayed at Recall for its whole retention.
+            if (botId != null && botId.equals(removedBotId)) {
+                recallCleanup.queueMediaDeletion(List.of(botId));
+            } else if (botId != null) {
+                // The send finished between the read and the cancel: that bot is called back too.
+                recallCleanup.queue(List.of(botId));
+            }
         });
-        if (botIdNow != null && !botIdNow.equals(removedBotId)) {
-            // The send finished between the read and the cancel: that bot is called back too.
-            removeQuietly(botIdNow);
-        }
-        if (botIdNow != null) {
-            deleteMediaQuietly(botIdNow);
-        }
     }
 
     /**
@@ -680,14 +684,6 @@ public class NotetakerService {
             }
             log.error("Recall could not call back bot {}; remove it from Recall's dashboard: {}", botId,
                     failed.getMessage());
-        }
-    }
-
-    private void deleteMediaQuietly(String botId) {
-        try {
-            recall.deleteMedia(botId);
-        } catch (VendorException failed) {
-            log.warn("Recall kept the media of cancelled bot {}: {}", botId, failed.getMessage());
         }
     }
 

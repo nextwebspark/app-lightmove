@@ -4,6 +4,7 @@ import app.lightmove.api.outreach.constant.MeetingVideo;
 import app.lightmove.api.outreach.model.BookingPageSpec;
 import app.lightmove.api.outreach.model.BusyInterval;
 import app.lightmove.api.outreach.model.CalendarEvent;
+import app.lightmove.api.outreach.model.CalendarRead;
 import app.lightmove.api.outreach.model.CalendarSchedule;
 import app.lightmove.api.outreach.model.GrantedMailbox;
 import app.lightmove.api.outreach.model.MailboxEvent;
@@ -91,8 +92,11 @@ public interface MailboxGateway {
      */
     List<ThreadMessage> messagesInThread(String grantId, String threadId, Instant since, boolean withText);
 
-    /** The timed events on the mailbox's own calendar between {@code from} and {@code to}. */
-    List<CalendarEvent> calendarEvents(String grantId, Instant from, Instant to);
+    /**
+     * The timed events on the mailbox's own calendar between {@code from} and {@code to}, and whether the read
+     * reached the end of the window or stopped at its page cap.
+     */
+    CalendarRead calendarEvents(String grantId, Instant from, Instant to);
 
     /** When the calendar of {@code address}, the mailbox's own, is taken between {@code from} and {@code to}. */
     List<BusyInterval> busyTimes(String grantId, String address, Instant from, Instant to);
@@ -124,9 +128,9 @@ public interface MailboxGateway {
 
     /**
      * Takes a call off this mailbox's calendar and tells its attendees. An event the calendar no longer holds is
-     * already cancelled, never a failure. Never retried.
+     * already cancelled, never a failure, but nobody was told: that answers false. Never retried.
      */
-    void cancelEvent(String grantId, String eventId);
+    boolean cancelEvent(String grantId, String eventId);
 
     /** False where the service's plan carries no booking pages; {@code {{bookingLink}}} is then not offered. */
     boolean isBookingPageOffered();
