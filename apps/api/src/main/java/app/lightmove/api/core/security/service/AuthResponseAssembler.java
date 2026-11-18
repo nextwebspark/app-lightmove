@@ -1,4 +1,4 @@
-package app.lightmove.api.core.security.controller;
+package app.lightmove.api.core.security.service;
 
 import app.lightmove.api.core.security.dto.AuthResponse;
 import app.lightmove.api.core.security.dto.UserResponse;

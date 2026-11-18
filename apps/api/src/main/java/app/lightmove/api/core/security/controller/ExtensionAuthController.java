@@ -7,6 +7,7 @@ import app.lightmove.api.core.security.dto.ExtensionRefreshRequest;
 import app.lightmove.api.core.security.dto.ExtensionSessionResponse;
 import app.lightmove.api.core.security.model.AuthPrincipal;
 import app.lightmove.api.core.security.model.AuthenticatedSession;
+import app.lightmove.api.core.security.service.AuthResponseAssembler;
 import app.lightmove.api.core.security.service.AuthenticationService;
 import app.lightmove.api.core.security.token.SessionClient;
 import jakarta.servlet.http.HttpServletRequest;

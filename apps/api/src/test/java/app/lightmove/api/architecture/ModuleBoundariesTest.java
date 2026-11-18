@@ -2,6 +2,7 @@ package app.lightmove.api.architecture;
 
 import app.lightmove.api.LightMoveApplication;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.modulith.core.ApplicationModules;
 import org.springframework.modulith.core.Violations;
@@ -10,7 +11,8 @@ import org.springframework.modulith.docs.Documenter;
 /**
  * The module boundaries, as Spring Modulith reads them off the compiled classes: no cycle between modules, no
  * dependency a module's {@code package-info.java} does not declare, and no reach into another module's internals.
- * How to fix each failure: {@code docs/architecture/modules.md}.
+ * How to fix each failure: {@code docs/architecture/modules.md}. The documentation test is tagged {@code docs} and
+ * skipped by default: {@code ./mvnw test -Dtest=ModuleBoundariesTest -Dgroups=docs -DexcludedGroups=}.
  */
 class ModuleBoundariesTest {
 
@@ -31,6 +33,7 @@ class ModuleBoundariesTest {
     }
 
     @Test
+    @Tag("docs")
     @DisplayName("the module canvases and diagrams render, into target/spring-modulith-docs")
     void writesModuleDocumentation() {
         new Documenter(MODULES).writeDocumentation();

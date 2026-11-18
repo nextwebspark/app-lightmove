@@ -1,6 +1,6 @@
 package app.lightmove.api.workspace.controller;
 
-import app.lightmove.api.core.security.controller.AuthResponseAssembler;
+import app.lightmove.api.core.security.service.AuthResponseAssembler;
 import app.lightmove.api.core.security.dto.UserResponse;
 import app.lightmove.api.core.security.model.AuthPrincipal;
 import app.lightmove.api.workspace.dto.CreateWorkspaceRequest;

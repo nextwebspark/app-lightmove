@@ -17,11 +17,11 @@ import app.lightmove.api.workspace.dto.UpdateWorkspaceModeRequest;
 import app.lightmove.api.workspace.dto.UpdateWorkspacePersonaRequest;
 import app.lightmove.api.workspace.dto.UpdateWorkspaceSettingsRequest;
 import app.lightmove.api.workspace.dto.WorkspaceAiControlsResponse;
+import app.lightmove.api.workspace.dto.WorkspaceCompanyResponses;
 import app.lightmove.api.workspace.dto.WorkspaceDateTimeResponse;
 import app.lightmove.api.workspace.dto.WorkspaceResponse;
 import app.lightmove.api.workspace.model.SuggestedDateTime;
 import app.lightmove.api.workspace.model.Workspace;
-import app.lightmove.api.workspace.model.WorkspaceCompany;
 import app.lightmove.api.workspace.service.WorkspaceSettingsService.WorkspaceDetail;
 import app.lightmove.api.workspace.service.WorkspaceSettingsService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -148,7 +148,7 @@ public class WorkspaceController {
                 WorkspaceAiControlsResponse.of(ws.getAiControls()), ws.getDefaultRegion(),
                 ws.getDefaultCurrency(), ws.getPlan(),
                 detail.memberCount(), ws.getCreatedAt(), ws.getPersona(),
-                WorkspaceCompany.responseOf(ws.getCompany()), dateTimeOf(detail),
+                WorkspaceCompanyResponses.of(ws.getCompany()), dateTimeOf(detail),
                 properties.retention().deletedWorkspacesAfter().toDays(), ws.getRecentlyApproachedDays());
     }
 

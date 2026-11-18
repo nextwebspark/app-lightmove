@@ -178,7 +178,7 @@ public class ProjectService {
         seats.save(ProjectMember.of(project.getId(), creator.getId(),
                 rbac.projectRoles(EnumSet.of(ProjectRole.LEAD)), userId));
         events.publishEvent(new ProjectCreated(workspaceId, project.getId(), project.getPositionTitle(),
-                client.getHqCountry(), userId));
+                client.getHqCountry()));
 
         log.info("User {} created project {} in workspace {}", userId, project.getId(), workspaceId);
         if (request.newClient() != null) {

@@ -46,6 +46,9 @@ A module's API is its one named interface, `api`:
 - each service or model type that other modules may use, marked with the same annotation on the type.
 
 Nothing else is visible to other modules, and repositories, controllers and `@Configuration` classes never are.
+The one exception is the open kernel: `core` and `common` publish every type, repositories included, so for example
+`core.security.membership.WorkspaceMemberRepository` can be injected anywhere. `apiHoldsNoInternals` skips open
+modules, so the kernel is not protected today; closing it is the first follow-up.
 `propagate = false` matters: with the default, the repositories in a service's constructor would be published along
 with the service.
 
@@ -57,6 +60,7 @@ with the service.
 | `Module 'a' depends on named interface(s) 'b :: api' … Allowed targets: …` | `a` uses `b` without declaring it. | If `b` is in a lower layer, add `"b :: api"` to `a`'s `allowedDependencies`. If `b` is in the same layer or above, don't add it; invert instead (below). |
 | `Cycle detected: Slice a -> Slice b -> Slice a` | Two modules now reach each other. | Invert the newer edge (below). |
 | `ModuleConventionTest.apiHoldsNoInternals` | A repository, controller or config type was published. | Publish a facade or a DTO instead. |
+| `ModuleConventionTest.everyNamedInterfaceIsCalledApi` | A module published a named interface under another name. | Name it `api`; a module has one. |
 | `ModuleConventionTest.kernelUsesNothingAbove` | `core` uses a feature, or `common` uses anything but `core`. | Move the needed type down into `core`, or put a port in `core` and implement it above. |
 | `ModuleConventionTest.declaredGraphIsAcyclic` | `allowedDependencies` were widened into a loop. | Remove the upward entry and invert. |
 
@@ -86,8 +90,18 @@ repository.
 
 `ModuleConventionTest` fails until the module declares its dependencies.
 
+## Module diagrams
+
+`ModuleBoundariesTest.writesModuleDocumentation` writes the canvases and PlantUML diagrams to
+`target/spring-modulith-docs/`. It checks nothing, so it is tagged `docs` and skipped by default:
+`./mvnw test -Dtest=ModuleBoundariesTest -Dgroups=docs -DexcludedGroups=`.
+
 ## Follow-ups
 
+- **Scope the facades.** `ProjectLookup` and `WorkspaceLookup` still publish the unscoped `findById` /
+  `findAllById` and return managed entities, as their callers read the repositories before. Take `workspaceId`
+  (`findInWorkspace`), or return a read-only projection such as `ProjectSummary(id, workspaceId, positionTitle,
+  archivedAt)`, so a caller cannot mutate another module's aggregate or read across tenants by id.
 - **Close `core`.** It is open today, so features can reach platform internals. Giving it named interfaces would
   narrow that.
 - **Table ownership.** Map the `app_lm_*` tables to modules, and check that a module's SQL names only its own

@@ -55,7 +55,7 @@ class ModuleConventionTest {
 
     @Test
     @DisplayName("every published interface is called api")
-    void oneNamedInterfacePerModule() {
+    void everyNamedInterfaceIsCalledApi() {
         List<String> offenders = new ArrayList<>();
         ModuleBoundariesTest.MODULES.stream()
                 .filter(module -> !module.isOpen())
@@ -68,7 +68,7 @@ class ModuleConventionTest {
 
     @Test
     @DisplayName("every top-level package is a module that declares its dependencies")
-    void everyModuleDeclaresItsDependencies() throws Exception {
+    void everyModuleDeclaresItsDependencies() throws IOException, URISyntaxException {
         List<String> undeclared = new ArrayList<>();
         for (String module : topLevelPackages()) {
             ApplicationModule declaration = declarationOf(module);
@@ -85,7 +85,7 @@ class ModuleConventionTest {
 
     @Test
     @DisplayName("the shared kernel sits at the bottom: core depends on nothing, common on core alone")
-    void kernelStaysAtTheBottom() throws Exception {
+    void kernelStaysAtTheBottom() {
         Modulithic modulithic = LightMoveApplication.class.getAnnotation(Modulithic.class);
         assertThat(modulithic.sharedModules()).containsExactlyInAnyOrder("core", "common");
 
@@ -108,7 +108,7 @@ class ModuleConventionTest {
 
     @Test
     @DisplayName("the declared dependency graph has no cycle, nor any module naming itself")
-    void declaredGraphIsAcyclic() throws Exception {
+    void declaredGraphIsAcyclic() throws IOException, URISyntaxException {
         Map<String, Set<String>> graph = new TreeMap<>();
         for (String module : topLevelPackages()) {
             ApplicationModule declaration = declarationOf(module);
@@ -143,7 +143,7 @@ class ModuleConventionTest {
                 || type.isAnnotatedWith(org.springframework.context.annotation.Configuration.class);
     }
 
-    private static ApplicationModule declarationOf(String module) throws ClassNotFoundException {
+    private static ApplicationModule declarationOf(String module) {
         try {
             return Class.forName(BASE + "." + module + ".package-info").getAnnotation(ApplicationModule.class);
         } catch (ClassNotFoundException missing) {

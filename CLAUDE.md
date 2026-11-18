@@ -40,8 +40,9 @@ Read the relevant `../uncava-design/*.dc.html` before building a screen. Don't b
 
 **Module boundaries are enforced, not described.** Every top-level package is a Spring Modulith module whose
 `package-info.java` lists what it may depend on; `ModuleBoundariesTest` and `ModuleConventionTest` fail the build
-on a cycle, an undeclared dependency, or a reach into another module's internals (repositories are never
-published). Layers, the `api` named interface, and how to invert a dependency: `docs/architecture/modules.md`.
+on a cycle, an undeclared dependency, or a reach into another module's internals (a repository is never
+published, except inside the open `core`/`common` kernel, which is not yet closed). Layers, the `api` named
+interface, and how to invert a dependency: `docs/architecture/modules.md`.
 
 ## Commands
 

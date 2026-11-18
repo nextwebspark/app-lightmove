@@ -5,5 +5,4 @@ import org.springframework.modulith.NamedInterface;
 
 /** A position was created, published in the transaction that creates it; listeners set up its parts in that one. */
 @NamedInterface(name = "api", propagate = false)
-public record ProjectCreated(UUID workspaceId, UUID projectId, String positionTitle, String hqCountry,
-                             UUID actorUserId) {}
+public record ProjectCreated(UUID workspaceId, UUID projectId, String positionTitle, String hqCountry) {}

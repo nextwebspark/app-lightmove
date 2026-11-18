@@ -185,7 +185,7 @@ part of `workspace` (membership), not their own feature.
 `ModuleBoundariesTest` / `ModuleConventionTest` fail the build on a cycle, an undeclared dependency or a reach
 into another module's internals. `core` depends on nothing and `common` on `core` alone. A module publishes
 its `dto`/`constant` packages and the service/model types marked `@NamedInterface(name = "api", propagate =
-false)` — never a repository: another module reads through the owner's facade (`ProjectLookup`,
+false)` — never a repository (outside the open `core`/`common` kernel, which is not yet closed): another module reads through the owner's facade (`ProjectLookup`,
 `WorkspaceLookup`, `ClientLookup`). When a lower module needs a higher one, publish an event or declare a port
 below and implement it above — never widen `allowedDependencies` upward. Layers and every failure message:
 `docs/architecture/modules.md`.

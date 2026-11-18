@@ -3,7 +3,6 @@ package app.lightmove.api.workspace.service;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.security.constant.PrivacyPolicy;
-import app.lightmove.api.core.security.controller.AuthResponseAssembler;
 import app.lightmove.api.core.security.dto.AuthResponse;
 import app.lightmove.api.core.security.dto.DateTimeChoiceResponse;
 import app.lightmove.api.core.security.dto.PendingInvitationSummary;
@@ -16,15 +15,16 @@ import app.lightmove.api.core.security.rbac.PlatformAccess;
 import app.lightmove.api.core.security.rbac.Role;
 import app.lightmove.api.core.security.rbac.WorkspaceRole;
 import app.lightmove.api.core.security.repository.UserRepository;
+import app.lightmove.api.core.security.service.AuthResponseAssembler;
 import app.lightmove.api.core.security.service.WorkspaceSelection;
 import app.lightmove.api.core.security.token.TokenPair;
 import app.lightmove.api.core.tenant.ResolvedRow;
 import app.lightmove.api.core.tenant.TenantResolvers;
 import app.lightmove.api.core.tenant.WorkspaceScope;
 import app.lightmove.api.core.time.model.DateTimePreferences;
+import app.lightmove.api.workspace.dto.WorkspaceCompanyResponses;
 import app.lightmove.api.workspace.model.Invitation;
 import app.lightmove.api.workspace.model.Workspace;
-import app.lightmove.api.workspace.model.WorkspaceCompany;
 import app.lightmove.api.workspace.repository.InvitationRepository;
 import app.lightmove.api.workspace.repository.WorkspaceRepository;
 import java.time.Instant;
@@ -184,6 +184,6 @@ public class SessionResponseAssembler implements AuthResponseAssembler {
                 WorkspaceRole.isStaff(roles) ? workspace.getEmailDomain() : null,
                 roles,
                 membership.getJoinedAt(),
-                WorkspaceCompany.responseOf(workspace.getCompany()));
+                WorkspaceCompanyResponses.of(workspace.getCompany()));
     }
 }
