@@ -191,6 +191,20 @@ public abstract class FlowTestSupport {
         throw new AssertionError(memberEmail + " not on the roster: " + roster);
     }
 
+    /** The id of the caller's workspace's exit reason of this key, for a status that asks why someone left. */
+    protected String exitReasonId(String callerToken, String reasonKey) throws Exception {
+        JsonNode catalog = body(mvc.perform(get("/api/v1/workspace/pipeline/reasons")
+                        .header("Authorization", "Bearer " + callerToken))
+                .andExpect(status().isOk())
+                .andReturn());
+        for (JsonNode reason : catalog.get("reasons")) {
+            if (reason.get("key").asText().equals(reasonKey)) {
+                return reason.get("id").asText();
+            }
+        }
+        throw new AssertionError("no exit reason " + reasonKey + " in " + catalog);
+    }
+
     protected JsonNode body(MvcResult result) throws Exception {
         return json.readTree(result.getResponse().getContentAsString());
     }

@@ -40,6 +40,13 @@ describe("the workspace's pipeline in the panel", () => {
     expect(pickableGroups(CATALOG, "", "legacy").map((group) => group.stage.key)).toEqual(["research", "approach", "old"]);
   });
 
+  it("offers a capture only the statuses still in process", () => {
+    expect(pickableGroups(CATALOG, "", null, true).map((group) => group.statuses.map((each) => each.key))).toEqual([
+      ["source"],
+      ["contacted"],
+    ]);
+  });
+
   it("finds a status by its own label or its stage's", () => {
     expect(pickableGroups(CATALOG, "awaiting", null).flatMap((group) => group.statuses.map((each) => each.key))).toEqual([
       "contacted",

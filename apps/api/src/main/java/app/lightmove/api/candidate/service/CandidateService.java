@@ -433,9 +433,13 @@ public class CandidateService {
         suppression.refuseSuppressed(workspaceId, details.linkedinUrl(), emailsOf(details.emails()));
 
         CandidateStatusDefinition status = pipeline.requireOfferable(workspaceId, request.status());
+        // An add straight out of process is a move like any other: a way out that offers reasons is given one.
+        ExitReason reason = exitReasons.requireForMove(workspaceId, status, request.exitReasonId(),
+                request.exitNote());
         Optional<Person> known = personToFile(workspaceId, source, request, details);
         Filed filed = file(userId, workspaceId, projectId, triageCompanyId, source, status, details, known);
         Candidate candidate = filed.candidate();
+        giveFiledExitReason(candidate, userId, reason, request.exitNote());
         candidate.describeCustomFields(customColumns.applyTo(projectId, CustomColumnTarget.CANDIDATE,
                 candidate.getCustomFields(), request.customFields()));
 
@@ -462,11 +466,14 @@ public class CandidateService {
         }
         stream.publish(projectId, ProjectStreamKind.CANDIDATE_CAPTURED);
 
-        audit.projectEvent(ProjectEventType.CANDIDATE_ADDED, userId, workspaceId, projectId, httpRequest)
+        var added = audit.projectEvent(ProjectEventType.CANDIDATE_ADDED, userId, workspaceId, projectId, httpRequest)
                 .detail("candidateId", candidate.getId().toString())
                 .detail("source", source.name())
-                .detail("mappedExisting", filed.personWasKnown())
-                .record();
+                .detail("mappedExisting", filed.personWasKnown());
+        if (reason != null) {
+            added.detail("exitReasonId", reason.getId().toString());
+        }
+        added.record();
         return responses.toDto(candidate);
     }
 
@@ -513,7 +520,10 @@ public class CandidateService {
         // Naming the status they hold is no move: a retired one, re-checked, refused every edit of whoever held it.
         if (request.status() != null && !request.status().isBlank()
                 && !request.status().strip().equals(candidate.getStatus().getStatusKey())) {
-            moveTo(candidate, userId, pipeline.requireOfferable(workspaceId, request.status()));
+            CandidateStatusDefinition to = pipeline.requireOfferable(workspaceId, request.status());
+            moveTo(candidate, userId, to,
+                    exitReasons.requireForMove(workspaceId, to, request.exitReasonId(), request.exitNote()),
+                    request.exitNote());
         }
         // The person is the workspace's: an edit made through this mandate is what every other mandate
         // mapping them now reads.
@@ -655,6 +665,12 @@ public class CandidateService {
         }
     }
 
+    private void giveFiledExitReason(Candidate candidate, UUID userId, ExitReason reason, String note) {
+        if (reason != null) {
+            candidate.giveExitReason(reason.getId(), note, userId);
+        }
+    }
+
     /**
      * The short transactional tail of an enrichment. {@code REQUIRES_NEW} because it runs from an {@code AFTER_COMMIT}
      * callback, where joining the finished transaction writes nothing; a racing drawer edit wins by {@code @Version}.
@@ -755,9 +771,12 @@ public class CandidateService {
         refuseDuplicate(projectId, triageCompanyId, details.fullName(), details.linkedinUrl(), null);
         refuseHeldProfile(projectId, details.linkedinUrl(), null);
 
-        Filed filed = file(userId, workspaceId, projectId, triageCompanyId, filing.source(),
-                pipeline.requireOfferable(workspaceId, request.status()), details);
+        CandidateStatusDefinition status = pipeline.requireOfferable(workspaceId, request.status());
+        ExitReason reason = exitReasons.requireForMove(workspaceId, status, request.exitReasonId(),
+                request.exitNote());
+        Filed filed = file(userId, workspaceId, projectId, triageCompanyId, filing.source(), status, details);
         Candidate candidate = filed.candidate();
+        giveFiledExitReason(candidate, userId, reason, request.exitNote());
         Person person = candidate.getPerson();
         if (!person.isResearched()) {
             person.enrich(research);

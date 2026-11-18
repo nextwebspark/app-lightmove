@@ -35,8 +35,13 @@ export function useChangeCandidateStatus(projectId: string, onSaved: (saved: Can
   const request = (args: ChangeCandidateStatus, options?: { onSettled?: () => void }) =>
     void prompt.ask(
       { name: args.name, statusKey: args.status },
-      // The dialog may have changed the way out: the status sent is the one it confirmed.
-      (status, reason) => change.mutate({ ...args, status, reason }, { onSettled: options?.onSettled }),
+      // The dialog may have changed the way out: the status sent is the one it confirmed. Not mutate's own onSettled:
+      // React Query calls that for the latest call alone, so a second row changed mid-save left the first row busy.
+      (status, reason) =>
+        void change
+          .mutateAsync({ ...args, status, reason })
+          .catch(() => undefined)
+          .finally(() => options?.onSettled?.()),
       options?.onSettled,
     );
 

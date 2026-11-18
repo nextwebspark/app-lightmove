@@ -24,6 +24,7 @@ import {
   type ParsedCandidateForm,
 } from "../lib/candidateForm";
 import { startingStatusKey } from "../lib/pipelineStatus";
+import { useExitReasonPrompt } from "../lib/useExitReasonPrompt";
 import {
   BackgroundFields,
   CareerFields,
@@ -109,6 +110,7 @@ export function AddCandidateForm({
   const handleSubmitShortcut = useSubmitShortcut(() => formEl.current?.requestSubmit());
 
   const [pausedAdd, setPausedAdd] = useState<PausedAdd | null>(null);
+  const exitPrompt = useExitReasonPrompt();
 
   const save = useMutation({
     mutationFn: (payload: SaveCandidatePayload) => candidatesApi.createCandidate(projectId, payload),
@@ -159,10 +161,23 @@ export function AddCandidateForm({
           // Only the profile research answered for: an address changed since is a different person.
           const lookedUpProfile =
             lookedUpUrl !== null && profileSlugOf(parsed.linkedinUrl) === profileSlugOf(lookedUpUrl);
-          save.mutate({
+          const payload: SaveCandidatePayload = {
             ...payloadOf(parsed, company?.triageCompanyId ?? null),
             customFields,
             ...(lookedUpProfile ? { lookedUpProfile } : {}),
+          };
+          if (!payload.status) {
+            save.mutate(payload);
+            return;
+          }
+          // Added straight out of process is a move like any other: the same dialog asks why before anyone is filed.
+          void exitPrompt.ask({ name: parsed.fullName.trim(), statusKey: payload.status }, (status, reason) => {
+            form.setValue("status", status);
+            save.mutate({
+              ...payload,
+              status,
+              ...(reason ? { exitReasonId: reason.reasonId, exitNote: reason.note } : {}),
+            });
           });
         })}
         onKeyDown={handleSubmitShortcut}
@@ -262,6 +277,7 @@ export function AddCandidateForm({
       </form>
       </FormProvider>
 
+      {exitPrompt.dialog}
       {pausedAdd && (
         <PossibleDuplicateDialog
           fullName={pausedAdd.payload.fullName}

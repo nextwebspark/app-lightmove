@@ -3,7 +3,7 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import { useState } from "react";
 import userEvent from "@testing-library/user-event";
 import { pickStatus } from "../../../test/pickStatus";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 import { ToastProvider } from "../../../components/ui/Toast";
 import { ApiRequestError } from "../../../lib/apiClient";
 import * as contactLookupApi from "../../contactlookup/api/contactLookupApi";
@@ -29,12 +29,18 @@ import { CandidateDrawer } from "./CandidateDrawer";
 import { typeInto } from "../../../test/noteEditor";
 import type { WorkspaceDetail } from "../../workspace/api/types";
 import * as workspaceApi from "../../workspace/api/workspaceApi";
+import * as pipelineApi from "../../workspace/api/pipelineApi";
+import { aCurrentCatalog } from "../../../test/fixtures/pipelineCatalog";
 
 vi.mock("../../workspace/api/workspaceApi", async (importOriginal) => {
   const actual = await importOriginal<typeof workspaceApi>();
   return { ...actual, workspace: vi.fn(actual.workspace) };
 });
 
+vi.mock("../../workspace/api/pipelineApi", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../workspace/api/pipelineApi")>()),
+  exitReasons: vi.fn(),
+}));
 vi.mock("../api/candidatesApi", async (importOriginal) => ({
   ...(await importOriginal<typeof candidatesApi>()),
   createCandidate: vi.fn(),
@@ -385,6 +391,34 @@ describe("CandidateDrawer", () => {
 
     expect(await screen.findByText(/A name is required/i)).toBeInTheDocument();
     expect(candidatesApi.createCandidate).not.toHaveBeenCalled();
+  });
+
+  it("asks why before adding someone straight out of process, and sends the reason with the add", async () => {
+    const catalog = aCurrentCatalog();
+    const notInterested = catalog.stages.flatMap((stage) => stage.statuses).find((status) => status.key === "notInterested")!;
+    const catalogRead = vi.spyOn(pipelineApi, "pipelineCatalog").mockResolvedValue(catalog);
+    onTestFinished(() => catalogRead.mockRestore());
+    vi.mocked(pipelineApi.exitReasons).mockResolvedValue({
+      reasons: [{ id: "timing", key: "timing", label: "Timing", requiresNote: false, position: 1, retired: false, statusIds: [notInterested.id] }],
+    });
+    vi.mocked(candidatesApi.createCandidate).mockResolvedValue(yasmin);
+    renderDrawer();
+
+    await userEvent.type(screen.getByLabelText(/Full name/i), "Omar Haddad");
+    await userEvent.click(screen.getByRole("button", { name: /^Status:/ }));
+    // A way out is marked as one beside the statuses still in process.
+    await userEvent.click(await within(await screen.findByRole("listbox")).findByRole("option", { name: /^Not interested/ }));
+    await userEvent.click(screen.getByRole("button", { name: /^Add executive$/i }));
+
+    const dialog = await screen.findByRole("dialog", { name: "Why did Omar Haddad leave?" });
+    expect(candidatesApi.createCandidate).not.toHaveBeenCalled();
+    await userEvent.selectOptions(within(dialog).getByRole("combobox", { name: "Reason" }), "Timing");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Move to Not interested" }));
+
+    await waitFor(() => expect(candidatesApi.createCandidate).toHaveBeenCalled());
+    const payload = vi.mocked(candidatesApi.createCandidate).mock.calls[0][1];
+    expect(payload.status).toBe("notInterested");
+    expect(payload.exitReasonId).toBe("timing");
   });
 
   it("takes a name alone — research arrives in pieces", async () => {

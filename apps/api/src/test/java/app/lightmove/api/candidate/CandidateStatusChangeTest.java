@@ -149,7 +149,8 @@ class CandidateStatusChangeTest extends PipelineFlowSupport {
         add(projectId, """
                 {"fullName":"Off Limits Person","status":"offLimits"}""");
         add(projectId, """
-                {"fullName":"Withdrew Person","status":"withdrew"}""");
+                {"fullName":"Withdrew Person","status":"withdrew","exitReasonId":"%s"}"""
+                .formatted(exitReasonId(admin, "anotherOffer")));
 
         assertThat(names(list(projectId, "pipelineStage", "identified")))
                 .containsExactlyInAnyOrder("Identified Person", "Off Limits Person");

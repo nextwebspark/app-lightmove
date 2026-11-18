@@ -59,6 +59,36 @@ class CandidateExitReasonTest extends PipelineFlowSupport {
     }
 
     @Test
+    @DisplayName("an executive added, or saved, straight out of process is asked why like any other move")
+    void anAddOutOfProcessAsksWhy() throws Exception {
+        assertThat(codeOf(write(admin, "POST", candidatesUrl(projectId), """
+                {"fullName":"Omar Nasser","status":"notInterested"}"""))).isEqualTo("EXIT_REASON_REQUIRED");
+        assertThat(codeOf(write(admin, "POST", candidatesUrl(projectId), """
+                {"fullName":"Omar Nasser","status":"notInterested","exitReasonId":"%s","exitNote":" "}"""
+                .formatted(reason("other"))))).isEqualTo("EXIT_REASON_NOTE_REQUIRED");
+        assertThat(codeOf(write(admin, "POST", candidatesUrl(projectId), """
+                {"fullName":"Omar Nasser","status":"contacted","exitReasonId":"%s"}"""
+                .formatted(reason("timing"))))).as("a status in process takes no reason")
+                .isEqualTo("EXIT_REASON_NOT_OFFERED");
+        assertThat(exitReasons()).as("a refused add files nobody's reason").isEmpty();
+
+        String omar = add(projectId, """
+                {"fullName":"Omar Nasser","status":"notInterested","exitReasonId":"%s"}"""
+                .formatted(reason("timing"))).get("id").asText();
+        assertThat(exitReasons()).singleElement().satisfies(given -> {
+            assertThat(given.get("candidateId").asText()).isEqualTo(omar);
+            assertThat(given.get("label").asText()).isEqualTo("Timing");
+        });
+
+        assertThat(codeOf(write(admin, "PUT", candidatesUrl(projectId) + "/" + candidateId, """
+                {"fullName":"Layla Haddad","status":"withdrew"}"""))).isEqualTo("EXIT_REASON_REQUIRED");
+        assertThat(write(admin, "PUT", candidatesUrl(projectId) + "/" + candidateId, """
+                {"fullName":"Layla Haddad","status":"withdrew","exitReasonId":"%s"}"""
+                .formatted(reason("anotherOffer"))).getResponse().getStatus()).isEqualTo(200);
+        assertThat(pipelineRow().at("/exitReason/label").asText()).isEqualTo("Another offer");
+    }
+
+    @Test
     @DisplayName("a way out that offers no reasons asks for none, and refuses one")
     void aWayOutWithNoReasonsAsksNone() throws Exception {
         assertThat(move("offLimits", null, null).getResponse().getStatus()).isEqualTo(200);

@@ -180,6 +180,7 @@ export function TriageCompanyTable({
           row={row}
           canWrite={canWrite && !stageReadOnly}
           busy={!!row.company && busyIds.has(row.company.id)}
+          candidateBusy={!!row.candidate && busyIds.has(row.candidate.id)}
           selection={selection && { checked: selection.isTicked(row), onToggle: () => selection.onToggle(row) }}
           onOpenCompany={onOpenCompany}
           onAddExecutive={onAddExecutive}
@@ -241,6 +242,7 @@ function TriageLineCard({
   row,
   canWrite,
   busy,
+  candidateBusy,
   selection,
   onOpenCompany,
   onAddExecutive,
@@ -251,6 +253,7 @@ function TriageLineCard({
   row: TriageCompanyRow;
   canWrite: boolean;
   busy: boolean;
+  candidateBusy: boolean;
   selection?: { checked: boolean; onToggle: () => void };
   onOpenCompany: (company: TriageCompany) => void;
   onAddExecutive: (company: TriageCompany) => void;
@@ -306,6 +309,7 @@ function TriageLineCard({
                 value={candidate.status}
                 currentLabel={candidate.statusLabel}
                 aria-label={`Status of ${candidate.fullName}`}
+                disabled={candidateBusy}
                 onChange={(status) => onChangeCandidateStatus(candidate, status)}
               />
             ) : (

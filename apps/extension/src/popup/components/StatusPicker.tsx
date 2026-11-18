@@ -21,19 +21,30 @@ export function StatusPicker({
   startingKey,
   onChange,
   disabled = false,
+  inProcessOnly = false,
 }: {
   catalog: PipelineCatalog | undefined;
   value: string | null;
   startingKey: string | null;
   onChange: (key: string) => void;
   disabled?: boolean;
+  /**
+   * A capture files someone; it cannot say why they left, and a way out that asks why is refused without it. Moving
+   * someone out of process is the web app's, where its dialog asks.
+   */
+  inProcessOnly?: boolean;
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState("");
   const containerRef = useRef<HTMLDivElement>(null);
   useDismiss(containerRef, isOpen, () => setIsOpen(false));
   const current = catalog && value ? findStatus(catalog, value) : null;
-  const groups = useMemo(() => (catalog ? pickableGroups(catalog, query, value) : []), [catalog, query, value]);
+  const groups = useMemo(() => (catalog ? pickableGroups(catalog, query, value, inProcessOnly) : []), [
+    catalog,
+    query,
+    value,
+    inProcessOnly,
+  ]);
 
   return (
     <div ref={containerRef} className="relative">
