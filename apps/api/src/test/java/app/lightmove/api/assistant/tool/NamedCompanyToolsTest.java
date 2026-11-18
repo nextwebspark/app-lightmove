@@ -13,7 +13,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import app.lightmove.api.core.config.LightMoveProperties;
-import app.lightmove.api.strategy.model.CompanyScope;
+import app.lightmove.api.universe.model.CompanyScope;
 import app.lightmove.api.strategy.service.StrategyService;
 import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
 import app.lightmove.api.triagecompany.model.CapturedCompanyDetails;

@@ -1,5 +1,6 @@
 package app.lightmove.api.strategy.model;
 
+import app.lightmove.api.universe.model.NumericRange;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import java.util.List;
 

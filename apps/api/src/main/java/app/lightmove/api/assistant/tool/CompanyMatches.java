@@ -1,6 +1,6 @@
 package app.lightmove.api.assistant.tool;
 
-import app.lightmove.api.strategy.model.CompanyRow;
+import app.lightmove.api.universe.model.CompanyRow;
 import app.lightmove.api.triagecompany.model.MandateStages;
 import java.util.List;
 

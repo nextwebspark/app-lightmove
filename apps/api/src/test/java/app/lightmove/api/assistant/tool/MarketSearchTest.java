@@ -10,12 +10,12 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import app.lightmove.api.core.config.LightMoveProperties;
-import app.lightmove.api.strategy.constant.CompanySortField;
-import app.lightmove.api.strategy.constant.SortDirection;
-import app.lightmove.api.strategy.model.CompanyRow;
-import app.lightmove.api.strategy.model.CompanyScope;
-import app.lightmove.api.strategy.service.ApolloCompanyQueryService;
-import app.lightmove.api.strategy.service.UniverseFacets;
+import app.lightmove.api.universe.constant.CompanySortField;
+import app.lightmove.api.core.constant.SortDirection;
+import app.lightmove.api.universe.model.CompanyRow;
+import app.lightmove.api.universe.model.CompanyScope;
+import app.lightmove.api.universe.service.ApolloCompanyQueryService;
+import app.lightmove.api.universe.service.UniverseFacets;
 import java.util.List;
 import java.util.stream.IntStream;
 import org.junit.jupiter.api.DisplayName;

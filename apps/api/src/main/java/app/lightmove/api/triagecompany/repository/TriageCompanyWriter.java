@@ -2,7 +2,7 @@ package app.lightmove.api.triagecompany.repository;
 
 import app.lightmove.api.common.industry.model.ResolvedIndustry;
 import app.lightmove.api.common.industry.service.Industries;
-import app.lightmove.api.strategy.model.CompanyRow;
+import app.lightmove.api.universe.model.CompanyRow;
 import app.lightmove.api.triagecompany.constant.TriageCompanySource;
 import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
 import java.util.HashMap;

@@ -1,7 +1,7 @@
 package app.lightmove.api.workspace.model;
 
 import app.lightmove.api.common.persona.model.PersonaSeed;
-import app.lightmove.api.strategy.model.CompanyRow;
+import app.lightmove.api.universe.model.CompanyRow;
 
 /** The universe company a workspace was picked as at signup, as a write-time snapshot. */
 public record WorkspaceCompany(

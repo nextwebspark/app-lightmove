@@ -6,7 +6,7 @@ import app.lightmove.api.assistant.dto.AssistantStartersResponse;
 import app.lightmove.api.common.industry.service.Industries;
 import app.lightmove.api.common.persona.model.HiringCompanyProfile;
 import app.lightmove.api.common.persona.model.HiringPersona;
-import app.lightmove.api.strategy.service.IndustryAdjacency;
+import app.lightmove.api.universe.service.IndustryAdjacency;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;

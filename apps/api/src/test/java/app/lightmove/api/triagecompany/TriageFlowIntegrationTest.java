@@ -14,7 +14,7 @@ import app.lightmove.api.FixtureJdbc;
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.TestWorkspaceScopes;
-import app.lightmove.api.strategy.model.CompanyRow;
+import app.lightmove.api.universe.model.CompanyRow;
 import app.lightmove.api.triagecompany.constant.TriageCompanySource;
 import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
 import app.lightmove.api.triagecompany.repository.TriageCompanyWriter;

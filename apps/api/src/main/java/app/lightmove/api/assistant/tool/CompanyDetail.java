@@ -4,7 +4,7 @@ import app.lightmove.api.common.industry.model.ResolvedIndustry;
 import app.lightmove.api.common.industry.service.Industries;
 import app.lightmove.api.core.text.service.LinkedInUrls;
 import app.lightmove.api.enrichment.company.model.VendorCompanyRecord;
-import app.lightmove.api.strategy.model.CompanyRow;
+import app.lightmove.api.universe.model.CompanyRow;
 import app.lightmove.api.triagecompany.dto.TriageCompanyResponse;
 import app.lightmove.api.triagecompany.model.CapturedCompanyDetails;
 import java.util.List;

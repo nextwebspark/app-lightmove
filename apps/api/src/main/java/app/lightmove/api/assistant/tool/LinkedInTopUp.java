@@ -6,7 +6,7 @@ import app.lightmove.api.enrichment.company.model.CompanyActivityQuery;
 import app.lightmove.api.enrichment.company.model.VendorCompanyRecord;
 import app.lightmove.api.enrichment.company.model.VendorSearchAllowance;
 import app.lightmove.api.enrichment.company.service.CompanyResearch;
-import app.lightmove.api.strategy.service.ApolloCompanyQueryService;
+import app.lightmove.api.universe.service.ApolloCompanyQueryService;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;

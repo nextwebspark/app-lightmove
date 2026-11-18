@@ -2,7 +2,7 @@ package app.lightmove.api.workspace.service;
 
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
-import app.lightmove.api.strategy.service.ApolloCompanyQueryService;
+import app.lightmove.api.universe.service.ApolloCompanyQueryService;
 import app.lightmove.api.workspace.model.WorkspaceCompany;
 import java.util.List;
 import lombok.RequiredArgsConstructor;

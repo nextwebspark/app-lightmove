@@ -1,6 +1,6 @@
 package app.lightmove.api.triagecompany.service;
 
-import app.lightmove.api.strategy.model.CompanyExclusion;
+import app.lightmove.api.universe.model.CompanyExclusion;
 import app.lightmove.api.strategy.service.TriagedCompanyLookup;
 import java.util.Map;
 import java.util.UUID;

@@ -1,6 +1,6 @@
 package app.lightmove.api.strategy.service;
 
-import app.lightmove.api.strategy.model.CompanyExclusion;
+import app.lightmove.api.universe.model.CompanyExclusion;
 import java.util.UUID;
 
 /**

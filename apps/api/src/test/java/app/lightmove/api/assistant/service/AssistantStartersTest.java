@@ -11,7 +11,7 @@ import app.lightmove.api.assistant.dto.AssistantStartersResponse;
 import app.lightmove.api.common.persona.model.HiringCompanyProfile;
 import app.lightmove.api.common.persona.model.HiringPersona;
 import app.lightmove.api.project.service.ClientService;
-import app.lightmove.api.strategy.service.IndustryAdjacency;
+import app.lightmove.api.universe.service.IndustryAdjacency;
 import app.lightmove.api.workspace.constant.WorkspaceMode;
 import app.lightmove.api.workspace.model.Firm;
 import app.lightmove.api.workspace.service.FirmService;

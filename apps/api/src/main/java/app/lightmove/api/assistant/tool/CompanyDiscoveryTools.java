@@ -2,7 +2,7 @@ package app.lightmove.api.assistant.tool;
 
 import app.lightmove.api.core.config.AssistantSettings;
 import app.lightmove.api.core.config.LightMoveProperties;
-import app.lightmove.api.strategy.model.CompanyRow;
+import app.lightmove.api.universe.model.CompanyRow;
 import app.lightmove.api.strategy.service.StrategyService;
 import app.lightmove.api.triagecompany.model.CapturedCompanyDetails;
 import app.lightmove.api.triagecompany.model.MandateStages;
