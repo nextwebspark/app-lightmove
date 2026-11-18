@@ -9,6 +9,7 @@ import app.lightmove.api.outreach.constant.IntegrationProvider;
 import app.lightmove.api.outreach.constant.MeetingVideo;
 import app.lightmove.api.outreach.model.BusyInterval;
 import app.lightmove.api.outreach.model.CalendarEvent;
+import app.lightmove.api.outreach.model.CalendarRead;
 import app.lightmove.api.outreach.model.NewCalendarEvent;
 import app.lightmove.api.outreach.model.OutgoingEmail;
 import app.lightmove.api.outreach.model.ProviderCredentials;
@@ -182,7 +183,7 @@ public class GoogleMailboxGateway extends OAuthDirectMailboxGateway {
     }
 
     @Override
-    public List<CalendarEvent> calendarEvents(String grantId, Instant from, Instant to) {
+    public CalendarRead calendarEvents(String grantId, Instant from, Instant to) {
         String accessToken = accessTokenOf(grantId);
         return pagedEvents(grantId, (String) null, pageToken -> apiCall("calendar-events", accessToken,
                 client -> client.get()
@@ -284,17 +285,19 @@ public class GoogleMailboxGateway extends OAuthDirectMailboxGateway {
     }
 
     @Override
-    public void cancelEvent(String grantId, String eventId) {
+    public boolean cancelEvent(String grantId, String eventId) {
         String accessToken = accessTokenOf(grantId);
         try {
             apiExchange("cancel-event", accessToken, client -> client.delete()
                     .uri(builder -> builder.path("/calendar/v3/calendars/primary/events/{id}")
                             .queryParam("sendUpdates", "all")
                             .build(eventId)));
+            return true;
         } catch (VendorException failed) {
             if (!CalendarEventGone.isGone(failed)) {
                 throw failed;
             }
+            return false;
         }
     }
 

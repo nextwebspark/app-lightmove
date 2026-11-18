@@ -8,6 +8,8 @@ import app.lightmove.api.core.security.rbac.ProjectAccess;
 import app.lightmove.api.core.security.rbac.ProjectAction;
 import app.lightmove.api.outreach.model.OutreachBounced;
 import app.lightmove.api.outreach.model.OutreachCallBooked;
+import app.lightmove.api.outreach.model.OutreachCallCancelled;
+import app.lightmove.api.outreach.model.OutreachCallMoved;
 import app.lightmove.api.outreach.model.OutreachEmailSentByHand;
 import app.lightmove.api.outreach.model.OutreachReplied;
 import app.lightmove.api.task.constant.OutreachFollowUpKind;
@@ -26,6 +28,7 @@ import java.time.Instant;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -110,11 +113,60 @@ public class TaskRuleService {
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void onCallBooked(OutreachCallBooked booked) {
-        Instant ends = booked.endsAt() != null ? booked.endsAt() : booked.startsAt().plus(CALL_LENGTH_UNKNOWN);
+        Instant ends = callEndOf(booked.startsAt(), booked.endsAt());
         follow(new FollowUpCase(OutreachFollowUpKind.CALL_BOOKED, TaskRule.BOOKED_CALL,
                 "booked_call:" + booked.projectId() + ":" + booked.personId() + ":" + booked.startsAt().getEpochSecond(),
                 booked.workspaceId(), booked.projectId(), booked.personId(), booked.candidateId(),
                 booked.consultantUserId(), TaskKind.FOLLOW_UP, "Debrief %s", ends, booked.viaLink()));
+    }
+
+    /** A moved call's debrief moves with it, so it is never overdue before the call it follows. */
+    @Async
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void onCallMoved(OutreachCallMoved moved) {
+        debriefsOf(moved.workspaceId(), moved.projectId(), moved.personId(),
+                callEndOf(moved.previousStartsAt(), moved.previousEndsAt()))
+                .forEach(task -> {
+                    task.reschedule(callEndOf(moved.startsAt(), moved.endsAt()));
+                    audit.projectEvent(ProjectEventType.TASK_UPDATED, moved.movedBy(), task.getWorkspaceId(),
+                                    task.getProjectId(), null)
+                            .detail("taskId", task.getId().toString())
+                            .detail("dueAt", task.getDueAt().toString())
+                            .record();
+                });
+    }
+
+    /** A cancelled call has nothing to debrief. */
+    @Async
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void onCallCancelled(OutreachCallCancelled cancelled) {
+        debriefsOf(cancelled.workspaceId(), cancelled.projectId(), cancelled.personId(),
+                callEndOf(cancelled.startsAt(), cancelled.endsAt()))
+                .forEach(task -> {
+                    task.cancel();
+                    timeline.record(task, cancelled.cancelledBy(), PersonActivityKind.TASK_CANCELLED, null);
+                    audit.projectEvent(ProjectEventType.TASK_CANCELLED, cancelled.cancelledBy(),
+                                    task.getWorkspaceId(), task.getProjectId(), null)
+                            .detail("taskId", task.getId().toString())
+                            .record();
+                });
+    }
+
+    /**
+     * The open debrief filed for the call: due at its end, as filed or moved since. One whose due date someone set by
+     * hand is theirs, and left alone.
+     */
+    private List<Task> debriefsOf(UUID workspaceId, UUID projectId, UUID personId, Instant callEnd) {
+        return tasks.findByWorkspaceIdAndProjectIdAndPersonIdAndRuleAndStatus(workspaceId, projectId, personId,
+                        TaskRule.BOOKED_CALL, TaskStatus.OPEN).stream()
+                .filter(task -> Objects.equals(task.getDueAt(), callEnd))
+                .toList();
+    }
+
+    private static Instant callEndOf(Instant startsAt, Instant endsAt) {
+        return endsAt != null ? endsAt : startsAt.plus(CALL_LENGTH_UNKNOWN);
     }
 
     /**

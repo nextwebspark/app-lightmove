@@ -1,11 +1,14 @@
 package app.lightmove.api;
 
+import app.lightmove.api.core.resilience.constant.VendorFailureKind;
+import app.lightmove.api.core.resilience.model.VendorException;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.outreach.config.MailboxGatewayConfig;
 import app.lightmove.api.outreach.model.BookingPageSpec;
 import app.lightmove.api.outreach.model.BusyInterval;
 import app.lightmove.api.outreach.model.CalendarEvent;
+import app.lightmove.api.outreach.model.CalendarRead;
 import app.lightmove.api.outreach.model.CalendarSchedule;
 import app.lightmove.api.outreach.model.GrantedMailbox;
 import app.lightmove.api.outreach.model.MailboxEvent;
@@ -143,14 +146,14 @@ public class RecordingMailboxGateway implements MailboxGateway {
     }
 
     @Override
-    public List<CalendarEvent> calendarEvents(String grantId, Instant from, Instant to) {
+    public CalendarRead calendarEvents(String grantId, Instant from, Instant to) {
         calendarReads.incrementAndGet();
         if (calendarFailure != null) {
             throw calendarFailure;
         }
-        return calendar.stream()
+        return CalendarRead.whole(calendar.stream()
                 .filter(event -> event.startsAt().isBefore(to) && event.endsAt().isAfter(from))
-                .toList();
+                .toList());
     }
 
     @Override
@@ -203,11 +206,17 @@ public class RecordingMailboxGateway implements MailboxGateway {
     }
 
     @Override
-    public void cancelEvent(String grantId, String eventId) {
+    public boolean cancelEvent(String grantId, String eventId) {
+        // A calendar answers a cancel of an event it no longer holds as done, with nobody told.
+        if (changeEventFailure instanceof VendorException failed && (failed.getKind() == VendorFailureKind.NOT_FOUND
+                || failed.getKind() == VendorFailureKind.GONE)) {
+            return false;
+        }
         if (changeEventFailure != null) {
             throw changeEventFailure;
         }
         cancelled.add(eventId);
+        return true;
     }
 
     /** The calendar refuses to move or cancel events from here on; null lets it again. */

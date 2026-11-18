@@ -7,6 +7,7 @@ import app.lightmove.api.outreach.constant.MeetingVideo;
 import app.lightmove.api.outreach.model.BookingPageSpec;
 import app.lightmove.api.outreach.model.BusyInterval;
 import app.lightmove.api.outreach.model.CalendarEvent;
+import app.lightmove.api.outreach.model.CalendarRead;
 import app.lightmove.api.outreach.model.CalendarSchedule;
 import app.lightmove.api.outreach.model.GrantedMailbox;
 import app.lightmove.api.outreach.model.MailboxEvent;
@@ -121,7 +122,7 @@ public class RoutingMailboxGateway implements MailboxGateway {
     }
 
     @Override
-    public List<CalendarEvent> calendarEvents(String grantId, Instant from, Instant to) {
+    public CalendarRead calendarEvents(String grantId, Instant from, Instant to) {
         return holding(grantId).calendarEvents(grantId, from, to);
     }
 
@@ -151,8 +152,8 @@ public class RoutingMailboxGateway implements MailboxGateway {
     }
 
     @Override
-    public void cancelEvent(String grantId, String eventId) {
-        holding(grantId).cancelEvent(grantId, eventId);
+    public boolean cancelEvent(String grantId, String eventId) {
+        return holding(grantId).cancelEvent(grantId, eventId);
     }
 
     /** Booking pages are Nylas Scheduler's; nothing of ours offers them yet. */

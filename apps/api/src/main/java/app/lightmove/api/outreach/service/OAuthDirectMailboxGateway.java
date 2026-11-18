@@ -12,6 +12,7 @@ import app.lightmove.api.core.resilience.service.VendorRateLimiter;
 import app.lightmove.api.outreach.constant.IntegrationProvider;
 import app.lightmove.api.outreach.model.BookingPageSpec;
 import app.lightmove.api.outreach.model.CalendarEvent;
+import app.lightmove.api.outreach.model.CalendarRead;
 import app.lightmove.api.outreach.model.GrantedMailbox;
 import app.lightmove.api.outreach.model.MailboxEvent;
 import app.lightmove.api.outreach.model.MailboxGrants;
@@ -254,7 +255,7 @@ public abstract class OAuthDirectMailboxGateway implements DirectMailboxGateway 
      * The events of a paged read, page by page from {@code first} until {@code nextOf} answers null, each item of
      * {@code itemsField} kept where {@code eventOf} reads one. Capped at {@link #MAX_EVENT_PAGES}.
      */
-    protected <C> List<CalendarEvent> pagedEvents(String grantId, C first, Function<C, JsonNode> fetchPage,
+    protected <C> CalendarRead pagedEvents(String grantId, C first, Function<C, JsonNode> fetchPage,
                                                   String itemsField, Function<JsonNode, CalendarEvent> eventOf,
                                                   Function<JsonNode, C> nextOf) {
         List<CalendarEvent> events = new ArrayList<>();
@@ -262,7 +263,7 @@ public abstract class OAuthDirectMailboxGateway implements DirectMailboxGateway 
         for (int page = 0; page < MAX_EVENT_PAGES; page++) {
             JsonNode answer = fetchPage.apply(cursor);
             if (answer == null) {
-                return events;
+                return CalendarRead.whole(events);
             }
             for (JsonNode item : answer.path(itemsField)) {
                 CalendarEvent read = eventOf.apply(item);
@@ -272,12 +273,12 @@ public abstract class OAuthDirectMailboxGateway implements DirectMailboxGateway 
             }
             cursor = nextOf.apply(answer);
             if (cursor == null) {
-                return events;
+                return CalendarRead.whole(events);
             }
         }
         log.warn("The {} calendar of grant {} was read for {} pages with more to come; later events are not kept",
                 providerName, grantId, MAX_EVENT_PAGES);
-        return events;
+        return CalendarRead.cutShort(events);
     }
 
     /**

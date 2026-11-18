@@ -1177,6 +1177,13 @@ class NotetakerIntegrationTest extends FlowTestSupport {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.fieldErrors['" + suggestion(asked, "motivation").get("id").asText() + "']")
                         .exists());
+        // Both go into the one section, so a section too full for them together is named on each.
+        review(recordingId, Map.of("motivation", "", "expected-package", ""))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.fieldErrors['" + suggestion(asked, "motivation").get("id").asText() + "']")
+                        .exists())
+                .andExpect(jsonPath("$.fieldErrors['" + suggestion(asked, "expected-package").get("id").asText()
+                        + "']").exists());
 
         assertThat(noticeHeld()).isNull();
         assertThat(jdbc.queryForObject("select count(*) from app_lm_task where candidate_id = ?::uuid and title = "

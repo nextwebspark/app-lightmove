@@ -15,6 +15,7 @@ import app.lightmove.api.outreach.model.BookingMade;
 import app.lightmove.api.outreach.model.BookingPageSpec;
 import app.lightmove.api.outreach.model.BusyInterval;
 import app.lightmove.api.outreach.model.CalendarEvent;
+import app.lightmove.api.outreach.model.CalendarRead;
 import app.lightmove.api.outreach.model.CalendarEventChanged;
 import app.lightmove.api.outreach.model.CalendarEventRemoved;
 import app.lightmove.api.outreach.model.DayHours;
@@ -56,6 +57,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.client.MultipartBodyBuilder;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestClient;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.util.UriComponentsBuilder;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.JsonNode;
@@ -68,6 +70,7 @@ import tools.jackson.databind.json.JsonMapper;
  * Nylas v3: hosted sign-in with the API key, then everything by grant id. Nothing here is retried —
  * see {@link MailboxGateway} for why a send never is, and a redeemed code cannot be redeemed twice.
  */
+@Slf4j
 public class NylasMailboxGateway implements MailboxGateway {
 
     /** A send waits on the mailbox's own provider, not just on Nylas. */
@@ -238,7 +241,7 @@ public class NylasMailboxGateway implements MailboxGateway {
     }
 
     @Override
-    public List<CalendarEvent> calendarEvents(String grantId, Instant from, Instant to) {
+    public CalendarRead calendarEvents(String grantId, Instant from, Instant to) {
         List<CalendarEvent> events = new ArrayList<>();
         String pageToken = null;
         for (int page = 0; page < MAX_EVENT_PAGES; page++) {
@@ -259,7 +262,7 @@ public class NylasMailboxGateway implements MailboxGateway {
                     .retrieve()
                     .body(JsonNode.class));
             if (answer == null) {
-                break;
+                return CalendarRead.whole(events);
             }
             for (JsonNode event : answer.path("data")) {
                 if (!isCancelled(event)) {
@@ -271,10 +274,12 @@ public class NylasMailboxGateway implements MailboxGateway {
             }
             pageToken = textOrNull(answer.path("next_cursor"));
             if (pageToken == null) {
-                break;
+                return CalendarRead.whole(events);
             }
         }
-        return events;
+        log.warn("The Nylas calendar of grant {} was read for {} pages with more to come; later events are not kept",
+                grantId, MAX_EVENT_PAGES);
+        return CalendarRead.cutShort(events);
     }
 
     @Override
@@ -344,7 +349,10 @@ public class NylasMailboxGateway implements MailboxGateway {
                 .body(JsonNode.class));
         CalendarEvent created = answer == null ? null : eventOf(answer.path("data"));
         if (created == null) {
-            throw new IllegalStateException("The mail service answered an event create with no timed event");
+            // A 2xx with no readable event still sent the invite, as a direct calendar's does: the booking must not
+            // tear down the Zoom meeting that invite carries.
+            throw new VendorException(VendorCall.of(VENDOR, "create-event"), VendorFailureKind.MALFORMED_RESPONSE,
+                    null);
         }
         return created;
     }
@@ -369,7 +377,7 @@ public class NylasMailboxGateway implements MailboxGateway {
     }
 
     @Override
-    public void cancelEvent(String grantId, String eventId) {
+    public boolean cancelEvent(String grantId, String eventId) {
         try {
             guard.call(VendorCall.of(VENDOR, "cancel-event"), () -> client.delete()
                     .uri(builder -> builder.path("/v3/grants/{grantId}/events/{eventId}")
@@ -378,10 +386,12 @@ public class NylasMailboxGateway implements MailboxGateway {
                             .build(grantId, eventId))
                     .retrieve()
                     .toBodilessEntity());
+            return true;
         } catch (VendorException failed) {
             if (!CalendarEventGone.isGone(failed)) {
                 throw failed;
             }
+            return false;
         }
     }
 

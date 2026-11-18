@@ -47,6 +47,7 @@ import java.util.Currency;
 import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -271,7 +272,7 @@ public class CallSuggestionService {
         try {
             return chosenAs(suggestion, request, held);
         } catch (ApiException refused) {
-            throw onRow(suggestion, refused);
+            throw onRows(List.of(suggestion), refused);
         }
     }
 
@@ -324,8 +325,10 @@ public class CallSuggestionService {
             try {
                 updates.appendToMotivation(userId, workspaceId, projectId, candidateId, words, call, httpRequest);
             } catch (ApiException refused) {
-                throw onRow(chosen.stream().filter(each -> words.containsKey(each.fields().getFirst()))
-                        .findFirst().orElseThrow().suggestion(), refused);
+                // One write takes both: a section too full for them together is named on each row it would hold,
+                // never on Motivation alone when the expected package is what tipped it over.
+                throw onRows(chosen.stream().filter(each -> words.containsKey(each.fields().getFirst()))
+                        .map(ChosenChange::suggestion).toList(), refused);
             }
         }
         ProfileFromCall profile = profileOf(chosen);
@@ -369,11 +372,17 @@ public class CallSuggestionService {
                 .findFirst().orElse(SuggestedValue.text(null));
     }
 
-    private static ApiException onRow(CallSuggestion suggestion, ApiException refused) {
+    private static ApiException onRows(List<CallSuggestion> suggestions, ApiException refused) {
         if (refused.getCode() != ErrorCode.VALIDATION_FAILED || refused.getClientDetail() == null) {
             return refused;
         }
-        return ApiException.withField(ErrorCode.VALIDATION_FAILED, suggestion.id(), refused.getClientDetail());
+        if (suggestions.size() == 1) {
+            return ApiException.withField(ErrorCode.VALIDATION_FAILED, suggestions.getFirst().id(),
+                    refused.getClientDetail());
+        }
+        Map<String, String> onEach = new LinkedHashMap<>();
+        suggestions.forEach(suggestion -> onEach.put(suggestion.id(), refused.getClientDetail()));
+        return ApiException.withFields(ErrorCode.VALIDATION_FAILED, onEach);
     }
 
     private CallSuggestionsResponse responseOf(MeetingRecording recording, CallHeldFields held) {
