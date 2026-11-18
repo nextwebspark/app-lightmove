@@ -3,6 +3,7 @@ package app.lightmove.api.workspace.service;
 import app.lightmove.api.core.time.constant.DateFormatStyle;
 import app.lightmove.api.core.time.constant.TimeFormatStyle;
 import app.lightmove.api.core.time.model.DateTimePreferences;
+import app.lightmove.api.core.time.service.WorkspaceDateTimeDefaults;
 import app.lightmove.api.common.time.service.CountryTimeZones;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
@@ -24,7 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
  */
 @Service
 @RequiredArgsConstructor
-public class DateTimePreferenceService {
+public class DateTimePreferenceService implements WorkspaceDateTimeDefaults {
 
     private final WorkspaceRepository workspaces;
     private final UserRepository users;
@@ -40,6 +41,7 @@ public class DateTimePreferenceService {
         return effectiveFor(workspaceId, userId).zone();
     }
 
+    @Override
     @Transactional(readOnly = true)
     public DateTimePreferences workspaceDefaultsOf(UUID workspaceId) {
         return forWorkspace(requireWorkspace(workspaceId));

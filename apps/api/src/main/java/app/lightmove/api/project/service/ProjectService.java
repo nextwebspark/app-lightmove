@@ -15,7 +15,6 @@ import app.lightmove.api.core.security.rbac.WorkspaceAction;
 import app.lightmove.api.core.security.rbac.WorkspaceRole;
 import app.lightmove.api.core.security.repository.UserRepository;
 import app.lightmove.api.core.text.service.ConfirmationName;
-import app.lightmove.api.position.service.PositionService;
 import app.lightmove.api.project.constant.ProjectHealth;
 import app.lightmove.api.project.constant.ProjectListScope;
 import app.lightmove.api.project.constant.ProjectStage;
@@ -32,6 +31,7 @@ import app.lightmove.api.project.model.ClientRepresentative;
 import app.lightmove.api.project.model.PendingRepresentativeAttachment;
 import app.lightmove.api.project.model.Project;
 import app.lightmove.api.project.model.ProjectArchived;
+import app.lightmove.api.project.model.ProjectCreated;
 import app.lightmove.api.project.model.ProjectMember;
 import app.lightmove.api.project.model.ProjectTimeline;
 import app.lightmove.api.project.repository.ClientRepository;
@@ -76,7 +76,6 @@ public class ProjectService {
     private final ClientRegistrar clientRegistrar;
     private final ClientRepresentativeRepository representatives;
     private final PendingRepresentativeAttachmentRepository pendingAttachments;
-    private final PositionService positionService;
     private final ProjectCompanyCounter companyCounter;
     private final ProjectCandidateCounter candidateCounter;
     private final WorkspaceAccess access;
@@ -177,8 +176,8 @@ public class ProjectService {
                 request.positionTitle(), request.targetDate(), request.projectType(), timeline, userId));
         seats.save(ProjectMember.of(project.getId(), creator.getId(),
                 rbac.projectRoles(EnumSet.of(ProjectRole.LEAD)), userId));
-        positionService.seedFor(workspaceId, project.getId(), project.getPositionTitle(),
-                client.getHqCountry());
+        events.publishEvent(new ProjectCreated(workspaceId, project.getId(), project.getPositionTitle(),
+                client.getHqCountry(), userId));
 
         log.info("User {} created project {} in workspace {}", userId, project.getId(), workspaceId);
         if (request.newClient() != null) {

@@ -11,15 +11,15 @@ import app.lightmove.api.billing.plan.model.BillingManager;
 import app.lightmove.api.billing.plan.model.WorkspaceSubscription;
 import app.lightmove.api.billing.plan.repository.WorkspaceSubscriptionRepository;
 import app.lightmove.api.billing.plan.service.BillingWorkspaces;
-import app.lightmove.api.core.time.model.DateTimePreferences;
-import app.lightmove.api.core.time.service.DateTimeFormats;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.email.model.EmailMessage;
 import app.lightmove.api.core.email.render.EmailAction;
 import app.lightmove.api.core.email.service.EmailSender;
 import app.lightmove.api.core.email.service.EmailTemplates;
 import app.lightmove.api.core.tenant.EveryWorkspace;
-import app.lightmove.api.workspace.service.DateTimePreferenceService;
+import app.lightmove.api.core.time.model.DateTimePreferences;
+import app.lightmove.api.core.time.service.DateTimeFormats;
+import app.lightmove.api.core.time.service.WorkspaceDateTimeDefaults;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -61,7 +61,7 @@ public class BillingNotices {
     private final LightMoveProperties properties;
     private final EveryWorkspace everyWorkspace;
     private final Clock clock;
-    private final DateTimePreferenceService dateTimePreferences;
+    private final WorkspaceDateTimeDefaults dateTimePreferences;
 
     @Async
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
