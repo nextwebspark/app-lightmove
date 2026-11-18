@@ -162,7 +162,8 @@ export function isWithinWorkingHours(choice: CallChoice, workingHours: readonly 
 export function fieldsOf(choice: CallChoice, timeZone: string): { date: string; from: string; to: string } {
   const start = wallClockOf(new Date(choice.start), timeZone);
   const end = wallClockOf(new Date(endOf(choice)), timeZone);
-  return { date: start.date, from: start.time, to: end.date === start.date ? end.time : "24:00" };
+  // A call running past midnight ends at its own time the next day; "24:00" once read every such end as midnight.
+  return { date: start.date, from: start.time, to: end.date === start.date || end.time !== "00:00" ? end.time : "24:00" };
 }
 
 /** A call from the "Pick a time" fields, or null where they do not make one. A call ending at midnight may say 00:00. */

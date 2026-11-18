@@ -394,6 +394,7 @@ public class CallSuggestionService {
         return new CallSuggestionsResponse(recording.getId(), recording.getTitle(), recording.getStartsAt(),
                 recording.getSuggestions() != null,
                 recording.isSuggestible() && !recording.hasPendingSuggestions(),
+                recording.isSuggesting(clock.instant().minus(CLAIM_LIFETIME)),
                 found.stream().map(suggestion -> {
                     AppliedChange applied = suggestion.applied();
                     return new CallSuggestionResponse(suggestion.id(), suggestion.kind(), suggestion.status(),
