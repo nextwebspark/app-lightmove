@@ -12,6 +12,7 @@ import type {
   PoolFilters,
   PoolPresence,
   PoolRecencyBand,
+  PoolView,
 } from "../api/types";
 
 /** The Candidates page with nothing narrowed: everyone, newest activity first. */
@@ -82,12 +83,30 @@ const ADDED: Option<PoolRecencyBand>[] = [
 
 const ACTIVITY: Option<PoolRecencyBand>[] = [...ADDED, { value: "never", label: "Nothing recorded" }];
 
+const VIEWS: Option<Exclude<PoolView, "all">>[] = [
+  { value: "mine", label: "Owned by me" },
+  { value: "active", label: "In an active position" },
+  { value: "unplaced", label: "Not in a position" },
+  { value: "not_notified", label: "Not notified" },
+  { value: "consent_asked", label: "Asked, no answer" },
+  { value: "consent_ending", label: "Consent ending in 30 days" },
+  { value: "consent_refused", label: "Declined or withdrawn" },
+];
+
+/** Held over a month and never told the firm holds their data (#923); only where the people controls are offered. */
+const PRIVACY_VIEWS: readonly PoolView[] = ["not_notified"];
+
+/** Where consent requests stand (#1267); only while the workspace asks for consent. */
+const CONSENT_VIEWS: readonly PoolView[] = ["consent_asked", "consent_ending", "consent_refused"];
+
 export interface PoolFilterSources {
   tags: CandidateTag[];
   staff: Member[];
   positions: Project[];
   countries: string[];
   catalog: PipelineCatalog;
+  showsPrivacyViews: boolean;
+  showsConsentViews: boolean;
 }
 
 /**
@@ -170,6 +189,37 @@ export function poolColumnFilters(
     added: ticked("added", "Added", ADDED),
     doNotContact: ticked("doNotContact", "Do not contact", PRESENCE),
     activity: ticked("activity", "Last activity", ACTIVITY),
+    view: viewFilter(filters, onChange, sources),
+  };
+}
+
+/**
+ * The Show filter's ticks, read as the one view the server answers: the newest tick wins, unticking the view in force
+ * shows everyone. `ticked` is the list the check filter hands back after one tick or untick.
+ */
+export function pickedView(ticked: readonly string[], current: PoolView): PoolView {
+  const added = VIEWS.find((option) => option.value !== current && ticked.includes(option.value));
+  if (added) return added.value;
+  return ticked.includes(current) ? current : "all";
+}
+
+/** No column carries the view; the Filter button does. */
+function viewFilter(
+  filters: PoolFilters,
+  onChange: Dispatch<SetStateAction<PoolFilters>>,
+  sources: PoolFilterSources,
+): DataGridColumnFilter {
+  return {
+    kind: "check",
+    label: "Show",
+    options: VIEWS.filter(
+      (option) =>
+        (sources.showsPrivacyViews || !PRIVACY_VIEWS.includes(option.value)) &&
+        (sources.showsConsentViews || !CONSENT_VIEWS.includes(option.value)),
+    ),
+    selected: filters.view === "all" ? [] : [filters.view],
+    onChange: (selected) => onChange((current) => ({ ...current, view: pickedView(selected, current.view) })),
+    "aria-label": "Filter by who to show",
   };
 }
 

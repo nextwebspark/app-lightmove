@@ -76,6 +76,20 @@ describe("GridFilterButton", () => {
     expect(screen.getByRole("checkbox", { name: "Interested" })).toBeChecked();
   });
 
+  it("drops a value list over the panel that a click elsewhere in the panel closes, the panel staying open", async () => {
+    render(<Harness initialStatus={["contacted"]} />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Filter, 1 applied" }));
+    await userEvent.click(screen.getByRole("button", { name: "Status values" }));
+    await userEvent.click(screen.getByRole("checkbox", { name: "Interested" }));
+    expect(screen.getByRole("checkbox", { name: "Interested" })).toBeChecked();
+
+    await userEvent.click(screen.getByText("Filters"));
+
+    expect(screen.queryByRole("checkbox", { name: "Interested" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Add filter" })).toBeInTheDocument();
+  });
+
   it("removes one filter from its line and leaves the others in force", async () => {
     render(<Harness initialName="acwa" initialStatus={["contacted"]} />);
 

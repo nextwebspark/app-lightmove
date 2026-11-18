@@ -188,12 +188,13 @@ try {
   });
   await optOut.close();
 
-  console.log("\n\x1b[1;36m== PN4  The Not notified quick view\x1b[0m");
-  await step("PN4.1", "the chip is on the Candidates page", async () => {
+  console.log("\n\x1b[1;36m== PN4  The Not notified view\x1b[0m");
+  await step("PN4.1", "Filter → Show offers Not notified on the Candidates page", async () => {
     await page.goto(`${WEB}/candidates`);
-    await page.getByRole("button", { name: /Not notified/ }).first().waitFor({ timeout: 15000 });
-    await shot(page, "candidates-chip");
-    pass("PN4.1", "the Not notified chip is drawn");
+    await openShowFilter(page);
+    await page.getByRole("checkbox", { name: "Not notified" }).waitFor({ timeout: 15000 });
+    await shot(page, "candidates-show-not-notified");
+    pass("PN4.1", "the Not notified view is offered");
   });
 } finally {
   await browser.close();
@@ -201,3 +202,10 @@ try {
 
 console.log(`\n  ${passed} passed, ${failed} failed`);
 process.exit(failed === 0 ? 0 : 1);
+
+/** The Candidates page's Filter → Add filter → Show, its view list dropped open. */
+async function openShowFilter(page) {
+  await page.getByRole("button", { name: /^Filter/ }).first().click();
+  await page.getByRole("button", { name: "Add filter" }).click();
+  await page.getByRole("group", { name: "Choose a column to filter" }).getByRole("button", { name: "Show" }).click();
+}

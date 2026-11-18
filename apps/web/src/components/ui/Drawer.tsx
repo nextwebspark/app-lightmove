@@ -38,7 +38,6 @@ export function Drawer({
         role="dialog"
         aria-modal="true"
         aria-label={label}
-        data-edge-panel={wide ? "drawer-wide" : "drawer"}
         className={cn(
           // A phone gets the whole screen, clear of the notch and the home bar; from `sm` it floats at the right.
           "fixed inset-0 z-[95] flex animate-fade-up flex-col outline-none",

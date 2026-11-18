@@ -89,7 +89,7 @@ describe("useChangeCandidateStatus", () => {
 
     expect(await screen.findByRole("dialog", { name: "Why did Layla Haddad leave?" })).toBeInTheDocument();
     expect(screen.queryByRole("option", { name: "Retired one" })).not.toBeInTheDocument();
-    const save = screen.getByRole("button", { name: "Move to Not interested" });
+    const save = screen.getByRole("button", { name: "Done" });
     expect(save).toBeDisabled();
 
     await userEvent.selectOptions(screen.getByRole("combobox", { name: "Reason" }), "Other");
@@ -111,7 +111,7 @@ describe("useChangeCandidateStatus", () => {
     expect(wayOut).toHaveDisplayValue("Not interested");
     await userEvent.selectOptions(wayOut, "Unresponsive");
     expect(screen.getByText("Unresponsive asks for no reason.")).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "Move to Unresponsive" }));
+    await userEvent.click(screen.getByRole("button", { name: "Done" }));
 
     expect(candidatesApi.changeCandidateStatus).toHaveBeenCalledWith("p1", "c1", "unresponsive", null);
   });

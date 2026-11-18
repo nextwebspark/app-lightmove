@@ -368,6 +368,19 @@ describe("ActivityTimeline", () => {
       expect(within(email).getByText("This note was deleted.")).toBeInTheDocument();
     });
 
+    it("opens a WhatsApp log saved on its outcome alone as the outcome, with no empty box for words", async () => {
+      vi.mocked(personCrmApi.getPersonNotes).mockResolvedValue([
+        { ...callNote, kind: "whatsapp", body: "", outcome: "sent", editedAt: null, editedByName: null },
+      ]);
+      history(line(1, "NOTE_ADDED", { details: { noteId: "n1", kind: "WHATSAPP", outcome: "SENT" }, noteExcerpt: null }));
+      renderTimeline();
+      await userEvent.click(await screen.findByRole("button", { name: /logged a WhatsApp message/ }));
+      const dialog = await screen.findByRole("dialog", { name: "WhatsApp note" });
+
+      expect(await within(dialog).findByText("Outcome")).toBeInTheDocument();
+      expect(within(dialog).getByText("Sent a message")).toBeInTheDocument();
+    });
+
     it("opens each kind under its own title, with who last edited it", async () => {
       vi.mocked(personCrmApi.getPersonNotes).mockResolvedValue([
         callNote,

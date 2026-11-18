@@ -259,7 +259,7 @@ describe("CandidatesPage", () => {
     vi.mocked(poolApi.getActivityFeed).mockResolvedValue({ entries: [], nextCursor: null });
   });
 
-  it("lists the pool with each person's positions, tags and latest line, and counts each quick view", async () => {
+  it("lists the pool with each person's positions, tags and latest line", async () => {
     renderPage();
 
     expect((await screen.findAllByText("Fatima Al Mazrouei")).length).toBeGreaterThan(0);
@@ -273,16 +273,22 @@ describe("CandidatesPage", () => {
     expect(screen.getAllByText("Open to work").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Marked Engaged on Chief Financial Officer").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Do not contact").length).toBeGreaterThan(0);
-    expect(screen.getByRole("button", { name: /Not in a position\s*1/ })).toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: "Quick views" })).not.toBeInTheDocument();
     expect(screen.getByText("2 of 2 people")).toBeInTheDocument();
   });
 
-  it("asks the server again for a quick view, a column filter or a sort, never filtering what it already has", async () => {
+  it("asks the server again for a Show filter, a column filter or a sort, never filtering what it already has", async () => {
     renderPage();
     const grid = await screen.findByRole("table", { name: "Candidates" });
     await screen.findAllByText("Fatima Al Mazrouei");
 
-    await userEvent.click(screen.getByRole("button", { name: /Owned by me/ }));
+    await userEvent.click(screen.getByRole("button", { name: "Filter" }));
+    await userEvent.click(screen.getByRole("button", { name: "Add filter" }));
+    await userEvent.click(
+      within(screen.getByRole("group", { name: "Choose a column to filter" })).getByRole("button", { name: "Show" }),
+    );
+    await userEvent.click(screen.getByRole("checkbox", { name: "Owned by me" }));
+    await userEvent.keyboard("{Escape}");
     await waitFor(() =>
       expect(poolApi.listPool).toHaveBeenLastCalledWith(
         expect.objectContaining({ view: "mine" }),
@@ -302,7 +308,7 @@ describe("CandidatesPage", () => {
         expect.anything(),
       ),
     );
-    expect(screen.getByRole("button", { name: "Filter, 1 applied" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Filter, 2 applied" })).toBeInTheDocument();
   });
 
   it("filters every column from its header menu, typed ones once the typing settles", async () => {

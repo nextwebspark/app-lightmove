@@ -2,6 +2,7 @@ import { useEffect, useState, type KeyboardEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { NetworkMark } from "../../../components/ui/NetworkMark";
+import { cn } from "../../../lib/cn";
 import { formatTimeAgo } from "../../../lib/format";
 import type { NoteOutcome } from "../../candidates/api/types";
 import { outcomeQuestionOf, outcomesOf } from "../../candidates/lib/noteOutcomes";
@@ -117,9 +118,13 @@ function PendingCard({
               ? `Done with the call to ${card.personName}`
               : `Not now — don't log ${isWhatsApp ? "the WhatsApp" : "the call"} with ${card.personName}`
           }
-          className="flex-none rounded-md px-1.5 py-0.5 text-note font-medium text-u-text3 hover:bg-u-raised hover:text-u-text"
+          title={isWrong ? undefined : "Not now"}
+          className={cn(
+            "-my-0.5 flex-none rounded text-u-text3 hover:bg-u-raised hover:text-u-text focus-visible:outline-2 focus-visible:outline-u-accent",
+            isWrong ? "px-1.5 py-0.5 text-note font-medium" : "p-1",
+          )}
         >
-          {isWrong ? "Done" : "Not now"}
+          {isWrong ? "Done" : <Icon d={ICONS.close} size={14} />}
         </button>
       </div>
       {isWrong ? (

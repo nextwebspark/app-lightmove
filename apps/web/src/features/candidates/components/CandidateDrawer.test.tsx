@@ -413,7 +413,7 @@ describe("CandidateDrawer", () => {
     const dialog = await screen.findByRole("dialog", { name: "Why did Omar Haddad leave?" });
     expect(candidatesApi.createCandidate).not.toHaveBeenCalled();
     await userEvent.selectOptions(within(dialog).getByRole("combobox", { name: "Reason" }), "Timing");
-    await userEvent.click(within(dialog).getByRole("button", { name: "Move to Not interested" }));
+    await userEvent.click(within(dialog).getByRole("button", { name: "Done" }));
 
     await waitFor(() => expect(candidatesApi.createCandidate).toHaveBeenCalled());
     const payload = vi.mocked(candidatesApi.createCandidate).mock.calls[0][1];

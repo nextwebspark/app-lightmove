@@ -30,6 +30,9 @@ import {
 } from "../../lib/activityPresentation";
 import { STOP_REASONS, statusLabel } from "../../lib/candidateActivity";
 import { isContactNote, noteKindLabel, noteKindOf } from "../../lib/noteKinds";
+import { isOutOfProcess } from "../../lib/pipelineStatus";
+import { usePipelineCatalog } from "../../../workspace/lib/usePipelineCatalog";
+import { outcomeLabel } from "../../lib/noteOutcomes";
 import { StatusPill } from "./ActivityItems";
 import { ActorFace, EntryKindTile } from "./ActivityVisuals";
 import { formatInstantTime } from "../../../../lib/datetime";
@@ -156,6 +159,7 @@ function DetailBody({
   taskState: TaskState | undefined;
   onPreviewDocument: (document: PersonDocument, version: PersonDocumentVersion) => void;
 }) {
+  const { catalog } = usePipelineCatalog();
   const { details } = entry;
   switch (entry.kind) {
     case "NOTE_ADDED":
@@ -180,7 +184,7 @@ function DetailBody({
           <div className="flex items-center justify-center gap-3 rounded-xl border border-u-border bg-u-bg p-4">
             {details.from && <StatusPill label={statusLabel(details.from, details.fromLabel)} />}
             {details.from && <Icon d={ICONS.arrowRight} size={16} className="text-u-text3" />}
-            <StatusPill label={statusLabel(details.to, details.toLabel)} isCurrent />
+            <StatusPill label={statusLabel(details.to, details.toLabel)} isCurrent leftProcess={isOutOfProcess(details.to, catalog)} />
           </div>
           <Facts
             rows={[
@@ -287,9 +291,12 @@ function NoteDetail({ entry, projectId, candidateId }: { entry: PersonTimelineEn
         {note.pinned && <Pill>Pinned</Pill>}
         <Pill>{note.projectId === null ? "About the person · every position" : "This position"}</Pill>
       </div>
-      <div className="max-h-[40dvh] overflow-y-auto rounded-xl border border-u-border bg-u-bg p-3.5">
-        <NoteText body={note.body} format={note.format} className="text-body text-u-text" />
-      </div>
+      {note.outcome && <Facts rows={[["Outcome", outcomeLabel(note.outcome)]]} />}
+      {note.body.trim() && (
+        <div className="max-h-[40dvh] overflow-y-auto rounded-xl border border-u-border bg-u-bg p-3.5">
+          <NoteText body={note.body} format={note.format} className="text-body text-u-text" />
+        </div>
+      )}
       {note.editedAt && (
         <p className="text-meta text-u-text3">
           Last edited by {note.editedByName ?? "someone"} · {fullDateTime(note.editedAt)}

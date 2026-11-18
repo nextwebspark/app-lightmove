@@ -154,6 +154,8 @@ export function PeopleView({
     positions: lookups.positions,
     countries: page.data?.countries ?? [],
     catalog,
+    showsPrivacyViews: dataProtection,
+    showsConsentViews: consentMode.on,
   });
 
   const tickedOnPage = rows.filter((row) => rowSelection[row.personId]).length;
@@ -184,16 +186,11 @@ export function PeopleView({
         }
         query={query}
         onQueryChange={setQuery}
-        view={filters.view}
-        viewCounts={page.data?.viewCounts}
-        onViewChange={(view) => onFiltersChange((current) => ({ ...current, view }))}
         shown={page.data?.totalCount ?? null}
         pool={page.data?.poolSize ?? null}
         canExportView={selectedPeople === 0}
         exporting={exporting}
         onExportView={() => onExport([])}
-        showsPrivacyViews={dataProtection}
-        showsConsentViews={consentMode.on}
       />
 
       <div className="flex min-h-0 flex-1">
