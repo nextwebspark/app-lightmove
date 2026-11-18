@@ -1,5 +1,6 @@
 package app.lightmove.api.common.constant;
 
+import app.lightmove.api.core.constant.ApiValueEnum;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.Accessors;

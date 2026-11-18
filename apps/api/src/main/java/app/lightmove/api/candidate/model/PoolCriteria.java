@@ -9,7 +9,7 @@ import app.lightmove.api.candidate.constant.PoolSortDirection;
 import app.lightmove.api.candidate.constant.PoolSortField;
 import app.lightmove.api.candidate.constant.PoolView;
 import app.lightmove.api.candidate.constant.TagMatch;
-import app.lightmove.api.common.constant.ApiValueEnum;
+import app.lightmove.api.core.constant.ApiValueEnum;
 import app.lightmove.api.common.constant.Seniority;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;

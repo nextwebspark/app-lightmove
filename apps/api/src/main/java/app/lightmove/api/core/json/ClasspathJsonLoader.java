@@ -1,4 +1,4 @@
-package app.lightmove.api.common.service;
+package app.lightmove.api.core.json;
 
 import java.io.IOException;
 import java.io.InputStream;

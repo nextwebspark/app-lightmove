@@ -1,4 +1,4 @@
-package app.lightmove.api.common.constant;
+package app.lightmove.api.core.constant;
 
 import java.util.Arrays;
 import java.util.Map;

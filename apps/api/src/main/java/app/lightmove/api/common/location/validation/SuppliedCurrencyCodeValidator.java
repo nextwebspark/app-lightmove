@@ -1,4 +1,4 @@
-package app.lightmove.api.core.validation;
+package app.lightmove.api.common.location.validation;
 
 import app.lightmove.api.common.location.service.Currencies;
 import jakarta.validation.ConstraintValidator;

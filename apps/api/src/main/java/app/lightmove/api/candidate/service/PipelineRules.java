@@ -4,7 +4,7 @@ import app.lightmove.api.candidate.constant.PipelineColour;
 import app.lightmove.api.candidate.model.CandidateStage;
 import app.lightmove.api.candidate.model.CandidateStatusDefinition;
 import app.lightmove.api.candidate.model.PipelineCatalog;
-import app.lightmove.api.common.constant.ApiValueEnum;
+import app.lightmove.api.core.constant.ApiValueEnum;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import java.util.HashSet;

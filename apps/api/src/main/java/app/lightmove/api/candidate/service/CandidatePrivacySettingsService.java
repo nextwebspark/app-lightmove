@@ -5,7 +5,7 @@ import app.lightmove.api.candidate.constant.LawfulBasis;
 import app.lightmove.api.candidate.dto.CandidatePrivacySettingsResponse;
 import app.lightmove.api.candidate.dto.UpdateCandidatePrivacySettingsRequest;
 import app.lightmove.api.candidate.model.CandidatePrivacySettings;
-import app.lightmove.api.common.constant.ApiValueEnum;
+import app.lightmove.api.core.constant.ApiValueEnum;
 import app.lightmove.api.core.audit.constant.WorkspaceEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.error.constant.ErrorCode;

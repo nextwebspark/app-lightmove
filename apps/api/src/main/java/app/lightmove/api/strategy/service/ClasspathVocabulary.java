@@ -1,6 +1,6 @@
 package app.lightmove.api.strategy.service;
 
-import app.lightmove.api.common.service.ClasspathJsonLoader;
+import app.lightmove.api.core.json.ClasspathJsonLoader;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;

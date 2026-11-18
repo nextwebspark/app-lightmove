@@ -1,8 +1,8 @@
 package app.lightmove.api.notification.service;
 
 import app.lightmove.api.candidate.service.CandidateTaskService;
-import app.lightmove.api.common.time.model.DateTimePreferences;
-import app.lightmove.api.common.time.service.DateTimeFormats;
+import app.lightmove.api.core.time.model.DateTimePreferences;
+import app.lightmove.api.core.time.service.DateTimeFormats;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.email.constant.PrivacyRequestEmailKind;
 import app.lightmove.api.core.email.model.EmailMessage;

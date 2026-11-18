@@ -14,7 +14,7 @@ import app.lightmove.api.candidate.model.Person;
 import app.lightmove.api.candidate.model.PrivacyNoticesQueued;
 import app.lightmove.api.candidate.model.QueuedPrivacyNotice;
 import app.lightmove.api.candidate.repository.PersonRepository;
-import app.lightmove.api.common.constant.ApiValueEnum;
+import app.lightmove.api.core.constant.ApiValueEnum;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.config.LightMoveProperties;

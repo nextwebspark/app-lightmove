@@ -1,8 +1,8 @@
-package app.lightmove.api.common.time.service;
+package app.lightmove.api.core.time.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import app.lightmove.api.common.time.model.OfferedTimeZone;
+import app.lightmove.api.core.time.model.OfferedTimeZone;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 

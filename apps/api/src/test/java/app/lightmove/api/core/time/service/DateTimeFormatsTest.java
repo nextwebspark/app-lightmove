@@ -1,10 +1,10 @@
-package app.lightmove.api.common.time.service;
+package app.lightmove.api.core.time.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import app.lightmove.api.common.time.constant.DateFormatStyle;
-import app.lightmove.api.common.time.constant.TimeFormatStyle;
-import app.lightmove.api.common.time.model.DateTimePreferences;
+import app.lightmove.api.core.time.constant.DateFormatStyle;
+import app.lightmove.api.core.time.constant.TimeFormatStyle;
+import app.lightmove.api.core.time.model.DateTimePreferences;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;

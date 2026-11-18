@@ -1,6 +1,6 @@
 package app.lightmove.api.core.security.apikey;
 
-import app.lightmove.api.common.constant.ApiValueEnum;
+import app.lightmove.api.core.constant.ApiValueEnum;
 import app.lightmove.api.core.tenant.TenantPrincipal;
 import java.time.Instant;
 import java.util.Collection;

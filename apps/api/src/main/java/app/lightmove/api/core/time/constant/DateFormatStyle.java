@@ -1,4 +1,4 @@
-package app.lightmove.api.common.time.constant;
+package app.lightmove.api.core.time.constant;
 
 /** The date shapes a workspace or a person chooses from; a fixed set, never a typed pattern. */
 public enum DateFormatStyle {

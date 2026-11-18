@@ -48,7 +48,7 @@ import app.lightmove.api.candidate.repository.CandidateListFilter;
 import app.lightmove.api.candidate.repository.CandidateRepository;
 import app.lightmove.api.candidate.repository.PersonPhotoRepository;
 import app.lightmove.api.candidate.repository.PersonRepository;
-import app.lightmove.api.common.constant.ApiValueEnum;
+import app.lightmove.api.core.constant.ApiValueEnum;
 import app.lightmove.api.common.location.model.InternationalPhone;
 import app.lightmove.api.common.location.service.PhoneNumbers;
 import app.lightmove.api.core.audit.constant.ProjectEventType;

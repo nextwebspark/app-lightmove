@@ -1,6 +1,6 @@
 package app.lightmove.api.outreach.service;
 
-import app.lightmove.api.common.time.service.DateTimeFormats;
+import app.lightmove.api.core.time.service.DateTimeFormats;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.email.service.EmailSender;
 import app.lightmove.api.core.email.service.EmailTemplates;

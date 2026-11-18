@@ -1,6 +1,6 @@
 package app.lightmove.api.dataimport.constant;
 
-import app.lightmove.api.common.constant.ApiValueEnum;
+import app.lightmove.api.core.constant.ApiValueEnum;
 import app.lightmove.api.customcolumn.constant.CustomColumnTarget;
 import java.util.List;
 import lombok.Getter;

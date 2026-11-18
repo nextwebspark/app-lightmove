@@ -1,6 +1,6 @@
 package app.lightmove.api.core.security.controller;
 
-import app.lightmove.api.common.time.model.DateTimePreferences;
+import app.lightmove.api.core.time.model.DateTimePreferences;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.security.constant.PrivacyPolicy;

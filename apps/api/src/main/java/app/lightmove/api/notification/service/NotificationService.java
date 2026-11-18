@@ -2,7 +2,7 @@ package app.lightmove.api.notification.service;
 
 import app.lightmove.api.candidate.model.LinkedNote;
 import app.lightmove.api.candidate.service.CandidateTaskService;
-import app.lightmove.api.common.constant.ApiValueEnum;
+import app.lightmove.api.core.constant.ApiValueEnum;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.security.model.User;

@@ -1,4 +1,4 @@
-package app.lightmove.api.common.constant;
+package app.lightmove.api.core.constant;
 
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;

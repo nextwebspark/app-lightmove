@@ -1,7 +1,7 @@
-package app.lightmove.api.common.time.service;
+package app.lightmove.api.core.time.service;
 
-import app.lightmove.api.common.service.ClasspathJsonLoader;
-import app.lightmove.api.common.time.model.OfferedTimeZone;
+import app.lightmove.api.core.json.ClasspathJsonLoader;
+import app.lightmove.api.core.time.model.OfferedTimeZone;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.Set;

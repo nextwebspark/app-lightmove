@@ -1,6 +1,6 @@
 package app.lightmove.api.strategy.service;
 
-import app.lightmove.api.common.service.ClasspathJsonLoader;
+import app.lightmove.api.core.json.ClasspathJsonLoader;
 import app.lightmove.api.strategy.dto.PeopleFacetsResponse;
 import app.lightmove.api.strategy.dto.VocabularyOption;
 import java.util.List;

@@ -1,6 +1,6 @@
 package app.lightmove.api.candidate.dto;
 
-import app.lightmove.api.core.validation.SuppliedCurrencyCode;
+import app.lightmove.api.common.location.validation.SuppliedCurrencyCode;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;

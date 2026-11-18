@@ -5,7 +5,7 @@ import app.lightmove.api.candidate.dto.StatusAutomationResponse;
 import app.lightmove.api.candidate.dto.UpdateStatusAutomationRequest;
 import app.lightmove.api.candidate.model.CandidateStatusDefinition;
 import app.lightmove.api.candidate.model.PipelineCatalog;
-import app.lightmove.api.common.constant.ApiValueEnum;
+import app.lightmove.api.core.constant.ApiValueEnum;
 import app.lightmove.api.core.audit.constant.WorkspaceEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.error.constant.ErrorCode;

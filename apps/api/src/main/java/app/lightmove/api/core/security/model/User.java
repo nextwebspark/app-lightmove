@@ -1,6 +1,6 @@
 package app.lightmove.api.core.security.model;
-import app.lightmove.api.common.time.constant.DateFormatStyle;
-import app.lightmove.api.common.time.constant.TimeFormatStyle;
+import app.lightmove.api.core.time.constant.DateFormatStyle;
+import app.lightmove.api.core.time.constant.TimeFormatStyle;
 import app.lightmove.api.core.persistence.model.BaseEntity;
 import app.lightmove.api.core.security.constant.UserStatus;
 import jakarta.persistence.Column;

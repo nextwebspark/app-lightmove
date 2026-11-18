@@ -18,7 +18,7 @@ import app.lightmove.api.candidate.model.ScorecardTally;
 import app.lightmove.api.candidate.model.ScoringBrief;
 import app.lightmove.api.candidate.repository.CandidateRepository;
 import app.lightmove.api.candidate.repository.CandidateScorecardRepository;
-import app.lightmove.api.common.constant.ApiValueEnum;
+import app.lightmove.api.core.constant.ApiValueEnum;
 import app.lightmove.api.common.constant.CompetencyPanel;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;

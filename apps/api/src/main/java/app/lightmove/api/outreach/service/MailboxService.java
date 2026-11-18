@@ -1,6 +1,6 @@
 package app.lightmove.api.outreach.service;
 
-import app.lightmove.api.common.time.model.DateTimePreferences;
+import app.lightmove.api.core.time.model.DateTimePreferences;
 import app.lightmove.api.core.audit.constant.WorkspaceEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.config.LightMoveProperties;

@@ -1,7 +1,7 @@
 package app.lightmove.api.common.industry.service;
 
 import app.lightmove.api.common.industry.model.ResolvedIndustry;
-import app.lightmove.api.common.service.ClasspathJsonLoader;
+import app.lightmove.api.core.json.ClasspathJsonLoader;
 import app.lightmove.api.core.text.service.SuppliedText;
 import java.text.Normalizer;
 import java.util.HashMap;

@@ -6,7 +6,7 @@ import app.lightmove.api.candidate.dto.WritePersonNoteRequest;
 import app.lightmove.api.candidate.model.LoggedMeeting;
 import app.lightmove.api.candidate.model.LoggedRecording;
 import app.lightmove.api.candidate.model.NoteOccurrence;
-import app.lightmove.api.common.constant.ApiValueEnum;
+import app.lightmove.api.core.constant.ApiValueEnum;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import java.time.Clock;

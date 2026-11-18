@@ -1,6 +1,6 @@
-package app.lightmove.api.common.time.service;
+package app.lightmove.api.core.time.service;
 
-import app.lightmove.api.common.time.model.DateTimePreferences;
+import app.lightmove.api.core.time.model.DateTimePreferences;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;

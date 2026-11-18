@@ -1,6 +1,6 @@
 package app.lightmove.api.strategy.constant;
 
-import app.lightmove.api.common.constant.ApiValueEnum;
+import app.lightmove.api.core.constant.ApiValueEnum;
 
 /** A size band the Strategy filter selects from: a wire token, a label and closed numeric bounds. */
 public interface CompanySizeBand extends ApiValueEnum {

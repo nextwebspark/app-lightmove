@@ -3,7 +3,7 @@ package app.lightmove.api.position.dto;
 import app.lightmove.api.common.constant.BaseSalaryMode;
 import app.lightmove.api.common.constant.BonusBasis;
 import app.lightmove.api.common.constant.IncentiveType;
-import app.lightmove.api.core.validation.CurrencyCode;
+import app.lightmove.api.common.location.validation.CurrencyCode;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Digits;

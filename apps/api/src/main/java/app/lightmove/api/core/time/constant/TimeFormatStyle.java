@@ -1,4 +1,4 @@
-package app.lightmove.api.common.time.constant;
+package app.lightmove.api.core.time.constant;
 
 /** The clock a workspace or a person reads times in. */
 public enum TimeFormatStyle {

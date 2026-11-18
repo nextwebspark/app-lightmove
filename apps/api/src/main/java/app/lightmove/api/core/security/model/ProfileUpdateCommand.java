@@ -1,7 +1,7 @@
 package app.lightmove.api.core.security.model;
 
-import app.lightmove.api.common.time.constant.DateFormatStyle;
-import app.lightmove.api.common.time.constant.TimeFormatStyle;
+import app.lightmove.api.core.time.constant.DateFormatStyle;
+import app.lightmove.api.core.time.constant.TimeFormatStyle;
 
 /**
  * What Settings → Profile supplies. A command, not the HTTP DTO — the application layer should not

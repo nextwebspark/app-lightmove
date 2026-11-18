@@ -9,7 +9,7 @@ import app.lightmove.api.candidate.model.SuppressionAddition;
 import app.lightmove.api.candidate.model.SuppressionKey;
 import app.lightmove.api.candidate.model.WorkspaceSuppression;
 import app.lightmove.api.candidate.repository.WorkspaceSuppressionRepository;
-import app.lightmove.api.common.constant.ApiValueEnum;
+import app.lightmove.api.core.constant.ApiValueEnum;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.crypto.model.KeyedHash;

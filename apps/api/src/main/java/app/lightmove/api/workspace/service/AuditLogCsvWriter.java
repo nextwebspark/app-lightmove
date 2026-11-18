@@ -1,6 +1,6 @@
 package app.lightmove.api.workspace.service;
 
-import app.lightmove.api.common.constant.ApiValueEnum;
+import app.lightmove.api.core.constant.ApiValueEnum;
 import app.lightmove.api.core.text.service.CsvFormatter;
 import app.lightmove.api.workspace.constant.AuditLogGroup;
 import app.lightmove.api.workspace.dto.AuditLogEntryResponse;
