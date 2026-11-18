@@ -201,11 +201,13 @@ try {
       held.find((row) => row.purpose === "keep_on_file")?.status);
   });
 
-  await step("CR4.2", "the Declined or withdrawn quick view counts them", async () => {
+  await step("CR4.2", "the Declined or withdrawn view lists them", async () => {
     await page.goto(`${WEB}/candidates`);
-    const chip = page.getByRole("button", { name: /Declined or withdrawn/ });
-    await chip.waitFor({ timeout: 15000 });
-    await chip.click();
+    await openShowFilter(page);
+    const view = page.getByRole("checkbox", { name: "Declined or withdrawn" });
+    await view.waitFor({ timeout: 15000 });
+    await view.click();
+    await page.keyboard.press("Escape");
     await page.getByText("Noor Haddad").first().waitFor({ timeout: 10000 });
     await shot(page, "quick-view-refused");
     pass("CR4.2", "Noor is listed under Declined or withdrawn");
@@ -273,3 +275,10 @@ try {
 
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
+
+/** The Candidates page's Filter → Add filter → Show, its view list dropped open. */
+async function openShowFilter(page) {
+  await page.getByRole("button", { name: /^Filter/ }).first().click();
+  await page.getByRole("button", { name: "Add filter" }).click();
+  await page.getByRole("group", { name: "Choose a column to filter" }).getByRole("button", { name: "Show" }).click();
+}

@@ -234,7 +234,7 @@ describe("DrawerOutreachTimeline", () => {
     } as unknown as Conversation);
     renderTimeline();
 
-    expect(await screen.findByText("No answer")).toBeInTheDocument();
+    expect(await screen.findByText("· No answer")).toBeInTheDocument();
   });
 
   it("leads each card with its kind's mark, and the face of whoever did it beside the time with no name on show", async () => {

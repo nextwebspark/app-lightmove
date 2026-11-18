@@ -11,7 +11,7 @@ the PR that shipped it. The feature docs beside this file hold the rules behind 
 
 | Gate | Effect on screen |
 |---|---|
-| `DATA_PROTECTION_ENABLED` (#1260) **off in production** | Off, the Candidates drawer has no ⋯ menu, Data & retention shows only *AI on people*, the privacy quick views are hidden, the outreach footer is not added and the `/privacy/:token` page has nothing to open. |
+| `DATA_PROTECTION_ENABLED` (#1260) **off in production** | Off, the Candidates drawer has no ⋯ menu, Data & retention shows only *AI on people*, the privacy Show choices are hidden, the outreach footer is not added and the `/privacy/:token` page has nothing to open. |
 | Candidate privacy mode = *Notices and consent requests* | Adds every consent control (#1267 phases 2–3). Can only be chosen once the firm's name, privacy contact and notice link are saved. |
 | `LEGAL_DPA_VERSION` + `LEGAL_DPA_URL` | Adds the DPA tick when founding a workspace. Blank, no tick. |
 | Not gated, **live** | AI on people (#1300, in `v0.36.0`), the terms ticks (#928), account deletion and Download my data (#926), workspace deletion (#926), the booking page and extension privacy notes (#929). |
@@ -34,7 +34,7 @@ Every signed-in screen
 └── "We've updated our terms" sheet, when the terms version changes                  #928
 
 Sidebar → Candidates (/candidates)
-├── Quick views: Not notified · Asked, no answer · Consent ending in 30 days · Declined or withdrawn   #923 #1267
+├── Filter → Show: Not notified · Asked, no answer · Consent ending in 30 days · Declined or withdrawn   #923 #1267
 ├── Selection bar: Privacy notice · Ask for consent                                  #923 #1267
 └── Click a person → drawer
     ├── ⋯ More: Send privacy notice… · Mark as notified… · Ask for consent… · Record an answer…
@@ -98,9 +98,9 @@ longer data-protection sentence (flag on).
 
 Route `/candidates`. Sidebar: **Candidates** (mobile: the Candidates tab). Staff only.
 
-### 2.1 Quick views (toolbar, above the grid)
+### 2.1 Views (toolbar Filter → Show, one at a time)
 
-| Quick view | Shows | Shown when | PR |
+| View | Shows | Shown when | PR |
 |---|---|---|---|
 | Not notified | Held more than 30 days and never told | Flag on | #1328 |
 | Asked, no answer | An open consent request | Consent mode | #1341 |

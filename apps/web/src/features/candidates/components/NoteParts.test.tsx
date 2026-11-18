@@ -41,6 +41,22 @@ describe("a logged call's card", () => {
     expect(screen.queryByRole("button", { name: /Read the whole note/ })).not.toBeInTheDocument();
   });
 
+  it("reads as one line on a timeline when only the outcome was logged, its actions behind ⋯", async () => {
+    const actions: NoteCardActions = { onPin: vi.fn(), onRevise: vi.fn(), onRemove: vi.fn(), busy: false };
+    render(
+      <ul>
+        <NoteCard note={noAnswer} actions={actions} takesOutcome namesPosition={false} lead={{ mark: null, heading: "Call" }} />
+      </ul>,
+    );
+
+    expect(screen.getByText("· No answer")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Edit" })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Note options" }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "Pin" }));
+
+    expect(actions.onPin).toHaveBeenCalled();
+  });
+
   it("changes a mis-tapped outcome in an edit, sending only the outcome", async () => {
     const actions = renderCard(noAnswer);
 

@@ -56,7 +56,7 @@ Each is a row of [governance-decisions.md](governance-decisions.md) (B7–B11) f
   rest.
 - **Retention**: a keep-on-file consent in force holds the person out of the review list, and consent lines on the
   timeline never reset its clock, so asking someone does not keep them.
-- **Quick views**: `consent_asked` (an open request), `consent_ending` (ends within 30 days), `consent_refused`
+- **Views** (Filter → Show): `consent_asked` (an open request), `consent_ending` (ends within 30 days), `consent_refused`
   (declined or withdrawn).
 - **Subject access**: `consents` and `consentHistory` sections.
 
@@ -89,7 +89,7 @@ them; a change is made in both.
   again N days before consent ends".
 - **Candidates drawer** (`PersonPrivacySection`, consent mode only): a row per purpose offered or ever asked, its pill
   (Not asked, Asked, Given, Renewal asked, Declined, Withdrawn, Expired) and line; the No consent recorded warning;
-  Ask for consent and Record an answer, also in the ⋯ menu. The selection bar's Ask for consent; the quick views
+  Ask for consent and Record an answer, also in the ⋯ menu. The selection bar's Ask for consent; the Show views
   Asked, no answer · Consent ending in 30 days · Declined or withdrawn.
 - **Dialogs** (`features/candidates/components/consent/`): `RequestConsentDialog` (one person, purposes already given
   or asked, declined or withdrawn in the last 14 days locked; a selection answers who it skipped and why after it sends) with the email

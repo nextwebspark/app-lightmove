@@ -9,6 +9,7 @@ import type { ExitReason } from "../../workspace/api/types";
 import * as candidatesApi from "../api/candidatesApi";
 import type { CandidateExitReason } from "../api/types";
 import { ExitReasonLine } from "./ExitReasonLine";
+import { ExitReasonPill } from "./ExitReasonPill";
 
 vi.mock("../../workspace/api/pipelineApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../workspace/api/pipelineApi")>()),
@@ -42,20 +43,24 @@ function given(extra: Partial<CandidateExitReason> = {}): CandidateExitReason {
   };
 }
 
-function renderLine(held: CandidateExitReason | null) {
+function renderLine(held: CandidateExitReason | null, variant: "line" | "pill" = "line") {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   client.setQueryData(pipelineApi.PIPELINE_CATALOG_KEY, catalog);
   return render(
     <QueryClientProvider client={client}>
       <ToastProvider>
-        <ExitReasonLine
-          projectId="p1"
-          candidateId="c1"
-          name="Layla Haddad"
-          statusKey="notInterested"
-          given={held}
-          canChange
-        />
+        {variant === "pill" ? (
+          <ExitReasonPill projectId="p1" candidateId="c1" name="Layla Haddad" statusKey="notInterested" given={held} />
+        ) : (
+          <ExitReasonLine
+            projectId="p1"
+            candidateId="c1"
+            name="Layla Haddad"
+            statusKey="notInterested"
+            given={held}
+            canChange
+          />
+        )}
       </ToastProvider>
     </QueryClientProvider>,
   );
@@ -82,6 +87,39 @@ describe("ExitReasonLine", () => {
     expect(screen.queryByRole("button", { name: "Edit note" })).not.toBeInTheDocument();
   });
 
+  it("picks a reason from the drawer's pill in the status picker's own list", async () => {
+    renderLine(null, "pill");
+
+    await userEvent.click(await screen.findByRole("button", { name: "Why Layla Haddad left: Not given" }));
+    await userEvent.click(await screen.findByRole("option", { name: "Timing" }));
+
+    expect(candidatesApi.changeExitReason).toHaveBeenCalledWith("p1", "c1", { reasonId: "timing", note: null });
+    expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+  });
+
+  it("walks the pill's list from the keyboard, one tab stop and the arrows", async () => {
+    renderLine(null, "pill");
+
+    await userEvent.click(await screen.findByRole("button", { name: "Why Layla Haddad left: Not given" }));
+    const list = await screen.findByRole("listbox", { name: "Why Layla Haddad left" });
+    expect(list).toHaveFocus();
+    expect(screen.getByRole("option", { name: "Timing" })).not.toHaveAttribute("tabindex");
+    await userEvent.keyboard("{ArrowDown}{Enter}");
+
+    expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+    expect(await screen.findByRole("dialog", { name: "Change why Layla Haddad left" })).toBeInTheDocument();
+  });
+
+  it("reopens the held reason's note when the pill's list picks it again", async () => {
+    renderLine(given(), "pill");
+
+    await userEvent.click(await screen.findByRole("button", { name: /^Why Layla Haddad left: / }));
+    await userEvent.click(await screen.findByRole("option", { name: given().label }));
+
+    expect(await screen.findByRole("dialog", { name: "Change why Layla Haddad left" })).toBeInTheDocument();
+    expect(candidatesApi.changeExitReason).not.toHaveBeenCalled();
+  });
+
   it("reopens a held reason's note, which the select alone cannot, and saves the corrected note", async () => {
     renderLine(given());
     await userEvent.click(await screen.findByRole("button", { name: "Edit note" }));
@@ -91,7 +129,7 @@ describe("ExitReasonLine", () => {
     expect(note).toHaveValue("Moving to Riyadh");
     await userEvent.clear(note);
     await userEvent.type(note, "Back to Dubai next year");
-    await userEvent.click(screen.getByRole("button", { name: "Save reason" }));
+    await userEvent.click(screen.getByRole("button", { name: "Done" }));
 
     expect(candidatesApi.changeExitReason).toHaveBeenCalledWith("p1", "c1", {
       reasonId: "other",
