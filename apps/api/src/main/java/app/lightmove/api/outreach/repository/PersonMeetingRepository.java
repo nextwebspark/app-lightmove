@@ -1,5 +1,6 @@
 package app.lightmove.api.outreach.repository;
 
+import app.lightmove.api.candidate.model.PersonLatestAtRow;
 import app.lightmove.api.outreach.model.PersonMeeting;
 import java.time.Instant;
 import java.util.Collection;
@@ -22,6 +23,12 @@ public interface PersonMeetingRepository extends JpaRepository<PersonMeeting, UU
     @Query("select count(m) > 0 from PersonMeeting m where m.workspaceId = :workspaceId and m.userId = :userId "
             + "and m.joinUrl = :joinUrl and m.startsAt < :startsAt and m.startsAt <= :now and m.endsAt > :now")
     boolean existsEarlierCallUnderWay(UUID workspaceId, UUID userId, String joinUrl, Instant startsAt, Instant now);
+
+    /** When each of these people's latest meeting on a teammate's calendar began, by now. */
+    @Query("select m.personId as personId, max(m.startsAt) as at from PersonMeeting m "
+            + "where m.workspaceId = :workspaceId and m.personId in :personIds and m.startsAt <= :now "
+            + "group by m.personId")
+    List<PersonLatestAtRow> findLatestMeetingAtOfEach(UUID workspaceId, Collection<UUID> personIds, Instant now);
 
     /** Which of these people a teammate's calendar holds a meeting with. */
     @Query("select distinct m.personId from PersonMeeting m where m.workspaceId = :workspaceId "

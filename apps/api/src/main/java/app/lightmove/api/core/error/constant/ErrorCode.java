@@ -507,6 +507,10 @@ public enum ErrorCode {
     /** A sequence people are on keeps their history: it can be edited, never deleted. */
     OUTREACH_SEQUENCE_IN_USE(HttpStatus.CONFLICT, "People are on this sequence, so it cannot be deleted"),
 
+    /** A run holds only the number of its next step, so a step added or removed would shift it onto another email. */
+    OUTREACH_SEQUENCE_STEPS_FIXED(HttpStatus.CONFLICT,
+            "People are on this sequence, so steps cannot be added or removed"),
+
     /**
      * Someone chosen may not be approached — no email, do not contact, out of the running or already in a
      * sequence — and nobody was enrolled. The dialog shows each reason; this is the server holding the line.

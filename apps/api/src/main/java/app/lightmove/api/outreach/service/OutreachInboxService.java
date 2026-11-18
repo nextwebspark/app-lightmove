@@ -134,8 +134,8 @@ public class OutreachInboxService {
             listening.putIfAbsent(ThreadKey.of(sent.getWorkspaceId(), sent.getSenderUserId(), sent.getThreadId()),
                     OutreachThread.of(sent));
         }
-        for (OutreachEnrollment run : enrollments.findListeningSince(since,
-                Set.of(EnrollmentStatus.ACTIVE, EnrollmentStatus.COMPLETED))) {
+        for (OutreachEnrollment run : enrollments.findListening(since, Set.of(EnrollmentStatus.ACTIVE),
+                Set.of(EnrollmentStatus.COMPLETED))) {
             listening.putIfAbsent(ThreadKey.of(run.getWorkspaceId(), run.getSenderUserId(), run.getThreadId()),
                     OutreachThread.of(run));
         }

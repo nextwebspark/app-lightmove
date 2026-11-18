@@ -169,6 +169,7 @@ export type ApiErrorCode =
   | "MAILBOX_READ_NOT_GRANTED"
   | "MAILBOX_SEND_FAILED"
   | "OUTREACH_SEQUENCE_IN_USE"
+  | "OUTREACH_SEQUENCE_STEPS_FIXED"
   | "OUTREACH_PERSON_SKIPPED"
   | "OUTREACH_ALREADY_ENROLLED"
   | "OUTREACH_ADDRESS_NOT_ON_FILE"
@@ -410,6 +411,7 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
     "Uncava needs to see replies to stop a sequence. Connect again and allow it to read the replies to its emails.",
   MAILBOX_SEND_FAILED: "The email couldn't be sent. Try again in a moment.",
   OUTREACH_SEQUENCE_IN_USE: "People are on this sequence, so it can't be deleted.",
+  OUTREACH_SEQUENCE_STEPS_FIXED: "People are on this sequence, so steps can't be added or removed. Reload to see its steps.",
   OUTREACH_PERSON_SKIPPED: "Someone you chose can no longer be added. Go back and review the list.",
   OUTREACH_ALREADY_ENROLLED: "Someone you chose is already in a sequence on this position.",
   OUTREACH_ADDRESS_NOT_ON_FILE: "That address isn't on file for this person.",

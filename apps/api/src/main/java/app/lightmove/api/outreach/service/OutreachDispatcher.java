@@ -60,16 +60,17 @@ public class OutreachDispatcher {
     public void dispatchAt(Instant now) {
         Instant started = clock.instant();
         workspaces.forEach(resolvers.workspacesWithSendsDue(now), workspaceId -> {
-            dispatchSequencesAt(now);
             // Moved on by the time the pass has taken so far: a claim stamped with the pass's start would read to
             // every other instance as already that old, and be failed as uncertain while its email was still going.
+            // A sequence's claim once kept the pass's start, and a long pass stopped live runs as SEND_UNCERTAIN.
+            dispatchSequencesAt(now, now.plus(Duration.between(started, clock.instant())));
             dispatchOwnEmailsAt(now.plus(Duration.between(started, clock.instant())));
         });
     }
 
-    private void dispatchSequencesAt(Instant now) {
+    private void dispatchSequencesAt(Instant now, Instant claimedAt) {
         sends.stopUncertainClaims(now);
-        List<UUID> claimed = sends.claimDue(now);
+        List<UUID> claimed = sends.claimDue(now, claimedAt);
         for (UUID enrollmentId : claimed) {
             try {
                 sends.sendClaimed(enrollmentId, now);

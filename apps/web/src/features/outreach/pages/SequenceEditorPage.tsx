@@ -1,9 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useOutletContext, useParams } from "react-router-dom";
 import type { ProjectOutletContext } from "../../../components/layout/ProjectLayout";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Button, Modal, Skeleton, useToast } from "../../../components/ui";
+import { LeaveGuard } from "../../../components/layout/LeaveGuard";
 import { cn } from "../../../lib/cn";
 import { messageFor } from "../../../lib/errorCodes";
 import { useAuth } from "../../auth/AuthProvider";
@@ -101,12 +102,44 @@ export function SequenceEditorPage() {
     queryFn: ({ signal }) => sequenceApi.getSequence(project.id, sequenceId, signal),
     enabled: sequenceId !== NEW_SEQUENCE,
   });
+  const navigate = useNavigate();
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [pendingLeave, setPendingLeave] = useState<string | null>(null);
+  const leaveTo = (to: string) => (hasUnsavedChanges ? setPendingLeave(to) : navigate(to));
+  const handleUnsavedChange = useCallback((unsaved: boolean) => setHasUnsavedChanges(unsaved), []);
 
   return (
     <div className="flex h-full min-h-0 flex-col">
+      <LeaveGuard hasUnsavedChanges={hasUnsavedChanges} flush={refuseToSaveOnLeave} />
+      <Modal
+        open={pendingLeave !== null}
+        onClose={() => setPendingLeave(null)}
+        title="Leave without saving?"
+        footer={
+          <>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                const to = pendingLeave;
+                setPendingLeave(null);
+                setHasUnsavedChanges(false);
+                if (to !== null) navigate(to);
+              }}
+            >
+              Leave anyway
+            </Button>
+            <Button onClick={() => setPendingLeave(null)}>Stay on this page</Button>
+          </>
+        }
+      >
+        <p className="text-body text-u-text2">
+          Your changes to this sequence haven't been saved. If you leave now, they will be lost.
+        </p>
+      </Modal>
       <OutreachHeader
         projectId={project.id}
         section="sequences"
+        onNavigate={leaveTo}
         chip={
           mailboxChipShows(mailboxState) && (
             <MailboxChip state={mailboxState} connector={connector} onAsked={() => void mailbox.refetch()} />
@@ -131,6 +164,8 @@ export function SequenceEditorPage() {
             projectId={project.id}
             positionTitle={project.positionTitle}
             saved={sequence.data ?? null}
+            onLeave={leaveTo}
+            onUnsavedChange={handleUnsavedChange}
           />
         )}
       </div>
@@ -142,21 +177,22 @@ function SequenceEditor({
   projectId,
   positionTitle,
   saved,
+  onLeave,
+  onUnsavedChange,
 }: {
   projectId: string;
   positionTitle: string;
   saved: Sequence | null;
+  onLeave: (to: string) => void;
+  onUnsavedChange: (hasUnsavedChanges: boolean) => void;
 }) {
   const navigate = useNavigate();
   const toast = useToast();
   const queryClient = useQueryClient();
   const [name, setName] = useState(saved?.name ?? "New sequence");
   const [steps, setSteps] = useState<SequenceStep[]>(saved?.steps ?? DEFAULT_STEPS);
-  const [schedule, setSchedule] = useState<SequenceSchedule>(() =>
-    saved?.schedule
-      ? { ...saved.schedule, windowStart: clockOf(saved.schedule.windowStart), windowEnd: clockOf(saved.schedule.windowEnd) }
-      : DEFAULT_SCHEDULE,
-  );
+  const [schedule, setSchedule] = useState<SequenceSchedule>(() => (saved ? savedScheduleOf(saved) : DEFAULT_SCHEDULE));
+  const [baseline, setBaseline] = useState(() => editedSnapshotOf(name, steps, schedule));
   const [selectedStep, setSelectedStep] = useState(0);
   const bodyRefs = useRef<(HTMLTextAreaElement | null)[]>([]);
   const subjectRef = useRef<HTMLInputElement | null>(null);
@@ -165,10 +201,10 @@ function SequenceEditor({
   const [choosingTemplate, setChoosingTemplate] = useState<StepTemplateChoice | null>(null);
   const [savingStep, setSavingStep] = useState<number | null>(null);
   const mailbox = useMailbox();
-  const backToSequences = () => navigate(`/projects/${projectId}/outreach/sequences`);
+  const sequencesPath = `/projects/${projectId}/outreach/sequences`;
 
   const save = useMutation({
-    mutationFn: () => {
+    mutationFn: (_sent: string) => {
       const body = {
         name: name.trim(),
         steps: steps.map((step, index) => ({
@@ -181,7 +217,8 @@ function SequenceEditor({
         ? sequenceApi.updateSequence(projectId, saved.id, body)
         : sequenceApi.createSequence(projectId, body);
     },
-    onSuccess: (written) => {
+    onSuccess: (written, sent) => {
+      setBaseline(sent);
       void queryClient.invalidateQueries({
         queryKey: sequenceApi.SEQUENCES_KEY(projectId),
       });
@@ -203,7 +240,7 @@ function SequenceEditor({
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: sequenceApi.SEQUENCES_KEY(projectId) });
       toast("Sequence deleted.");
-      backToSequences();
+      navigate(sequencesPath);
     },
     onError: (error) => {
       setIsConfirmingDelete(false);
@@ -217,6 +254,9 @@ function SequenceEditor({
   const removeStep = (index: number) => {
     setSteps((current) => current.filter((_, at) => at !== index));
     setSelectedStep(0);
+    // Steps are addressed by index: a pending Replace once moved onto the step that slid into this one's place.
+    setChoosingTemplate(null);
+    setSavingStep(null);
   };
 
   const addStep = () => {
@@ -252,6 +292,8 @@ function SequenceEditor({
       : copyTemplate(index, template);
 
   const isLive = (saved?.enrolledCount ?? 0) > 0;
+  const hasUnsavedChanges = editedSnapshotOf(name, steps, schedule) !== baseline;
+  useEffect(() => onUnsavedChange(hasUnsavedChanges), [hasUnsavedChanges, onUnsavedChange]);
   const isScheduleUsable = schedule.days.length > 0 && schedule.windowStart < schedule.windowEnd;
   const holdsSignatureInWords = steps.some(stepHoldsSignature);
   const stepTimeOutsideWindow = steps.some(
@@ -266,7 +308,7 @@ function SequenceEditor({
       <div className="mb-[18px] flex flex-wrap items-center gap-3">
         <button
           type="button"
-          onClick={backToSequences}
+          onClick={() => onLeave(sequencesPath)}
           className="inline-flex items-center gap-1.5 rounded-[6px] px-2 py-1.5 font-mono text-[13px] font-medium text-u-text3 hover:bg-u-raised hover:text-u-text"
         >
           <Icon d={ICONS.back} size={14} />
@@ -280,7 +322,7 @@ function SequenceEditor({
           className="min-w-0 flex-1 rounded-[7px] border border-transparent bg-transparent px-2 py-1.5 text-[18px] font-semibold text-u-text outline-none focus:border-u-border focus:bg-u-raised md:max-w-[420px]"
         />
         <SequenceStatePill isLive={isLive} />
-        {saved && (
+        {saved && !isLive && (
           <Button
             variant="ghost"
             className="ms-auto px-2.5 py-[7px] text-[13px]"
@@ -293,7 +335,7 @@ function SequenceEditor({
           className={cn("px-3.5 py-[7px] text-[13px] font-semibold", !saved && "ms-auto")}
           loading={save.isPending}
           disabled={!name.trim() || !isScheduleUsable || stepTimeOutsideWindow || holdsSignatureInWords}
-          onClick={() => save.mutate()}
+          onClick={() => save.mutate(editedSnapshotOf(name, steps, schedule))}
         >
           Save sequence
         </Button>
@@ -349,7 +391,7 @@ function SequenceEditor({
                   >
                     Save as template
                   </button>
-                  {index > 0 && (
+                  {index > 0 && !isLive && (
                     <button
                       type="button"
                       title="Remove this step"
@@ -480,13 +522,15 @@ function SequenceEditor({
           <div className="flex flex-wrap items-center gap-2.5 font-mono text-[12px] text-u-text3">
             <button
               type="button"
-              disabled={steps.length >= MAX_STEPS}
+              disabled={steps.length >= MAX_STEPS || isLive}
               onClick={addStep}
               className="rounded-[6px] border border-dashed border-u-border px-[11px] py-1.5 text-[12px] font-medium text-u-text3 enabled:hover:text-u-text disabled:cursor-not-allowed"
             >
               ＋ Add step
             </button>
-            Three emails catch nearly every reply a sequence will get.
+            {isLive
+              ? "People are on this sequence, so its steps are fixed. Their wording and timing can still change."
+              : "Three emails catch nearly every reply a sequence will get."}
           </div>
 
           <SendingScheduleCard
@@ -810,6 +854,24 @@ function SequencePreview({
       </div>
     </div>
   );
+}
+
+/** A sequence's emails go to real people, so leaving never saves on the writer's behalf: it always asks. */
+function refuseToSaveOnLeave(): Promise<void> {
+  return Promise.reject(new Error("unsaved"));
+}
+
+function savedScheduleOf(saved: Sequence): SequenceSchedule {
+  if (!saved.schedule) return DEFAULT_SCHEDULE;
+  return {
+    ...saved.schedule,
+    windowStart: clockOf(saved.schedule.windowStart),
+    windowEnd: clockOf(saved.schedule.windowEnd),
+  };
+}
+
+function editedSnapshotOf(name: string, steps: SequenceStep[], schedule: SequenceSchedule): string {
+  return JSON.stringify({ name, steps, schedule });
 }
 
 function tokensOf(

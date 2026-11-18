@@ -10,6 +10,7 @@ import app.lightmove.api.candidate.model.NoteViewpoint;
 import app.lightmove.api.candidate.model.Person;
 import app.lightmove.api.candidate.model.PersonActivity;
 import app.lightmove.api.candidate.model.PersonDocument;
+import app.lightmove.api.candidate.model.PersonLatestAtRow;
 import app.lightmove.api.candidate.model.PersonNote;
 import app.lightmove.api.candidate.repository.CandidateTagRepository;
 import app.lightmove.api.candidate.repository.PersonActivityRepository;
@@ -153,6 +154,17 @@ public class PersonTimelineService {
         List<PersonActivity> lines = activity.findPositionTimeline(workspaceId, personId, projectId, kinds,
                 Limit.of(limit));
         return entriesOf(workspaceId, lines, Map.of(person.getId(), person), NoteViewpoint.position(projectId));
+    }
+
+    /** When each person's latest line of {@code kinds} about one position happened, for the outreach queue's rows. */
+    @Transactional(readOnly = true)
+    public Map<UUID, Instant> latestPositionLineAtOfEach(UUID workspaceId, UUID projectId, Collection<UUID> personIds,
+                                                         Set<PersonActivityKind> kinds, Instant now) {
+        if (personIds.isEmpty()) {
+            return Map.of();
+        }
+        return activity.findLatestPositionLineAtOfEach(workspaceId, projectId, personIds, kinds, now).stream()
+                .collect(Collectors.toMap(PersonLatestAtRow::getPersonId, PersonLatestAtRow::getAt));
     }
 
     /** Each person's latest line, for the Candidates page's Last activity column. */

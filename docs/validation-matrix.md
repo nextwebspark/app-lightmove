@@ -231,7 +231,7 @@ is held back rather than sent (the step does not save until it is named) and the
 | Import enrichment box | ticked by default; disabled + unticked with no mapped LinkedIn column or over `autoEnrichLimit` links; warns over `allowanceLeft` | absent = no; over `spreadsheet-import.max-auto-enrich` distinct links `IMPORT_ENRICHMENT_TOO_LARGE` (field `enrich`), over fair use `FAIR_USE_REACHED`, both before any row is written | field |
 | Export cells | — | formula starters defused | — |
 | ☐ Import template headers | — | not defused | — |
-| Sequence steps | ≤ 3 | 1–3, delays, window ordering | field |
+| Sequence steps | ≤ 3; once anyone is on it, Add step and Remove are withheld | 1–3, delays, window ordering; adding or removing a step once anyone is on it is `OUTREACH_SEQUENCE_STEPS_FIXED` | field / toast |
 | Sequence step signature | a step whose body (or first subject) holds `{{signature}}` says Include signature adds it, and Save waits | refused on `steps[i].body` / `steps[0].subject` (`VALIDATION_FAILED`, `SignatureTokenRefusal`) | field |
 | Add to sequence signature | Include signature, ticked for the default; a picker where more than one is kept | `signatureId` one of the sender's own in this workspace (`EMAIL_SIGNATURE_NOT_FOUND`), checked before anything is written | toast |
 | Sequence step from template | a template past 5,000 characters as plain text is offered disabled, saying so; replacing words asks first | — (a copy: the step's own `@Size(5000)` holds) | inline |

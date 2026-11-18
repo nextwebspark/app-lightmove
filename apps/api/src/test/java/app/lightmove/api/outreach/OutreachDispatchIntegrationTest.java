@@ -787,6 +787,37 @@ class OutreachDispatchIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("the poll still listens to a run waiting out a follow-up longer than the listening window")
+    void thePollHearsARunMidALongGap() throws Exception {
+        String priya = executive("Priya Raman", "priya@" + domain);
+        start(createSequence("First approach"), priya, "priya@" + domain, null);
+        dispatcher.dispatchAt(monday);
+        String thread = (String) enrollmentOf(priya).get("thread_id");
+
+        gateway.writeInto(thread, "Priya@" + domain);
+        inbox.pollListeningThreads(monday.plus(Duration.ofDays(32)));
+
+        assertThat(enrollmentOf(priya).get("status")).isEqualTo("REPLIED");
+    }
+
+    @Test
+    @DisplayName("a claim made late in a long pass is stamped when it was made, so no other instance fails it")
+    void aLateClaimIsStampedWhenMade() throws Exception {
+        String priya = executive("Priya Raman", "priya@" + domain);
+        start(createSequence("First approach"), priya, "priya@" + domain, null);
+        dispatcher.dispatchAt(monday);
+        Instant thursday = monday.plus(Duration.ofDays(3));
+        java.util.UUID firm = TestWorkspaceScopes.workspaceOfProject(jdbc, java.util.UUID.fromString(projectId));
+
+        List<java.util.UUID> claimed = WorkspaceScope.call(firm,
+                () -> sends.claimDue(thursday, thursday.plus(Duration.ofMinutes(20))));
+        assertThat(claimed).hasSize(1);
+        WorkspaceScope.run(firm, () -> sends.stopUncertainClaims(thursday.plus(Duration.ofMinutes(25))));
+
+        assertThat(enrollmentOf(priya)).containsEntry("status", "ACTIVE");
+    }
+
+    @Test
     @DisplayName("a mailbox whose access was withdrawn sends nothing more; its runs stop")
     void aWithdrawnMailboxStops() throws Exception {
         String priya = executive("Priya Raman", "priya@" + domain);

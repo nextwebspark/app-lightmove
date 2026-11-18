@@ -86,6 +86,11 @@ public class OutreachSequenceService {
                 ? sequence.sendingWindow() : scheduleOf(request.schedule());
         List<SequenceStep> steps = stepsOf(request.steps(), schedule);
         refuseUnofferedBookingLink(steps);
+        // A run holds only the number of its next step: removing step 2 once sent step 3's email in its place and
+        // completed the runs waiting for step 3 without it.
+        if (steps.size() != sequence.getSteps().size() && enrollments.existsBySequenceId(sequenceId)) {
+            throw ApiException.of(ErrorCode.OUTREACH_SEQUENCE_STEPS_FIXED);
+        }
         sequence.rewrite(request.name().trim(), steps, schedule);
         audited(ProjectEventType.OUTREACH_SEQUENCE_UPDATED, userId, workspaceId, projectId, sequence, httpRequest);
         return toResponse(sequence);

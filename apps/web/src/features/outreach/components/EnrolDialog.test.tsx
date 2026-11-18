@@ -278,6 +278,18 @@ describe("EnrolDialog", () => {
     );
   });
 
+  it("refreshes every outreach read of the position once started, so nobody is offered Add to sequence again", async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const invalidate = vi.spyOn(client, "invalidateQueries");
+    vi.mocked(sequenceApi.getEnrollmentCandidates).mockResolvedValue([person("a", "Priya Raman")]);
+    renderDialog(client);
+    await userEvent.click(await screen.findByRole("button", { name: "Review 1 email" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Next" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Start sequence" }));
+
+    await waitFor(() => expect(invalidate).toHaveBeenCalledWith({ queryKey: ["outreach", "p1"] }));
+  });
+
   it("starts the run unsigned once Include signature is unticked", async () => {
     vi.mocked(signaturesApi.listSignatures).mockResolvedValue({
       signatures: [{ ...SIGNATURE, id: "sig-formal", name: "Formal", isDefault: true }],
