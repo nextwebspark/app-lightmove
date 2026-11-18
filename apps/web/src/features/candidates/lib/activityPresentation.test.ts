@@ -263,9 +263,11 @@ describe("activity presentation", () => {
         .toEqual({ type: "task", title: "Prepare questions", dueAt: "2026-10-30T10:00:00Z", assignee: null });
       expect(previewOf(line(1, "TASK_CREATED"))).toBeNull();
       expect(previewOf(line(1, "MAPPED", { details: { door: "EXTENSION" } })))
-        .toEqual({ type: "origin", door: "Captured with the plugin", mapped: true });
+        .toEqual({ type: "origin", door: "Captured with the plugin", mapped: true, reason: null });
       expect(previewOf(line(1, "ADDED_TO_POOL", { details: { door: "SOMEWHERE_NEW" } })))
-        .toEqual({ type: "origin", door: null, mapped: false });
+        .toEqual({ type: "origin", door: null, mapped: false, reason: null });
+      expect(previewOf(line(1, "ADDED_TO_POOL", { details: { door: "MANUAL", reason: "Timing" } })))
+        .toMatchObject({ type: "origin", reason: "Timing" });
       expect(previewOf(line(1, "AI_ASSESSED", { details: { scope: "BACKGROUND" } }))).toBeNull();
     });
   });

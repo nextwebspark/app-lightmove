@@ -13,7 +13,8 @@ import { Icon } from "./Icon";
 
 /**
  * The workspace's own pipeline as one field: the status and its stage, opening onto every live stage with its statuses
- * — a way out marked Out of process, the starting status named — as the web app's StatusPicker offers them.
+ * in process, the starting status named. The panel cannot say why someone left, and a way out that asks why is refused
+ * without it, so ways out are the web app's, where its dialog asks; one already held stays listed.
  */
 export function StatusPicker({
   catalog,
@@ -21,30 +22,19 @@ export function StatusPicker({
   startingKey,
   onChange,
   disabled = false,
-  inProcessOnly = false,
 }: {
   catalog: PipelineCatalog | undefined;
   value: string | null;
   startingKey: string | null;
   onChange: (key: string) => void;
   disabled?: boolean;
-  /**
-   * The panel cannot say why someone left, and a way out that asks why is refused without it. Moving someone out of
-   * process is the web app's, where its dialog asks; the status they hold stays listed.
-   */
-  inProcessOnly?: boolean;
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState("");
   const containerRef = useRef<HTMLDivElement>(null);
   useDismiss(containerRef, isOpen, () => setIsOpen(false));
   const current = catalog && value ? findStatus(catalog, value) : null;
-  const groups = useMemo(() => (catalog ? pickableGroups(catalog, query, value, inProcessOnly) : []), [
-    catalog,
-    query,
-    value,
-    inProcessOnly,
-  ]);
+  const groups = useMemo(() => (catalog ? pickableGroups(catalog, query, value, true) : []), [catalog, query, value]);
 
   return (
     <div ref={containerRef} className="relative">

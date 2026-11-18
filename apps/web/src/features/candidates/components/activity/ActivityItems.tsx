@@ -301,6 +301,7 @@ export function PreviewOf({ preview, taskState = "open" }: { preview: ActivityPr
         <span className="flex flex-col gap-1 text-note text-u-text3">
           {preview.door && <span>{preview.door}</span>}
           {preview.mapped && <span>Already in your candidates, so added rather than duplicated</span>}
+          {preview.reason && <span>Why: {preview.reason}</span>}
         </span>
       );
     case "assessment":

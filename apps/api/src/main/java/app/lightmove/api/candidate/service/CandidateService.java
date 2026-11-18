@@ -437,9 +437,9 @@ public class CandidateService {
         ExitReason reason = exitReasons.requireForMove(workspaceId, status, request.exitReasonId(),
                 request.exitNote());
         Optional<Person> known = personToFile(workspaceId, source, request, details);
-        Filed filed = file(userId, workspaceId, projectId, triageCompanyId, source, status, details, known);
+        Filed filed = file(userId, workspaceId, projectId, triageCompanyId, source, status, reason,
+                request.exitNote(), details, known);
         Candidate candidate = filed.candidate();
-        giveFiledExitReason(candidate, userId, reason, request.exitNote());
         candidate.describeCustomFields(customColumns.applyTo(projectId, CustomColumnTarget.CANDIDATE,
                 candidate.getCustomFields(), request.customFields()));
 
@@ -656,18 +656,10 @@ public class CandidateService {
                         String note) {
         CandidateStatusDefinition from = candidate.getStatus();
         if (candidate.moveTo(to)) {
-            if (reason != null) {
-                candidate.giveExitReason(reason.getId(), note, userId);
-            }
+            candidate.giveExitReasonIfAny(reason, note, userId);
             activity.record(candidate, userId, PersonActivityKind.STATUS_CHANGED,
                     PersonActivityDetails.statusChange(from, to)
                             .and("reason", reason == null ? null : reason.getLabel()));
-        }
-    }
-
-    private void giveFiledExitReason(Candidate candidate, UUID userId, ExitReason reason, String note) {
-        if (reason != null) {
-            candidate.giveExitReason(reason.getId(), note, userId);
         }
     }
 
@@ -774,9 +766,9 @@ public class CandidateService {
         CandidateStatusDefinition status = pipeline.requireOfferable(workspaceId, request.status());
         ExitReason reason = exitReasons.requireForMove(workspaceId, status, request.exitReasonId(),
                 request.exitNote());
-        Filed filed = file(userId, workspaceId, projectId, triageCompanyId, filing.source(), status, details);
+        Filed filed = file(userId, workspaceId, projectId, triageCompanyId, filing.source(), status, reason,
+                request.exitNote(), details);
         Candidate candidate = filed.candidate();
-        giveFiledExitReason(candidate, userId, reason, request.exitNote());
         Person person = candidate.getPerson();
         if (!person.isResearched()) {
             person.enrich(research);
@@ -1261,14 +1253,16 @@ public class CandidateService {
      * restricted is mapped onto no further position.
      */
     private Filed file(UUID userId, UUID workspaceId, UUID projectId, UUID triageCompanyId,
-                       CandidateSource source, CandidateStatusDefinition status, CandidateDetails details) {
-        return file(userId, workspaceId, projectId, triageCompanyId, source, status, details,
+                       CandidateSource source, CandidateStatusDefinition status, ExitReason reason,
+                       String exitNote, CandidateDetails details) {
+        return file(userId, workspaceId, projectId, triageCompanyId, source, status, reason, exitNote, details,
                 matcher.find(workspaceId, details));
     }
 
+    /** {@code reason} is why someone filed straight at a way out left, already checked against {@code status}. */
     private Filed file(UUID userId, UUID workspaceId, UUID projectId, UUID triageCompanyId,
-                       CandidateSource source, CandidateStatusDefinition status, CandidateDetails details,
-                       Optional<Person> known) {
+                       CandidateSource source, CandidateStatusDefinition status, ExitReason reason, String exitNote,
+                       CandidateDetails details, Optional<Person> known) {
         if (known.isPresent() && candidates.existsByProjectIdAndPersonId(projectId, known.get().getId())) {
             throw ApiException.of(ErrorCode.CANDIDATE_ALREADY_MAPPED);
         }
@@ -1289,9 +1283,10 @@ public class CandidateService {
         requests.refuseOverfullChannels(person, contactsBefore);
         Candidate candidate = candidates.save(Candidate.mapped(projectId, userId, triageCompanyId,
                 triageStatusOfCompany(projectId, triageCompanyId), person, source, status, details));
+        candidate.giveExitReasonIfAny(reason, exitNote, userId);
         activity.record(candidate, userId,
                 known.isPresent() ? PersonActivityKind.MAPPED : PersonActivityKind.ADDED_TO_POOL,
-                PersonActivityDetails.of("door", source));
+                PersonActivityDetails.of("door", source).and("reason", reason == null ? null : reason.getLabel()));
         personNotes.fileFromDoor(candidate, userId, details.note());
         return new Filed(candidate, known.isPresent());
     }

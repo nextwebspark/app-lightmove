@@ -1,5 +1,6 @@
 import { useLayoutEffect, useRef, useState, type DragEvent, type ReactNode } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
+import { useToast } from "../../../components/ui";
 import { cn } from "../../../lib/cn";
 import type { CandidatePipelineStage } from "../../candidates/api/types";
 import { defaultStatusOf, pipelineSwatchClass } from "../../candidates/lib/pipelineStatus";
@@ -73,6 +74,7 @@ export function PipelineBoard({
   const [over, setOver] = useState<DropSlot | null>(null);
   const [landed, setLanded] = useState<{ basis: readonly PipelineRow[]; rows: PipelineRow[] } | null>(null);
   const exitPrompt = useExitReasonPrompt();
+  const toast = useToast();
   if (landed && landed.basis !== rows) setLanded(null);
   const shown = landed?.basis === rows ? landed.rows : rows;
   // The reason dialog answers after the drop's render: a refetch meanwhile must not be undone by the drop's old board.
@@ -140,7 +142,12 @@ export function PipelineBoard({
     reason: ExitReasonChoice | null,
   ) => {
     const placement = boardPlacementOf(board.current.shown, row.candidateId, { stage, status, beforeId: null });
-    land(placement && { ...placement, reason });
+    if (!placement) {
+      // A colleague moved or removed them while the reason was being chosen: say so rather than drop the answer.
+      toast.error(`${row.fullName} changed on the board while you chose why. Nothing was saved; check their card.`);
+      return;
+    }
+    land({ ...placement, reason });
   };
 
   /**

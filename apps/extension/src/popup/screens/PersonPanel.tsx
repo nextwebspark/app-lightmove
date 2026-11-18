@@ -195,7 +195,6 @@ function PersonForm({
             value={statusKey ?? startingKey}
             startingKey={startingKey}
             onChange={setStatusKey}
-            inProcessOnly
           />
         </FieldSection>
 
@@ -342,7 +341,6 @@ function PersonRecord({
             startingKey={pipeline.data ? startingStatusKey(pipeline.data) : null}
             onChange={(key) => key !== statusKey && changeStatus.mutate(key)}
             disabled={changeStatus.isPending}
-            inProcessOnly
           />
           {changeStatus.error && <p role="alert" className="mt-1.5 text-note text-u-offlimits">{changeStatus.error.message}</p>}
         </FieldSection>

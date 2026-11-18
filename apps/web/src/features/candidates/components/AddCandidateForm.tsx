@@ -111,6 +111,9 @@ export function AddCandidateForm({
 
   const [pausedAdd, setPausedAdd] = useState<PausedAdd | null>(null);
   const exitPrompt = useExitReasonPrompt();
+  // From the press until the reason is answered or cancelled: the reasons' read is a wait, and a second press in it
+  // would file the person twice.
+  const [isAskingWhy, setIsAskingWhy] = useState(false);
 
   const save = useMutation({
     mutationFn: (payload: SaveCandidatePayload) => candidatesApi.createCandidate(projectId, payload),
@@ -157,6 +160,7 @@ export function AddCandidateForm({
       <form
         ref={formEl}
         onSubmit={form.handleSubmit((parsed) => {
+          if (isAskingWhy || save.isPending) return;
           setSubmitError(null);
           // Only the profile research answered for: an address changed since is a different person.
           const lookedUpProfile =
@@ -166,19 +170,21 @@ export function AddCandidateForm({
             customFields,
             ...(lookedUpProfile ? { lookedUpProfile } : {}),
           };
-          if (!payload.status) {
-            save.mutate(payload);
-            return;
-          }
+          setIsAskingWhy(true);
           // Added straight out of process is a move like any other: the same dialog asks why before anyone is filed.
-          void exitPrompt.ask({ name: parsed.fullName.trim(), statusKey: payload.status }, (status, reason) => {
-            form.setValue("status", status);
-            save.mutate({
-              ...payload,
-              status,
-              ...(reason ? { exitReasonId: reason.reasonId, exitNote: reason.note } : {}),
-            });
-          });
+          void exitPrompt.ask(
+            { name: parsed.fullName.trim(), statusKey: payload.status ?? "" },
+            (status, reason) => {
+              setIsAskingWhy(false);
+              if (status) form.setValue("status", status);
+              save.mutate({
+                ...payload,
+                status: status || undefined,
+                ...(reason ? { exitReasonId: reason.reasonId, exitNote: reason.note } : {}),
+              });
+            },
+            () => setIsAskingWhy(false),
+          );
         })}
         onKeyDown={handleSubmitShortcut}
         noValidate
@@ -270,7 +276,7 @@ export function AddCandidateForm({
           <Button type="button" variant="secondary" onClick={onClose} disabled={save.isPending}>
             Cancel
           </Button>
-          <Button type="submit" variant="primary" loading={save.isPending}>
+          <Button type="submit" variant="primary" loading={save.isPending || isAskingWhy}>
             Add executive
           </Button>
         </div>

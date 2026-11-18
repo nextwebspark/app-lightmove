@@ -79,6 +79,12 @@ class CandidateExitReasonTest extends PipelineFlowSupport {
             assertThat(given.get("candidateId").asText()).isEqualTo(omar);
             assertThat(given.get("label").asText()).isEqualTo("Timing");
         });
+        JsonNode added = body(mvc.perform(get(candidatesUrl(projectId) + "/" + omar + "/timeline")
+                .header("Authorization", "Bearer " + admin)).andExpect(status().isOk()).andReturn()).get("entries");
+        assertThat(added.findValues("kind").stream().map(JsonNode::asText)).doesNotContain("STATUS_CHANGED");
+        assertThat(added.get(added.size() - 1).get("kind").asText()).isEqualTo("ADDED_TO_POOL");
+        assertThat(added.get(added.size() - 1).at("/details/reason").asText())
+                .as("the add's own line says why").isEqualTo("Timing");
 
         assertThat(codeOf(write(admin, "PUT", candidatesUrl(projectId) + "/" + candidateId, """
                 {"fullName":"Layla Haddad","status":"withdrew"}"""))).isEqualTo("EXIT_REASON_REQUIRED");

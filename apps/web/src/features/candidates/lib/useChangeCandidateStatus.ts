@@ -40,11 +40,14 @@ export function useChangeCandidateStatus(projectId: string, onSaved: (saved: Can
       (status, reason) =>
         void change
           .mutateAsync({ ...args, status, reason })
+          // Not swallowed: the mutation's own onError has already said why in a toast.
           .catch(() => undefined)
           .finally(() => options?.onSettled?.()),
       options?.onSettled,
     );
 
+  // isPending is the latest change's alone: a surface changing several rows tracks each one itself, as the grid's
+  // busy ids do.
   return { mutate: request, isPending: change.isPending, dialog: prompt.dialog };
 }
 
