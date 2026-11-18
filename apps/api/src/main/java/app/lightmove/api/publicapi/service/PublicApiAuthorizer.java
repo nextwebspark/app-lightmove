@@ -10,6 +10,7 @@ import app.lightmove.api.project.service.ProjectAccess;
 import app.lightmove.api.project.service.ProjectLookup;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springframework.modulith.NamedInterface;
 import org.springframework.stereotype.Component;
 
 /**
@@ -21,6 +22,7 @@ import org.springframework.stereotype.Component;
  */
 @Component("publicApiAuthorizer")
 @RequiredArgsConstructor
+@NamedInterface(name = "api", propagate = false)
 public class PublicApiAuthorizer {
 
     private final ProjectAccess projectAccess;

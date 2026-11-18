@@ -29,6 +29,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import org.springframework.modulith.NamedInterface;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -37,6 +38,7 @@ import org.springframework.transaction.annotation.Transactional;
  * column keeps its values, so redefining it under the same name brings its data back.
  */
 @Service
+@NamedInterface(name = "api", propagate = false)
 public class CustomColumnService {
 
     private final ProjectCustomColumnRepository columns;

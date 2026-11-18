@@ -2,8 +2,10 @@ package app.lightmove.api.workspace.service;
 
 import app.lightmove.api.workspace.model.WorkspaceAiControls;
 import java.util.UUID;
+import org.springframework.modulith.NamedInterface;
 
 /** What the workspace lets the AI do with its people (#922), for the features that run the AI and file its answers. */
+@NamedInterface(name = "api", propagate = false)
 public interface WorkspaceAiControlsReader {
 
     /** The switches as committed, read before a model call decides what to ask. */

@@ -4,4 +4,13 @@
  * {@code candidate}, points from {@code geocoding}, paired here so {@code triagecompany} never learns
  * people exist. Unpaged and capped ({@code lightmove.talent-map.*}), with totals so a capped mandate is told.
  */
+@ApplicationModule(allowedDependencies = {
+        "candidate :: api",
+        "geocoding :: api",
+        "pairing :: api",
+        "project :: api",
+        "triagecompany :: api"
+})
 package app.lightmove.api.talentmap;
+
+import org.springframework.modulith.ApplicationModule;

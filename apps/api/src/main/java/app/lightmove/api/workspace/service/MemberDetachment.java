@@ -3,8 +3,10 @@ package app.lightmove.api.workspace.service;
 import app.lightmove.api.workspace.model.LedAlonePosition;
 import java.util.List;
 import java.util.UUID;
+import org.springframework.modulith.NamedInterface;
 
 /** Member removal as the referencing features see it; implemented in {@code project}, keeping the dependency one-way. */
+@NamedInterface(name = "api", propagate = false)
 public interface MemberDetachment {
 
     /** Throws {@code MEMBER_LEADS_PROJECTS} if removal would orphan work only this member can hand over. */

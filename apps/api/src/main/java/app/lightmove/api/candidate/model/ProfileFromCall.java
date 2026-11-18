@@ -2,11 +2,13 @@ package app.lightmove.api.candidate.model;
 
 import app.lightmove.api.candidate.constant.CallField;
 import java.util.Set;
+import org.springframework.modulith.NamedInterface;
 
 /**
  * The person's own fields a call changes: only those named in {@code fields} are written, so a package whose bonus
  * was left unticked keeps the bonus on file.
  */
+@NamedInterface(name = "api", propagate = false)
 public record ProfileFromCall(Set<CallField> fields, String noticePeriod, String currency, Long baseSalary,
                               Long bonus, Long allowances, String city, String country) {
 

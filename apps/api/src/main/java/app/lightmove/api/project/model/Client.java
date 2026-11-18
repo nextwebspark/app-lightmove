@@ -18,6 +18,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
+import org.springframework.modulith.NamedInterface;
 
 /**
  * The hiring entity a mandate is run for, with a write-time company snapshot. The
@@ -28,6 +29,7 @@ import org.hibernate.type.SqlTypes;
 @Table(name = "app_lm_client")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
+@NamedInterface(name = "api", propagate = false)
 public class Client extends BaseEntity {
 
     /** Recorded per row so an older vintage stays recognisable as one. */

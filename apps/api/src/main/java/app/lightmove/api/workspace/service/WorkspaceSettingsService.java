@@ -2,22 +2,23 @@ package app.lightmove.api.workspace.service;
 
 import app.lightmove.api.billing.plan.service.WorkspaceBillingClosure;
 import app.lightmove.api.common.persona.model.HiringPersona;
-import app.lightmove.api.core.time.constant.DateFormatStyle;
-import app.lightmove.api.core.time.constant.TimeFormatStyle;
-import app.lightmove.api.core.time.service.StandardTimeZones;
 import app.lightmove.api.core.audit.constant.WorkspaceEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.security.apikey.ApiKeyService;
+import app.lightmove.api.core.security.membership.MemberStatus;
+import app.lightmove.api.core.security.membership.WorkspaceMemberRepository;
 import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.oauth.OAuthGrantService;
 import app.lightmove.api.core.security.repository.UserRepository;
+import app.lightmove.api.core.tenant.WorkspaceMode;
+import app.lightmove.api.core.time.constant.DateFormatStyle;
+import app.lightmove.api.core.time.constant.TimeFormatStyle;
+import app.lightmove.api.core.time.service.StandardTimeZones;
 import app.lightmove.api.workspace.constant.CalendarSync;
 import app.lightmove.api.workspace.constant.InvitationStatus;
-import app.lightmove.api.core.security.membership.MemberStatus;
-import app.lightmove.api.core.tenant.WorkspaceMode;
 import app.lightmove.api.workspace.model.CalendarSyncChanged;
 import app.lightmove.api.workspace.model.InferredBackgroundCounts;
 import app.lightmove.api.workspace.model.SuggestedDateTime;
@@ -26,7 +27,6 @@ import app.lightmove.api.workspace.model.WorkspaceAiControls;
 import app.lightmove.api.workspace.model.WorkspaceDateTimeChanged;
 import app.lightmove.api.workspace.model.WorkspaceDeleted;
 import app.lightmove.api.workspace.repository.InvitationRepository;
-import app.lightmove.api.core.security.membership.WorkspaceMemberRepository;
 import app.lightmove.api.workspace.repository.WorkspaceRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Clock;
@@ -37,6 +37,7 @@ import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.modulith.NamedInterface;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -48,6 +49,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 @Slf4j
+@NamedInterface(name = "api", propagate = false)
 public class WorkspaceSettingsService implements WorkspaceAiControlsReader {
 
     private final WorkspaceRepository workspaces;
@@ -325,6 +327,7 @@ public class WorkspaceSettingsService implements WorkspaceAiControlsReader {
                 members.countWithAutomaticTimeZone(workspace.getId()));
     }
 
+    @NamedInterface(name = "api", propagate = false)
     public record WorkspaceDetail(Workspace workspace, long memberCount, SuggestedDateTime suggestedDateTime,
                                   long membersAutomaticTimeZone) {
     }

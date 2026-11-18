@@ -3,11 +3,13 @@ package app.lightmove.api.universe.service;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import org.springframework.modulith.NamedInterface;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.ObjectMapper;
 
 /** The "Adjacent Industries" chips: editorial judgement, kept as a classpath resource. */
 @Component
+@NamedInterface(name = "api", propagate = false)
 public class IndustryAdjacency {
 
     private static final String RESOURCE = "data/industry-adjacency.json";

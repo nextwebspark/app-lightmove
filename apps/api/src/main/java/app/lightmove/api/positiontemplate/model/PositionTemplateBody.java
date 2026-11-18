@@ -12,6 +12,7 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Locale;
+import org.springframework.modulith.NamedInterface;
 
 /**
  * Everything a role template drafts into a fresh brief — never a title, date, location or salary band.
@@ -20,6 +21,7 @@ import java.util.Locale;
  * unreadable. The two defaults are the brief's {@code NOT NULL} columns.
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
+@NamedInterface(name = "api", propagate = false)
 public record PositionTemplateBody(
         String department,
         EmploymentType employmentType,

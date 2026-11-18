@@ -4,6 +4,7 @@ import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
+import app.lightmove.api.core.security.membership.WorkspaceMember;
 import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.rbac.ProjectAudience;
 import app.lightmove.api.core.security.rbac.ProjectRole;
@@ -14,6 +15,7 @@ import app.lightmove.api.core.security.rbac.WorkspaceAction;
 import app.lightmove.api.core.security.rbac.WorkspaceRole;
 import app.lightmove.api.core.security.repository.UserRepository;
 import app.lightmove.api.core.text.service.ConfirmationName;
+import app.lightmove.api.project.constant.ClientRepStatus;
 import app.lightmove.api.project.constant.ProjectHealth;
 import app.lightmove.api.project.constant.ProjectListScope;
 import app.lightmove.api.project.constant.ProjectStage;
@@ -23,7 +25,6 @@ import app.lightmove.api.project.dto.ProjectArchivePreviewResponse;
 import app.lightmove.api.project.dto.ProjectResponse;
 import app.lightmove.api.project.dto.TeamMemberResponse;
 import app.lightmove.api.project.dto.UpdateProjectRequest;
-import app.lightmove.api.project.constant.ClientRepStatus;
 import app.lightmove.api.project.model.CandidateCountScope;
 import app.lightmove.api.project.model.Client;
 import app.lightmove.api.project.model.ClientRepresentative;
@@ -38,7 +39,6 @@ import app.lightmove.api.project.repository.ClientRepresentativeRepository;
 import app.lightmove.api.project.repository.PendingRepresentativeAttachmentRepository;
 import app.lightmove.api.project.repository.ProjectMemberRepository;
 import app.lightmove.api.project.repository.ProjectRepository;
-import app.lightmove.api.core.security.membership.WorkspaceMember;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Clock;
 import java.time.LocalDate;
@@ -56,6 +56,7 @@ import java.util.stream.Stream;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.modulith.NamedInterface;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -67,6 +68,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 @Slf4j
+@NamedInterface(name = "api", propagate = false)
 public class ProjectService {
 
     private final ProjectRepository projects;

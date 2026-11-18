@@ -5,4 +5,11 @@
  * <p>The role title and target date live on {@code app_lm_project} (V8). Nothing here freezes (V38),
  * and writes stay lenient so autosave can persist a half-typed section.
  */
+@ApplicationModule(allowedDependencies = {
+        "positiontemplate :: api",
+        "project :: api",
+        "workspace :: api"
+})
 package app.lightmove.api.position;
+
+import org.springframework.modulith.ApplicationModule;

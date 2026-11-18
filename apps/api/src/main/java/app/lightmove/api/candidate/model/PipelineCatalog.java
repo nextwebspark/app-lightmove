@@ -5,11 +5,13 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.modulith.NamedInterface;
 
 /**
  * A workspace's whole pipeline as one read: its stages in order and every status under them, retired
  * ones included, since a retired status still stands on whoever holds it.
  */
+@NamedInterface(name = "api", propagate = false)
 public record PipelineCatalog(List<CandidateStage> stages, List<CandidateStatusDefinition> statuses) {
 
     public PipelineCatalog {

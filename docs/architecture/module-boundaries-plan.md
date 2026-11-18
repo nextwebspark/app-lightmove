@@ -1,6 +1,6 @@
 # Module boundaries plan: Spring Modulith for `apps/api`, no cycles
 
-> Status: **proposed**. Docs only; no code has changed yet. Each numbered commit below lands separately and is reviewed on its own.
+> Status: **implemented** — each numbered step below is its own commit; the result is described in [`modules.md`](modules.md). Kept as the record of why the boundaries are where they are.
 
 ## Context
 - **The problem.** Nothing in code backs CLAUDE.md's dependency rules today, and the code already breaks them.

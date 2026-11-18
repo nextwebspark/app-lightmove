@@ -17,6 +17,7 @@ import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.springframework.modulith.NamedInterface;
 
 /**
  * One status of a workspace's pipeline, always under exactly one {@link CandidateStage} (V131). A
@@ -27,6 +28,7 @@ import lombok.NoArgsConstructor;
 @Table(name = "app_lm_workspace_candidate_status")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
+@NamedInterface(name = "api", propagate = false)
 public class CandidateStatusDefinition extends BaseEntity {
 
     public static final int MAX_LABEL = 40;

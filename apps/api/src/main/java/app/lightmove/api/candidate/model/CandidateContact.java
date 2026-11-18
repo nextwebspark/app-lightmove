@@ -12,6 +12,7 @@ import java.util.Locale;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.springframework.modulith.NamedInterface;
 
 /**
  * One email or phone known for an executive, with the door it came through (V54's ledger). {@code valueKey} (lower-cased
@@ -21,6 +22,7 @@ import lombok.NoArgsConstructor;
 @Embeddable
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
+@NamedInterface(name = "api", propagate = false)
 public class CandidateContact {
 
     @Enumerated(EnumType.STRING)

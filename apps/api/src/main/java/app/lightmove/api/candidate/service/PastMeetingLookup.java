@@ -4,11 +4,13 @@ import app.lightmove.api.candidate.model.LoggedMeeting;
 import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.modulith.NamedInterface;
 
 /**
  * A person's calendar meeting that is already over, for notes logged about it. Answered by {@code outreach}, which
  * keeps the meetings and already depends on {@code candidate}, so the dependency stays one-way.
  */
+@NamedInterface(name = "api", propagate = false)
 public interface PastMeetingLookup {
 
     Optional<LoggedMeeting> pastMeetingOf(UUID workspaceId, UUID personId, UUID meetingId, Instant now);

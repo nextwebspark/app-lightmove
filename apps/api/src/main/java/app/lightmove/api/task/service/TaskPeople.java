@@ -10,11 +10,13 @@ import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import org.springframework.modulith.NamedInterface;
 import org.springframework.stereotype.Component;
 
 /** The teammates a list of tasks names, read in one query. */
 @Component
 @RequiredArgsConstructor
+@NamedInterface(name = "api", propagate = false)
 public class TaskPeople {
 
     private final UserRepository users;

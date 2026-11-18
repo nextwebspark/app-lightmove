@@ -5,4 +5,7 @@
  * <p>A value belongs here only once a second feature genuinely needs it; until then it stays with the
  * feature that owns it.
  */
+@ApplicationModule(type = ApplicationModule.Type.OPEN, allowedDependencies = "core")
 package app.lightmove.api.common;
+
+import org.springframework.modulith.ApplicationModule;

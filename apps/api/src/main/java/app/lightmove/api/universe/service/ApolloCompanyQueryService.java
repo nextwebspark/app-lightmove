@@ -1,13 +1,13 @@
 package app.lightmove.api.universe.service;
 
 import app.lightmove.api.core.constant.ApiValueEnum;
+import app.lightmove.api.core.constant.SortDirection;
 import app.lightmove.api.core.text.service.LikePatterns;
 import app.lightmove.api.core.text.service.LinkedInUrls;
 import app.lightmove.api.universe.constant.CompanySizeBand;
 import app.lightmove.api.universe.constant.CompanySortField;
 import app.lightmove.api.universe.constant.EmployeeBand;
 import app.lightmove.api.universe.constant.RevenueBand;
-import app.lightmove.api.core.constant.SortDirection;
 import app.lightmove.api.universe.dto.FacetCount;
 import app.lightmove.api.universe.dto.SectorGroup;
 import app.lightmove.api.universe.model.CompanyRow;
@@ -34,6 +34,7 @@ import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.modulith.NamedInterface;
 import org.springframework.stereotype.Service;
 
 /**
@@ -43,6 +44,7 @@ import org.springframework.stereotype.Service;
  */
 @Service
 @RequiredArgsConstructor
+@NamedInterface(name = "api", propagate = false)
 public class ApolloCompanyQueryService {
 
     /** Every column the list and the write-path snapshots need, in one place so they cannot drift. */

@@ -3,12 +3,14 @@ package app.lightmove.api.enrichment.company.model;
 import app.lightmove.api.triagecompany.model.CapturedCompanyDetails;
 import java.util.List;
 import java.util.Optional;
+import org.springframework.modulith.NamedInterface;
 
 /**
  * What a provider said about one LinkedIn company page, V2 industry leaf and payload included — what
  * the cache keeps. {@link #asCapturedDetails()} is the one place the mandate-facing record is built,
  * so a cache hit and a fresh call produce the same row.
  */
+@NamedInterface(name = "api", propagate = false)
 public record VendorCompanyRecord(String linkedinSlug, String companyName, String industry,
                                   String companyCountry, String companyCity,
                                   Integer employeesInLinkedin, String website, String linkedinUrl,

@@ -43,6 +43,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
+import org.springframework.modulith.NamedInterface;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -52,6 +53,7 @@ import org.springframework.transaction.annotation.Transactional;
  * caller supplies only the name filter, page and an allowlisted sort.
  */
 @Service
+@NamedInterface(name = "api", propagate = false)
 public class StrategyService {
 
     private static final CompanySortField DEFAULT_SORT = CompanySortField.EMPLOYEES;

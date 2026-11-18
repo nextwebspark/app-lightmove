@@ -6,6 +6,7 @@ import app.lightmove.api.billing.plan.repository.WorkspaceSubscriptionRepository
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.modulith.NamedInterface;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,6 +21,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 @Slf4j
 @Component
 @RequiredArgsConstructor
+@NamedInterface(name = "api", propagate = false)
 public class WorkspaceBillingClosure {
 
     private final WorkspaceSubscriptionRepository subscriptions;

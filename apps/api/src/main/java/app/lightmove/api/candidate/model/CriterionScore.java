@@ -4,6 +4,7 @@ import app.lightmove.api.common.constant.CompetencyPanel;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import java.util.Locale;
 import java.util.Objects;
+import org.springframework.modulith.NamedInterface;
 
 /**
  * One criterion's score as stored, with the criterion it was given against as it stood then. The brief's
@@ -13,6 +14,7 @@ import java.util.Objects;
  * @param score 0–10, or null: scored nothing yet, which is an open question rather than a zero
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
+@NamedInterface(name = "api", propagate = false)
 public record CriterionScore(CompetencyPanel panel, String name, int weight, Integer score, String evidence) {
 
     public String matchKey() {

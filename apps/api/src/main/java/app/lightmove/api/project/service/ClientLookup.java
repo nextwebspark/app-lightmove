@@ -5,11 +5,13 @@ import app.lightmove.api.project.repository.ClientRepository;
 import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springframework.modulith.NamedInterface;
 import org.springframework.stereotype.Service;
 
 /** How other modules read a client record: the project module's repository stays its own. */
 @Service
 @RequiredArgsConstructor
+@NamedInterface(name = "api", propagate = false)
 public class ClientLookup {
 
     private final ClientRepository clients;

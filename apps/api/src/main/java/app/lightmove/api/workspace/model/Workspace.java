@@ -4,13 +4,13 @@ import app.lightmove.api.common.constant.DefaultCurrency;
 import app.lightmove.api.common.location.service.Currencies;
 import app.lightmove.api.common.persona.model.HiringPersona;
 import app.lightmove.api.common.persona.model.PersonaSeed;
-import app.lightmove.api.core.time.constant.DateFormatStyle;
-import app.lightmove.api.core.time.constant.TimeFormatStyle;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.persistence.model.BaseEntity;
-import app.lightmove.api.workspace.constant.CalendarSync;
 import app.lightmove.api.core.tenant.WorkspaceMode;
+import app.lightmove.api.core.time.constant.DateFormatStyle;
+import app.lightmove.api.core.time.constant.TimeFormatStyle;
+import app.lightmove.api.workspace.constant.CalendarSync;
 import app.lightmove.api.workspace.constant.WorkspaceStatus;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -28,6 +28,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
+import org.springframework.modulith.NamedInterface;
 
 /**
  * The tenant. Every piece of business data in LightMove hangs off exactly one of these, and every
@@ -37,6 +38,7 @@ import org.hibernate.type.SqlTypes;
 @Table(name = "app_lm_workspace")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
+@NamedInterface(name = "api", propagate = false)
 public class Workspace extends BaseEntity {
 
     public static final int DEFAULT_RECENTLY_APPROACHED_DAYS = 90;

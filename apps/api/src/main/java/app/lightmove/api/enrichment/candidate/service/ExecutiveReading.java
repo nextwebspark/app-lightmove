@@ -6,6 +6,7 @@ import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.enrichment.candidate.model.ExecutiveReadingText;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springframework.modulith.NamedInterface;
 import org.springframework.stereotype.Service;
 
 /**
@@ -14,6 +15,7 @@ import org.springframework.stereotype.Service;
  */
 @Service
 @RequiredArgsConstructor
+@NamedInterface(name = "api", propagate = false)
 public class ExecutiveReading {
 
     private final CandidateService candidates;

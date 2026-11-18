@@ -1,6 +1,7 @@
 package app.lightmove.api.workspace.service;
 
 import java.util.UUID;
+import org.springframework.modulith.NamedInterface;
 
 /**
  * Work a feature must do before a deleted workspace's rows go, where it holds something outside the database the rows
@@ -9,6 +10,7 @@ import java.util.UUID;
  * transaction, on every attempt of a purge, so it must be safe to repeat. What it cannot release yet it throws for, and
  * the purge waits and tries again, up to {@link WorkspacePurge#RELEASE_PATIENCE} after it first started.
  */
+@NamedInterface(name = "api", propagate = false)
 public interface WorkspacePurgeContributor {
 
     void beforePurge(UUID workspaceId);

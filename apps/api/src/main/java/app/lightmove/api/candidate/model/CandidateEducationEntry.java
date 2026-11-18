@@ -3,6 +3,7 @@ package app.lightmove.api.candidate.model;
 import static app.lightmove.api.core.text.service.SuppliedText.blankToNull;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import org.springframework.modulith.NamedInterface;
 
 /**
  * One school in an executive's education, shaped like {@link CandidateCareerEntry} and for the same
@@ -12,6 +13,7 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
  * <p>Written only by enrichment today — no screen edits it yet.
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
+@NamedInterface(name = "api", propagate = false)
 public record CandidateEducationEntry(String school, String degree, String period) {
 
     public CandidateEducationEntry {

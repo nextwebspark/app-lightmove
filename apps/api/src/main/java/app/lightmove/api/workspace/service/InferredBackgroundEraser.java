@@ -2,11 +2,13 @@ package app.lightmove.api.workspace.service;
 
 import app.lightmove.api.workspace.model.InferredBackgroundCounts;
 import java.util.UUID;
+import org.springframework.modulith.NamedInterface;
 
 /**
  * The AI's unconfirmed gender and nationality across a workspace's people, implemented in {@code candidate} so
  * {@code workspace} never reads back into it. A value a person typed, imported or confirmed is never counted or cleared.
  */
+@NamedInterface(name = "api", propagate = false)
 public interface InferredBackgroundEraser {
 
     /** What turning the two inferences off would clear now. */

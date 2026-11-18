@@ -1,14 +1,14 @@
 package app.lightmove.api.workspace.service;
 
-import app.lightmove.api.core.time.constant.DateFormatStyle;
-import app.lightmove.api.core.time.constant.TimeFormatStyle;
-import app.lightmove.api.core.time.model.DateTimePreferences;
-import app.lightmove.api.core.time.service.WorkspaceDateTimeDefaults;
 import app.lightmove.api.common.time.service.CountryTimeZones;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.repository.UserRepository;
+import app.lightmove.api.core.time.constant.DateFormatStyle;
+import app.lightmove.api.core.time.constant.TimeFormatStyle;
+import app.lightmove.api.core.time.model.DateTimePreferences;
+import app.lightmove.api.core.time.service.WorkspaceDateTimeDefaults;
 import app.lightmove.api.workspace.model.SuggestedDateTime;
 import app.lightmove.api.workspace.model.Workspace;
 import app.lightmove.api.workspace.repository.WorkspaceRepository;
@@ -16,6 +16,7 @@ import java.time.ZoneId;
 import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springframework.modulith.NamedInterface;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,6 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
  */
 @Service
 @RequiredArgsConstructor
+@NamedInterface(name = "api", propagate = false)
 public class DateTimePreferenceService implements WorkspaceDateTimeDefaults {
 
     private final WorkspaceRepository workspaces;

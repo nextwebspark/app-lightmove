@@ -10,6 +10,7 @@ import java.util.Set;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.modulith.NamedInterface;
 
 /**
  * The seam {@code triagecompany} reads executive facts through; {@code candidate} implements it, so
@@ -17,6 +18,7 @@ import org.springframework.data.domain.Pageable;
  * data lives on the other side. Every read names its audience: an executive hidden from the client
  * neither matches a filter nor moves a sort for a client seat.
  */
+@NamedInterface(name = "api", propagate = false)
 public interface MappedExecutiveLookup {
 
     /** Case-insensitive substring match among the people listed at {@code stage}. Never asked with a blank name. */

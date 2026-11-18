@@ -2,6 +2,7 @@ package app.lightmove.api.strategy.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import java.util.List;
+import org.springframework.modulith.NamedInterface;
 
 /**
  * A mandate's people filter, the {@code people_filter} jsonb on the strategy and on a saved people
@@ -11,6 +12,7 @@ import java.util.List;
  * boxed so a document written without them binds — Jackson 3 refuses a missing primitive — and read false.
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
+@NamedInterface(name = "api", propagate = false)
 public record PeopleFilter(String name, List<String> jobTitles, String titleMatch, Boolean includeRelatedTitles,
                            Boolean recentlyChangedJobs, List<String> excludedJobTitles, List<String> seniorities,
                            List<String> jobFunctions, List<String> skills, List<String> yearsInCurrentRole,

@@ -5,4 +5,10 @@
  * crosses back only as a bean implementing
  * {@link app.lightmove.api.strategy.service.TriagedCompanyLookup}, which this package owns.
  */
+@ApplicationModule(allowedDependencies = {
+        "project :: api",
+        "universe :: api"
+})
 package app.lightmove.api.strategy;
+
+import org.springframework.modulith.ApplicationModule;

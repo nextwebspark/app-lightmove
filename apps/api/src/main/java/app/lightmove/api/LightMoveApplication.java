@@ -6,6 +6,7 @@ import org.springframework.ai.mcp.server.common.autoconfigure.annotations.Statel
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.modulith.Modulithic;
 import org.springframework.resilience.annotation.EnableResilientMethods;
 import org.springframework.scheduling.annotation.EnableAsync;
 
@@ -16,6 +17,8 @@ import org.springframework.scheduling.annotation.EnableAsync;
 @EnableConfigurationProperties(LightMoveProperties.class)
 @EnableAsync // Audit events are written off the request thread; see AuditService.
 @EnableResilientMethods // Vendor calls retry through @Retryable; see core/resilience.
+// Module boundaries, verified by ModuleBoundariesTest; core and common are the shared kernel every module may use.
+@Modulithic(sharedModules = {"core", "common"})
 public class LightMoveApplication {
 
     public static void main(String[] args) {

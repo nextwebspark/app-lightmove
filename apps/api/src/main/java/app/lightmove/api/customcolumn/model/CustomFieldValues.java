@@ -5,12 +5,14 @@ import com.fasterxml.jackson.annotation.JsonValue;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
+import org.springframework.modulith.NamedInterface;
 
 /**
  * A row's {@code custom_fields} jsonb, keyed by {@link ProjectCustomColumn#getFieldKey()}. Values
  * are stored as entered, so a type change loses nothing; {@link JsonValue} and {@link JsonCreator}
  * keep the document flat.
  */
+@NamedInterface(name = "api", propagate = false)
 public final class CustomFieldValues {
 
     private static final CustomFieldValues EMPTY = new CustomFieldValues(Map.of());

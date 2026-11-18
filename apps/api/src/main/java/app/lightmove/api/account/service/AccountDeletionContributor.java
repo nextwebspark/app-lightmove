@@ -1,12 +1,14 @@
 package app.lightmove.api.account.service;
 
 import java.util.UUID;
+import org.springframework.modulith.NamedInterface;
 
 /**
  * A feature holding rows that are the person's own within a workspace — their inbox, their settings, their
  * connections — which go with their account. Declared here and implemented where the rows live, so {@code account}
  * depends on none of them. What they did for the workspace (notes, tasks, positions) is the workspace's and stays.
  */
+@NamedInterface(name = "api", propagate = false)
 public interface AccountDeletionContributor {
 
     /** Inside the deletion's transaction and {@code workspaceId}'s scope, the membership already ended. */

@@ -5,8 +5,10 @@ import app.lightmove.api.candidate.constant.ConsentPurpose;
 import app.lightmove.api.candidate.constant.ConsentStatus;
 import java.time.Instant;
 import java.util.UUID;
+import org.springframework.modulith.NamedInterface;
 
 /** One line of the consent register (#1267): a person's standing on one purpose, and the words they were asked in. */
+@NamedInterface(name = "api", propagate = false)
 public record ConsentRegisterRow(
         UUID personId,
         String personName,

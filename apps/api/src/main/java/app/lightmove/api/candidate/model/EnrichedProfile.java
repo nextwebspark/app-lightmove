@@ -5,6 +5,7 @@ import static app.lightmove.api.core.text.service.SuppliedText.blankToNull;
 import app.lightmove.api.candidate.constant.EnrichmentVendor;
 import app.lightmove.api.common.location.service.Countries;
 import java.util.List;
+import org.springframework.modulith.NamedInterface;
 
 /**
  * A live profile's research, in this feature's vocabulary, with the {@code vendor} that answered (recorded, never
@@ -13,6 +14,7 @@ import java.util.List;
  * has no page to read a name off: research never renames anyone. {@code publicProfileUrl} is the profile's vanity
  * address as the vendor knows it, which heals a capture made at LinkedIn's member-id address.
  */
+@NamedInterface(name = "api", propagate = false)
 public record EnrichedProfile(String title, String about, String employerName,
                               String employerLinkedinUrl, String employerLogoUrl,
                               String locationCity, String locationCountry,

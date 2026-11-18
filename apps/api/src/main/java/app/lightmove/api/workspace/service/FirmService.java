@@ -12,12 +12,14 @@ import app.lightmove.api.workspace.repository.WorkspaceRepository;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springframework.modulith.NamedInterface;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /** The firm a workspace is, for a reader outside {@code workspace} — the assistant's context. */
 @Service
 @RequiredArgsConstructor
+@NamedInterface(name = "api", propagate = false)
 public class FirmService {
 
     private final WorkspaceRepository workspaces;

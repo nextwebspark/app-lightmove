@@ -3,11 +3,13 @@ package app.lightmove.api.project.service;
 import app.lightmove.api.project.model.CandidateCountScope;
 import java.util.Map;
 import java.util.UUID;
+import org.springframework.modulith.NamedInterface;
 
 /**
  * The projects list's people-side numbers, implemented in {@code candidate} so {@code project} never
  * reads back into it. A mandate with nothing to count is absent from the map, not zero.
  */
+@NamedInterface(name = "api", propagate = false)
 public interface ProjectCandidateCounter {
 
     /** Executives still in the running, as {@link ProjectCompanyCounter} leaves declined companies out. */

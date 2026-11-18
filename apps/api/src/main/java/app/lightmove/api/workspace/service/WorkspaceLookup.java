@@ -6,11 +6,13 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springframework.modulith.NamedInterface;
 import org.springframework.stereotype.Service;
 
 /** How other modules read a workspace row: the workspace module's repository stays its own. */
 @Service
 @RequiredArgsConstructor
+@NamedInterface(name = "api", propagate = false)
 public class WorkspaceLookup {
 
     private final WorkspaceRepository workspaces;

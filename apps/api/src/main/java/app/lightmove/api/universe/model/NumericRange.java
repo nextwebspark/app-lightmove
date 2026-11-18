@@ -2,6 +2,7 @@ package app.lightmove.api.universe.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import org.springframework.modulith.NamedInterface;
 
 /**
  * A Custom Range: both ends optional and inclusive; neither set is no constraint. Both Jackson
@@ -10,6 +11,7 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
  * needs the same treatment.
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
+@NamedInterface(name = "api", propagate = false)
 public record NumericRange(Long min, Long max) {
 
     @JsonIgnore

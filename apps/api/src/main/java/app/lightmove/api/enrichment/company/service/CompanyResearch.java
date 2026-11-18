@@ -14,6 +14,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import org.springframework.modulith.NamedInterface;
 import org.springframework.stereotype.Service;
 
 /**
@@ -22,6 +23,7 @@ import org.springframework.stereotype.Service;
  * sits between {@link CachedCompanyStore}'s own read and write transactions.
  */
 @Service
+@NamedInterface(name = "api", propagate = false)
 public class CompanyResearch {
 
     /** Below this, a namesake is likelier than a match. */

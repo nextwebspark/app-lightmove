@@ -5,4 +5,7 @@
  * replace: the drawer holds every field and submits every field, so a field-by-field merge would have
  * to collapse "cleared" and "not sent" into one request across twenty fields.
  */
+@NamedInterface(name = "api", propagate = false)
 package app.lightmove.api.candidate.dto;
+
+import org.springframework.modulith.NamedInterface;

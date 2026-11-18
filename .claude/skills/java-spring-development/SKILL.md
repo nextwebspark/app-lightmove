@@ -61,8 +61,9 @@ core/
                 RevokeReason, RefreshCookieFactory, Tokens                (flat concern pkg)
     rbac/       Role, Action, RoleRepository, ActionRepository, RoleScope,
                 WorkspaceRole, ProjectRole, PlatformRole, WorkspaceAction, ProjectAction,
-                PlatformAction, RbacService, WorkspaceAccess, ProjectAccess, PlatformAccess,
-                WorkspaceAuthorizer, ProjectAuthorizer, PlatformAuthorizer (flat concern pkg)
+                PlatformAction, RbacService, WorkspaceAccess, PlatformAccess,
+                WorkspaceAuthorizer, PlatformAuthorizer                   (flat concern pkg)
+    membership/ WorkspaceMember, MemberStatus, WorkspaceMemberRepository  (flat concern pkg)
   email/       model/(EmailMessage)  service/(EmailSender, EmailAddressValidator, …)  config/
   audit/       constant/(AuditEventType, AuditOutcome)  model/(AuditEvent)  repository/  service/
   error/       constant/(ErrorCode)  model/(ApiException)  service/(Problems)
@@ -72,8 +73,9 @@ core/
                service/(VendorClientFactory, VendorCallGuard, VendorRateLimiter,
                         VendorRetryPredicate)          (every outbound call to a paid API)
   stream/      ProjectStreamPublisher, PostgresStreamListener, ProjectStreamRegistry,
-               ProjectStreamController, ProjectStreamKind, ProjectStreamNotification
-                                                          (flat concern pkg — SSE push, see below)
+               ProjectStreamKind, ProjectStreamNotification
+                                                          (flat concern pkg — SSE push, see below;
+                                                           its endpoint, ProjectStreamController, is project's)
   storage/     constant/(DocumentFormat, StorageProvider)  config/(DocumentStoreConfig)
                service/(DocumentStore, GcsDocumentStore, FilesystemDocumentStore)
                                                           (uploaded files' bytes; the bucket, never Cloud SQL)
@@ -166,7 +168,8 @@ behind and why.
 `token/` and `rbac/` group everything for their concern regardless of type — so `RefreshToken` (an
 entity) and `RevokeReason` (an enum) live in `token/`, and `Role` (an entity) next to `WorkspaceAction`
 (an enum) in `rbac/`. `core/stream` is the fourth: the project SSE stream's publisher, Postgres
-listener, emitter registry and controller are one mechanism and meaningless apart. Two of its
+listener and emitter registry are one mechanism and meaningless apart (the endpoint that subscribes to it,
+`ProjectStreamController`, lives in `project`, since it gates on a project seat). Two of its
 invariants are easy to break from outside: a change is announced by `ProjectStreamPublisher.publish`
 **inside the writing transaction** (`MANDATORY` propagation — Postgres delivers the `NOTIFY` at
 commit, so the event can never beat the data, and a rollback swallows it; never "fix" this by
@@ -177,19 +180,30 @@ exception, with its own `lightmove.assistant.answer-deadline`). This applies onl
 the features — they are catalog mirrors, and both tiers' access services need them. Invitations are
 part of `workspace` (membership), not their own feature.
 
-**Dependency rule:** features depend on `core`, never on each other's internals. `core` does not depend
-on a feature — the deliberate exceptions are `AuthResponseAssembler` (`core/security/controller`), which
-reads workspace repositories to build the `/me` response (the auth `UserResponse` embedding
-the workspace `WorkspaceSummary` is the same seam), and the `rbac/` access services, which read the
-workspace/project repositories because authorisation is answered from membership rows.
+**Dependency rule — enforced by Spring Modulith.** Every top-level package is a module; its
+`package-info.java` declares `allowedDependencies` (lower layers only, as `"module :: api"`), and
+`ModuleBoundariesTest` / `ModuleConventionTest` fail the build on a cycle, an undeclared dependency or a reach
+into another module's internals. `core` depends on nothing and `common` on `core` alone. A module publishes
+its `dto`/`constant` packages and the service/model types marked `@NamedInterface(name = "api", propagate =
+false)` — never a repository: another module reads through the owner's facade (`ProjectLookup`,
+`WorkspaceLookup`, `ClientLookup`). When a lower module needs a higher one, publish an event or declare a port
+below and implement it above — never widen `allowedDependencies` upward. Layers and every failure message:
+`docs/architecture/modules.md`.
+
+Membership is access data and lives in `core/security/membership` (`WorkspaceMember`, `MemberStatus`,
+`WorkspaceMemberRepository`), so sign-in and `WorkspaceAccess` read it without leaving `core`. The seams
+`core` declares and `workspace` answers: `AuthResponseAssembler` (the `/me` and auth responses, implemented by
+`SessionResponseAssembler`), `WorkspaceNames` (OAuth consent) and `WorkspaceDateTimeDefaults` (billing's
+notices). `ProjectAccess`/`ProjectAuthorizer` live in `project`, `PublicApiAuthorizer` in `publicapi`; their
+bean names are unchanged, since `core`'s permission annotations name them only in SpEL.
 
 **`strategy`, `triagecompany` and `candidate` are three tiers of one story, and the lines between them
 are load-bearing.**
-`strategy` is the *market* side: finding companies. It owns the mandate's saved filter, the searches
-saved beside it, the reads over `app_lm_apollo_companies`, and the whole vocabulary a search is
-expressed in — `EmployeeBand`, `RevenueBand`, the sector taxonomy, the market segments, the facet
-counts, the sort allowlist. A band is a way of asking the market a question, not a property of any one
-mandate, so none of it belongs to a project. `triagecompany` is the *mapping* side and holds one
+`strategy` is the *market* side: finding companies. It owns the mandate's saved filter and the searches
+saved beside it. The universe it searches — the reads over `app_lm_apollo_companies` and the vocabulary a
+search is expressed in (`EmployeeBand`, `RevenueBand`, the sector taxonomy, the market segments, the facet
+counts, the sort allowlist) — is its own module, `universe`, which `workspace` and `project` read too. A band
+is a way of asking the market a question, not a property of any one mandate, so none of it belongs to a project. `triagecompany` is the *mapping* side and holds one
 thing: the project↔company row and its stage (`IN_UNIVERSE` / `SHORTLISTED` / `DECLINED`), stored as a
 write-time snapshot rather than a foreign key because the Apollo pipeline reloads its table wholesale.
 `candidate` is the *people* side: a workspace `Person` per human (V91) — the profile a consultant works
@@ -234,7 +248,7 @@ naming it `triagecompany` does not.
 Feature→feature seams are sanctioned in one direction only, and all of them are a public service
 method plus the records it returns — never another feature's internals:
 
-- `triagecompany`'s `TriageCompanyService` calls `strategy`'s `ApolloCompanyQueryService` to resolve
+- `triagecompany`'s `TriageCompanyService` calls `universe`'s `ApolloCompanyQueryService` to resolve
   a company snapshot at write time, and `StrategyService.scopeOf` to resolve the saved filter behind
   `POST …/triage/from-filter`. Reads that must run the reverse way are the exception below: the Strategy
   search excludes a project's already-triaged companies, so they stop reappearing once filed. That's
@@ -319,7 +333,7 @@ method plus the records it returns — never another feature's internals:
   `project` declares `ProjectCompanyCounter` and `ProjectCandidateCounter` in its own `service/`, and
   `triagecompany` and `candidate` implement them (`ProjectCompanyCounterAdapter`,
   `ProjectCandidateCounterAdapter` — package-private, like the lookup's). Declared this way round
-  because both of those features already read `ProjectRepository`, so a call out of `project` would
+  because both of those features already read `project` (through `ProjectLookup`), so a call out of `project` would
   close the loop; only a bean satisfying the interface crosses back, and the project package never
   learns that either table exists. Each is one grouped count over the ids being assembled, so the list
   stays one query rather than one per row.

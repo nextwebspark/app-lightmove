@@ -4,6 +4,7 @@ import java.util.Objects;
 import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
+import org.springframework.modulith.NamedInterface;
 
 /**
  * Where a person's notes are read from: one position, which reads its own and those about no position, or the
@@ -11,6 +12,7 @@ import lombok.RequiredArgsConstructor;
  * that loses its project fails rather than reading every note.
  */
 @RequiredArgsConstructor(access = AccessLevel.PRIVATE)
+@NamedInterface(name = "api", propagate = false)
 public final class NoteViewpoint {
 
     private static final NoteViewpoint WORKSPACE = new NoteViewpoint(null);

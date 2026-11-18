@@ -9,8 +9,8 @@ import app.lightmove.api.candidate.constant.PoolSortDirection;
 import app.lightmove.api.candidate.constant.PoolSortField;
 import app.lightmove.api.candidate.constant.PoolView;
 import app.lightmove.api.candidate.constant.TagMatch;
-import app.lightmove.api.core.constant.ApiValueEnum;
 import app.lightmove.api.common.constant.Seniority;
+import app.lightmove.api.core.constant.ApiValueEnum;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import java.util.LinkedHashSet;
@@ -21,6 +21,7 @@ import java.util.UUID;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import lombok.Builder;
+import org.springframework.modulith.NamedInterface;
 import org.springframework.util.MultiValueMap;
 
 /**
@@ -31,6 +32,7 @@ import org.springframework.util.MultiValueMap;
  * {@code ownerUserIds}; {@code seniorityUnrecorded} adds people with no seniority to {@code seniorities}.
  */
 @Builder(toBuilder = true)
+@NamedInterface(name = "api", propagate = false)
 public record PoolCriteria(
         String query,
         PoolView view,

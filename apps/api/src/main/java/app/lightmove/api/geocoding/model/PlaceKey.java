@@ -2,11 +2,13 @@ package app.lightmove.api.geocoding.model;
 
 import java.util.Locale;
 import java.util.Optional;
+import org.springframework.modulith.NamedInterface;
 
 /**
  * A normalised (trimmed, collapsed, lower-cased) city and country as a cache key. Either may be
  * absent, never both.
  */
+@NamedInterface(name = "api", propagate = false)
 public record PlaceKey(String city, String country) {
 
     public static Optional<PlaceKey> of(String city, String country) {

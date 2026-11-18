@@ -4,4 +4,13 @@
  * duplicate rule and audit event stays where it lives. An uncovered header becomes a custom column
  * ({@link app.lightmove.api.customcolumn}). Depends on those three; none depends back.
  */
+@ApplicationModule(allowedDependencies = {
+        "candidate :: api",
+        "customcolumn :: api",
+        "enrichment :: api",
+        "project :: api",
+        "triagecompany :: api"
+})
 package app.lightmove.api.dataimport;
+
+import org.springframework.modulith.ApplicationModule;

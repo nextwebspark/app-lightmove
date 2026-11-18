@@ -1,11 +1,13 @@
 package app.lightmove.api.triagecompany.model;
 
 import java.util.List;
+import org.springframework.modulith.NamedInterface;
 
 /**
  * The grid's three header filters and its search box, untrusted as written; the service resolves the status
  * tokens. A blank {@code search} narrows nothing.
  */
+@NamedInterface(name = "api", propagate = false)
 public record TriageCompanyFilters(String companyName, String executiveName,
                                    List<String> executiveStatuses, String search) {
 

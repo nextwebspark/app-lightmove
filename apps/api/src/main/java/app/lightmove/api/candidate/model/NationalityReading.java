@@ -4,6 +4,7 @@ import app.lightmove.api.candidate.constant.NationalityConfidence;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import java.util.List;
+import org.springframework.modulith.NamedInterface;
 
 /**
  * The nationality classifier's last reading of a candidate (V83), stored whole and replaced by the next
@@ -12,6 +13,7 @@ import java.util.List;
  * so this never rides on {@code CandidateResponse}.
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
+@NamedInterface(name = "api", propagate = false)
 public record NationalityReading(String category, String confidence, List<String> evidenceFor,
                                  List<String> evidenceAgainst, String rule, String readAt) {
 

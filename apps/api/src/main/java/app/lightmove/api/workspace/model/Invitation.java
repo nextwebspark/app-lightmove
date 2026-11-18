@@ -18,6 +18,7 @@ import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.springframework.modulith.NamedInterface;
 
 /**
  * An offer to join a workspace — the <b>only</b> way into an existing one — addressed to an email.
@@ -27,6 +28,7 @@ import lombok.NoArgsConstructor;
 @Table(name = "app_lm_invitation")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
+@NamedInterface(name = "api", propagate = false)
 public class Invitation extends BaseEntity {
 
     @Column(name = "workspace_id", nullable = false)

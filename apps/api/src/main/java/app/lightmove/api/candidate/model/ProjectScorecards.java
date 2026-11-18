@@ -1,6 +1,7 @@
 package app.lightmove.api.candidate.model;
 
 import java.util.List;
+import org.springframework.modulith.NamedInterface;
 
 /**
  * One position's assessed executives for {@code report}'s Ranking; one with no current competency scored counts as unassessed.
@@ -8,6 +9,7 @@ import java.util.List;
  * @param assessedCount everyone holding a score against a current competency, the cap aside
  * @param mappedCount everyone the position maps, assessed or not
  */
+@NamedInterface(name = "api", propagate = false)
 public record ProjectScorecards(
         List<ScorecardCriterion> criteria,
         int technicalShare,

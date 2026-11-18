@@ -5,12 +5,14 @@ import static app.lightmove.api.core.text.service.SuppliedText.browsableUrlOrNul
 
 import app.lightmove.api.common.industry.service.Industries;
 import app.lightmove.api.common.location.service.Countries;
+import org.springframework.modulith.NamedInterface;
 
 /**
  * Company fields a mandate supplies itself; only the name is required. The compact constructor makes
  * every URL safe to render server-side — the plugin posts directly — {@code sourceUrl} included, so
  * the first screen to link it inherits no stored XSS.
  */
+@NamedInterface(name = "api", propagate = false)
 public record CapturedCompanyDetails(String companyName, String industry, String companyCountry,
                                      String companyCity, Integer numEmployees, Long annualRevenue,
                                      String website, String companyLinkedinUrl, Integer foundedYear,

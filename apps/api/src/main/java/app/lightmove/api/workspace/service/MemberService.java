@@ -6,6 +6,9 @@ import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.security.apikey.ApiKeyService;
+import app.lightmove.api.core.security.membership.MemberStatus;
+import app.lightmove.api.core.security.membership.WorkspaceMember;
+import app.lightmove.api.core.security.membership.WorkspaceMemberRepository;
 import app.lightmove.api.core.security.oauth.OAuthGrantService;
 import app.lightmove.api.core.security.rbac.RbacService;
 import app.lightmove.api.core.security.rbac.Role;
@@ -13,10 +16,7 @@ import app.lightmove.api.core.security.rbac.WorkspaceAccess;
 import app.lightmove.api.core.security.rbac.WorkspaceRole;
 import app.lightmove.api.workspace.constant.InvitationWithdrawal;
 import app.lightmove.api.workspace.constant.MemberRemovalReason;
-import app.lightmove.api.core.security.membership.MemberStatus;
 import app.lightmove.api.workspace.model.MemberAccessNarrowed;
-import app.lightmove.api.core.security.membership.WorkspaceMember;
-import app.lightmove.api.core.security.membership.WorkspaceMemberRepository;
 import app.lightmove.api.workspace.repository.WorkspaceRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.HashSet;
@@ -26,6 +26,7 @@ import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.modulith.NamedInterface;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -37,6 +38,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 @Slf4j
+@NamedInterface(name = "api", propagate = false)
 public class MemberService {
 
     private final WorkspaceMemberRepository members;

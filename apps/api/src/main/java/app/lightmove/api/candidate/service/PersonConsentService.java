@@ -28,16 +28,16 @@ import app.lightmove.api.candidate.model.QueuedConsentRequest;
 import app.lightmove.api.candidate.model.ShareTarget;
 import app.lightmove.api.candidate.repository.CandidateRepository;
 import app.lightmove.api.candidate.repository.PersonRepository;
-import app.lightmove.api.core.constant.ApiValueEnum;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.config.LightMoveProperties;
+import app.lightmove.api.core.constant.ApiValueEnum;
 import app.lightmove.api.core.email.model.EmailMessage;
 import app.lightmove.api.core.email.service.EmailTemplates;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
-import app.lightmove.api.project.service.ProjectAccess;
 import app.lightmove.api.core.security.rbac.ProjectAction;
+import app.lightmove.api.project.service.ProjectAccess;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Clock;
 import java.time.Duration;
@@ -58,6 +58,7 @@ import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.modulith.NamedInterface;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -67,6 +68,7 @@ import org.springframework.transaction.annotation.Transactional;
  * notices. Silence is never consent: a request nobody answers closes as expired and changes nothing else.
  */
 @Service
+@NamedInterface(name = "api", propagate = false)
 public class PersonConsentService {
 
     static final Duration REQUEST_LIFETIME = Duration.ofDays(30);

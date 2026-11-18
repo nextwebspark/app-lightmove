@@ -5,4 +5,7 @@
  * temporary geocode indefinitely, so without {@code lightmove.mapbox.permanent-geocoding} a row is
  * re-asked after {@code lightmove.mapbox.cache-ttl}.
  */
+@ApplicationModule(allowedDependencies = {})
 package app.lightmove.api.geocoding;
+
+import org.springframework.modulith.ApplicationModule;

@@ -4,6 +4,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import org.springframework.modulith.NamedInterface;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.ObjectMapper;
 
@@ -13,6 +14,7 @@ import tools.jackson.databind.ObjectMapper;
  * {@code SectorTaxonomyCoverageIntegrationTest} asserts every live industry is covered.
  */
 @Component
+@NamedInterface(name = "api", propagate = false)
 public class SectorTaxonomy {
 
     private static final String RESOURCE = "data/sector-taxonomy.json";

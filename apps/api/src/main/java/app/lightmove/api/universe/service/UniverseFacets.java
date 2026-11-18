@@ -12,6 +12,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.function.Supplier;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.modulith.NamedInterface;
 import org.springframework.stereotype.Component;
 
 /**
@@ -19,6 +20,7 @@ import org.springframework.stereotype.Component;
  * {@code lightmove.company.facet-cache-ttl}.
  */
 @Component
+@NamedInterface(name = "api", propagate = false)
 public class UniverseFacets {
 
     private final ApolloCompanyQueryService companies;

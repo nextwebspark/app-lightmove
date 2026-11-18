@@ -38,13 +38,10 @@ Read the relevant `../uncava-design/*.dc.html` before building a screen. Don't b
 | `ops/` | Cloud SQL bootstrap/hardening, GCP, eval scripts |
 | `docs/` | Feature docs, contracts read by tests (`public-api/openapi.json`, `mcp/tools.json`, `gdpr/retention-schedule.md`, `gdpr/subject-access-export.md`, `eval/*`) |
 
-Feature dependency directions (nothing depends back):
-- `position` (the brief) → `project`; `positiontemplate` is read by `position`; shared vocabulary in `common/constant`.
-- `strategy` = market side (filters, saved searches, Apollo reads); `triagecompany` = a mandate's decision per company.
-- `candidate` (people side) → `triagecompany`; `customcolumn` ← `triagecompany`, `candidate`.
-- `dataimport`, `dataexport` → `triagecompany`, `candidate`, `customcolumn`; `pairing` pairs a stage's companies with executives.
-- `outreach` → `candidate`; `notetaker` → `outreach`, `candidate`, `position`; `task`/`notification` answer `candidate`'s seams.
-- `publicapi` and `mcp` read through the screens' services and narrow to public DTOs.
+**Module boundaries are enforced, not described.** Every top-level package is a Spring Modulith module whose
+`package-info.java` lists what it may depend on; `ModuleBoundariesTest` and `ModuleConventionTest` fail the build
+on a cycle, an undeclared dependency, or a reach into another module's internals (repositories are never
+published). Layers, the `api` named interface, and how to invert a dependency: `docs/architecture/modules.md`.
 
 ## Commands
 
