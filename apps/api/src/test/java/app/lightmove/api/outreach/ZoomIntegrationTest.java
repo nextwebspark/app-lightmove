@@ -147,6 +147,47 @@ class ZoomIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("an invite whose created event cannot be read back keeps the Zoom meeting its link opens")
+    void anUnreadableCreatedEventKeepsItsZoom() throws Exception {
+        ownZoomApp();
+        connectZoom("zoom-code-1");
+        connectMailbox();
+        String priya = executive("Priya Raman", "priya@" + domain);
+        Instant slot = firstStartIn(slotsOf(priya));
+        gateway.failCreatingEvents(new VendorException(VendorCall.of("nylas", "create-event"),
+                VendorFailureKind.MALFORMED_RESPONSE, null));
+
+        book(priya, slot, "ZOOM").andExpect(status().isBadGateway())
+                .andExpect(jsonPath("$.code").value("MEETING_BOOK_UNCONFIRMED"));
+
+        assertThat(zoom.created()).hasSize(1);
+        assertThat(zoom.deleted()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("moving a Zoom call the calendar no longer holds deletes its Zoom meeting with the row")
+    void aGoneZoomCallTakesItsMeeting() throws Exception {
+        ownZoomApp();
+        connectZoom("zoom-code-1");
+        connectMailbox();
+        String priya = executive("Priya Raman", "priya@" + domain);
+        JsonNode slots = slotsOf(priya);
+        Instant slot = firstStartIn(slots);
+        book(priya, slot, "ZOOM").andExpect(status().isOk());
+        String zoomId = zoom.created().getFirst();
+        String meetingId = body(as(consultant, get(meetings(priya))).andReturn()).get("upcoming").get(0).get("id")
+                .asText();
+        gateway.failChangingEvents(new VendorException(VendorCall.of("nylas", "move-event"),
+                VendorFailureKind.NOT_FOUND, null));
+
+        reschedule(priya, meetingId, laterStartIn(slots, slot)).andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("MEETING_GONE"));
+
+        assertThat(zoom.deleted()).containsExactly(zoomId);
+        assertThat(meetingRows()).isZero();
+    }
+
+    @Test
     @DisplayName("moving a Zoom call moves its meeting, put back if the calendar refuses; cancelling deletes it")
     void aZoomCallMovesAndGoesWithItsMeeting() throws Exception {
         ownZoomApp();

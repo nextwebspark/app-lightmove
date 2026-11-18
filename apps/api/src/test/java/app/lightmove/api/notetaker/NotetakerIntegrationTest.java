@@ -237,6 +237,23 @@ class NotetakerIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("a call with no speech is not offered again: the same empty transcript would only fail again")
+    void aSilentCallIsNotTriedAgain() throws Exception {
+        String recordingId = scheduledRecordingId();
+        String bot = recall.lastBotId();
+        recall.holdsTranscript("t-1", List.of());
+        deliver(bot, """
+                {"event":"bot.in_call_recording","data":{"bot":{"id":"%s"},"data":{"code":"in_call_recording"}}}""");
+        deliver(bot, """
+                {"event":"transcript.done","data":{"bot":{"id":"%s"},"transcript":{"id":"t-1"}}}""");
+
+        JsonNode failed = notetaker().get("recordings").get(0);
+        assertThat(failed.get("failureReason").asText()).isEqualTo("NOTHING_HEARD");
+        assertThat(failed.get("retryable").asBoolean()).isFalse();
+        as(consultant, post(notetakerPath() + "/" + recordingId + "/retry")).andExpect(status().isConflict());
+    }
+
+    @Test
     @DisplayName("a bot nobody let in fails with Recall's reason; a called-back one frees the call for another")
     void botsThatNeverRecordedAndCancellations() throws Exception {
         String first = scheduledRecordingId();
@@ -283,6 +300,44 @@ class NotetakerIntegrationTest extends FlowTestSupport {
         deliver(bot, """
                 {"event":"bot.in_call_recording","data":{"bot":{"id":"%s"},"data":{"code":"in_call_recording"}}}""");
         assertThat(statusOf(recordingId)).isEqualTo("FAILED");
+    }
+
+    @Test
+    @DisplayName("a host's refusal that arrives after the done still names why the bot never recorded")
+    void aRefusalAfterTheDoneIsItsReason() throws Exception {
+        String recordingId = scheduledRecordingId();
+        String bot = recall.lastBotId();
+        deliver(bot, """
+                {"event":"bot.done","data":{"bot":{"id":"%s"},"data":{"code":"done","sub_code":null}}}""");
+        deliver(bot, """
+                {"event":"bot.recording_permission_denied","data":{"bot":{"id":"%s"},
+                 "data":{"code":"recording_permission_denied","sub_code":null}}}""");
+
+        assertThat(notetaker().get("recordings").get(0).get("failureReason").asText())
+                .isEqualTo("RECORDING_PERMISSION_DENIED");
+    }
+
+    @Test
+    @DisplayName("a call whose call_ended beat its in_call_recording still files its note from the transcript")
+    void aLeavingThatBeatTheRecordingStillFilesTheNote() throws Exception {
+        chat.answerWhenSystemContains(SUMMARY_MARKER, SUMMARY);
+        String recordingId = scheduledRecordingId();
+        String bot = recall.lastBotId();
+        recall.holdsTranscript("t-1", List.of(new TranscriptLine(start, "Priya Raman", "Hello.", true)));
+        deliver(bot, """
+                {"event":"bot.joining_call","data":{"bot":{"id":"%s"},"data":{"code":"joining_call"}}}""");
+        deliver(bot, """
+                {"event":"bot.call_ended","data":{"bot":{"id":"%s"},
+                 "data":{"code":"call_ended","sub_code":"call_ended_by_host"}}}""");
+        assertThat(statusOf(recordingId)).isEqualTo("FAILED");
+
+        deliver(bot, """
+                {"event":"bot.in_call_recording","data":{"bot":{"id":"%s"},"data":{"code":"in_call_recording"}}}""");
+        deliver(bot, """
+                {"event":"transcript.done","data":{"bot":{"id":"%s"},"transcript":{"id":"t-1"}}}""");
+
+        assertThat(statusOf(recordingId)).isEqualTo("DONE");
+        assertThat(notetaker().get("recordings").get(0).get("failureReason").isNull()).isTrue();
     }
 
     @Test
@@ -466,6 +521,39 @@ class NotetakerIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("a send Recall refuses after a Remove keeps the recording cancelled, not failed")
+    void removedWhileARefusedSend() throws Exception {
+        recall.whileSending(() -> jdbc.update("update app_lm_meeting_recording set status = 'CANCELLED' "
+                + "where status = 'SCHEDULED' and recall_bot_id is null and project_id = ?::uuid", projectId));
+        recall.failSends(true);
+
+        schedule().andExpect(jsonPath("$.code").value("NOTETAKER_SEND_FAILED"));
+
+        JsonNode removed = notetaker().get("recordings").get(0);
+        assertThat(removed.get("status").asText()).isEqualTo("CANCELLED");
+        assertThat(removed.get("failureReason").isNull()).isTrue();
+    }
+
+    @Test
+    @DisplayName("a discarded call's media Recall refuses to delete is queued and deleted once Recall answers")
+    void aDiscardedCallsMediaIsDeletedOnceRecallAnswers() throws Exception {
+        String recordingId = scheduledRecordingId();
+        String bot = recall.lastBotId();
+        deliver(bot, """
+                {"event":"bot.in_call_recording","data":{"bot":{"id":"%s"},"data":{"code":"in_call_recording"}}}""");
+        recall.refuseMediaDeletes(VendorFailureKind.UNAVAILABLE);
+
+        as(consultant, delete(notetakerPath() + "/" + recordingId)).andExpect(status().isNoContent());
+        assertThat(statusOf(recordingId)).isEqualTo("CANCELLED");
+        assertThat(recall.mediaDeleted()).isEmpty();
+
+        recall.refuseMediaDeletes(null);
+        recallCleanup.sweepAt(Instant.now().plus(Duration.ofHours(2)));
+        assertThat(recall.mediaDeleted()).containsExactly(bot);
+        assertThat(recall.removed()).containsExactly(bot);
+    }
+
+    @Test
     @DisplayName("Send now sends a bot at once whatever day the call is booked for, and says which calls are today")
     void startNowJoinsAtOnceWhateverTheDay() throws Exception {
         consultantAtMidday();
@@ -510,6 +598,24 @@ class NotetakerIntegrationTest extends FlowTestSupport {
                 .andExpect(status().isOk());
 
         startNow().andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("NOTETAKER_LINK_IN_USE"));
+        assertThat(recall.sent()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("Join at start that would send the bot at once waits for an earlier call on the link, as Start now does")
+    void joinAtStartDueNowWaitsForAnEarlierCallOnTheLink() throws Exception {
+        consultantAtMidday();
+        Instant now = Instant.now().truncatedTo(ChronoUnit.SECONDS);
+        moveCallTo(now.plus(Duration.ofMinutes(1)), now.plus(Duration.ofMinutes(31)));
+        gateway.deliverNext(List.of(new CalendarEventChanged(grantId, new CalendarEvent("call-0",
+                "Earlier interview", now.minus(Duration.ofMinutes(20)), now.plus(Duration.ofMinutes(5)),
+                List.of(MAILBOX, "priya@" + domain), "https://meet.google.com/abc-defg-hij", "Google Meet"))));
+        mvc.perform(post("/api/v1/outreach/webhooks/mailbox")
+                        .header("X-Nylas-Signature", RecordingMailboxGateway.VALID_SIGNATURE)
+                        .contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isOk());
+
+        schedule().andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("NOTETAKER_LINK_IN_USE"));
         assertThat(recall.sent()).isEmpty();
     }
 
@@ -1086,6 +1192,13 @@ class NotetakerIntegrationTest extends FlowTestSupport {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.fieldErrors['" + suggestion(asked, "motivation").get("id").asText() + "']")
                         .exists());
+        // Both go into the one section, so a section too full for them together is named on each.
+        review(recordingId, Map.of("motivation", "", "expected-package", ""))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.fieldErrors['" + suggestion(asked, "motivation").get("id").asText() + "']")
+                        .exists())
+                .andExpect(jsonPath("$.fieldErrors['" + suggestion(asked, "expected-package").get("id").asText()
+                        + "']").exists());
 
         assertThat(noticeHeld()).isNull();
         assertThat(jdbc.queryForObject("select count(*) from app_lm_task where candidate_id = ?::uuid and title = "

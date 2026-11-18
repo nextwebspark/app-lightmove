@@ -218,12 +218,53 @@ class InterviewCopilotRulesTest {
     @Test
     @DisplayName("a question ticked during a run stays ticked")
     void consultantWinsOverARun() {
+        LiveCoaching before = new LiveCoaching(List.of(), List.of(), List.of(), CoachState.RUNNING);
         LiveCoaching reading = new LiveCoaching(List.of(), List.of(), List.of("q-a"), CoachState.RUNNING);
         LiveCoaching meanwhile = new LiveCoaching(List.of(), List.of(), List.of("q-b"), CoachState.RUNNING);
 
-        LiveCoaching kept = InterviewCoachWorker.reconciled(reading, meanwhile);
+        LiveCoaching kept = InterviewCoachWorker.reconciled(reading, before, meanwhile);
 
         assertThat(kept.asked()).containsExactlyInAnyOrder("q-a", "q-b");
+    }
+
+    @Test
+    @DisplayName("a question unticked during a run stays unticked: the run gave back only the list it was handed")
+    void anUntickDuringARunWins() {
+        LiveCoaching before = new LiveCoaching(List.of(), List.of(), List.of("q-a"), CoachState.RUNNING);
+        LiveCoaching reading = new LiveCoaching(List.of(), List.of(), List.of("q-a", "q-c"), CoachState.RUNNING);
+        LiveCoaching meanwhile = new LiveCoaching(List.of(), List.of(), List.of(), CoachState.RUNNING);
+
+        LiveCoaching kept = InterviewCoachWorker.reconciled(reading, before, meanwhile);
+
+        assertThat(kept.asked()).containsExactly("q-c");
+    }
+
+    @Test
+    @DisplayName("a gap timed on the consultant's question after the executive's line is not heard")
+    void aGapOnTheNextLineIsNotHeard() {
+        Instant start = Instant.parse("2026-10-27T10:00:00Z");
+        List<InterviewCoach.HeardLine> lines = List.of(
+                new InterviewCoach.HeardLine(start.plusSeconds(110), "Priya", "I run the finance team.", false, true),
+                new InterviewCoach.HeardLine(start.plusSeconds(123), "Yara", "And your notice is three months, right?",
+                        true, false));
+
+        assertThat(InterviewCoach.verifiedGaps(List.of(new CoachAnswer.GapHeard("NOTICE", "02:03")), lines, start))
+                .isEmpty();
+        assertThat(InterviewCoach.verifiedGaps(List.of(new CoachAnswer.GapHeard("NOTICE", "02:02")), lines, start))
+                .extracting(CoachAnswer.GapHeard::gap).containsExactly("NOTICE");
+    }
+
+    @Test
+    @DisplayName("a quote stands only on whole words of the executive's turn")
+    void aQuoteIsMatchedOnWholeWords() {
+        Instant start = Instant.parse("2026-10-27T10:00:00Z");
+        List<InterviewCoach.HeardLine> lines = List.of(new InterviewCoach.HeardLine(start.plusSeconds(10), "Priya",
+                "That report was misleading, so I led the review.", false, true));
+
+        assertThat(InterviewCoach.verifiedCoverage(List.of(
+                new CoachAnswer.Coverage("c1", "EVIDENCED", "lead", "00:10"),
+                new CoachAnswer.Coverage("c2", "EVIDENCED", "I led the review", "00:10")), lines))
+                .extracting(CoachAnswer.Coverage::id).containsExactly("c2");
     }
 
     @Test

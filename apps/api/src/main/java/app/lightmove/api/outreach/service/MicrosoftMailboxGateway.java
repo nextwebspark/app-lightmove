@@ -9,6 +9,7 @@ import app.lightmove.api.outreach.constant.IntegrationProvider;
 import app.lightmove.api.outreach.constant.MeetingVideo;
 import app.lightmove.api.outreach.model.BusyInterval;
 import app.lightmove.api.outreach.model.CalendarEvent;
+import app.lightmove.api.outreach.model.CalendarRead;
 import app.lightmove.api.outreach.model.CalendarSchedule;
 import app.lightmove.api.outreach.model.NewCalendarEvent;
 import app.lightmove.api.outreach.model.EmailAttachment;
@@ -206,7 +207,7 @@ public class MicrosoftMailboxGateway extends OAuthDirectMailboxGateway {
 
     /** A recurring series is never kept: {@code calendarView} answers its occurrences, which {@link #eventOf} drops. */
     @Override
-    public List<CalendarEvent> calendarEvents(String grantId, Instant from, Instant to) {
+    public CalendarRead calendarEvents(String grantId, Instant from, Instant to) {
         String accessToken = accessTokenOf(grantId);
         return pagedEvents(grantId, Map.<String, String>of(), paging -> apiCall("calendar-events", accessToken,
                 client -> client.get()
@@ -392,7 +393,7 @@ public class MicrosoftMailboxGateway extends OAuthDirectMailboxGateway {
 
     /** {@code cancel} rather than a delete: a delete takes the event off our calendar and tells nobody. */
     @Override
-    public void cancelEvent(String grantId, String eventId) {
+    public boolean cancelEvent(String grantId, String eventId) {
         String accessToken = accessTokenOf(grantId);
         try {
             String graphId = graphIdOf(accessToken, eventId);
@@ -400,10 +401,12 @@ public class MicrosoftMailboxGateway extends OAuthDirectMailboxGateway {
                     .uri("/v1.0/me/events/{id}/cancel", graphId)
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(Map.of("comment", "This call has been cancelled.")));
+            return true;
         } catch (VendorException failed) {
             if (!CalendarEventGone.isGone(failed)) {
                 throw failed;
             }
+            return false;
         }
     }
 

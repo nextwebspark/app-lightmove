@@ -43,7 +43,6 @@ class InterviewCoach {
     /** The start and the latest of a long call; what fell out of the middle is already in the reading so far. */
     static final int LONGEST_TRANSCRIPT = 40_000;
     private static final int LONGEST_QUOTE = 300;
-    private static final long GAP_TIME_SLACK_SECONDS = 5;
     private static final long LAST_LINE_SECONDS = 60;
     private static final String TEAM_MARK = " (your team)";
     private static final String OTHER_MARK = " (not the executive)";
@@ -241,12 +240,18 @@ class InterviewCoach {
         return coverage.stream()
                 .filter(moved -> {
                     String quote = textKeyOf(moved.quote());
-                    return !quote.isEmpty() && turns.stream().anyMatch(turn -> turn.contains(quote));
+                    // Padded to whole words: a bare substring let "lead" stand on "misleading".
+                    return !quote.isEmpty() && turns.stream()
+                            .anyMatch(turn -> (" " + turn + " ").contains(" " + quote + " "));
                 })
                 .toList();
     }
 
-    /** A gap is heard only at a time inside one of the executive's lines, from its start to the next line's. */
+    /**
+     * A gap is heard only at a time inside one of the executive's lines, from its start up to the next line's start.
+     * The model copies a line's time as the transcript prints it, so the next line's own time — usually the
+     * consultant's question — is that line's, never the executive's (a padded span once let a question count).
+     */
     static List<CoachAnswer.GapHeard> verifiedGaps(List<CoachAnswer.GapHeard> gaps, List<HeardLine> lines,
                                                   Instant callStart) {
         if (gaps == null) {
@@ -261,7 +266,7 @@ class InterviewCoach {
             long end = index + 1 < lines.size()
                     ? secondsOf(CallTranscriptText.elapsed(callStart, lines.get(index + 1).at()))
                     : start + LAST_LINE_SECONDS;
-            spans.add(new long[] {start - GAP_TIME_SLACK_SECONDS, Math.max(start, end) + GAP_TIME_SLACK_SECONDS});
+            spans.add(new long[] {start, Math.max(start + 1, end)});
         }
         return gaps.stream()
                 .filter(heard -> {
@@ -270,7 +275,7 @@ class InterviewCoach {
                         return false;
                     }
                     long second = secondsOf(at);
-                    return spans.stream().anyMatch(span -> second >= span[0] && second <= span[1]);
+                    return spans.stream().anyMatch(span -> second >= span[0] && second < span[1]);
                 })
                 .toList();
     }

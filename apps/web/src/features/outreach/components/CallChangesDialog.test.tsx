@@ -64,13 +64,14 @@ const PACKAGE: CallSuggestion = {
   appliedBy: null,
 };
 
-function answerOf(suggestions: CallSuggestion[], asked = true): CallSuggestions {
+function answerOf(suggestions: CallSuggestion[], asked = true, suggesting = false): CallSuggestions {
   return {
     recordingId: "r1",
     title: "Intro call",
     startsAt: "2026-10-21T10:00:00Z",
     asked,
     mayAskAgain: asked && suggestions.every((each) => each.status !== "PENDING"),
+    suggesting,
     suggestions,
   };
 }
@@ -277,6 +278,21 @@ describe("CallChangesDialog", () => {
 
     expect(await screen.findByText("3 months")).toBeInTheDocument();
     await waitFor(() => expect(notetakerApi.suggestChanges).toHaveBeenCalledTimes(2));
+  });
+
+  it("reads the transcript itself once another tab's reading ends with nothing stored", async () => {
+    vi.mocked(notetakerApi.getCallSuggestions)
+      .mockResolvedValueOnce(answerOf([], false, true))
+      .mockResolvedValue(answerOf([], false, false));
+    vi.mocked(notetakerApi.suggestChanges)
+      .mockRejectedValueOnce(
+        new ApiRequestError({ code: "NOTETAKER_SUGGESTIONS_RUNNING", detail: "x", status: 409, correlationId: "c" }),
+      )
+      .mockResolvedValueOnce(answerOf([NOTICE]));
+    renderDialog();
+
+    expect(await screen.findByText("3 months", undefined, { timeout: 5_000 })).toBeInTheDocument();
+    expect(notetakerApi.suggestChanges).toHaveBeenCalledTimes(2);
   });
 
   it("says a reading failed when opened again over an unread transcript, rather than reading on", async () => {

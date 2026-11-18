@@ -42,7 +42,9 @@ export function CallChangesDialog({
   const queryClient = useQueryClient();
   const toast = useToast();
   const key = notetakerApi.CALL_SUGGESTIONS_KEY(projectId, candidateId, recordingId);
-  const [isRunningElsewhere, setIsRunningElsewhere] = useState(false);
+  // When another tab's (or the filing's own) reading was found holding the claim; null while this window reads.
+  const [runningElsewhereSince, setRunningElsewhereSince] = useState<number | null>(null);
+  const isRunningElsewhere = runningElsewhereSince !== null;
   const read = useQuery({
     queryKey: key,
     queryFn: ({ signal }) => notetakerApi.getCallSuggestions(projectId, candidateId, recordingId, signal),
@@ -64,7 +66,7 @@ export function CallChangesDialog({
     },
     onError: (error) => {
       if (codeOf(error) === "NOTETAKER_SUGGESTIONS_RUNNING") {
-        setIsRunningElsewhere(true);
+        setRunningElsewhereSince(Date.now());
         return;
       }
       // The billing sheet already says why; the review has nothing to add over it.
@@ -86,6 +88,20 @@ export function CallChangesDialog({
       ask.mutate();
     }
   }, [shouldAsk, ask]);
+  // The other reading let go of the claim with nothing stored (its model failed, or a meter refused it): read by a
+  // reply fetched since, this window reads the transcript itself rather than waiting on "Reading…" for good.
+  const hasOtherReadingEnded =
+    runningElsewhereSince !== null &&
+    read.dataUpdatedAt > runningElsewhereSince &&
+    answer !== undefined &&
+    !answer.asked &&
+    !answer.suggesting;
+  useEffect(() => {
+    if (hasOtherReadingEnded) {
+      askedOnce.current = false;
+      setRunningElsewhereSince(null);
+    }
+  }, [hasOtherReadingEnded]);
 
   const suggestions = answer?.suggestions ?? [];
   const waiting = suggestions.filter((suggestion) => suggestion.status === "PENDING");
@@ -170,7 +186,7 @@ export function CallChangesDialog({
             canRetry={codeOf(askFailure) !== "VALIDATION_FAILED"}
             onRetry={() => {
               setAskFailure(null);
-              setIsRunningElsewhere(false);
+              setRunningElsewhereSince(null);
               ask.mutate();
             }}
             onApply={() => review.mutate(toApply)}

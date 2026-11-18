@@ -130,6 +130,8 @@ export interface CallSuggestions {
   startsAt: string;
   asked: boolean;
   mayAskAgain: boolean;
+  /** A reading holds the call's claim: false with nothing asked means one ended without storing anything. */
+  suggesting: boolean;
   suggestions: CallSuggestion[];
 }
 

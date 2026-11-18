@@ -524,8 +524,98 @@ class MeetingIntegrationTest extends FlowTestSupport {
         assertThat(gateway.cancelled()).containsExactly(eventId);
         assertThat(meetingsOf(priya).get("upcoming")).isEmpty();
         assertThat(meetingRows()).isZero();
-        assertThat(activityKinds(priya)).endsWith("MEETING_CANCELLED");
+        // The call's debrief is cancelled with it, off the request thread, so its line may land either side.
+        assertThat(activityKinds(priya)).contains("MEETING_CANCELLED");
         assertThat(candidateStatus(priya)).isEqualTo("engaged");
+    }
+
+    @Test
+    @DisplayName("a booked call's debrief moves with the call, and goes when the call is cancelled")
+    void theDebriefFollowsTheCall() throws Exception {
+        String priya = executive("Priya Raman", "priya@" + domain);
+        connectMailbox();
+        Instant slot = tomorrowAt(10, 0);
+        book(priya, slot, 30, "priya@" + domain).andExpect(status().isOk());
+        String meetingId = meetingsOf(priya).get("upcoming").get(0).get("id").asText();
+        assertThat(debriefEventually(priya, "OPEN", slot.plus(Duration.ofMinutes(30)))).isTrue();
+
+        Instant later = slot.plus(Duration.ofHours(2));
+        reschedule(priya, meetingId, later, 45).andExpect(status().isNoContent());
+        assertThat(debriefEventually(priya, "OPEN", later.plus(Duration.ofMinutes(45)))).isTrue();
+
+        as(consultant, delete(meetings(priya) + "/" + meetingId)).andExpect(status().isNoContent());
+        assertThat(debriefEventually(priya, "CANCELLED", later.plus(Duration.ofMinutes(45)))).isTrue();
+    }
+
+    @Test
+    @DisplayName("a call cancelled and booked again at the same time is filed a debrief of its own")
+    void aRebookedCallIsFiledItsOwnDebrief() throws Exception {
+        String priya = executive("Priya Raman", "priya@" + domain);
+        connectMailbox();
+        Instant slot = tomorrowAt(10, 0);
+        Instant callEnd = slot.plus(Duration.ofMinutes(30));
+        book(priya, slot, 30, "priya@" + domain).andExpect(status().isOk());
+        assertThat(debriefEventually(priya, "OPEN", callEnd)).isTrue();
+        String meetingId = meetingsOf(priya).get("upcoming").get(0).get("id").asText();
+        as(consultant, delete(meetings(priya) + "/" + meetingId)).andExpect(status().isNoContent());
+        assertThat(debriefEventually(priya, "CANCELLED", callEnd)).isTrue();
+
+        book(priya, slot, 30, "priya@" + domain).andExpect(status().isOk());
+
+        assertThat(debriefEventually(priya, "OPEN", callEnd)).isTrue();
+    }
+
+    @Test
+    @DisplayName("a call booked at the time another call moved away from is filed a debrief of its own")
+    void aCallBookedAtAMovedCallsOldTimeIsFiledItsDebrief() throws Exception {
+        String priya = executive("Priya Raman", "priya@" + domain);
+        connectMailbox();
+        Instant slot = tomorrowAt(10, 0);
+        book(priya, slot, 30, "priya@" + domain).andExpect(status().isOk());
+        assertThat(debriefEventually(priya, "OPEN", slot.plus(Duration.ofMinutes(30)))).isTrue();
+        String meetingId = meetingsOf(priya).get("upcoming").get(0).get("id").asText();
+        Instant later = slot.plus(Duration.ofHours(2));
+        reschedule(priya, meetingId, later, 30).andExpect(status().isNoContent());
+        assertThat(debriefEventually(priya, "OPEN", later.plus(Duration.ofMinutes(30)))).isTrue();
+
+        book(priya, slot, 30, "priya@" + domain).andExpect(status().isOk());
+
+        assertThat(debriefEventually(priya, "OPEN", slot.plus(Duration.ofMinutes(30)))).isTrue();
+    }
+
+    @Test
+    @DisplayName("cancelling a call already deleted on the calendar says so, rather than that the executive was told")
+    void cancellingACallGoneFromTheCalendar() throws Exception {
+        String priya = executive("Priya Raman", "priya@" + domain);
+        connectMailbox();
+        book(priya, tomorrowAt(10, 0), 30, "priya@" + domain).andExpect(status().isOk());
+        String meetingId = meetingsOf(priya).get("upcoming").get(0).get("id").asText();
+        gateway.failChangingEvents(new VendorException(VendorCall.of("nylas", "cancel-event"),
+                VendorFailureKind.NOT_FOUND, null));
+
+        assertThat(codeOf(as(consultant, delete(meetings(priya) + "/" + meetingId))
+                .andExpect(status().isConflict()).andReturn())).isEqualTo("MEETING_GONE");
+
+        assertThat(gateway.cancelled()).isEmpty();
+        assertThat(meetingRows()).isZero();
+        assertThat(activityKinds(priya)).doesNotContain("MEETING_CANCELLED");
+        assertThat(jdbc.queryForObject("select status from app_lm_mailbox_connection where workspace_id = ?::uuid",
+                String.class, workspaceId)).isEqualTo("ACTIVE");
+    }
+
+    /** The debrief rule files and follows off the request thread, after the commit; waited for, briefly. */
+    private boolean debriefEventually(String candidateId, String taskStatus, Instant dueAt)
+            throws InterruptedException {
+        for (int attempt = 0; attempt < 100; attempt++) {
+            Integer found = jdbc.queryForObject("select count(*) from app_lm_task where rule = 'BOOKED_CALL' "
+                    + "and candidate_id = ?::uuid and status = ? and due_at = ?", Integer.class, candidateId,
+                    taskStatus, java.sql.Timestamp.from(dueAt));
+            if (found != null && found == 1) {
+                return true;
+            }
+            Thread.sleep(50);
+        }
+        return false;
     }
 
     @Test

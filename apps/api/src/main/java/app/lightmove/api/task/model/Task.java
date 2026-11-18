@@ -82,7 +82,7 @@ public class Task extends BaseEntity {
     @Column(name = "rule", length = 16, updatable = false)
     private TaskRule rule;
 
-    @Column(name = "rule_key", length = 160, updatable = false)
+    @Column(name = "rule_key", length = 160)
     private String ruleKey;
 
     /** Null when a rule filed it. */
@@ -172,6 +172,13 @@ public class Task extends BaseEntity {
         this.status = TaskStatus.OPEN;
         this.completedBy = null;
         this.completedAt = null;
+    }
+
+    /** A rule's task that stands for another event now, or for none, gives up the key the first one claimed. */
+    public void rekey(String newRuleKey) {
+        if (ruleKey != null && newRuleKey != null) {
+            this.ruleKey = newRuleKey;
+        }
     }
 
     public void cancel() {

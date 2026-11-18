@@ -186,6 +186,7 @@ export type ApiErrorCode =
   | "MEETING_SLOT_TAKEN"
   | "MEETING_SLOT_INVALID"
   | "MEETING_BOOK_FAILED"
+  | "MEETING_BOOK_UNCONFIRMED"
   | "MEETING_CALENDAR_UNAVAILABLE"
   | "MEETING_NOT_EDITABLE"
   | "MEETING_NOT_YOURS"
@@ -417,6 +418,7 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   MEETING_SLOT_TAKEN: "That time is no longer free. Pick another.",
   MEETING_SLOT_INVALID: "That time can't be booked. Pick one from the grid.",
   MEETING_BOOK_FAILED: "The invite couldn't be sent. Check your calendar before trying again.",
+  MEETING_BOOK_UNCONFIRMED: "The invite was sent, but your calendar didn't confirm it. Refresh before booking again.",
   MEETING_CALENDAR_UNAVAILABLE: "Your calendar couldn't be read. Try again in a moment, or reconnect your mailbox if it keeps failing.",
   MEETING_NOT_EDITABLE: "This call can only be changed from the calendar it's on.",
   MEETING_NOT_YOURS: "Only the person whose calendar holds this call can change it.",
