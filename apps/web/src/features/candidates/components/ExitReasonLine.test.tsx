@@ -9,6 +9,7 @@ import type { ExitReason } from "../../workspace/api/types";
 import * as candidatesApi from "../api/candidatesApi";
 import type { CandidateExitReason } from "../api/types";
 import { ExitReasonLine } from "./ExitReasonLine";
+import { ExitReasonPill } from "./ExitReasonPill";
 
 vi.mock("../../workspace/api/pipelineApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../workspace/api/pipelineApi")>()),
@@ -48,15 +49,18 @@ function renderLine(held: CandidateExitReason | null, variant: "line" | "pill" =
   return render(
     <QueryClientProvider client={client}>
       <ToastProvider>
-        <ExitReasonLine
-          projectId="p1"
-          candidateId="c1"
-          name="Layla Haddad"
-          statusKey="notInterested"
-          given={held}
-          canChange
-          variant={variant}
-        />
+        {variant === "pill" ? (
+          <ExitReasonPill projectId="p1" candidateId="c1" name="Layla Haddad" statusKey="notInterested" given={held} />
+        ) : (
+          <ExitReasonLine
+            projectId="p1"
+            candidateId="c1"
+            name="Layla Haddad"
+            statusKey="notInterested"
+            given={held}
+            canChange
+          />
+        )}
       </ToastProvider>
     </QueryClientProvider>,
   );
@@ -91,6 +95,29 @@ describe("ExitReasonLine", () => {
 
     expect(candidatesApi.changeExitReason).toHaveBeenCalledWith("p1", "c1", { reasonId: "timing", note: null });
     expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+  });
+
+  it("walks the pill's list from the keyboard, one tab stop and the arrows", async () => {
+    renderLine(null, "pill");
+
+    await userEvent.click(await screen.findByRole("button", { name: "Why Layla Haddad left: Not given" }));
+    const list = await screen.findByRole("listbox", { name: "Why Layla Haddad left" });
+    expect(list).toHaveFocus();
+    expect(screen.getByRole("option", { name: "Timing" })).not.toHaveAttribute("tabindex");
+    await userEvent.keyboard("{ArrowDown}{Enter}");
+
+    expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+    expect(await screen.findByRole("dialog", { name: "Change why Layla Haddad left" })).toBeInTheDocument();
+  });
+
+  it("reopens the held reason's note when the pill's list picks it again", async () => {
+    renderLine(given(), "pill");
+
+    await userEvent.click(await screen.findByRole("button", { name: /^Why Layla Haddad left: / }));
+    await userEvent.click(await screen.findByRole("option", { name: given().label }));
+
+    expect(await screen.findByRole("dialog", { name: "Change why Layla Haddad left" })).toBeInTheDocument();
+    expect(candidatesApi.changeExitReason).not.toHaveBeenCalled();
   });
 
   it("reopens a held reason's note, which the select alone cannot, and saves the corrected note", async () => {

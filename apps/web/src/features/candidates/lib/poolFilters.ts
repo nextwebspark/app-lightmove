@@ -193,7 +193,17 @@ export function poolColumnFilters(
   };
 }
 
-/** The server answers one view at a time, so a second tick replaces the first. No column carries it; the Filter button does. */
+/**
+ * The Show filter's ticks, read as the one view the server answers: the newest tick wins, unticking the view in force
+ * shows everyone. `ticked` is the list the check filter hands back after one tick or untick.
+ */
+export function pickedView(ticked: readonly string[], current: PoolView): PoolView {
+  const added = VIEWS.find((option) => option.value !== current && ticked.includes(option.value));
+  if (added) return added.value;
+  return ticked.includes(current) ? current : "all";
+}
+
+/** No column carries the view; the Filter button does. */
 function viewFilter(
   filters: PoolFilters,
   onChange: Dispatch<SetStateAction<PoolFilters>>,
@@ -208,11 +218,7 @@ function viewFilter(
         (sources.showsConsentViews || !CONSENT_VIEWS.includes(option.value)),
     ),
     selected: filters.view === "all" ? [] : [filters.view],
-    onChange: (selected) =>
-      onChange((current) => ({
-        ...current,
-        view: (selected.find((value) => value !== current.view) ?? (selected.length > 0 ? current.view : "all")) as PoolView,
-      })),
+    onChange: (selected) => onChange((current) => ({ ...current, view: pickedView(selected, current.view) })),
     "aria-label": "Filter by who to show",
   };
 }

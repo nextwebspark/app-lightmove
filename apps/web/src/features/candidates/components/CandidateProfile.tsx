@@ -59,7 +59,7 @@ import type { ActivityExecutive } from "../lib/activityPresentation";
 import { candidateGenderLabel } from "../lib/candidateVocabulary";
 import { isOutOfProcess, statusStyle } from "../lib/pipelineStatus";
 import { usePipelineCatalog } from "../../workspace/lib/usePipelineCatalog";
-import { ExitReasonLine } from "./ExitReasonLine";
+import { ExitReasonPill } from "./ExitReasonPill";
 import { careerSummary } from "../lib/careerTimeline";
 import { compensationFoldSummary, documentsFoldSummary, scrollToFold } from "../lib/profileFolds";
 import { useBackgroundSuggestion } from "../lib/useBackgroundSuggestion";
@@ -473,14 +473,12 @@ export function CandidateProfile({
                 />
               )}
               {canWrite && isOutOfProcess(candidate.status, catalog) ? (
-                <ExitReasonLine
-                  variant="pill"
+                <ExitReasonPill
                   projectId={projectId}
                   candidateId={candidate.id}
                   name={candidate.fullName}
                   statusKey={candidate.status}
                   given={exitReasons.data?.find((given) => given.candidateId === candidate.id) ?? null}
-                  canChange
                   className="min-w-0"
                 />
               ) : (

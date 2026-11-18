@@ -30,6 +30,8 @@ import {
 } from "../../lib/activityPresentation";
 import { STOP_REASONS, statusLabel } from "../../lib/candidateActivity";
 import { isContactNote, noteKindLabel, noteKindOf } from "../../lib/noteKinds";
+import { isOutOfProcess } from "../../lib/pipelineStatus";
+import { usePipelineCatalog } from "../../../workspace/lib/usePipelineCatalog";
 import { outcomeLabel } from "../../lib/noteOutcomes";
 import { StatusPill } from "./ActivityItems";
 import { ActorFace, EntryKindTile } from "./ActivityVisuals";
@@ -157,6 +159,7 @@ function DetailBody({
   taskState: TaskState | undefined;
   onPreviewDocument: (document: PersonDocument, version: PersonDocumentVersion) => void;
 }) {
+  const { catalog } = usePipelineCatalog();
   const { details } = entry;
   switch (entry.kind) {
     case "NOTE_ADDED":
@@ -181,7 +184,7 @@ function DetailBody({
           <div className="flex items-center justify-center gap-3 rounded-xl border border-u-border bg-u-bg p-4">
             {details.from && <StatusPill label={statusLabel(details.from, details.fromLabel)} />}
             {details.from && <Icon d={ICONS.arrowRight} size={16} className="text-u-text3" />}
-            <StatusPill label={statusLabel(details.to, details.toLabel)} statusKey={details.to} isCurrent />
+            <StatusPill label={statusLabel(details.to, details.toLabel)} isCurrent leftProcess={isOutOfProcess(details.to, catalog)} />
           </div>
           <Facts
             rows={[

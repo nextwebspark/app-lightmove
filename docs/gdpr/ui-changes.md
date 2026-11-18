@@ -98,9 +98,9 @@ longer data-protection sentence (flag on).
 
 Route `/candidates`. Sidebar: **Candidates** (mobile: the Candidates tab). Staff only.
 
-### 2.1 Quick views (toolbar, above the grid)
+### 2.1 Views (toolbar Filter → Show, one at a time)
 
-| Quick view | Shows | Shown when | PR |
+| View | Shows | Shown when | PR |
 |---|---|---|---|
 | Not notified | Held more than 30 days and never told | Flag on | #1328 |
 | Asked, no answer | An open consent request | Consent mode | #1341 |

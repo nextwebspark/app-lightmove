@@ -2,8 +2,7 @@ import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { Icon, ICONS } from "../../../../components/layout/Icon";
 import { cn } from "../../../../lib/cn";
 import { NoteText } from "../../../notes/components/NoteText";
-import { usePipelineCatalog } from "../../../workspace/lib/usePipelineCatalog";
-import { isOutOfProcess } from "../../lib/pipelineStatus";
+import type { PipelineCatalog } from "../../../workspace/api/types";
 import { NoteOutcomePill } from "../NoteParts";
 import type { FieldChange, PersonNote, PersonTimelineEntry } from "../../api/types";
 import {
@@ -36,6 +35,8 @@ interface ItemProps {
   taskStates?: ReadonlyMap<string, TaskState>;
   /** On the person-wide timeline, a card made on a position names it. */
   showsPosition?: boolean;
+  /** The workspace's statuses, so a move out of process reads red. */
+  catalog?: PipelineCatalog;
 }
 
 const CARD = cn(
@@ -47,10 +48,10 @@ const CARD = cn(
  * Every event is one card on the spine, its kind's tile beside it and who and when on top: a note or a call runs
  * taller with its preview, a tag or a ticked task is the header and one line.
  */
-export function ActivityCard({ entry, executive, now, onOpen, notes, taskStates, showsPosition = false }: ItemProps) {
+export function ActivityCard({ entry, executive, now, onOpen, notes, taskStates, showsPosition = false, catalog }: ItemProps) {
   const actor = actorOf(entry);
   const name = actorNameOf(actor, executive);
-  const preview = previewOf(entry);
+  const preview = previewOf(entry, catalog);
   const note = preview?.type === "note" && entry.details.noteId ? notes?.get(entry.details.noteId) : undefined;
   const taskState = entry.details.taskId ? taskStates?.get(entry.details.taskId) : undefined;
   const aside = preview ? null : asideOf(entry);
@@ -252,7 +253,7 @@ export function PreviewOf({ preview, taskState = "open" }: { preview: ActivityPr
         <span className="flex flex-wrap items-center gap-1.5 text-note text-u-text3">
           {preview.from && <StatusPill label={preview.from} />}
           {preview.from && <Icon d={ICONS.arrowRight} size={13} className="text-u-text3" />}
-          <StatusPill label={preview.to} statusKey={preview.toKey} isCurrent />
+          <StatusPill label={preview.to} isCurrent leftProcess={preview.leftProcess} />
           {preview.cause && <span>{preview.cause}</span>}
           {preview.reason && <span>Why: {preview.reason}</span>}
         </span>
@@ -387,20 +388,18 @@ export function ChangeLine({ change }: { change: FieldChange }) {
 /** The status a move landed on reads green, or red where it took them out of process. */
 export function StatusPill({
   label,
-  statusKey,
   isCurrent = false,
+  leftProcess = false,
 }: {
   label: string;
-  statusKey?: string;
   isCurrent?: boolean;
+  leftProcess?: boolean;
 }) {
-  const { catalog } = usePipelineCatalog();
-  const isOut = isCurrent && statusKey !== undefined && isOutOfProcess(statusKey, catalog);
   return (
     <span
       className={cn(
         "inline-flex items-center rounded-full px-2 py-px text-note font-medium",
-        isOut
+        isCurrent && leftProcess
           ? "bg-u-offlimits-tint text-u-offlimits"
           : isCurrent
             ? "bg-u-direct-tint text-u-direct"

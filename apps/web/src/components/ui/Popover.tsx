@@ -47,16 +47,18 @@ export function Popover({
   useEffect(() => {
     if (!open) return;
     const close = () => setAnchor(null);
+    const isInside = (target: EventTarget | null) =>
+      target instanceof Node &&
+      (Boolean(panelRef.current?.contains(target)) || isInLaterPanel(panelRef.current, target));
     const closeOnOutside = (event: MouseEvent) => {
-      const target = event.target as Node;
-      if (triggerRef.current?.contains(target) || panelRef.current?.contains(target) || isInLaterPanel(panelRef.current, target)) return;
+      if (triggerRef.current?.contains(event.target as Node) || isInside(event.target)) return;
       close();
     };
     // A scroll inside the panel itself — the checkbox list, or the panel's own overflow — must not
     // close it; only a scroll of whatever sits *behind* it (the table, the page) would strand the
     // fixed position, and that is the one this exists to answer.
     const closeOnOutsideScroll = (event: Event) => {
-      if (event.target instanceof Node && (panelRef.current?.contains(event.target) || isInLaterPanel(panelRef.current, event.target))) return;
+      if (isInside(event.target)) return;
       close();
     };
     document.addEventListener("mousedown", closeOnOutside);
@@ -99,9 +101,7 @@ export function Popover({
 
   useEffect(() => {
     if (openOnMount) setAnchor(triggerRef.current?.getBoundingClientRect() ?? null);
-    // Once, as the line it opens is added.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [openOnMount]);
 
   const panelWidth = (box: DOMRect) => (width === "trigger" ? Math.max(box.width, 200) : width);
 
@@ -153,8 +153,10 @@ export function Popover({
 }
 
 /**
- * A popover opened from inside this one is portalled after it, so a click or scroll in that later panel is not outside
- * this one; one in an earlier panel (the panel this opened from) still is.
+ * Whether `target` sits in a popover opened from inside this one. Every panel is portalled to the end of `<body>` as it
+ * opens, so one opened from this panel always comes after it in the document, and the panel this one was opened from
+ * comes before it: a click there is still outside. Two unrelated popovers are never open at once, since opening one is
+ * a click outside the other.
  */
 function isInLaterPanel(own: HTMLElement | null, target: Node): boolean {
   const other = (target instanceof Element ? target : target.parentElement)?.closest("[data-popover-panel]");
