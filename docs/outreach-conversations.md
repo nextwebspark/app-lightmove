@@ -315,7 +315,8 @@ Groups, first match wins:
 - `ATTENTION`: an open task the bounce rule filed; or their latest run stopped `SEND_FAILED | SEND_UNCERTAIN |
   MAILBOX_INACTIVE | MAILBOX_MOVED | ADDRESS_REMOVED` with nothing sent to them since. The row's `action` is the
   bounce task, else their soonest open task, and null only when nothing is open; a failed run leaves the group once
-  an email goes to them again.
+  an email goes to them again. A failed own email counts too, unless it failed `DO_NOT_CONTACT | OPTED_OUT |
+  PROCESSING_RESTRICTED | UNMAPPED | SENDER_WITHOUT_ACCESS` — nothing anyone could do would clear it.
 - `NEEDS_REPLY`: an open task the reply rule filed. Decision 6 holds strictly: with the reply rule switched off a
   reply shows in All conversations and the bell, not here, since nothing could mark it handled.
 - `PREPARATION`: an open task, and no email ever sent to them on this position.
@@ -500,7 +501,8 @@ body. It warns and never refuses (`docs/recently-approached.md`).
      links http/https/mailto only, an image as its alt text, a mention as `@Name`. The Markdown is kept as `body_text`.
    - `OutreachMessageSendService` is the dispatcher's second loop, `OutreachSendService`'s shape: a scheduled email is
      held to the daily cap only (deferred to the next day's window start), never to a sequence's window; a failure is
-     a FAILED line — Attention in the queue, Mine for its sender — and never retried; a send recorded nowhere is marked
+     a FAILED line — Attention in the queue (unless the person or the position refused it), Mine for its sender — and
+     never retried; a send recorded nowhere is marked
      sent by `OutreachMessageClaims.recordDelivered`, and one that went after another instance failed its claim as
      uncertain is recorded sent all the same. At send it asks again what the composer asked, and two things more: a
      reply's thread must still be this mailbox's gateway and address (`MAILBOX_MOVED`; a first email goes from the

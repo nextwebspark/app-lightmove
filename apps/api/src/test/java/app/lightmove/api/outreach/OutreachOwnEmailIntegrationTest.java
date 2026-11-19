@@ -426,7 +426,7 @@ class OutreachOwnEmailIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("marked do not contact while it waited, the email fails unsent and the queue asks for attention")
+    @DisplayName("marked do not contact while it waited, the email fails unsent and asks no attention it could never clear")
     void doNotContactAtSendFailsIt() throws Exception {
         String id = send("""
                 {"toAddress":"%s","subject":"Hi","replyInThread":false,"body":"Hello"}""".formatted(priyaAddress))
@@ -439,7 +439,8 @@ class OutreachOwnEmailIntegrationTest extends FlowTestSupport {
         assertThat(line(id)).containsEntry("status", "FAILED").containsEntry("fail_reason", "DO_NOT_CONTACT");
         JsonNode queue = body(as(consultant, get(outreach("/conversations")).param("view", "needs"))
                 .andExpect(status().isOk()).andReturn());
-        assertThat(queue.at("/rows/0/group").asText()).isEqualTo("ATTENTION");
+        assertThat(queue.at("/rows")).isEmpty();
+        assertThat(queue.at("/counts/needs").asInt()).isZero();
     }
 
     @Test

@@ -116,6 +116,11 @@ public class ConversationService {
     private static final Set<PersonActivityKind> HISTORY_KINDS = EnumSet.of(PersonActivityKind.OUTREACH_ENROLLED,
             PersonActivityKind.OUTREACH_STOPPED, PersonActivityKind.STATUS_CHANGED);
 
+    /** An own email failed for these is the person's or the position's doing: there is nothing to retry or fix. */
+    private static final Set<OutreachStopReason> UNACTIONABLE_OWN_FAILURES = EnumSet.of(
+            OutreachStopReason.DO_NOT_CONTACT, OutreachStopReason.OPTED_OUT, OutreachStopReason.PROCESSING_RESTRICTED,
+            OutreachStopReason.UNMAPPED, OutreachStopReason.SENDER_WITHOUT_ACCESS);
+
     private static final Comparator<Instant> LATEST_FIRST = Comparator.nullsLast(Comparator.reverseOrder());
     private static final Comparator<Instant> SOONEST_FIRST = Comparator.nullsLast(Comparator.naturalOrder());
 
@@ -407,7 +412,9 @@ public class ConversationService {
             boolean failedSend = run != null && run.getStatus() == EnrollmentStatus.STOPPED
                     && FAILED_SEND.contains(run.getStopReason())
                     && (lastSentAt == null || runEnded == null || !lastSentAt.isAfter(runEnded));
-            boolean ownEmailFailed = latestMessage != null && latestMessage.getStatus() == MessageStatus.FAILED;
+            // Only a failure someone can act on: an own email failed because the person opted out or may not be
+            // contacted once kept them under Delivery problems for good, with nothing left to send or mark handled.
+            boolean ownEmailFailed = isActionableFailure(latestMessage);
 
             ConversationGroup group = null;
             CandidateOpenTaskDto action = null;
@@ -432,6 +439,11 @@ public class ConversationService {
                     lastActivityAt, senders, met, !tasks.isEmpty());
         }
 
+        private static boolean isActionableFailure(OutreachMessage message) {
+            return message != null && message.getStatus() == MessageStatus.FAILED
+                    && !UNACTIONABLE_OWN_FAILURES.contains(message.getFailReason());
+        }
+
         /** Someone the conversation has something about: an email, one still to go, a run, a meeting or a task. */
         boolean isInConversation() {
             return run != null || latestMessage != null || scheduledAt != null || met || hasTasks;
@@ -442,7 +454,7 @@ public class ConversationService {
             if (action != null) {
                 return action.assignee() != null && userId.equals(action.assignee().userId());
             }
-            if (latestMessage != null && latestMessage.getStatus() == MessageStatus.FAILED) {
+            if (isActionableFailure(latestMessage)) {
                 return userId.equals(latestMessage.getSenderUserId());
             }
             return run != null && userId.equals(run.getSenderUserId());
