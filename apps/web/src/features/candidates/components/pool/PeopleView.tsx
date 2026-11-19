@@ -1,9 +1,9 @@
-import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { RowSelectionState } from "@tanstack/react-table";
 import { useEffect, useMemo, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { Link } from "react-router-dom";
 import { Icon, ICONS } from "../../../../components/layout/Icon";
-import { EmptyState, FullscreenButton } from "../../../../components/ui";
+import { EmptyState, FullscreenButton, useToast } from "../../../../components/ui";
 import { ColumnPicker, hideableColumnsOf } from "../../../../components/ui/ColumnPicker";
 import { CompanyLogo } from "../../../../components/ui/CompanyLogo";
 import { DataGrid } from "../../../../components/ui/DataGrid";
@@ -85,6 +85,17 @@ export function PeopleView({
   const [rowSelection, setRowSelection] = useState<RowSelectionState>(NOTHING_SELECTED);
   const [asCards] = useState(isBelowTableWidth);
   const [dialog, setDialog] = useState<BulkDialog>(null);
+  const toast = useToast();
+  const refreshing = useMutation({
+    mutationFn: (personIds: string[]) => refreshResearchInBatches(personIds),
+    onSuccess: (sent) =>
+      toast.success(
+        sent === 0
+          ? "Nobody ticked has a LinkedIn profile to research"
+          : `Refreshing research for ${sent === 1 ? "1 person" : `${sent} people`} — profiles update in a minute or two`,
+      ),
+    onError: (error) => toast.error(messageFor(error)),
+  });
   const [layout, setLayout] = useGridLayout("candidatePool", POOL_LAYOUT_COLUMNS);
   const [columnVisibility, setColumnVisibility] = useColumnVisibility(
     "candidatePool",
@@ -263,6 +274,12 @@ export function PeopleView({
                     <SelectionAction icon={ICONS.position} label="Add to position" onClick={() => setDialog("position")} />
                     <SelectionAction icon={ICONS.tag} label="Tag" onClick={() => setDialog("tag")} />
                     <SelectionAction icon={ICONS.profile} label="Set owner" onClick={() => setDialog("owner")} />
+                    <SelectionAction
+                      icon={ICONS.sparkle}
+                      label={refreshing.isPending ? "Refreshing…" : "Refresh research"}
+                      disabled={refreshing.isPending}
+                      onClick={() => refreshing.mutate(selectedIds)}
+                    />
                     {dataProtection && (
                       <SelectionAction icon={ICONS.mail} label="Privacy notice" onClick={() => setDialog("notice")} />
                     )}
@@ -359,6 +376,15 @@ export function PeopleView({
 }
 
 /** How many of the ticked people on this page each position already holds. */
+/** The server takes fifty a request; a larger page is sent fifty at a time. */
+async function refreshResearchInBatches(personIds: string[]): Promise<number> {
+  let sent = 0;
+  for (let start = 0; start < personIds.length; start += 50) {
+    sent += (await poolApi.refreshResearchOfPeople(personIds.slice(start, start + 50))).changed;
+  }
+  return sent;
+}
+
 function alreadyInByPositionOf(rows: PoolRow[], selection: RowSelectionState): Map<string, number> {
   const counts = new Map<string, number>();
   for (const row of rows) {

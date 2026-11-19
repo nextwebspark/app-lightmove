@@ -555,6 +555,49 @@ class CandidatePoolCrmIntegrationTest extends FlowTestSupport {
         assertThat(pool(Map.of(), outsider).get("poolSize").asLong()).isZero();
     }
 
+    @Test
+    @DisplayName("the person record carries what research vendors kept, and research is asked for again only where it can be")
+    void researchKeptIsReadAndAskedForAgain() throws Exception {
+        firm("Pool Research Firm");
+        String cfo = mandate("Chief Financial Officer");
+        String researched = add(cfo, """
+                {"fullName":"Fatima Al Mazrouei","linkedinUrl":"https://www.linkedin.com/in/fatima-sample"}""")
+                .get("personId").asText();
+        String unlinked = add(cfo, """
+                {"fullName":"Rajesh Menon"}""").get("personId").asText();
+        db.update("""
+                insert into app_lm_person_vendor_record (person_id, workspace_id, provider, record, details, vendor_seen_at)
+                select id, workspace_id, 'brightdata', '{"followers":1200}'::jsonb,
+                       '{"followers":1200,"honorsAndAwards":[{"title":"CFO of the Year"}]}'::jsonb,
+                       '2026-11-01T00:00:00Z'::timestamptz
+                from app_lm_person where id = ?::uuid""", researched);
+
+        JsonNode record = body(mvc.perform(get("/api/v1/candidates/" + researched)
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andReturn());
+        assertThat(record.get("research").get("followers").asLong()).isEqualTo(1200);
+        assertThat(record.get("research").get("honorsAndAwards").get(0).get("title").asText())
+                .isEqualTo("CFO of the Year");
+        assertThat(record.get("researchSeenAt").asText()).startsWith("2026-11-01");
+        assertThat(body(mvc.perform(get("/api/v1/candidates/" + unlinked).header("Authorization", "Bearer " + admin))
+                .andReturn()).get("research").isNull()).isTrue();
+
+        mvc.perform(post("/api/v1/candidates/" + researched + "/research").header("Authorization", "Bearer " + admin))
+                .andExpect(status().isAccepted());
+        assertThat(body(mvc.perform(post("/api/v1/candidates/bulk/research")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"personIds":["%s","%s"]}""".formatted(researched, unlinked)))
+                .andExpect(status().isAccepted())
+                .andReturn()).get("changed").asInt()).isEqualTo(1);
+
+        String client = clientOn(cfo);
+        mvc.perform(post("/api/v1/candidates/" + researched + "/research").header("Authorization", "Bearer " + client))
+                .andExpect(status().isForbidden());
+    }
+
     // ── fixture ──────────────────────────────────────────────────────────────
 
     private void firm(String name) throws Exception {

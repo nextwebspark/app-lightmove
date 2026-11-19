@@ -42,6 +42,8 @@ public class CachedPeopleStore {
     /** A profile index's row says who works where, often without a title or a career: never a profile to file from. */
     public static final String PROFILE_INDEX_PROVIDER = "brightdata-business";
 
+    public static final String BRIGHTDATA_PROVIDER = "brightdata";
+
     /** Lowest first; a provider not listed ranks below them all. */
     private static final String PRECEDENCE = "ARRAY['brightdata', '%s', 'contactout']".formatted(PROFILE_INDEX_PROVIDER);
 
@@ -86,6 +88,18 @@ public class CachedPeopleStore {
                         """,
                 (rs, row) -> rs.getString("raw"), key(linkedinSlug), Timestamp.from(freshAfter), PROFILE_INDEX_PROVIDER)
                 .stream().findFirst().flatMap(this::personOf);
+    }
+
+    /** {@link #find(String, Instant)} with the provider and its own record beside the person. */
+    @Transactional(propagation = Propagation.REQUIRES_NEW, readOnly = true)
+    public Optional<OnFile> findOnFile(String linkedinSlug, Instant freshAfter) {
+        return jdbc.query("""
+                        SELECT provider, raw, source_record FROM app_lm_vendor_person
+                        WHERE linkedin_slug = ? AND fetched_at > ? AND provider <> ?
+                        """,
+                (rs, row) -> onFileOf(rs.getString("provider"), rs.getString("raw"), rs.getString("source_record")),
+                key(linkedinSlug), Timestamp.from(freshAfter), PROFILE_INDEX_PROVIDER)
+                .stream().flatMap(Optional::stream).findFirst();
     }
 
     /** A person on file as {@code provider} returned them, while fresh. */
@@ -159,7 +173,7 @@ public class CachedPeopleStore {
         Map<String, OnFile> bySlug = new HashMap<>();
         jdbc.query(con -> {
             PreparedStatement ps = con.prepareStatement("""
-                    SELECT linkedin_slug, provider, raw FROM app_lm_vendor_person
+                    SELECT linkedin_slug, provider, raw, source_record FROM app_lm_vendor_person
                     WHERE linkedin_slug = ANY (?) AND fetched_at > ?
                     """);
             ps.setArray(1, con.createArrayOf("text", linkedinSlugs.stream().map(CachedPeopleStore::key)
@@ -168,14 +182,23 @@ public class CachedPeopleStore {
             return ps;
         }, rs -> {
             String slug = rs.getString("linkedin_slug");
-            String provider = rs.getString("provider");
-            personOf(rs.getString("raw")).ifPresent(person -> bySlug.put(slug, new OnFile(person, provider)));
+            onFileOf(rs.getString("provider"), rs.getString("raw"), rs.getString("source_record"))
+                    .ifPresent(onFile -> bySlug.put(slug, onFile));
         });
         return bySlug;
     }
 
-    /** A person on file and the provider whose record it is. */
-    public record OnFile(BrightDataPerson person, String provider) {}
+    /** The dataset's {@code raw} is its own record; every other provider's is the {@code source_record} beside it. */
+    private Optional<OnFile> onFileOf(String provider, String raw, String sourceRecord) {
+        String ownRecord = sourceRecord != null ? sourceRecord : BRIGHTDATA_PROVIDER.equals(provider) ? raw : null;
+        return personOf(raw).map(person -> new OnFile(person, provider, ownRecord));
+    }
+
+    /**
+     * A person on file, the provider whose record it is, and that provider's own record as it sent it — null for a
+     * row written before V94 kept one.
+     */
+    public record OnFile(BrightDataPerson person, String provider, String ownRecord) {}
 
     /** The providers' own records of these people, by slug, where one was kept and is still fresh. */
     @Transactional(propagation = Propagation.REQUIRES_NEW, readOnly = true)

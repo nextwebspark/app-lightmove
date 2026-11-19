@@ -141,6 +141,7 @@ public class CandidateService {
     private final WorkspaceSettingsService workspaceSettings;
     private final LookedUpResearch lookedUp;
     private final CorrectedProfileResearch correctedProfiles;
+    private final PersonVendorRecordStore vendorRecords;
 
     public CandidateService(CandidateRepository candidates, PersonRepository people, PersonMatcher matcher,
                             PersonActivityRecorder activity, PersonNoteService personNotes,
@@ -155,7 +156,7 @@ public class CandidateService {
                             CandidateRemoval removal, SuppressionGate suppression,
                             WorkspaceAiControlsReader aiControls, WorkspaceSettingsService workspaceSettings,
                             LookedUpResearch lookedUp, CorrectedProfileResearch correctedProfiles,
-                            LightMoveProperties properties) {
+                            PersonVendorRecordStore vendorRecords, LightMoveProperties properties) {
         this.candidates = candidates;
         this.people = people;
         this.matcher = matcher;
@@ -182,6 +183,7 @@ public class CandidateService {
         this.workspaceSettings = workspaceSettings;
         this.lookedUp = lookedUp;
         this.correctedProfiles = correctedProfiles;
+        this.vendorRecords = vendorRecords;
     }
 
     /**
@@ -692,6 +694,7 @@ public class CandidateService {
             // Two mandates capturing one new person before either's research lands each queue a call;
             // the second finds the person researched, but its own mandate still wants the employer
             // filed; the background run that follows asks nothing once the first has filled it.
+            keepVendorRecords(person, enriched);
             if (fresh) {
                 person.enrich(enriched);
                 keepPhoto(person.getId(), enriched);
@@ -770,6 +773,7 @@ public class CandidateService {
                 request.exitNote(), details);
         Candidate candidate = filed.candidate();
         Person person = candidate.getPerson();
+        keepVendorRecords(person, research);
         if (!person.isResearched()) {
             person.enrich(research);
             keepPhoto(person.getId(), research);
@@ -1112,6 +1116,7 @@ public class CandidateService {
                 return;
             }
             person.replaceResearch(enriched);
+            keepVendorRecords(person, enriched);
             photos.findByPersonId(person.getId()).ifPresent(photos::delete);
             photos.flush();
             keepPhoto(person.getId(), enriched);
@@ -1119,6 +1124,19 @@ public class CandidateService {
                     PersonActivityDetails.of("vendor", enriched.vendor()));
             stream.publish(projectId, ProjectStreamKind.CANDIDATE_ENRICHED);
         });
+    }
+
+    /**
+     * Every vendor answer behind the research, kept whole whether or not the profile itself changes — a later field
+     * is read off what is held rather than bought again. Flushed first: a person founded in this transaction has no
+     * row yet for the record's key to name.
+     */
+    private void keepVendorRecords(Person person, EnrichedProfile enriched) {
+        if (enriched.vendorRecords().isEmpty()) {
+            return;
+        }
+        people.flush();
+        vendorRecords.keep(person.getWorkspaceId(), person.getId(), enriched.vendorRecords());
     }
 
     private void keepPhoto(UUID personId, EnrichedProfile enriched) {

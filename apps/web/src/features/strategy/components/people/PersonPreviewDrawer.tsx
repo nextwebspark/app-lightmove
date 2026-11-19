@@ -6,19 +6,19 @@ import { Avatar } from "../../../../components/ui/Avatar";
 import { CollapsibleSection } from "../../../../components/ui/CollapsibleSection";
 import { CompanyLinks } from "../../../../components/ui/CompanyLink";
 import { CompanyLogo } from "../../../../components/ui/CompanyLogo";
-import { DetailGrid, DetailPill, DetailTile } from "../../../../components/ui/DetailList";
+import { DetailPill } from "../../../../components/ui/DetailList";
 import { Drawer } from "../../../../components/ui/Drawer";
 import { PanelCloseButton } from "../../../../components/ui/PanelCloseButton";
 import { cn } from "../../../../lib/cn";
 import * as candidatesApi from "../../../candidates/api/candidatesApi";
 import { CareerTimeline } from "../../../candidates/components/CareerTimeline";
+import { EducationList, FoldAllButton, PillRow } from "../../../candidates/components/ProfileParts";
 import {
-  EducationList,
-  FoldAllButton,
-  PillRow,
-  ProfileItemList,
-  type ProfileListItem,
-} from "../../../candidates/components/ProfileParts";
+  FactGrid,
+  presentFacts,
+  ResearchedProfileSections,
+  type ProfileFold,
+} from "../../../candidates/components/ResearchedProfileSections";
 import { CANDIDATE_SOURCE_STYLES } from "../../../candidates/lib/candidateVocabulary";
 import { careerSummary } from "../../../candidates/lib/careerTimeline";
 import { useProfileSections, type ProfileSection } from "../../../candidates/lib/useProfileSections";
@@ -87,15 +87,6 @@ function PersonProfile({
         ["Country", company.country],
         ["Founded", company.foundedYear?.toString() ?? null],
         ["Revenue", company.revenue],
-      ])
-    : [];
-  const profileFacts = details
-    ? presentFacts([
-        ["Industry", details.industry],
-        ["Job function", details.jobFunction],
-        ["Seniority", details.seniority],
-        ["Work status", details.workStatus],
-        ["Followers", details.followers?.toLocaleString() ?? null],
       ])
     : [];
   const hasCompanyFold =
@@ -194,18 +185,8 @@ function PersonProfile({
           </CollapsibleSection>
         )}
 
-        {profileFacts.length > 0 && (
-          <CollapsibleSection
-            {...fold("profile")}
-            title="Profile"
-            summary={profileFacts
-              .map(([, value]) => value)
-              .slice(0, 3)
-              .join(", ")}
-          >
-            <FactGrid facts={profileFacts} />
-          </CollapsibleSection>
-        )}
+        <ResearchedProfileSections details={details} fold={fold} />
+
 
         {(person.languages.length > 0 || person.skills.length > 0) && (
           <CollapsibleSection
@@ -218,10 +199,6 @@ function PersonProfile({
           </CollapsibleSection>
         )}
 
-        <ItemsSection fold={fold("certifications")} title="Certifications" items={details?.certifications} />
-        <ItemsSection fold={fold("publications")} title="Publications" items={details?.publications} />
-        <ItemsSection fold={fold("projects")} title="Projects" items={details?.projects} />
-        <ItemsSection fold={fold("volunteering")} title="Volunteering" items={details?.volunteering} />
 
         <ContactSection projectId={projectId} person={person} fold={fold("contact")} />
       </div>
@@ -249,28 +226,7 @@ function PersonProfile({
   );
 }
 
-interface Fold {
-  id: ProfileSection;
-  open: boolean;
-  onToggle: () => void;
-}
-
-function ItemsSection({
-  fold,
-  title,
-  items,
-}: {
-  fold: Fold;
-  title: string;
-  items: readonly ProfileListItem[] | undefined;
-}) {
-  if (!items || items.length === 0) return null;
-  return (
-    <CollapsibleSection {...fold} title={title} count={items.length} summary={items[0].title}>
-      <ProfileItemList items={items} />
-    </CollapsibleSection>
-  );
-}
+type Fold = ProfileFold;
 
 /**
  * The candidate drawer's own Contact fold once the person is in the mandate, so a found email lands on
@@ -335,17 +291,3 @@ function availabilityLine(details: PersonDetails | null): string | null {
   return `ContactOut has ${listed} for this person.`;
 }
 
-function FactGrid({ facts }: { facts: [string, string][] }) {
-  return (
-    <DetailGrid>
-      {facts.map(([label, value]) => (
-        <DetailTile key={label} label={label} value={value} />
-      ))}
-    </DetailGrid>
-  );
-}
-
-/** Only the facts ContactOut stated: a grid of em dashes says nothing a missing tile does not. */
-function presentFacts(facts: [string, string | null][]): [string, string][] {
-  return facts.filter((fact): fact is [string, string] => fact[1] !== null && fact[1] !== "");
-}

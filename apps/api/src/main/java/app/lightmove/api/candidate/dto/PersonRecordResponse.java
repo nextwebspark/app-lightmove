@@ -44,5 +44,9 @@ public record PersonRecordResponse(
         String source,
         Instant addedAt,
         UUID addedByUserId,
-        String addedByName
+        String addedByName,
+        /** What research vendors said beyond the profile (V229), laid together; null for someone never researched. */
+        PersonResearchDetailsDto research,
+        /** When a research vendor itself last read the profile; null where none said. */
+        Instant researchSeenAt
 ) {}

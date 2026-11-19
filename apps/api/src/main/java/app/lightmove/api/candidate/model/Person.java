@@ -545,6 +545,35 @@ public class Person extends BaseEntity {
                 enriched.skills(), Instant.now().toString(), ResearchedEmployerMark.of(enriched));
     }
 
+    /**
+     * Research asked for again: what only research writes (education, skills, the employer mark, the vendor) is
+     * replaced by today's answer; what a researcher may type (title, summary, location, career, languages) is filled
+     * only where it is still empty, so an edit is never overwritten.
+     */
+    public void refreshResearch(EnrichedProfile enriched) {
+        if (title == null) {
+            title = enriched.title();
+        }
+        if (summary == null) {
+            summary = enriched.about();
+        }
+        if (locationCity == null) {
+            locationCity = enriched.locationCity();
+        }
+        if (locationCountry == null) {
+            locationCountry = enriched.locationCountry();
+        }
+        this.enrichedBy = enriched.vendor();
+        ResearchedEmployerMark employer = ResearchedEmployerMark.of(enriched);
+        this.profile = new CandidateProfile(
+                profile.career().isEmpty() ? enriched.career() : profile.career(),
+                profile.languages().isEmpty() ? enriched.languages() : profile.languages(),
+                enriched.education().isEmpty() ? profile.education() : enriched.education(),
+                enriched.skills().isEmpty() ? profile.skills() : enriched.skills(),
+                Instant.now().toString(),
+                employer != null ? employer : profile.employer());
+    }
+
     public boolean isResearched() {
         return profile.enrichedAt() != null;
     }

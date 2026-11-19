@@ -52,7 +52,8 @@ public class CandidateEnrichmentConfig {
                                                         VendorClientFactory clientFactory,
                                                         VendorRateLimiter rateLimiter,
                                                         VendorCallGuard guard,
-                                                        ProfilePhotoDownloader photos) {
+                                                        ProfilePhotoDownloader photos,
+                                                        ObjectMapper json) {
         EnrichmentSettings config = properties.enrichment();
         boolean isPrimary = "harvestapi".equalsIgnoreCase(config.provider());
         boolean isFallback = "brightdata".equalsIgnoreCase(config.provider())
@@ -64,7 +65,7 @@ public class CandidateEnrichmentConfig {
             return null;
         }
         return new HarvestApiProfileEnricher(config.harvestapi(), clientFactory, rateLimiter, guard,
-                photos, RestClient.builder());
+                photos, RestClient.builder(), json);
     }
 
     @Bean

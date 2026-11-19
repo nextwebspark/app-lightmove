@@ -3,7 +3,9 @@ package app.lightmove.api.enrichment.candidate.service;
 import app.lightmove.api.candidate.model.CandidateCapturedEvent;
 import app.lightmove.api.candidate.model.CandidateProfileCorrectedEvent;
 import app.lightmove.api.candidate.model.EnrichedProfile;
+import app.lightmove.api.candidate.model.PersonResearchRefreshRequested;
 import app.lightmove.api.candidate.service.CandidateService;
+import app.lightmove.api.candidate.service.PersonResearchRefreshService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -27,6 +29,7 @@ class CandidateEnrichmentWorker {
 
     private final LinkedInProfileEnricher enricher;
     private final CandidateService candidates;
+    private final PersonResearchRefreshService refreshes;
 
     @Async
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
@@ -57,6 +60,22 @@ class CandidateEnrichmentWorker {
                     () -> log.info("No research found for the corrected profile of candidate {}", event.candidateId()));
         } catch (RuntimeException ex) {
             log.error("Failed to research the corrected profile of candidate {}", event.candidateId(), ex);
+        }
+    }
+
+    /** Research asked for again, past the people cache; nothing found leaves the person's research as it was. */
+    @Async
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    void refresh(PersonResearchRefreshRequested event) {
+        try {
+            enricher.fetchFresh(event.linkedinUrl()).ifPresentOrElse(
+                    profile -> refreshes.applyRefreshedResearch(event.workspaceId(), event.personId(),
+                            event.requestedBy(), event.linkedinUrl(), profile),
+                    () -> log.info("No research found refreshing person {}", event.personId()));
+        } catch (ObjectOptimisticLockingFailureException raced) {
+            log.info("Person {} changed while their research was refreshed", event.personId());
+        } catch (RuntimeException ex) {
+            log.error("Failed to refresh the research of person {}", event.personId(), ex);
         }
     }
 

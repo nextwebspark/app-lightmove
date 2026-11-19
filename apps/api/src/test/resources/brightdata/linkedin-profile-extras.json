@@ -1,0 +1,30 @@
+{
+  "id": "sample-person",
+  "linkedin_id": "sample-person",
+  "name": "Sample Person",
+  "position": "Chief Executive Officer at RetailCo",
+  "followers": 12345,
+  "connections": 500,
+  "influencer": false,
+  "recommendations_count": 3,
+  "timestamp": "2026-11-18T18:34:33.702Z",
+  "bio_links": [{"link": "https://sample.example", "title": "Company Website"}],
+  "experience": [
+    {"company": "RetailCo", "title": "Chief Executive Officer", "start_date": "Feb 2025", "end_date": "Present",
+     "location": "Dubai", "description_html": "<p>Leads the <b>GCC</b> business.</p>"},
+    {"company": "Amazing Corp", "location": "Luxembourg",
+     "positions": [{"title": "General Manager", "start_date": "2019", "end_date": "2025",
+                    "description": "Turned the region around."}]}
+  ],
+  "honors_and_awards": [{"title": "Retail Leader of the Year", "publication": "Retail Awards", "date": "2024"}],
+  "organizations": [{"title": "Board Member", "subtitle": "Retail Council", "start_date": "2021"}],
+  "courses": ["Strategy Execution"],
+  "patents": [],
+  "certifications": [{"title": "Chartered Director", "subtitle": "IoD", "meta": "Issued Mar 2020"}],
+  "volunteer_experience": [{"title": "Mentor", "subtitle": "Youth Retail Academy"}],
+  "languages": [{"title": "English", "subtitle": "Native or bilingual proficiency"}, {"title": "Arabic"}],
+  "posts": [{"title": "What GCC shoppers want next", "link": "https://www.linkedin.com/pulse/sample",
+             "created_at": "Wed Oct 21 2026"}],
+  "people_also_viewed": [{"name": "Another Person", "profile_link": "https://www.linkedin.com/in/another-person"}],
+  "similar_profiles": [{"name": "Third Person", "url": "https://www.linkedin.com/in/third-person"}]
+}

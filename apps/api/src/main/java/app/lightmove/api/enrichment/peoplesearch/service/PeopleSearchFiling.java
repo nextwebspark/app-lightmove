@@ -4,6 +4,8 @@ import app.lightmove.api.candidate.constant.EnrichmentVendor;
 import app.lightmove.api.candidate.dto.SaveCandidateRequest;
 import app.lightmove.api.candidate.model.EnrichedProfile;
 import app.lightmove.api.candidate.model.ResearchedCandidate;
+import app.lightmove.api.candidate.model.ResearchedCompanyFacts;
+import app.lightmove.api.candidate.model.ResearchedProfileDetails;
 import app.lightmove.api.candidate.model.ResearchedEmployer;
 import app.lightmove.api.candidate.model.ResearchedFiling;
 import app.lightmove.api.candidate.service.CandidateService;
@@ -14,10 +16,9 @@ import app.lightmove.api.core.concurrent.service.ThreadContextPropagation;
 import app.lightmove.api.enrichment.candidate.model.BrightDataPerson;
 import app.lightmove.api.enrichment.candidate.service.BrightDataPersonProfiles;
 import app.lightmove.api.enrichment.candidate.service.ProfilePhotoDownloader;
-import app.lightmove.api.enrichment.common.model.ContactOutProfileDetails;
-import app.lightmove.api.enrichment.common.model.ContactOutProfileDetails.CompanyFacts;
-import app.lightmove.api.enrichment.common.service.ContactOutProfileDetailsReader;
+import app.lightmove.api.enrichment.common.service.ResearchedProfileDetailsReader;
 import app.lightmove.api.enrichment.common.service.SearchHitFiling;
+import app.lightmove.api.enrichment.common.service.VendorProfileRecords;
 import app.lightmove.api.enrichment.peoplesearch.dto.AddPeopleRequest;
 import app.lightmove.api.enrichment.peoplesearch.dto.AddPeopleResponse;
 import app.lightmove.api.triagecompany.constant.TriageCompanySource;
@@ -86,8 +87,11 @@ public class PeopleSearchFiling {
         int elsewhere = 0;
         List<AddPeopleResponse.Filed> filed = new ArrayList<>();
         for (Map.Entry<String, BrightDataPerson> entry : toFile.entrySet()) {
-            Optional<ResearchedCandidate> filing = file(userId, workspaceId, projectId, entry.getValue(),
-                    research.get(entry.getKey()), companyOf(sources.get(entry.getKey())), stage);
+            String source = sources.get(entry.getKey());
+            EnrichedProfile kept = research.get(entry.getKey())
+                    .withVendorRecord(VendorProfileRecords.of(CachedContactOutPeopleQuery.PROVIDER, source, json));
+            Optional<ResearchedCandidate> filing = file(userId, workspaceId, projectId, entry.getValue(), kept,
+                    companyOf(source), stage);
             if (filing.isEmpty()) {
                 skipped++;
                 continue;
@@ -121,7 +125,7 @@ public class PeopleSearchFiling {
      * processing is restricted, found only now by the guards.
      */
     private Optional<ResearchedCandidate> file(UUID userId, UUID workspaceId, UUID projectId, BrightDataPerson person,
-                                               EnrichedProfile research, CompanyFacts company,
+                                               EnrichedProfile research, ResearchedCompanyFacts company,
                                                TriageCompanyStatus stage) {
         ResearchedEmployer employer = research.employerName() == null ? null
                 : new ResearchedEmployer(employerDetails(research, company), TriageCompanySource.PEOPLE_SEARCH, stage);
@@ -145,13 +149,13 @@ public class PeopleSearchFiling {
         }
     }
 
-    private CompanyFacts companyOf(String sourceRecord) {
-        return ContactOutProfileDetailsReader.read(sourceRecord, json).map(ContactOutProfileDetails::company)
+    private ResearchedCompanyFacts companyOf(String sourceRecord) {
+        return ResearchedProfileDetailsReader.read(sourceRecord, json).map(ResearchedProfileDetails::company)
                 .orElse(null);
     }
 
     /** A company the market does not carry is filed with the facts ContactOut gave about it. */
-    private static CapturedCompanyDetails employerDetails(EnrichedProfile research, CompanyFacts company) {
+    private static CapturedCompanyDetails employerDetails(EnrichedProfile research, ResearchedCompanyFacts company) {
         if (company == null) {
             return CapturedCompanyDetails.employerNamed(research.employerName(), research.employerLinkedinUrl(),
                     research.employerLogoUrl());

@@ -70,6 +70,7 @@ once by `ops/cloudsql/scrub-audit-pii.sql`.
 | `app_lm_person` | the executive: name, profile, background, package | the candidate record | while held; reviewed for deletion once untouched for the workspace's period (default 24 months ⚖️) and on no live position | erasure, retention review | `PersonErasureService` |
 | `app_lm_person_contact` | emails, phones | reaching the executive | with the person | erasure, edit | cascade |
 | `app_lm_person_photo` | photo | the drawer | with the person | erasure | cascade |
+| `app_lm_person_vendor_record` | each research vendor's answer for the executive, as sent; may name other people (people also viewed, recommenders) | the profile's further facts, without buying them again | with the person; replaced by the next answer from the same vendor | erasure | cascade |
 | `app_lm_person_tag` | person | the workspace's tags | with the person | erasure, untag | cascade |
 | `app_lm_person_note` | person, staff's notes | the team's record | with the person; a deleted note 30 days ⚖️ | erasure, delete | `PersonNotePurge` |
 | `app_lm_person_document` | person, CV and references | the team's record | with the person | erasure, removal | cascade |
