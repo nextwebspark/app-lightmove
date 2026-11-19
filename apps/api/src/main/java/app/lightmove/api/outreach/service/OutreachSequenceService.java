@@ -81,7 +81,7 @@ public class OutreachSequenceService {
     @Transactional
     public SequenceResponse update(UUID userId, UUID workspaceId, UUID projectId, UUID sequenceId,
                                    SaveSequenceRequest request, HttpServletRequest httpRequest) {
-        OutreachSequence sequence = sequences.requireInProject(sequenceId, workspaceId, projectId);
+        OutreachSequence sequence = sequences.requireForChange(sequenceId, workspaceId, projectId);
         SendingWindow schedule = request.schedule() == null
                 ? sequence.sendingWindow() : scheduleOf(request.schedule());
         List<SequenceStep> steps = stepsOf(request.steps(), schedule);
@@ -98,7 +98,7 @@ public class OutreachSequenceService {
 
     @Transactional
     public void delete(UUID userId, UUID workspaceId, UUID projectId, UUID sequenceId, HttpServletRequest httpRequest) {
-        OutreachSequence sequence = sequences.requireInProject(sequenceId, workspaceId, projectId);
+        OutreachSequence sequence = sequences.requireForChange(sequenceId, workspaceId, projectId);
         if (enrollments.existsBySequenceId(sequenceId)) {
             throw ApiException.of(ErrorCode.OUTREACH_SEQUENCE_IN_USE);
         }

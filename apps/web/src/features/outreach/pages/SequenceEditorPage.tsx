@@ -203,8 +203,9 @@ function SequenceEditor({
   const mailbox = useMailbox();
   const sequencesPath = `/projects/${projectId}/outreach/sequences`;
 
-  const save = useMutation({
-    mutationFn: (_sent: string) => {
+  // Each save carries the form as it was sent, which becomes what an edit is measured against once it lands.
+  const save = useMutation<Sequence, Error, { savedSnapshot: string }>({
+    mutationFn: () => {
       const body = {
         name: name.trim(),
         steps: steps.map((step, index) => ({
@@ -217,8 +218,8 @@ function SequenceEditor({
         ? sequenceApi.updateSequence(projectId, saved.id, body)
         : sequenceApi.createSequence(projectId, body);
     },
-    onSuccess: (written, sent) => {
-      setBaseline(sent);
+    onSuccess: (written, { savedSnapshot }) => {
+      setBaseline(savedSnapshot);
       void queryClient.invalidateQueries({
         queryKey: sequenceApi.SEQUENCES_KEY(projectId),
       });
@@ -335,7 +336,7 @@ function SequenceEditor({
           className={cn("px-3.5 py-[7px] text-[13px] font-semibold", !saved && "ms-auto")}
           loading={save.isPending}
           disabled={!name.trim() || !isScheduleUsable || stepTimeOutsideWindow || holdsSignatureInWords}
-          onClick={() => save.mutate(editedSnapshotOf(name, steps, schedule))}
+          onClick={() => save.mutate({ savedSnapshot: editedSnapshotOf(name, steps, schedule) })}
         >
           Save sequence
         </Button>

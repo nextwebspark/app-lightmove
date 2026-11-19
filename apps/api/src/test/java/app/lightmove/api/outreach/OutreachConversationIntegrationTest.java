@@ -243,6 +243,9 @@ class OutreachConversationIntegrationTest extends FlowTestSupport {
         JsonNode pane = body(as(consultant, get(outreach("/conversations/" + hana))).andExpect(status().isOk())
                 .andReturn());
         assertThat(pane.at("/keyDates/repliedAt").isNull()).isFalse();
+        assertThat(jdbc.queryForList("select distinct sender_user_id::text from app_lm_outreach_message "
+                + "where candidate_id = ?::uuid", String.class, hana)).containsExactly(consultantId);
+        assertThat(candidateIdsOf(conversations("view", "all", "who", "mine"))).containsExactly(hana);
     }
 
     @Test

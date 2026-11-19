@@ -43,7 +43,6 @@ import app.lightmove.api.outreach.dto.ConversationRowResponse;
 import app.lightmove.api.outreach.dto.OutreachRunResponse;
 import app.lightmove.api.outreach.dto.PersonMeetingsResponse;
 import app.lightmove.api.outreach.dto.SequenceTokensResponse;
-import app.lightmove.api.candidate.model.PersonLatestAtRow;
 import app.lightmove.api.outreach.model.OutreachEnrollment;
 import app.lightmove.api.outreach.model.OutreachMessage;
 import app.lightmove.api.outreach.model.OutreachMessageAttachment;
@@ -278,9 +277,7 @@ public class ConversationService {
         Instant now = clock.instant();
         Map<UUID, Instant> latestHistory = timeline.latestPositionLineAtOfEach(workspaceId, projectId, personIds,
                 HISTORY_KINDS, now);
-        Map<UUID, Instant> latestMeetings = personIds.isEmpty() ? Map.of()
-                : personMeetings.findLatestMeetingAtOfEach(workspaceId, personIds, now).stream()
-                        .collect(Collectors.toMap(PersonLatestAtRow::getPersonId, PersonLatestAtRow::getAt));
+        Map<UUID, Instant> latestMeetings = meetings.latestMeetingAtOfEach(workspaceId, personIds, now);
 
         return executives.stream().map(executive -> {
             UUID personId = executive.personId();

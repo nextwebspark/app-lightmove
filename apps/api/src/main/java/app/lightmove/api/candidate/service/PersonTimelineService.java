@@ -163,8 +163,8 @@ public class PersonTimelineService {
         if (personIds.isEmpty()) {
             return Map.of();
         }
-        return activity.findLatestPositionLineAtOfEach(workspaceId, projectId, personIds, kinds, now).stream()
-                .collect(Collectors.toMap(PersonLatestAtRow::getPersonId, PersonLatestAtRow::getAt));
+        return PersonLatestAtRow.byPerson(
+                activity.findLatestPositionLineAtOfEach(workspaceId, projectId, personIds, kinds, now));
     }
 
     /** Each person's latest line, for the Candidates page's Last activity column. */
