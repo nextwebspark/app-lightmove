@@ -5,6 +5,7 @@ import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.outreach.model.BookingPageSpec;
 import app.lightmove.api.outreach.model.BusyInterval;
 import app.lightmove.api.outreach.model.CalendarEvent;
+import app.lightmove.api.outreach.model.CalendarRead;
 import app.lightmove.api.outreach.model.GrantedMailbox;
 import app.lightmove.api.outreach.model.MailboxEvent;
 import app.lightmove.api.outreach.model.NewCalendarEvent;
@@ -60,7 +61,7 @@ public class UnconfiguredMailboxGateway implements MailboxGateway {
     }
 
     @Override
-    public List<CalendarEvent> calendarEvents(String grantId, Instant from, Instant to) {
+    public CalendarRead calendarEvents(String grantId, Instant from, Instant to) {
         throw unavailable();
     }
 
@@ -80,7 +81,7 @@ public class UnconfiguredMailboxGateway implements MailboxGateway {
     }
 
     @Override
-    public void cancelEvent(String grantId, String eventId) {
+    public boolean cancelEvent(String grantId, String eventId) {
         throw unavailable();
     }
 

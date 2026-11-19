@@ -2,6 +2,7 @@ package app.lightmove.api.outreach;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -176,6 +177,97 @@ class OutreachConversationIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("a logged call is a row's latest activity, as it is the conversation's")
+    void aLoggedCallIsLatestActivity() throws Exception {
+        String priya = executive("Priya Raman", "priya@" + domain);
+        String rajesh = executive("Rajesh Menon", "rajesh@" + domain);
+        start(createSequence("First approach"), List.of(person(priya, "priya@" + domain, null),
+                person(rajesh, "rajesh@" + domain, null)));
+        Instant enrolledAt = Instant.parse(rowOf(conversations("view", "all"), rajesh).get("lastActivityAt").asText());
+
+        as(consultant, post("/api/v1/projects/" + projectId + "/candidates/" + rajesh + "/notes")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"kind":"call","outcome":"connected"}"""))
+                .andExpect(status().isCreated());
+
+        JsonNode all = conversations("view", "all");
+        Instant calledAt = Instant.parse(rowOf(all, rajesh).get("lastActivityAt").asText());
+        assertThat(calledAt).isAfter(enrolledAt);
+        assertThat(candidateIdsOf(all)).containsExactly(rajesh, priya);
+        JsonNode pane = body(as(consultant, get(outreach("/conversations/" + rajesh))).andExpect(status().isOk())
+                .andReturn());
+        assertThat(Instant.parse(pane.get("keyDates").get("lastActivityAt").asText())).isEqualTo(calledAt);
+
+        String otherProject = mandate(consultant, "Group Treasurer");
+        note(otherProject, executive(otherProject, "Priya Raman", "priya@" + domain), "call", "Treasurer search.");
+        assertThat(candidateIdsOf(conversations("view", "all"))).containsExactly(rajesh, priya);
+
+        as(consultant, post("/api/v1/projects/" + projectId + "/candidates/" + priya + "/notes")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"kind":"general","body":"Open to a move.","allPositions":true}"""))
+                .andExpect(status().isCreated());
+        assertThat(candidateIdsOf(conversations("view", "all"))).containsExactly(priya, rajesh);
+    }
+
+    @Test
+    @DisplayName("an executive I emailed stays in my Mine after a teammate writes the latest line")
+    void mineKeepsEveryoneISent() throws Exception {
+        inviteAndAccept(consultant, "Sara Al-Mansour", "sara@" + domain, "ADMIN");
+        String saraId = userIdOf(login("sara@" + domain));
+        String hana = executive("Hana Aziz", "hana@" + domain);
+        sendNow(hana, "hana@" + domain, "First note");
+        sendNow(hana, "hana@" + domain, "Second note");
+        jdbc.update("update app_lm_outreach_message set sender_user_id = ?::uuid where id = (select id from "
+                + "app_lm_outreach_message where candidate_id = ?::uuid order by occurred_at desc limit 1)",
+                saraId, hana);
+
+        assertThat(candidateIdsOf(conversations("view", "sent", "who", "mine"))).containsExactly(hana);
+        assertThat(candidateIdsOf(conversations("view", "all", "who", "mine"))).containsExactly(hana);
+    }
+
+    @Test
+    @DisplayName("a reply to a one-off email is the conversation's Replied date, though no run carries it")
+    void aReplyToAOneOffEmailIsItsRepliedDate() throws Exception {
+        String hana = executive("Hana Aziz", "hana@" + domain);
+        sendNow(hana, "hana@" + domain, "A short note");
+        String thread = jdbc.queryForObject("select thread_id from app_lm_outreach_message where candidate_id = ?::uuid",
+                String.class, hana);
+        gateway.deliverNext(List.of(new InboundMessage("grant-1", thread, "hana@" + domain)));
+        mvc.perform(post("/api/v1/outreach/webhooks/mailbox")
+                        .header("X-Nylas-Signature", RecordingMailboxGateway.VALID_SIGNATURE)
+                        .contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isOk());
+
+        JsonNode pane = body(as(consultant, get(outreach("/conversations/" + hana))).andExpect(status().isOk())
+                .andReturn());
+        assertThat(pane.at("/keyDates/repliedAt").isNull()).isFalse();
+        assertThat(jdbc.queryForList("select distinct sender_user_id::text from app_lm_outreach_message "
+                + "where candidate_id = ?::uuid", String.class, hana)).containsExactly(consultantId);
+        assertThat(candidateIdsOf(conversations("view", "all", "who", "mine"))).containsExactly(hana);
+    }
+
+    @Test
+    @DisplayName("a stage change is a row's latest activity, as it is the conversation's")
+    void aStageChangeIsLatestActivity() throws Exception {
+        String priya = executive("Priya Raman", "priya@" + domain);
+        start(createSequence("First approach"), List.of(person(priya, "priya@" + domain, null)));
+        Instant enrolledAt = Instant.parse(rowOf(conversations("view", "all"), priya).get("lastActivityAt").asText());
+
+        as(consultant, patch("/api/v1/projects/" + projectId + "/candidates/" + priya)
+                .contentType(MediaType.APPLICATION_JSON).content("""
+                        {"status":"interested"}"""))
+                .andExpect(status().isOk());
+
+        Instant movedAt = Instant.parse(rowOf(conversations("view", "all"), priya).get("lastActivityAt").asText());
+        assertThat(movedAt).isAfter(enrolledAt);
+        JsonNode pane = body(as(consultant, get(outreach("/conversations/" + priya))).andExpect(status().isOk())
+                .andReturn());
+        assertThat(Instant.parse(pane.get("keyDates").get("lastActivityAt").asText())).isEqualTo(movedAt);
+    }
+
+    @Test
     @DisplayName("the search finds people by name, title or employer, and by the words of what was sent to them")
     void theSearchReadsNamesAndEmails() throws Exception {
         String priya = executive("Priya Raman", "priya@" + domain);
@@ -341,6 +433,16 @@ class OutreachConversationIntegrationTest extends FlowTestSupport {
             }
         }
         throw new AssertionError("No conversation row for " + candidateId);
+    }
+
+    private void sendNow(String candidateId, String toAddress, String subject) throws Exception {
+        as(consultant, post(outreach("/conversations/" + candidateId + "/messages"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"toAddress":"%s","subject":"%s","replyInThread":false,"body":"Hello"}"""
+                        .formatted(toAddress, subject)))
+                .andExpect(status().isCreated());
+        dispatcher.dispatchAt(Instant.now().plusSeconds(5));
     }
 
     private void reply(String candidateId, String fromAddress) throws Exception {

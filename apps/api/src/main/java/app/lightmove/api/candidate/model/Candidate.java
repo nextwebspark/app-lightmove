@@ -182,6 +182,13 @@ public class Candidate extends BaseEntity {
         return true;
     }
 
+    /** {@link #giveExitReason} for a door that may have asked for none. */
+    public void giveExitReasonIfAny(ExitReason reason, String note, UUID givenBy) {
+        if (reason != null) {
+            giveExitReason(reason.getId(), note, givenBy);
+        }
+    }
+
     private void clearExitReason() {
         this.exitReasonId = null;
         this.exitNote = null;

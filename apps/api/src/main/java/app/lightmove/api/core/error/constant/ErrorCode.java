@@ -507,6 +507,10 @@ public enum ErrorCode {
     /** A sequence people are on keeps their history: it can be edited, never deleted. */
     OUTREACH_SEQUENCE_IN_USE(HttpStatus.CONFLICT, "People are on this sequence, so it cannot be deleted"),
 
+    /** A run holds only the number of its next step, so a step added or removed would shift it onto another email. */
+    OUTREACH_SEQUENCE_STEPS_FIXED(HttpStatus.CONFLICT,
+            "People are on this sequence, so steps cannot be added or removed"),
+
     /**
      * Someone chosen may not be approached — no email, do not contact, out of the running or already in a
      * sequence — and nobody was enrolled. The dialog shows each reason; this is the server holding the line.
@@ -536,6 +540,10 @@ public enum ErrorCode {
 
     /** Never retried on our side: the calendar may still hold the invite, so the consultant checks before trying again. */
     MEETING_BOOK_FAILED(HttpStatus.BAD_GATEWAY, "The invite could not be sent. Check your calendar before trying again"),
+
+    /** The calendar made the event and sent the invite but answered nothing readable: booking again would invite twice. */
+    MEETING_BOOK_UNCONFIRMED(HttpStatus.BAD_GATEWAY,
+            "The invite was sent, but your calendar didn't confirm it. Refresh before booking again"),
 
     /** Only a call booked in Uncava, still to come, is moved or cancelled here; any other is the calendar's own. */
     MEETING_NOT_EDITABLE(HttpStatus.CONFLICT, "This call can only be changed from the calendar it is on"),

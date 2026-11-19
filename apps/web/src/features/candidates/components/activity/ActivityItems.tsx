@@ -240,9 +240,11 @@ function NoteQuickView({
 export function PreviewOf({ preview, taskState = "open" }: { preview: ActivityPreview; taskState?: TaskState }) {
   switch (preview.type) {
     case "note":
-      return preview.excerpt ? (
+      // A live note's excerpt is never null; an outcome-only log's is "", and once read as "deleted".
+      return preview.excerpt !== null ? (
         <span className="flex flex-col gap-1.5">
-          <span className="line-clamp-2 text-body text-u-text">{preview.excerpt}</span>
+          {preview.outcome && <NoteOutcomePill outcome={preview.outcome} className="self-start" />}
+          {preview.excerpt && <span className="line-clamp-2 text-body text-u-text">{preview.excerpt}</span>}
           <NoteChips aboutThePerson={preview.aboutThePerson} edited={preview.edited} />
         </span>
       ) : (
@@ -301,6 +303,7 @@ export function PreviewOf({ preview, taskState = "open" }: { preview: ActivityPr
         <span className="flex flex-col gap-1 text-note text-u-text3">
           {preview.door && <span>{preview.door}</span>}
           {preview.mapped && <span>Already in your candidates, so added rather than duplicated</span>}
+          {preview.reason && <span>Why: {preview.reason}</span>}
         </span>
       );
     case "assessment":

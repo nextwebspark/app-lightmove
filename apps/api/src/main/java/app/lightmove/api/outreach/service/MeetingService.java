@@ -1,6 +1,7 @@
 package app.lightmove.api.outreach.service;
 
 import app.lightmove.api.candidate.model.OutreachRecipient;
+import app.lightmove.api.candidate.model.PersonLatestAtRow;
 import app.lightmove.api.candidate.service.CandidateOutreachService;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
@@ -25,6 +26,8 @@ import app.lightmove.api.outreach.model.ConsultantBooking;
 import app.lightmove.api.outreach.model.MailboxConnection;
 import app.lightmove.api.outreach.model.NewCalendarEvent;
 import app.lightmove.api.outreach.model.OutreachCallBooked;
+import app.lightmove.api.outreach.model.OutreachCallCancelled;
+import app.lightmove.api.outreach.model.OutreachCallMoved;
 import app.lightmove.api.outreach.model.PersonMeeting;
 import app.lightmove.api.outreach.model.WorkingHours;
 import app.lightmove.api.outreach.model.ZoomMeeting;
@@ -38,6 +41,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -83,6 +87,15 @@ public class MeetingService {
     private final ApplicationEventPublisher events;
     private final AvailabilityService availability;
     private final Clock clock;
+
+    /** When each of these people's latest meeting on a teammate's calendar began, by now. */
+    @Transactional(readOnly = true)
+    public Map<UUID, Instant> latestMeetingAtOfEach(UUID workspaceId, Collection<UUID> personIds, Instant now) {
+        if (personIds.isEmpty()) {
+            return Map.of();
+        }
+        return PersonLatestAtRow.byPerson(meetings.findLatestMeetingAtOfEach(workspaceId, personIds, now));
+    }
 
     @Transactional(readOnly = true)
     public PersonMeetingsResponse ofCandidate(UUID userId, UUID workspaceId, UUID projectId, UUID candidateId) {
@@ -185,8 +198,18 @@ public class MeetingService {
                     endsAt, request.inviteAddress().trim(), request.video(),
                     zoomMeeting == null ? null : zoomMeeting.joinUrl()));
         } catch (RuntimeException failed) {
-            if (zoomMeeting != null) {
+            boolean inviteSent = failed instanceof VendorException vendorFailed
+                    && vendorFailed.getKind() == VendorFailureKind.MALFORMED_RESPONSE;
+            if (zoomMeeting != null && !inviteSent) {
                 zoom.deleteQuietly(userId, workspaceId, zoomMeeting);
+            } else if (zoomMeeting != null) {
+                // The calendar created the event but its answer could not be read: the invite went out carrying
+                // this Zoom link, so the meeting is kept for the executive holding it.
+                log.error("Zoom meeting of user {} kept for an invite whose event could not be read back", userId);
+            }
+            if (inviteSent) {
+                // Not "could not be sent": a consultant told that books again, and the executive gets two invites.
+                throw ApiException.of(ErrorCode.MEETING_BOOK_UNCONFIRMED);
             }
             if (failed instanceof VendorException vendorFailed) {
                 throw failedAtMailService(mailbox, vendorFailed, ErrorCode.MEETING_BOOK_FAILED);
@@ -279,15 +302,13 @@ public class MeetingService {
             gateway.moveEvent(mailbox.getGrantId(), meeting.getProviderEventId(), startsAt, endsAt);
         } catch (VendorException failed) {
             if (failed.getKind() != VendorFailureKind.MALFORMED_RESPONSE) {
-                if (zoomMoved) {
-                    zoom.moveBackQuietly(userId, workspaceId, zoomMeetingId, meeting.getStartsAt(), meeting.getEndsAt());
-                }
                 // An event the calendar no longer holds is not the mailbox's access withdrawn: read as that, one call
                 // deleted in Outlook would mark a healthy mailbox for reconnecting and stop every run it sends.
                 if (CalendarEventGone.isGone(failed)) {
-                    transactions.executeWithoutResult(status ->
-                            meetings.deleteEvent(mailbox.getId(), meeting.getProviderEventId()));
-                    throw ApiException.of(ErrorCode.MEETING_GONE);
+                    throw goneFromTheCalendar(userId, workspaceId, projectId, recipient, mailbox, meeting);
+                }
+                if (zoomMoved) {
+                    zoom.moveBackQuietly(userId, workspaceId, zoomMeetingId, meeting.getStartsAt(), meeting.getEndsAt());
                 }
                 throw failedAtMailService(mailbox, failed, ErrorCode.MEETING_UPDATE_FAILED);
             }
@@ -306,6 +327,8 @@ public class MeetingService {
             transactions.executeWithoutResult(status -> {
                 meetings.moveEvent(mailbox.getId(), meeting.getProviderEventId(), startsAt, endsAt);
                 people.recordMeetingRescheduled(userId, projectId, candidateId, previousStartsAt, startsAt);
+                events.publishEvent(new OutreachCallMoved(workspaceId, projectId, recipient.personId(), userId,
+                        previousStartsAt, meeting.getEndsAt(), startsAt, endsAt));
                 audit.projectEvent(ProjectEventType.OUTREACH_MEETING_RESCHEDULED, userId, workspaceId, projectId,
                                 httpRequest)
                         .detail("candidateId", candidateId.toString())
@@ -333,10 +356,16 @@ public class MeetingService {
         PersonMeeting meeting = requireChangeable(userId, workspaceId, recipient, meetingId);
         MailboxConnection mailbox = requireMailbox(userId, workspaceId);
         requireOnMailbox(meeting, mailbox);
+        boolean told;
         try {
-            gateway.cancelEvent(mailbox.getGrantId(), meeting.getProviderEventId());
+            told = gateway.cancelEvent(mailbox.getGrantId(), meeting.getProviderEventId());
         } catch (VendorException failed) {
             throw failedAtMailService(mailbox, failed, ErrorCode.MEETING_UPDATE_FAILED);
+        }
+        if (!told) {
+            // Deleted on the calendar already, so no cancellation went to the executive: saying they were told
+            // would be wrong.
+            throw goneFromTheCalendar(userId, workspaceId, projectId, recipient, mailbox, meeting);
         }
         if (meeting.getZoomMeetingId() != null) {
             zoom.deleteQuietly(userId, workspaceId, meeting.getZoomMeetingId());
@@ -345,6 +374,8 @@ public class MeetingService {
             transactions.executeWithoutResult(status -> {
                 meetings.deleteEvent(mailbox.getId(), meeting.getProviderEventId());
                 people.recordMeetingCancelled(userId, projectId, candidateId, meeting.getStartsAt());
+                events.publishEvent(new OutreachCallCancelled(workspaceId, projectId, recipient.personId(), userId,
+                        meeting.getStartsAt(), meeting.getEndsAt()));
                 audit.projectEvent(ProjectEventType.OUTREACH_MEETING_CANCELLED, userId, workspaceId, projectId,
                                 httpRequest)
                         .detail("candidateId", candidateId.toString())
@@ -358,6 +389,21 @@ public class MeetingService {
                     projectId, userId, failed);
             throw failed;
         }
+    }
+
+    /** A call deleted on the calendar itself: its row, its Zoom meeting and its debrief go, and the drawer is told. */
+    private ApiException goneFromTheCalendar(UUID userId, UUID workspaceId, UUID projectId,
+                                             OutreachRecipient recipient, MailboxConnection mailbox,
+                                             PersonMeeting meeting) {
+        if (meeting.getZoomMeetingId() != null) {
+            zoom.deleteQuietly(userId, workspaceId, meeting.getZoomMeetingId());
+        }
+        transactions.executeWithoutResult(status -> {
+            meetings.deleteEvent(mailbox.getId(), meeting.getProviderEventId());
+            events.publishEvent(new OutreachCallCancelled(workspaceId, projectId, recipient.personId(), userId,
+                    meeting.getStartsAt(), meeting.getEndsAt()));
+        });
+        return ApiException.of(ErrorCode.MEETING_GONE);
     }
 
     /**

@@ -94,7 +94,14 @@ export function useBoardMove(projectId: string, queryKey: QueryKey) {
       if (rankRefused) toast.error(messageFor(rankRefused));
       else if (saved) toast(`${saved.fullName} moved to ${stageLabel} · ${saved.statusLabel ?? saved.status}`);
     },
-    onSettled: () => void rowsChanged(projectId),
+    onSettled: (_result, _error, placement) => {
+      void rowsChanged(projectId);
+      // The drawer's Why line reads its own list, outside the rows' prefix. A status write gives a reason or, back in
+      // process, clears one; a reorder within a column touches neither.
+      if (placement.status) {
+        void queryClient.invalidateQueries({ queryKey: candidatesApi.EXIT_REASONS_OF_KEY(projectId) });
+      }
+    },
   });
 }
 

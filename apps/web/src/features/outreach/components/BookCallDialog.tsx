@@ -173,7 +173,8 @@ export function BookCallDialog({
         void calendar.refetch();
       }
       toast.error(messageFor(error));
-      if (codeOf(error) === "MEETING_GONE") {
+      // The invite may already be out: close, so the next look at the drawer reads the calendar again.
+      if (codeOf(error) === "MEETING_GONE" || codeOf(error) === "MEETING_BOOK_UNCONFIRMED") {
         void queryClient.invalidateQueries({ queryKey: ["outreach", projectId] });
         onClose();
       }
@@ -223,7 +224,8 @@ export function BookCallDialog({
 
   const handleToChange = (time: string) => {
     if (!time || !fields) return;
-    const next = choiceOfFields(fields.date, fields.from, time, timeZone);
+    // A call already running past midnight keeps an earlier-looking end on the next day.
+    const next = choiceOfFields(fields.date, fields.from, time, timeZone, fields.to < fields.from);
     if (next) handleChoose(next);
   };
 

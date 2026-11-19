@@ -323,7 +323,9 @@ and Esc on a card dismisses it without closing the drawer under it.
 No answer and Left voicemail (a call or a Copy) and Sent a message / They replied (WhatsApp) log at once as a note with
 the outcome, an empty body and the press time; Connected and WhatsApp's Add note open `NoteComposerModal` with that
 outcome and time; Wrong number logs, then offers Fix number (the drawer's Edit contact details, `section=contact`).
-Not now (or Esc) logs nothing. A second press of the same number freshens its card; from three cards the newest shows.
+Not now (or Esc) logs nothing. A second press of the same number freshens its card (Copy and Call both log a call, so they share one), a card
+past its 12 hours goes from a tab left open as it would on a reload, and the status line speaks only for a card just
+added; from three cards the newest shows.
 The composer's Log call and Log WhatsApp carry the same outcome chips, optional, and with one picked the note may stay
 empty; an outcome is drawn as a pill (`NoteOutcomePill`) on the Outreach timeline's card and the conversation pane, and
 leads the Activity line's detail. A person's call or WhatsApp card edits its outcome too (a mis-tapped tray outcome is
@@ -339,8 +341,9 @@ outcome keeps the one held while the kind still takes it, and an empty token cle
 words. `PersonNote.revise` changes kind and outcome together. It rides `PersonNoteResponse`
 (and so the Outreach timeline's note events), the `NOTE_*` timeline line's details as the live note's `outcome`, the AI
 material's note line, the workspace archive's note heading and the subject access export. A restore answers with a live
-twin only for a note with no outcome (a door's duplicate never has one), so a log that says how it went always comes
-back itself. Recently approached leaves out a call logged as No answer or Wrong number and ranks a WhatsApp They
+twin only for a note shaped as a door files one (general, plain, no outcome) and only with a copy filed after the
+delete, so a log, a meeting note or an earlier note in the same words never stands in for the one taken back. An edit
+that sends no body keeps the words' format too: an outcome-only change never turns a plain log into Markdown. Recently approached leaves out a call logged as No answer or Wrong number and ranks a WhatsApp They
 replied as a reply (`docs/recently-approached.md`).
 
 ### Last call (#1337)

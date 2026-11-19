@@ -75,7 +75,12 @@ public class OutreachSendService {
     private final OutreachPrivacyService privacy;
 
     public List<UUID> claimDue(Instant now) {
-        return claims.claimDue(now, settings().dispatchBatch());
+        return claimDue(now, now);
+    }
+
+    /** The runs due by {@code now}, their claims stamped {@code claimedAt}: when the claim was really made. */
+    public List<UUID> claimDue(Instant now, Instant claimedAt) {
+        return claims.claimDue(now, claimedAt, settings().dispatchBatch());
     }
 
     /**

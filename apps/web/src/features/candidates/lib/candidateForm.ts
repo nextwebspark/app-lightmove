@@ -22,6 +22,7 @@ import type {
   LongTermIncentiveType,
   SaveCandidatePayload,
 } from "../api/types";
+import { NOTE_MAX_STORED } from "../../tasks/lib/mentions";
 
 const EMAIL_SHAPE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -150,8 +151,9 @@ export const candidateSchema = z.object({
   gender: z.enum(["", "female", "male", "other"]),
   yearsExperience: optionalWholeNumber("Years of experience", 70),
   summary: z.string().trim().max(4000),
-  // The Add form's first note: filed as a note on the person, never read back onto the row.
-  note: z.string().trim().max(4000),
+  // The Add form's first note: filed as a note on the person, never read back onto the row. Held to the server's
+  // own note limit; a 4000 cap once refused a note the server would have filed.
+  note: z.string().trim().max(NOTE_MAX_STORED),
   // Wider than the old 400: enrichment writes this field too, and a form that refuses to save a
   // package because research listed nine languages would block the one section it was opened for.
   languages: z.string().trim().max(1200),

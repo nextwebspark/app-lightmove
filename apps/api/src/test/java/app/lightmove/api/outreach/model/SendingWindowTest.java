@@ -58,6 +58,13 @@ class SendingWindowTest {
     }
 
     @Test
+    @DisplayName("a follow-up after an email started out of hours opens the day its delay reaches, not the day after")
+    void aFollowUpAfterAnOutOfHoursSendOpensItsOwnDay() {
+        assertThat(WINDOW.followUpDue(at(2026, 10, 5, 21, 0), DUBAI, 1, null)).isEqualTo(at(2026, 10, 6, 8, 0));
+        assertThat(WINDOW.followUpDue(at(2026, 10, 5, 6, 0), DUBAI, 1, null)).isEqualTo(at(2026, 10, 6, 8, 0));
+    }
+
+    @Test
     @DisplayName("a Sunday-to-Thursday week counts Sunday and skips Friday and Saturday")
     void aGulfWeek() {
         SendingWindow gulf = new SendingWindow(LocalTime.of(9, 0), LocalTime.of(17, 0), Set.of(DayOfWeek.SUNDAY,

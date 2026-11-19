@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { MemoryRouter, useLocation } from "react-router-dom";
@@ -238,11 +238,15 @@ function View({ search }: { search: string }) {
   );
 }
 
-function renderView({ address = "?view=pipeline", search = "" }: { address?: string; search?: string } = {}) {
+function renderView({
+  address = "?view=pipeline",
+  search = "",
+  client = new QueryClient({ defaultOptions: { queries: { retry: false } } }),
+}: { address?: string; search?: string; client?: QueryClient } = {}) {
   return render(
     <MemoryRouter initialEntries={[`/projects/p1/companies/universe${address}`]}>
       <LocationProbe />
-      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+      <QueryClientProvider client={client}>
         <ToastProvider>
           <View search={search} />
         </ToastProvider>
@@ -768,6 +772,41 @@ describe("PipelineView", () => {
       expect(dialog.getByText("Unresponsive asks for no reason.")).toBeInTheDocument();
       await userEvent.click(dialog.getByRole("button", { name: "Done" }));
       await waitFor(() => expect(candidatesApi.changeCandidateStatus).toHaveBeenCalledWith("p1", "a", "unresponsive", null));
+    });
+
+    it("refreshes the drawer's reasons once a drop has given one", async () => {
+      vi.mocked(candidatesApi.changeCandidateStatus).mockResolvedValue({ id: "a", fullName: "Amal Haddad", status: "unresponsive" } as Candidate);
+      vi.mocked(pipelineApi.movePipelineRank).mockResolvedValue(undefined as never);
+      const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+      const invalidate = vi.spyOn(client, "invalidateQueries");
+      renderView({ client });
+      await screen.findByRole("region", { name: "Approach" });
+
+      dropOn("Amal Haddad", screen.getByRole("group", { name: "Out of process · Approach" }));
+      const dialog = within(await screen.findByRole("dialog", { name: "Why did Amal Haddad leave?" }));
+      await userEvent.selectOptions(dialog.getByRole("combobox", { name: "Way out" }), "Unresponsive");
+      await userEvent.click(dialog.getByRole("button", { name: "Done" }));
+
+      await waitFor(() =>
+        expect(invalidate).toHaveBeenCalledWith({ queryKey: candidatesApi.EXIT_REASONS_OF_KEY("p1") }),
+      );
+    });
+
+    it("says so, and saves nothing, when the board changed under them while they chose why", async () => {
+      const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+      renderView({ client });
+      await screen.findByRole("region", { name: "Approach" });
+
+      dropOn("Amal Haddad", screen.getByRole("group", { name: "Out of process · Approach" }));
+      const dialog = within(await screen.findByRole("dialog", { name: "Why did Amal Haddad leave?" }));
+      // A colleague removed them meanwhile: the board's next read no longer has them.
+      vi.mocked(pipelineApi.getPipeline).mockResolvedValue(aPipelinePage(flaggedRows.slice(1), current));
+      await act(() => client.refetchQueries());
+      await userEvent.selectOptions(dialog.getByRole("combobox", { name: "Way out" }), "Unresponsive");
+      await userEvent.click(dialog.getByRole("button", { name: "Done" }));
+
+      expect(await screen.findByText(/Amal Haddad changed on the board while you chose why/)).toBeInTheDocument();
+      expect(candidatesApi.changeCandidateStatus).not.toHaveBeenCalled();
     });
 
     it("leaves the card where it was when the dialog is cancelled", async () => {

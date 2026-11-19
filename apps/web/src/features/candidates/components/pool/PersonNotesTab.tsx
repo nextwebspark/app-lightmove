@@ -12,7 +12,7 @@ import { NoteEditor } from "../../../notes/components/NoteEditor";
 import { NextActionModal, type NextActionTarget } from "../../../tasks/components/NextActionModal";
 import { NOTE_MAX_STORED, NOTE_TOO_LONG, withoutMentionTokens } from "../../../tasks/lib/mentions";
 import { usePositionTeam } from "../../../tasks/lib/usePositionTeam";
-import { invalidateConversationsOf } from "../../../outreach/api/conversationApi";
+import { invalidateNoteReadsOf } from "../../lib/invalidateNoteReads";
 
 /**
  * The Notes tab: a plain note about a position or about the person, and the team's plain notes, pinned first. Calls,
@@ -190,10 +190,6 @@ function PoolNoteCard({ personId, note }: { personId: string; note: PersonNote }
 function useNoteRefresh(personId: string) {
   const queryClient = useQueryClient();
   return () => {
-    void queryClient.invalidateQueries({ queryKey: poolApi.POOL_NOTES_KEY(personId) });
-    void queryClient.invalidateQueries({ queryKey: [...poolApi.POOL_KEY, "timeline", personId] });
-    void queryClient.invalidateQueries({ queryKey: [...poolApi.POOL_KEY, "activity"] });
-    void queryClient.invalidateQueries({ queryKey: [...poolApi.POOL_KEY, "page"] });
-    invalidateConversationsOf(queryClient, { personId });
+    invalidateNoteReadsOf(queryClient, { personId });
   };
 }

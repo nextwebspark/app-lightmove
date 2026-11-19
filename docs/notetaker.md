@@ -24,7 +24,8 @@ Recall is the only recorder for now. A bot of our own can come back later behind
    - the call is still to come, under way, or ran over its booked end by no more than 20 minutes (`OVERRUN_GRACE`). Past
      the booked end it is offered only while no later call on the consultant's calendar has started on the same link,
      since a personal room used back to back would otherwise put the next interview on this person;
-   - for Send now only, nothing else holds the link — on any day: a call can start early, so a day before the one it
+   - for Send now, and for Join at start once it would send the bot at once (the start under two minutes away, or
+     the call under way), nothing else holds the link — on any day: a call can start early, so a day before the one it
      is booked for only asks first (the panel's "Send the Notetaker now?", read off `callDayMeetingIds`, the calls
      whose day has begun in the presser's time zone), since a link used on another day may hold another meeting: no earlier call on the presser's calendar on
      the same link still before its booked end, and no other call's bot of the workspace joining or recording on it
@@ -76,7 +77,9 @@ Recall is the only recorder for now. A bot of our own can come back later behind
    | `transcript.done` | `PROCESSING`, and the note is made |
    | `transcript.failed` | `FAILED` (`TRANSCRIPT_FAILED`) |
 
-   A status only moves forward, and an ended recording takes no more news.
+   A status only moves forward, and an ended recording takes no more news — but for a leaving's reason, and for the
+   transcript of a bot read as gone unrecorded because its `call_ended` or `done` beat its `in_call_recording`
+   (Svix keeps no order): a transcript proves the bot recorded, as the reconcile reads it, so the note is still filed.
 5. **The note** (`MeetingNotesWorker`, after commit). It first claims the row (`processing_since`), so a transcript
    handed over twice (a Svix redelivery, or the reconcile) is summarised and filed once. It then runs these steps:
    1. Fetches the transcript. It follows a pre-signed link only to Recall's or AWS's hosts.
@@ -89,10 +92,11 @@ Recall is the only recorder for now. A bot of our own can come back later behind
    Recall's copy of the call is **not deleted here** (V158): every bot is made with timed retention
    (`RecallBotApi.MEDIA_RETENTION`, 7 days, Recall's free storage span), so Recall drops the recording itself, and the
    call's sender may **download the video** meanwhile (below). A call that is discarded (Remove) still has its media
-   deleted at once.
+   deleted at once, queued for `RecallBotErasureSweeper` so a refusal while the bot is still leaving is tried again.
 
    No model or vendor call holds a transaction. A failed summary leaves `FAILED` (`SUMMARY_FAILED`) with Recall's
-   copy kept, so **Try again** can read the transcript once more. Try again is a press, so it takes the
+   copy kept, so **Try again** can read the transcript once more (never for a call with no speech,
+   `NOTHING_HEARD`, which would read the same empty transcript). Try again is a press, so it takes the
    `CANDIDATE_AI_ENRICH` meter and the fair-use check.
    - **The recording** (V158 `media_expires_at`, stamped when the call ends). Once a call is filed or failed, its ⋯
      offers **Recording — Available until …** to the consultant who sent the bot alone
@@ -160,11 +164,13 @@ Recall is the only recorder for now. A bot of our own can come back later behind
    writes nothing and leaves them waiting. The review is one transaction on the recording row locked first, so a
    second tab finds nothing waiting (`NOTETAKER_SUGGESTION_DECIDED`); every choice is checked before anything is
    written, and the Motivation section — the one write that can still refuse, when it is too full — goes first, so a
-   refused change writes nothing at all and is named on its own row (`fieldErrors` keyed by the suggestion's id).
+   refused change writes nothing at all and is named on its own row (`fieldErrors` keyed by the suggestion's id; a
+   Motivation section too full for Motivation and Expected package together names both, since one write holds them).
    Every apply writes through the field's own owner (`CandidateCallUpdates`: `Person.recordFromCall` for the notice
    period, package and location together, the scorecard for the Motivation section, the tag catalogue; `TaskService`
    for each task) with one `UPDATED_FROM_CALL` Activity line per write naming the researcher, the fields and the call
-   — never the values — and a `NOTETAKER_SUGGESTION_APPLIED` / `_SKIPPED` audit event per suggestion beside the
+   — and, for the notice period, package and location, what each held before and after (`ProfileChanges`; the
+   Activity is staff-only) — and a `NOTETAKER_SUGGESTION_APPLIED` / `_SKIPPED` audit event per suggestion beside the
    owner's own. **There is no Undo**: once reviewed a change is the record's, and a correction is made there. The
    ⋯ then reads "N changes applied" (or "no changes applied", or "no changes found" where the call stated nothing
    new), and **Changes from the call** reopens the review as a record of the call: each applied change with what it replaced — kept
@@ -230,8 +236,9 @@ Recall is the only recorder for now. A bot of our own can come back later behind
       ticked while a run was reading wins over that run. **It suggests no next question**: it only reads coverage and
       gaps, and code keeps a reading only where an executive's own line backs it (`InterviewCoach.verifiedCoverage` /
       `verifiedGaps`: a competency moves only on words quoted from the executive's own turn — their consecutive lines
-      joined, never a team line — and a gap only at a time inside one of their lines, from its start to the next
-      line's; a gap with no time is never heard).
+      joined, never a team line — and a gap only at a time inside one of their lines, from its start up to the next
+      line's start — the next line's own time, usually the consultant's question, is never theirs; a gap with no time
+      is never heard; a quote stands on whole words only).
       The `nudges` key of an older row is ignored. A failed run keeps what the window shows and reads the same lines again; three in a row pause
       it until more is said. A stretch the guard stops is skipped. Past the cap the reading freezes. A live call is one
       `AI_ENRICH` use, counted once its first reading is on file: a call no run answered costs nothing. A question ticked

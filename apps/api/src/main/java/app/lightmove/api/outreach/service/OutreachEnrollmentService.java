@@ -175,7 +175,7 @@ public class OutreachEnrollmentService {
     private List<OutreachEnrollment> enroll(UUID userId, UUID workspaceId, UUID projectId, UUID sequenceId,
                                             StartSequenceRequest request, String signatureHtml) {
         MailboxConnection mailbox = requireSendingMailbox(userId, workspaceId);
-        OutreachSequence sequence = sequences.requireInProject(sequenceId, workspaceId, projectId);
+        OutreachSequence sequence = sequences.requireForEnrolment(sequenceId, workspaceId, projectId);
         List<UUID> candidateIds = request.people().stream().map(EnrollPersonRequest::candidateId).toList();
         Map<UUID, OutreachRecipient> recipients = people.recipientsOf(workspaceId, projectId, candidateIds, List.of())
                 .stream()

@@ -38,6 +38,21 @@ function Mover({ to }: { to: string }) {
   );
 }
 
+function TwoRows({ onSettled }: { onSettled: (candidateId: string) => void }) {
+  const change = useChangeCandidateStatus("p1", () => {});
+  const move = (candidateId: string) =>
+    change.mutate(
+      { candidateId, name: candidateId, status: "engaged" },
+      { onSettled: () => onSettled(candidateId) },
+    );
+  return (
+    <>
+      <button onClick={() => move("c1")}>Move first</button>
+      <button onClick={() => move("c2")}>Move second</button>
+    </>
+  );
+}
+
 function renderMover(to: string) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
@@ -126,5 +141,33 @@ describe("useChangeCandidateStatus", () => {
 
     expect(candidatesApi.changeCandidateStatus).toHaveBeenCalledWith("p1", "c1", "engaged", null);
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("settles every row it moved, not only the last, when a second move starts before the first is saved", async () => {
+    const pending: Array<(saved: Candidate) => void> = [];
+    vi.mocked(candidatesApi.changeCandidateStatus).mockImplementation(
+      (_projectId, candidateId) =>
+        new Promise<Candidate>((resolve) =>
+          pending.push(() => resolve({ id: candidateId, fullName: candidateId, status: "engaged" } as Candidate)),
+        ),
+    );
+    const settled = vi.fn();
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <ToastProvider>
+          <TwoRows onSettled={settled} />
+        </ToastProvider>
+      </QueryClientProvider>,
+    );
+
+    await userEvent.click(await screen.findByRole("button", { name: "Move first" }));
+    await userEvent.click(screen.getByRole("button", { name: "Move second" }));
+    await vi.waitFor(() => expect(pending).toHaveLength(2));
+    pending.forEach((resolve) => resolve({} as Candidate));
+
+    await vi.waitFor(() => expect(settled).toHaveBeenCalledTimes(2));
+    expect(settled).toHaveBeenCalledWith("c1");
+    expect(settled).toHaveBeenCalledWith("c2");
   });
 });

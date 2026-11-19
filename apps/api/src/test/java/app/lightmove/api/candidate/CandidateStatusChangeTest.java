@@ -28,8 +28,7 @@ class CandidateStatusChangeTest extends PipelineFlowSupport {
 
         for (String key : List.of("identified", "contacted", "engaged", "interested", "notInterested", "offLimits",
                 "outOfScope")) {
-            JsonNode added = add(projectId, """
-                    {"fullName":"Person %s","status":"%s"}""".formatted(key, key));
+            JsonNode added = addAt(projectId, "Person " + key, key);
             assertThat(added.get("status").asText()).isEqualTo(key);
             assertThat(added.get("statusChangedAt").isNull()).isFalse();
         }
@@ -149,7 +148,8 @@ class CandidateStatusChangeTest extends PipelineFlowSupport {
         add(projectId, """
                 {"fullName":"Off Limits Person","status":"offLimits"}""");
         add(projectId, """
-                {"fullName":"Withdrew Person","status":"withdrew"}""");
+                {"fullName":"Withdrew Person","status":"withdrew","exitReasonId":"%s"}"""
+                .formatted(exitReasonId(admin, "anotherOffer")));
 
         assertThat(names(list(projectId, "pipelineStage", "identified")))
                 .containsExactlyInAnyOrder("Identified Person", "Off Limits Person");

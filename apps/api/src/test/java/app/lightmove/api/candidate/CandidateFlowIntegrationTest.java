@@ -465,7 +465,8 @@ class CandidateFlowIntegrationTest extends FlowTestSupport {
                         .header("Authorization", "Bearer " + admin())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"fullName":"Omar Haddad","status":"notInterested"}"""))
+                                {"fullName":"Omar Haddad","status":"notInterested","exitReasonId":"%s"}"""
+                                .formatted(exitReasonId(admin(), "timing"))))
                 .andExpect(status().isOk())
                 .andReturn());
 

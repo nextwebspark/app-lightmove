@@ -153,7 +153,8 @@ first** → `(projectId, personId, candidateId, enrollmentId?)`; the enrollment 
 
 **Which threads listen**: every distinct `(workspace, sender, thread, gateway)` with an `OUTBOUND SENT` row within
 `reply-listen-window` (reuse the existing 30d setting; no new key), **plus** every live enrollment's thread whatever
-its age. The poll's `since` becomes the newest `occurred_at` we hold in that thread minus one hour (not
+its age (`findListening`: an `ACTIVE` run however long its gap — a follow-up may wait 30 working days — and a
+`COMPLETED` one inside the window). The poll's `since` becomes the newest `occurred_at` we hold in that thread minus one hour (not
 `enrolled_at`); the dedupe index absorbs the overlap. A webhook `InboundMessage` is accepted for any thread the
 message table knows, window or not.
 
@@ -302,7 +303,9 @@ rows[], truncated)`. Each `ConversationRowResponse` carries the executive as the
 employer, `enrichedAt`, status key, label and colour), `group`, `action` (a `CandidateOpenTaskDto`: task id, title,
 kind, `rule`, `dueAt`, assignee), `run` (their latest run, the `OutreachRunResponse` the old table used),
 `latest{channel, direction, kind, at, preview}` (the first 140 characters of their latest line), `lastSentAt`,
-`scheduledAt` and `lastActivityAt`.
+`scheduledAt` and `lastActivityAt` — the latest of their newest line, run start or end, newest note this position
+reads (a logged call or WhatsApp, by when it happened, never ahead of now), newest stage or run line on this position
+and latest meeting begun, so a row says what its pane's Last updated says. A note alone still never puts someone in `all`.
 
 The list is answered whole, held to 500 rows with `truncated` set past that, as the old overview held its runs: a
 position maps hundreds of executives at most, so the cursor paging the plan sketched would only have cost a
@@ -312,7 +315,8 @@ Groups, first match wins:
 - `ATTENTION`: an open task the bounce rule filed; or their latest run stopped `SEND_FAILED | SEND_UNCERTAIN |
   MAILBOX_INACTIVE | MAILBOX_MOVED | ADDRESS_REMOVED` with nothing sent to them since. The row's `action` is the
   bounce task, else their soonest open task, and null only when nothing is open; a failed run leaves the group once
-  an email goes to them again.
+  an email goes to them again. A failed own email counts too, unless it failed `DO_NOT_CONTACT | OPTED_OUT |
+  PROCESSING_RESTRICTED | UNMAPPED | SENDER_WITHOUT_ACCESS` — nothing anyone could do would clear it.
 - `NEEDS_REPLY`: an open task the reply rule filed. Decision 6 holds strictly: with the reply rule switched off a
   reply shows in All conversations and the bell, not here, since nothing could mark it handled.
 - `PREPARATION`: an open task, and no email ever sent to them on this position.
@@ -336,7 +340,8 @@ outreach's own repositories.
 
 **`GET /api/v1/projects/{p}/outreach/conversations/{candidateId}`** → `ConversationResponse(executive` (the Pipeline
 row), `openTasks, currentRun` (the drawer's `CandidateOutreachResponse`), `keyDates{addedAt, firstContactedAt,
-repliedAt, lastActivityAt}, contact, composer, events[], truncated)`. Phase 4 added `contact` (the ledger's emails
+repliedAt, lastActivityAt}, contact, composer, events[], truncated)` — `repliedAt` the latest reply line on this
+position, a one-off email's included, or a run's `replied_at`, whichever is later. Phase 4 added `contact` (the ledger's emails
 and phones, location, do not contact) and `composer` (`replySubject`, `replyStopsRun`, `emailSentMovesTo`) for the screen's
 details pane and composer.
 
@@ -496,7 +501,8 @@ body. It warns and never refuses (`docs/recently-approached.md`).
      links http/https/mailto only, an image as its alt text, a mention as `@Name`. The Markdown is kept as `body_text`.
    - `OutreachMessageSendService` is the dispatcher's second loop, `OutreachSendService`'s shape: a scheduled email is
      held to the daily cap only (deferred to the next day's window start), never to a sequence's window; a failure is
-     a FAILED line — Attention in the queue, Mine for its sender — and never retried; a send recorded nowhere is marked
+     a FAILED line — Attention in the queue (unless the person or the position refused it), Mine for its sender — and
+     never retried; a send recorded nowhere is marked
      sent by `OutreachMessageClaims.recordDelivered`, and one that went after another instance failed its claim as
      uncertain is recorded sent all the same. At send it asks again what the composer asked, and two things more: a
      reply's thread must still be this mailbox's gateway and address (`MAILBOX_MOVED`; a first email goes from the

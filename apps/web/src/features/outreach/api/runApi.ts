@@ -26,6 +26,7 @@ export type StopReason =
   | "SEND_FAILED"
   | "SEND_UNCERTAIN"
   | "POSITION_ARCHIVED"
+  | "WORKSPACE_DELETED"
   /** A consultant's own email only: it waited past its sender's access to the position. */
   | "SENDER_WITHOUT_ACCESS"
   | "OPTED_OUT";

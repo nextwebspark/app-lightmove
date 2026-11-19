@@ -330,7 +330,7 @@ class MicrosoftMailboxGatewayTest {
         when(mailboxTokens.accessToken(grantId)).thenReturn("access-for-yara");
 
         List<CalendarEvent> events = gateway.calendarEvents(grantId, Instant.parse("2026-07-05T00:00:00Z"),
-                Instant.parse("2027-01-01T00:00:00Z"));
+                Instant.parse("2027-01-01T00:00:00Z")).events();
 
         assertThat(events).extracting(CalendarEvent::id)
                 .containsExactly("040000008200E00074C5B7101A82E0080000000075A1", "AAMkPage2");

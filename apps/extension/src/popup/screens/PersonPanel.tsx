@@ -190,7 +190,12 @@ function PersonForm({
         />
 
         <FieldSection label="Status" hint="Your workspace's pipeline">
-          <StatusPicker catalog={pipeline.data} value={statusKey ?? startingKey} startingKey={startingKey} onChange={setStatusKey} />
+          <StatusPicker
+            catalog={pipeline.data}
+            value={statusKey ?? startingKey}
+            startingKey={startingKey}
+            onChange={setStatusKey}
+          />
         </FieldSection>
 
         <FieldSection label="Tags" hint="On the person, every position">

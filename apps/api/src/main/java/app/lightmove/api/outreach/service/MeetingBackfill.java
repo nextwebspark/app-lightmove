@@ -4,6 +4,7 @@ import app.lightmove.api.core.tenant.EveryWorkspace;
 import app.lightmove.api.outreach.constant.MailboxGatewayKind;
 import app.lightmove.api.outreach.constant.MailboxStatus;
 import app.lightmove.api.outreach.model.CalendarEvent;
+import app.lightmove.api.outreach.model.CalendarRead;
 import app.lightmove.api.outreach.model.MailboxConnected;
 import app.lightmove.api.outreach.model.MailboxConnection;
 import app.lightmove.api.outreach.repository.MailboxConnectionRepository;
@@ -115,10 +116,18 @@ public class MeetingBackfill {
             }
             Instant from = now.minus(RECHECKED_PAST);
             Instant to = now.plus(REACH);
-            List<CalendarEvent> events = gateway.calendarEvents(grantId, from, to);
+            CalendarRead read = gateway.calendarEvents(grantId, from, to);
+            // A read cut short at its page cap holds only some of the window: what it missed is not gone, and
+            // replacing the window with it once deleted calls booked in Uncava along with their Zoom meetings.
             transactions.executeWithoutResult(status -> mailboxes.findById(mailboxConnectionId)
                     .filter(fresh -> grantId.equals(fresh.getGrantId()))
-                    .ifPresent(fresh -> meetings.replaceWindow(fresh, from, to, events)));
+                    .ifPresent(fresh -> {
+                        if (read.complete()) {
+                            meetings.replaceWindow(fresh, from, to, read.events());
+                        } else {
+                            meetings.applyAll(fresh, read.events());
+                        }
+                    }));
         } catch (RuntimeException failed) {
             log.info("Could not refresh the calendar of mailbox {}; the next opening tries", mailboxConnectionId,
                     failed);
@@ -149,7 +158,7 @@ public class MeetingBackfill {
         Instant now = clock.instant();
         List<CalendarEvent> events;
         try {
-            events = gateway.calendarEvents(grantId, now.minus(REACH), now.plus(REACH));
+            events = gateway.calendarEvents(grantId, now.minus(REACH), now.plus(REACH)).events();
         } catch (RuntimeException failed) {
             recordFailure(mailboxConnectionId, grantId, now, failed);
             return;

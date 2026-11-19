@@ -1,5 +1,6 @@
-import { useRef, useState, type DragEvent, type ReactNode } from "react";
+import { useLayoutEffect, useRef, useState, type DragEvent, type ReactNode } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
+import { useToast } from "../../../components/ui";
 import { cn } from "../../../lib/cn";
 import type { CandidatePipelineStage } from "../../candidates/api/types";
 import { defaultStatusOf, pipelineSwatchClass } from "../../candidates/lib/pipelineStatus";
@@ -73,8 +74,14 @@ export function PipelineBoard({
   const [over, setOver] = useState<DropSlot | null>(null);
   const [landed, setLanded] = useState<{ basis: readonly PipelineRow[]; rows: PipelineRow[] } | null>(null);
   const exitPrompt = useExitReasonPrompt();
+  const toast = useToast();
   if (landed && landed.basis !== rows) setLanded(null);
   const shown = landed?.basis === rows ? landed.rows : rows;
+  // The reason dialog answers after the drop's render: a refetch meanwhile must not be undone by the drop's old board.
+  const board = useRef({ rows, shown });
+  useLayoutEffect(() => {
+    board.current = { rows, shown };
+  });
 
   const columns = stageCounts;
   const cells = outOfProcessCellsOf(shown, columns.map(stageOf), catalog);
@@ -96,7 +103,7 @@ export function PipelineBoard({
 
   const land = (placement: BoardPlacement | null) => {
     if (!placement) return;
-    setLanded({ basis: rows, rows: placement.rows });
+    setLanded({ basis: board.current.rows, rows: placement.rows });
     onMove(placement);
   };
 
@@ -134,8 +141,13 @@ export function PipelineBoard({
     status: PipelineStatus,
     reason: ExitReasonChoice | null,
   ) => {
-    const placement = boardPlacementOf(shown, row.candidateId, { stage, status, beforeId: null });
-    land(placement && { ...placement, reason });
+    const placement = boardPlacementOf(board.current.shown, row.candidateId, { stage, status, beforeId: null });
+    if (!placement) {
+      // A colleague moved or removed them while the reason was being chosen: say so rather than drop the answer.
+      toast.error(`${row.fullName} changed on the board while you chose why. Nothing was saved; check their card.`);
+      return;
+    }
+    land({ ...placement, reason });
   };
 
   /**

@@ -867,6 +867,7 @@ describe("MeetingsSection", () => {
       startsAt: "2026-10-07T06:00:00Z",
       asked: true,
       mayAskAgain: true,
+      suggesting: false,
       suggestions: [],
     });
     renderSection({
@@ -927,6 +928,7 @@ describe("MeetingsSection", () => {
       startsAt: "2026-09-22T06:00:00Z",
       asked: true,
       mayAskAgain: true,
+      suggesting: false,
       suggestions: [
         {
           id: "s1",
@@ -985,6 +987,7 @@ describe("MeetingsSection", () => {
       startsAt: "2026-10-07T06:00:00Z",
       asked: true,
       mayAskAgain: true,
+      suggesting: false,
       suggestions: [],
     });
     renderSection({ notetakerOffered: true, recordings: [aRecording({ status: "DONE", hasTranscript: true })] });

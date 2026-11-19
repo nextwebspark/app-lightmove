@@ -81,11 +81,16 @@ public class OutreachSequenceService {
     @Transactional
     public SequenceResponse update(UUID userId, UUID workspaceId, UUID projectId, UUID sequenceId,
                                    SaveSequenceRequest request, HttpServletRequest httpRequest) {
-        OutreachSequence sequence = sequences.requireInProject(sequenceId, workspaceId, projectId);
+        OutreachSequence sequence = sequences.requireForChange(sequenceId, workspaceId, projectId);
         SendingWindow schedule = request.schedule() == null
                 ? sequence.sendingWindow() : scheduleOf(request.schedule());
         List<SequenceStep> steps = stepsOf(request.steps(), schedule);
         refuseUnofferedBookingLink(steps);
+        // A run holds only the number of its next step: removing step 2 once sent step 3's email in its place and
+        // completed the runs waiting for step 3 without it.
+        if (steps.size() != sequence.getSteps().size() && enrollments.existsBySequenceId(sequenceId)) {
+            throw ApiException.of(ErrorCode.OUTREACH_SEQUENCE_STEPS_FIXED);
+        }
         sequence.rewrite(request.name().trim(), steps, schedule);
         audited(ProjectEventType.OUTREACH_SEQUENCE_UPDATED, userId, workspaceId, projectId, sequence, httpRequest);
         return toResponse(sequence);
@@ -93,7 +98,7 @@ public class OutreachSequenceService {
 
     @Transactional
     public void delete(UUID userId, UUID workspaceId, UUID projectId, UUID sequenceId, HttpServletRequest httpRequest) {
-        OutreachSequence sequence = sequences.requireInProject(sequenceId, workspaceId, projectId);
+        OutreachSequence sequence = sequences.requireForChange(sequenceId, workspaceId, projectId);
         if (enrollments.existsBySequenceId(sequenceId)) {
             throw ApiException.of(ErrorCode.OUTREACH_SEQUENCE_IN_USE);
         }

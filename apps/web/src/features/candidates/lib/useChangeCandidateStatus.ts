@@ -35,11 +35,19 @@ export function useChangeCandidateStatus(projectId: string, onSaved: (saved: Can
   const request = (args: ChangeCandidateStatus, options?: { onSettled?: () => void }) =>
     void prompt.ask(
       { name: args.name, statusKey: args.status },
-      // The dialog may have changed the way out: the status sent is the one it confirmed.
-      (status, reason) => change.mutate({ ...args, status, reason }, { onSettled: options?.onSettled }),
+      // The dialog may have changed the way out: the status sent is the one it confirmed. Not mutate's own onSettled:
+      // React Query calls that for the latest call alone, so a second row changed mid-save left the first row busy.
+      (status, reason) =>
+        void change
+          .mutateAsync({ ...args, status, reason })
+          // Not swallowed: the mutation's own onError has already said why in a toast.
+          .catch(() => undefined)
+          .finally(() => options?.onSettled?.()),
       options?.onSettled,
     );
 
+  // isPending is the latest change's alone: a surface changing several rows tracks each one itself, as the grid's
+  // busy ids do.
   return { mutate: request, isPending: change.isPending, dialog: prompt.dialog };
 }
 

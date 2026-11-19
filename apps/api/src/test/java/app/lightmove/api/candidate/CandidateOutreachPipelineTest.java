@@ -127,8 +127,7 @@ class CandidateOutreachPipelineTest extends PipelineFlowSupport {
     }
 
     private UUID candidate(String statusKey) throws Exception {
-        return UUID.fromString(add(projectId, """
-                {"fullName":"Person at %s","status":"%s"}""".formatted(statusKey, statusKey)).get("id").asText());
+        return UUID.fromString(addAt(projectId, "Person at " + statusKey, statusKey).get("id").asText());
     }
 
     private String statusOf(UUID candidateId) throws Exception {

@@ -162,14 +162,25 @@ export function isWithinWorkingHours(choice: CallChoice, workingHours: readonly 
 export function fieldsOf(choice: CallChoice, timeZone: string): { date: string; from: string; to: string } {
   const start = wallClockOf(new Date(choice.start), timeZone);
   const end = wallClockOf(new Date(endOf(choice)), timeZone);
-  return { date: start.date, from: start.time, to: end.date === start.date ? end.time : "24:00" };
+  // A call running past midnight ends at its own time the next day; "24:00" once read every such end as midnight.
+  const endTime = end.date !== start.date && end.time === "00:00" ? "24:00" : end.time;
+  return { date: start.date, from: start.time, to: endTime };
 }
 
-/** A call from the "Pick a time" fields, or null where they do not make one. A call ending at midnight may say 00:00. */
-export function choiceOfFields(date: string, from: string, to: string, timeZone: string): CallChoice | null {
+/**
+ * A call from the "Pick a time" fields, or null where they do not make one. A call ending at midnight may say 00:00;
+ * one already running past midnight keeps its end on the next day ({@link fieldsOf} gives such an end its own time).
+ */
+export function choiceOfFields(
+  date: string,
+  from: string,
+  to: string,
+  timeZone: string,
+  endsNextDay = false,
+): CallChoice | null {
   if (!date || !from || !to) return null;
   const start = instantOf(date, from, timeZone);
-  const endDate = to === "00:00" || to === "24:00" ? shiftDateOf(date, 1) : date;
+  const endDate = to === "00:00" || to === "24:00" || (endsNextDay && to < from) ? shiftDateOf(date, 1) : date;
   const end = instantOf(endDate, to === "24:00" ? "00:00" : to, timeZone);
   const minutes = Math.round((end.getTime() - start.getTime()) / 60_000);
   return minutes > 0 ? { start: start.toISOString(), minutes } : null;

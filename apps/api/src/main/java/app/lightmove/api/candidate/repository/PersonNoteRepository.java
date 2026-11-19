@@ -3,6 +3,7 @@ package app.lightmove.api.candidate.repository;
 import app.lightmove.api.candidate.constant.NoteOutcome;
 import app.lightmove.api.candidate.constant.PersonNoteKind;
 import app.lightmove.api.candidate.model.LastCallRow;
+import app.lightmove.api.candidate.model.LatestNoteRow;
 import app.lightmove.api.candidate.model.LoggedContactRow;
 import app.lightmove.api.candidate.model.NoteViewpoint;
 import app.lightmove.api.candidate.model.PersonNote;
@@ -39,14 +40,25 @@ public interface PersonNoteRepository extends JpaRepository<PersonNote, UUID> {
                                                               String body);
 
     /**
-     * A live note by the same author in the same words about the same position: the copy a door filed after the
-     * original was deleted. Another author's note in the same words is theirs, never a stand-in for this one.
+     * The copies a door filed again since a note was deleted: live, by the same author, in the same words, about the same
+     * position, and shaped as a door files one ({@link DeletedPersonNoteRow#isFiledByADoor()}), oldest first. Another
+     * author's note in the same words is theirs, never a stand-in for this one.
      */
-    Optional<PersonNote> findFirstByWorkspaceIdAndPersonIdAndProjectIdAndBodyAndAuthorUserIdAndOutcomeIsNull(
-            UUID workspaceId, UUID personId, UUID projectId, String body, UUID authorUserId);
+    @Query("""
+            select n from PersonNote n
+            where n.workspaceId = :workspaceId and n.personId = :personId and n.projectId = :projectId
+              and n.body = :body and n.authorUserId = :authorUserId and n.outcome is null
+              and n.kind = app.lightmove.api.candidate.constant.PersonNoteKind.GENERAL
+              and n.bodyFormat = app.lightmove.api.common.constant.NoteFormat.PLAIN
+              and n.createdAt > :deletedAt
+            order by n.createdAt
+            """)
+    List<PersonNote> findDoorRefiledSince(UUID workspaceId, UUID personId, UUID projectId, String body,
+                                          UUID authorUserId, Instant deletedAt, Limit limit);
 
     @Query(value = """
-            SELECT author_user_id AS authorUserId, project_id AS projectId, body, outcome
+            SELECT author_user_id AS authorUserId, project_id AS projectId, body, outcome, kind,
+                   body_format AS bodyFormat, deleted_at AS deletedAt
             FROM app_lm_person_note
             WHERE id = :id AND workspace_id = :workspaceId AND person_id = :personId AND deleted_at IS NOT NULL
             """, nativeQuery = true)
@@ -87,6 +99,22 @@ public interface PersonNoteRepository extends JpaRepository<PersonNote, UUID> {
     List<PersonNote> findLatestLoggedContactsBefore(UUID workspaceId, Collection<UUID> personIds,
                                                     Collection<String> kinds, Collection<String> unanswered,
                                                     Instant since);
+
+    /**
+     * Each person's newest live note a position reads, by when it happened, leaving out any logged ahead of now. Which
+     * notes a position reads must stay {@link NoteViewpoint#reads}'s rule: the conversation pane applies it in Java, and
+     * an Outreach row that read otherwise would disagree with the pane it opens.
+     */
+    @Query("""
+            select n.personId as personId, max(coalesce(n.occurredAt, n.createdAt)) as at
+            from PersonNote n
+            where n.workspaceId = :workspaceId and n.personId in :personIds
+              and (n.projectId = :projectId or n.projectId is null)
+              and coalesce(n.occurredAt, n.createdAt) <= :now
+            group by n.personId
+            """)
+    List<LatestNoteRow> findLatestNoteOfEachPerson(UUID workspaceId, UUID projectId, Collection<UUID> personIds,
+                                                   Instant now);
 
     /** The person's newest live calls on any position, each with its author's name, in one read and without words. */
     @Query("""

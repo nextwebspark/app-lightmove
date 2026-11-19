@@ -34,6 +34,12 @@ describe("the pending contacts store", () => {
     expect(withPending(again, card("d", { channel: "whatsapp" })).map((held) => held.id)).toEqual(["d", "c", "b"]);
   });
 
+  it("keeps one card for a Copy then a Call of the same number, since both log a call", () => {
+    const copied = withPending([], card("a", { channel: "copy" }));
+
+    expect(withPending(copied, card("b", { channel: "call" })).map((held) => held.id)).toEqual(["b"]);
+  });
+
   it("survives a reload, and lets a card go after twelve hours", () => {
     writePending([card("a"), card("b", { at: "2026-11-15T20:00:00.000Z" })]);
     const now = Date.parse("2026-11-16T09:30:00.000Z") + 60_000;

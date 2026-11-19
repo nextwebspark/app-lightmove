@@ -26,6 +26,14 @@ export const PERSON_NOTES_KEY = (projectId: string, candidateId: string) =>
 export const PERSON_TIMELINE_KEY = (projectId: string, candidateId: string) =>
   [...CANDIDATES_KEY_PREFIX(projectId), "timeline", candidateId] as const;
 
+const NOTE_READ_SEGMENTS: ReadonlySet<unknown> = new Set([PERSON_NOTES_KEY("", "")[2], PERSON_TIMELINE_KEY("", "")[2]]);
+
+/** A note list or timeline on any position, for anyone: what a note write leaves stale. Read off the factories above. */
+export function isAnyPositionNoteRead(queryKey: readonly unknown[]): boolean {
+  const prefix = CANDIDATES_KEY_PREFIX("");
+  return queryKey[0] === prefix[0] && NOTE_READ_SEGMENTS.has(queryKey[prefix.length]);
+}
+
 const personUrl = (projectId: string, candidateId: string) =>
   `/projects/${projectId}/candidates/${candidateId}`;
 

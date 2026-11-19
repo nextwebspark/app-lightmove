@@ -7,7 +7,7 @@ import type { TaskNote } from "../../tasks/api/types";
 import { NoteEditor } from "../../notes/components/NoteEditor";
 import { NOTE_MAX_STORED, NOTE_TOO_LONG, withoutMentionTokens } from "../../tasks/lib/mentions";
 import { usePositionTeam } from "../../tasks/lib/usePositionTeam";
-import { invalidateConversationsOf } from "../../outreach/api/conversationApi";
+import { invalidateNoteReadsOf } from "../lib/invalidateNoteReads";
 import * as personCrmApi from "../api/personCrmApi";
 import * as poolApi from "../api/poolApi";
 import type { NoteOutcome, PersonNote, PersonNoteKind } from "../api/types";
@@ -258,13 +258,7 @@ export function PositionNoteComposer({
       setDraft("");
       setDetails(freshDetails());
       setOutcome(presetOutcome);
-      void queryClient.invalidateQueries({
-        queryKey: personCrmApi.PERSON_NOTES_KEY(projectId, candidateId),
-      });
-      void queryClient.invalidateQueries({
-        queryKey: personCrmApi.PERSON_TIMELINE_KEY(projectId, candidateId),
-      });
-      invalidateConversationsOf(queryClient, { projectId, candidateId });
+      invalidateNoteReadsOf(queryClient, { projectId, candidateId });
       if (thenNextAction && onSetNextAction) {
         toast("Note saved");
         onSetNextAction(taskNoteOf(note));
@@ -387,13 +381,7 @@ export function PositionNoteCard({
       restore: (noteId) => personCrmApi.restorePersonNote(projectId, candidateId, noteId),
     },
     () => {
-      void queryClient.invalidateQueries({ queryKey: personCrmApi.PERSON_NOTES_KEY(projectId, candidateId) });
-      void queryClient.invalidateQueries({ queryKey: personCrmApi.PERSON_TIMELINE_KEY(projectId, candidateId) });
-      invalidateConversationsOf(queryClient, { projectId, candidateId });
-      void queryClient.invalidateQueries({ queryKey: [...poolApi.POOL_KEY, "notes"] });
-      void queryClient.invalidateQueries({ queryKey: [...poolApi.POOL_KEY, "timeline"] });
-      void queryClient.invalidateQueries({ queryKey: [...poolApi.POOL_KEY, "activity"] });
-      void queryClient.invalidateQueries({ queryKey: [...poolApi.POOL_KEY, "page"] });
+      invalidateNoteReadsOf(queryClient, { projectId, candidateId });
     },
   );
   const team = usePositionTeam(note.projectId);

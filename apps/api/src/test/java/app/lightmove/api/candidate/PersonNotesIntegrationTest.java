@@ -740,6 +740,62 @@ class PersonNotesIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("an Undo brings back the note deleted, not another in the same words written before it")
+    void anUndoBringsBackTheNoteDeleted() throws Exception {
+        firm("Same Words Undo Firm");
+        String cfo = mandate("Chief Financial Officer");
+        String candidateId = add(cfo, """
+                {"fullName":"Huda Al Suwaidi"}""").get("id").asText();
+        write(admin, cfo, candidateId, "general", "Discussed comp");
+        String call = write(admin, cfo, candidateId, "call", "Discussed comp").get("id").asText();
+        String second = write(admin, cfo, candidateId, "general", "Discussed comp").get("id").asText();
+
+        for (String noteId : List.of(call, second)) {
+            mvc.perform(delete(notesUrl(cfo, candidateId) + "/" + noteId).header("Authorization", "Bearer " + admin))
+                    .andExpect(status().isNoContent());
+            JsonNode undone = body(mvc.perform(post(notesUrl(cfo, candidateId) + "/" + noteId + "/restore")
+                            .header("Authorization", "Bearer " + admin))
+                    .andExpect(status().isOk())
+                    .andReturn());
+            assertThat(undone.get("id").asText()).isEqualTo(noteId);
+        }
+        assertThat(notes(admin, cfo, candidateId)).hasSize(3);
+    }
+
+    @Test
+    @DisplayName("an edit that keeps a note's words keeps the format they were written in")
+    void anEditKeepingTheWordsKeepsTheFormat() throws Exception {
+        firm("Kept Format Firm");
+        String cfo = mandate("Chief Financial Officer");
+        String candidateId = add(cfo, """
+                {"fullName":"Saeed Al Nuaimi"}""").get("id").asText();
+        String plain = log(cfo, candidateId, """
+                {"kind":"call","body":"* budget 1. next"}""").get("id").asText();
+        String markdown = log(cfo, candidateId, """
+                {"kind":"call","body":"## Call","format":"markdown"}""").get("id").asText();
+
+        JsonNode plainEdited = body(mvc.perform(put(notesUrl(cfo, candidateId) + "/" + plain)
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"kind":"call","format":"markdown","outcome":"connected"}"""))
+                .andExpect(status().isOk())
+                .andReturn());
+        JsonNode markdownEdited = body(mvc.perform(put(notesUrl(cfo, candidateId) + "/" + markdown)
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"outcome":"voicemail"}"""))
+                .andExpect(status().isOk())
+                .andReturn());
+
+        assertThat(plainEdited.get("format").asText()).isEqualTo("plain");
+        assertThat(plainEdited.get("outcome").asText()).isEqualTo("connected");
+        assertThat(markdownEdited.get("format").asText()).isEqualTo("markdown");
+        assertThat(markdownEdited.get("body").asText()).isEqualTo("## Call");
+    }
+
+    @Test
     @DisplayName("two Undos of one delete at once restore it once")
     void twoUndosAtOnceRestoreOnce() throws Exception {
         firm("Double Undo Firm");

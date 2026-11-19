@@ -65,10 +65,18 @@ public record SendingWindow(LocalTime start, LocalTime end, Set<DayOfWeek> worki
         return local.toInstant();
     }
 
-    /** {@code days} working days after {@code from}, at {@code sendTime} when the step names one. */
+    /**
+     * {@code days} working days after {@code from}, at {@code sendTime} when the step names one. With none, at
+     * {@code from}'s time of day, or the window's opening when that time falls outside it.
+     */
     public Instant followUpDue(Instant from, ZoneId zone, int days, LocalTime sendTime) {
-        Instant due = addWorkingDays(from, zone, days);
-        return sendTime == null ? due : due.atZone(zone).with(sendTime).toInstant();
+        ZonedDateTime due = addWorkingDays(from, zone, days).atZone(zone);
+        if (sendTime != null) {
+            return due.with(sendTime).toInstant();
+        }
+        // A first email started by hand after hours once put its follow-up after hours too, and the wait for the
+        // next opening added a working day the sequence never asked for.
+        return admits(due.toLocalTime()) ? due.toInstant() : due.with(start).toInstant();
     }
 
     /**

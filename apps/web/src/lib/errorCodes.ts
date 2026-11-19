@@ -169,6 +169,7 @@ export type ApiErrorCode =
   | "MAILBOX_READ_NOT_GRANTED"
   | "MAILBOX_SEND_FAILED"
   | "OUTREACH_SEQUENCE_IN_USE"
+  | "OUTREACH_SEQUENCE_STEPS_FIXED"
   | "OUTREACH_PERSON_SKIPPED"
   | "OUTREACH_ALREADY_ENROLLED"
   | "OUTREACH_ADDRESS_NOT_ON_FILE"
@@ -186,6 +187,7 @@ export type ApiErrorCode =
   | "MEETING_SLOT_TAKEN"
   | "MEETING_SLOT_INVALID"
   | "MEETING_BOOK_FAILED"
+  | "MEETING_BOOK_UNCONFIRMED"
   | "MEETING_CALENDAR_UNAVAILABLE"
   | "MEETING_NOT_EDITABLE"
   | "MEETING_NOT_YOURS"
@@ -409,6 +411,7 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
     "Uncava needs to see replies to stop a sequence. Connect again and allow it to read the replies to its emails.",
   MAILBOX_SEND_FAILED: "The email couldn't be sent. Try again in a moment.",
   OUTREACH_SEQUENCE_IN_USE: "People are on this sequence, so it can't be deleted.",
+  OUTREACH_SEQUENCE_STEPS_FIXED: "People are on this sequence, so steps can't be added or removed. Reload to see its steps.",
   OUTREACH_PERSON_SKIPPED: "Someone you chose can no longer be added. Go back and review the list.",
   OUTREACH_ALREADY_ENROLLED: "Someone you chose is already in a sequence on this position.",
   OUTREACH_ADDRESS_NOT_ON_FILE: "That address isn't on file for this person.",
@@ -417,6 +420,7 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   MEETING_SLOT_TAKEN: "That time is no longer free. Pick another.",
   MEETING_SLOT_INVALID: "That time can't be booked. Pick one from the grid.",
   MEETING_BOOK_FAILED: "The invite couldn't be sent. Check your calendar before trying again.",
+  MEETING_BOOK_UNCONFIRMED: "The invite was sent, but your calendar didn't confirm it. Refresh before booking again.",
   MEETING_CALENDAR_UNAVAILABLE: "Your calendar couldn't be read. Try again in a moment, or reconnect your mailbox if it keeps failing.",
   MEETING_NOT_EDITABLE: "This call can only be changed from the calendar it's on.",
   MEETING_NOT_YOURS: "Only the person whose calendar holds this call can change it.",

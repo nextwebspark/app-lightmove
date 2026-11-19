@@ -10,6 +10,7 @@ import * as emailTemplatesApi from "../../emailtemplates/api/emailTemplatesApi";
 import type { EmailTemplate } from "../../emailtemplates/api/emailTemplatesApi";
 import * as signaturesApi from "../../signatures/api/signaturesApi";
 import * as mailboxApi from "../api/mailboxApi";
+import * as sequenceApi from "../api/sequenceApi";
 import { SequenceEditorPage } from "./SequenceEditorPage";
 
 vi.mock("../../auth/AuthProvider", () => ({
@@ -19,6 +20,11 @@ vi.mock("../../auth/AuthProvider", () => ({
 vi.mock("../api/mailboxApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api/mailboxApi")>()),
   getMailbox: vi.fn(),
+}));
+
+vi.mock("../api/sequenceApi", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../api/sequenceApi")>()),
+  getSequence: vi.fn(),
 }));
 
 vi.mock("../../candidates/api/candidatesApi", async (importOriginal) => ({
@@ -89,9 +95,31 @@ function Where() {
   return <output aria-label="Location">{useLocation().pathname}</output>;
 }
 
-function renderEditor() {
+function aLiveSequence(): sequenceApi.Sequence {
+  return {
+    id: "s1",
+    name: "Group CFO approach",
+    steps: [
+      { delayWorkingDays: 0, subject: "Confidential", body: "Hi {{firstName}}" },
+      { delayWorkingDays: 3, subject: null, body: "Following up" },
+      { delayWorkingDays: 5, subject: null, body: "Last note" },
+    ],
+    schedule: {
+      days: ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"],
+      windowStart: "08:00:00",
+      windowEnd: "18:00:00",
+    },
+    createdByName: "Yara Haddad",
+    enrolledCount: 2,
+    sentCount: 2,
+    repliedCount: 0,
+    updatedAt: "2026-11-01T10:00:00Z",
+  };
+}
+
+function renderEditor(sequenceId = "new") {
   return render(
-    <MemoryRouter initialEntries={["/projects/p1/outreach/sequences/new"]}>
+    <MemoryRouter initialEntries={[`/projects/p1/outreach/sequences/${sequenceId}`]}>
       <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
         <ToastProvider>
           <Routes>
@@ -303,5 +331,64 @@ describe("SequenceEditorPage", () => {
     const blank = await screen.findByTitle("Nothing on file for Priya Raman: it goes out blank");
     expect(blank).toHaveTextContent("{{location}}");
     expect(screen.getByTitle(/the fallback stands in for \{\{currentTitle\}\}/)).toHaveTextContent("a leader");
+  });
+
+  it("asks before the header or Back drops an unsaved edit, and leaves only when told to", async () => {
+    const user = userEvent.setup();
+    renderEditor();
+
+    const name = await screen.findByRole("textbox", { name: "Sequence name" });
+    await user.clear(name);
+    await user.type(name, "Board approach");
+
+    await user.click(screen.getByRole("button", { name: "Sequences" }));
+    const ask = screen.getByRole("dialog", { name: "Leave without saving?" });
+    await user.click(within(ask).getByRole("button", { name: "Stay on this page" }));
+    expect(screen.getByLabelText("Location")).toHaveTextContent(/\/sequences\/new$/);
+    expect(screen.getByRole("textbox", { name: "Sequence name" })).toHaveValue("Board approach");
+
+    const views = screen.getByRole("radiogroup", { name: "Outreach view" });
+    await user.click(within(views).getByRole("radio", { name: "Conversations" }));
+    await user.click(
+      within(screen.getByRole("dialog", { name: "Leave without saving?" })).getByRole("button", {
+        name: "Leave anyway",
+      }),
+    );
+
+    await waitFor(() => expect(screen.getByLabelText("Location")).toHaveTextContent(/^\/projects\/p1\/outreach$/));
+  });
+
+  it("drops a pending Replace when its step is removed, so it never lands on the step that slid up", async () => {
+    const user = userEvent.setup();
+    vi.mocked(emailTemplatesApi.listEmailTemplates).mockResolvedValue({
+      templates: [aTemplate({})],
+      limit: 100,
+      bookingLinkOffered: false,
+      recentlyUsed: [],
+    });
+    renderEditor();
+
+    await user.click((await screen.findAllByRole("button", { name: "From template" }))[1]);
+    const picker = await screen.findByRole("dialog", { name: "From template" });
+    await user.click(within(picker).getByRole("button", { name: /Warm intro/ }));
+    expect(screen.getByRole("alertdialog", { name: "Replace this step's text?" })).toBeInTheDocument();
+
+    await user.click(screen.getAllByRole("button", { name: "Remove this step" })[0]);
+
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    expect(screen.getAllByRole("textbox", { name: "Email body" })[1]).toHaveValue(
+      "Hi {{firstName}},\n\nI'll leave it here for now. If the timing is ever better, I'd be glad to hear from you.",
+    );
+  });
+
+  it("fixes a live sequence's steps and offers no Delete the server would refuse", async () => {
+    vi.mocked(sequenceApi.getSequence).mockResolvedValue(aLiveSequence());
+    renderEditor("s1");
+
+    expect(await screen.findByRole("textbox", { name: "Sequence name" })).toHaveValue("Group CFO approach");
+    expect(screen.queryByRole("button", { name: "Delete sequence" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Remove this step" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "＋ Add step" })).toBeDisabled();
+    expect(screen.getByText(/its steps are fixed/)).toBeInTheDocument();
   });
 });

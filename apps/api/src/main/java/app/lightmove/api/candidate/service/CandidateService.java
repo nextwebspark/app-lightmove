@@ -433,8 +433,12 @@ public class CandidateService {
         suppression.refuseSuppressed(workspaceId, details.linkedinUrl(), emailsOf(details.emails()));
 
         CandidateStatusDefinition status = pipeline.requireOfferable(workspaceId, request.status());
+        // An add straight out of process is a move like any other: a way out that offers reasons is given one.
+        ExitReason reason = exitReasons.requireForMove(workspaceId, status, request.exitReasonId(),
+                request.exitNote());
         Optional<Person> known = personToFile(workspaceId, source, request, details);
-        Filed filed = file(userId, workspaceId, projectId, triageCompanyId, source, status, details, known);
+        Filed filed = file(userId, workspaceId, projectId, triageCompanyId, source, status, reason,
+                request.exitNote(), details, known);
         Candidate candidate = filed.candidate();
         candidate.describeCustomFields(customColumns.applyTo(projectId, CustomColumnTarget.CANDIDATE,
                 candidate.getCustomFields(), request.customFields()));
@@ -462,11 +466,14 @@ public class CandidateService {
         }
         stream.publish(projectId, ProjectStreamKind.CANDIDATE_CAPTURED);
 
-        audit.projectEvent(ProjectEventType.CANDIDATE_ADDED, userId, workspaceId, projectId, httpRequest)
+        var added = audit.projectEvent(ProjectEventType.CANDIDATE_ADDED, userId, workspaceId, projectId, httpRequest)
                 .detail("candidateId", candidate.getId().toString())
                 .detail("source", source.name())
-                .detail("mappedExisting", filed.personWasKnown())
-                .record();
+                .detail("mappedExisting", filed.personWasKnown());
+        if (reason != null) {
+            added.detail("exitReasonId", reason.getId().toString());
+        }
+        added.record();
         return responses.toDto(candidate);
     }
 
@@ -513,7 +520,10 @@ public class CandidateService {
         // Naming the status they hold is no move: a retired one, re-checked, refused every edit of whoever held it.
         if (request.status() != null && !request.status().isBlank()
                 && !request.status().strip().equals(candidate.getStatus().getStatusKey())) {
-            moveTo(candidate, userId, pipeline.requireOfferable(workspaceId, request.status()));
+            CandidateStatusDefinition to = pipeline.requireOfferable(workspaceId, request.status());
+            moveTo(candidate, userId, to,
+                    exitReasons.requireForMove(workspaceId, to, request.exitReasonId(), request.exitNote()),
+                    request.exitNote());
         }
         // The person is the workspace's: an edit made through this mandate is what every other mandate
         // mapping them now reads.
@@ -646,9 +656,7 @@ public class CandidateService {
                         String note) {
         CandidateStatusDefinition from = candidate.getStatus();
         if (candidate.moveTo(to)) {
-            if (reason != null) {
-                candidate.giveExitReason(reason.getId(), note, userId);
-            }
+            candidate.giveExitReasonIfAny(reason, note, userId);
             activity.record(candidate, userId, PersonActivityKind.STATUS_CHANGED,
                     PersonActivityDetails.statusChange(from, to)
                             .and("reason", reason == null ? null : reason.getLabel()));
@@ -755,8 +763,11 @@ public class CandidateService {
         refuseDuplicate(projectId, triageCompanyId, details.fullName(), details.linkedinUrl(), null);
         refuseHeldProfile(projectId, details.linkedinUrl(), null);
 
-        Filed filed = file(userId, workspaceId, projectId, triageCompanyId, filing.source(),
-                pipeline.requireOfferable(workspaceId, request.status()), details);
+        CandidateStatusDefinition status = pipeline.requireOfferable(workspaceId, request.status());
+        ExitReason reason = exitReasons.requireForMove(workspaceId, status, request.exitReasonId(),
+                request.exitNote());
+        Filed filed = file(userId, workspaceId, projectId, triageCompanyId, filing.source(), status, reason,
+                request.exitNote(), details);
         Candidate candidate = filed.candidate();
         Person person = candidate.getPerson();
         if (!person.isResearched()) {
@@ -1242,14 +1253,16 @@ public class CandidateService {
      * restricted is mapped onto no further position.
      */
     private Filed file(UUID userId, UUID workspaceId, UUID projectId, UUID triageCompanyId,
-                       CandidateSource source, CandidateStatusDefinition status, CandidateDetails details) {
-        return file(userId, workspaceId, projectId, triageCompanyId, source, status, details,
+                       CandidateSource source, CandidateStatusDefinition status, ExitReason reason,
+                       String exitNote, CandidateDetails details) {
+        return file(userId, workspaceId, projectId, triageCompanyId, source, status, reason, exitNote, details,
                 matcher.find(workspaceId, details));
     }
 
+    /** {@code reason} is why someone filed straight at a way out left, already checked against {@code status}. */
     private Filed file(UUID userId, UUID workspaceId, UUID projectId, UUID triageCompanyId,
-                       CandidateSource source, CandidateStatusDefinition status, CandidateDetails details,
-                       Optional<Person> known) {
+                       CandidateSource source, CandidateStatusDefinition status, ExitReason reason, String exitNote,
+                       CandidateDetails details, Optional<Person> known) {
         if (known.isPresent() && candidates.existsByProjectIdAndPersonId(projectId, known.get().getId())) {
             throw ApiException.of(ErrorCode.CANDIDATE_ALREADY_MAPPED);
         }
@@ -1270,9 +1283,10 @@ public class CandidateService {
         requests.refuseOverfullChannels(person, contactsBefore);
         Candidate candidate = candidates.save(Candidate.mapped(projectId, userId, triageCompanyId,
                 triageStatusOfCompany(projectId, triageCompanyId), person, source, status, details));
+        candidate.giveExitReasonIfAny(reason, exitNote, userId);
         activity.record(candidate, userId,
                 known.isPresent() ? PersonActivityKind.MAPPED : PersonActivityKind.ADDED_TO_POOL,
-                PersonActivityDetails.of("door", source));
+                PersonActivityDetails.of("door", source).and("reason", reason == null ? null : reason.getLabel()));
         personNotes.fileFromDoor(candidate, userId, details.note());
         return new Filed(candidate, known.isPresent());
     }
