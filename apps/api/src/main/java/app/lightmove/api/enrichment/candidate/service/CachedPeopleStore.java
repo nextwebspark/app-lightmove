@@ -1,5 +1,6 @@
 package app.lightmove.api.enrichment.candidate.service;
 
+import app.lightmove.api.candidate.model.VendorProfileRecord;
 import app.lightmove.api.enrichment.candidate.model.BrightDataPeopleHits;
 import app.lightmove.api.enrichment.candidate.model.BrightDataPerson;
 import java.sql.PreparedStatement;
@@ -40,9 +41,9 @@ import tools.jackson.databind.ObjectMapper;
 public class CachedPeopleStore {
 
     /** A profile index's row says who works where, often without a title or a career: never a profile to file from. */
-    public static final String PROFILE_INDEX_PROVIDER = "brightdata-business";
+    public static final String PROFILE_INDEX_PROVIDER = VendorProfileRecord.BRIGHTDATA_BUSINESS;
 
-    public static final String BRIGHTDATA_PROVIDER = "brightdata";
+    public static final String BRIGHTDATA_PROVIDER = VendorProfileRecord.BRIGHTDATA;
 
     /** Lowest first; a provider not listed ranks below them all. */
     private static final String PRECEDENCE = "ARRAY['brightdata', '%s', 'contactout']".formatted(PROFILE_INDEX_PROVIDER);

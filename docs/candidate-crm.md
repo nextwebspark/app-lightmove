@@ -440,8 +440,11 @@ spelled one way. So:
 >   (`POST /candidates/{personId}/research`, `POST /candidates/bulk/research` for up to 50, `CANDIDATE_POOL_MANAGE`,
 >   `lightmove.enrichment.research-refreshes-per-user-per-hour`) asks the vendor again past the people cache:
 >   education, skills, the employer mark and the vendor record are replaced, title, summary, location, career and
->   languages filled only where still empty (`Person.refreshResearch`), and the timeline says `RESEARCHED`
->   (`refreshed`).
+>   languages filled only where still blank (`Person.refreshResearch`; a drawer save never writes education or
+>   skills, so they are research's alone), and the timeline says `RESEARCHED` (`refreshed`). One refresh per person
+>   per ten minutes: the drawer's second ask answers `409 PERSON_RESEARCH_REFRESHING`, a person with no LinkedIn
+>   profile `422 PERSON_RESEARCH_NEEDS_PROFILE`, and the bulk ask passes both over. A record is stored without NUL
+>   characters (jsonb refuses them) and not at all past 1 MB, so keeping it can never fail the filing.
 > - The within-mandate name rule (`CANDIDATE_ALREADY_MAPPED` for a second person of one name at one
 >   company) is held by the service alone now that V36's name indexes are gone.
 > - Scripts that write or read the tables directly moved with it: `ops/dev/seed-report.sql` files a person

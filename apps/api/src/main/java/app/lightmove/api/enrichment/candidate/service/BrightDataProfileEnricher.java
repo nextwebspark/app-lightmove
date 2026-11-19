@@ -1,6 +1,7 @@
 package app.lightmove.api.enrichment.candidate.service;
 
 import app.lightmove.api.candidate.model.EnrichedProfile;
+import app.lightmove.api.candidate.model.VendorProfileRecord;
 import app.lightmove.api.core.config.BrightDataSettings;
 import app.lightmove.api.core.resilience.model.VendorCall;
 import app.lightmove.api.core.resilience.model.VendorClientSpec;
@@ -106,7 +107,7 @@ public class BrightDataProfileEnricher implements LinkedInProfileEnricher {
         people.purgeFetchedBefore(Instant.now().minus(peopleCacheTtl));
         people.rememberAll(VENDOR, result);
         return Optional.of(withPhoto(result.hits().getFirst())
-                .withVendorRecord(VendorProfileRecords.of(VENDOR, result.rawOf(0), json)));
+                .withVendorRecord(VendorProfileRecords.of(VendorProfileRecord.BRIGHTDATA, result.rawOf(0), json)));
     }
 
     private EnrichedProfile withPhoto(BrightDataPerson person) {

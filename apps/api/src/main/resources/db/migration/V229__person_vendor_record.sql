@@ -7,9 +7,7 @@
 CREATE TABLE app_lm_person_vendor_record (
     person_id      uuid        NOT NULL REFERENCES app_lm_person (id) ON DELETE CASCADE,
     workspace_id   uuid        NOT NULL REFERENCES app_lm_workspace (id) ON DELETE CASCADE,
-    provider       varchar(32) NOT NULL
-        CONSTRAINT app_lm_person_vendor_record_provider_chk
-            CHECK (provider IN ('brightdata', 'brightdata-business', 'contactout', 'harvestapi')),
+    provider       varchar(32) NOT NULL,
     record         jsonb       NOT NULL,
     details        jsonb       NOT NULL DEFAULT '{}'::jsonb,
     -- When the vendor itself last read the profile (its own timestamp), where it says; null where it does not.

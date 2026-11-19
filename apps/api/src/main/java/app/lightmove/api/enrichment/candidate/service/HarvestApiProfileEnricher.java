@@ -4,6 +4,7 @@ import app.lightmove.api.candidate.constant.EnrichmentVendor;
 import app.lightmove.api.candidate.model.CandidateCareerEntry;
 import app.lightmove.api.candidate.model.CandidateEducationEntry;
 import app.lightmove.api.candidate.model.EnrichedProfile;
+import app.lightmove.api.candidate.model.VendorProfileRecord;
 import app.lightmove.api.common.location.service.Countries;
 import app.lightmove.api.core.config.HarvestApiSettings;
 import app.lightmove.api.core.resilience.constant.VendorFailureKind;
@@ -82,7 +83,7 @@ public class HarvestApiProfileEnricher implements LinkedInProfileEnricher {
         String vanity = envelope.element().publicIdentifier();
         return Optional.of(withPhoto(enriched, envelope.element())
                 .withPublicProfileUrl(vanity == null || vanity.isBlank() ? null : LinkedInUrls.profileUrlOf(vanity))
-                .withVendorRecord(VendorProfileRecords.of(VENDOR, answer.path("element").toString(), json)));
+                .withVendorRecord(VendorProfileRecords.of(VendorProfileRecord.HARVESTAPI, answer.path("element").toString(), json)));
     }
 
     private EnrichedProfile withPhoto(EnrichedProfile enriched, HarvestApiProfile profile) {

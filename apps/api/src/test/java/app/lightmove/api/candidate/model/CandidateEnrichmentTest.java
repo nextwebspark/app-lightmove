@@ -129,6 +129,17 @@ class CandidateEnrichmentTest {
     }
 
     @Test
+    @DisplayName("a refresh fills a title cleared to blank")
+    void aRefreshFillsABlankTitle() {
+        Person person = captured(details("Sample Person", " ", null, null, null, null));
+
+        person.refreshResearch(new EnrichedProfile("Group CEO", null, null, null, null, null, null, List.of(),
+                List.of(), List.of(), List.of(), null, EnrichmentVendor.BRIGHTDATA));
+
+        assertThat(person.getTitle()).isEqualTo("Group CEO");
+    }
+
+    @Test
     @DisplayName("an unresearched candidate names no provider")
     void anUnresearchedCandidateNamesNoProvider() {
         Person person = captured(details("Sample Person", null, null, null, null, null));

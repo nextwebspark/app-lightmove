@@ -368,6 +368,11 @@ public enum ErrorCode {
             "Processing is restricted for this person, so this can't be done until the restriction is lifted"),
     PERSON_PROCESSING_RESTRICTION_NOT_YOURS(HttpStatus.FORBIDDEN,
             "Only the person who restricted processing, or an admin, can lift it"),
+    PERSON_RESEARCH_NEEDS_PROFILE(HttpStatus.UNPROCESSABLE_CONTENT,
+            "Add their LinkedIn profile first, so research has a profile to read"),
+    /** Asked again before the last refresh had time to land: the paid read is already on its way. */
+    PERSON_RESEARCH_REFRESHING(HttpStatus.CONFLICT,
+            "Their research is already being refreshed. Give it a few minutes"),
 
     /** A LinkedIn profile or email the workspace's suppression list holds: nobody may file that person again. */
     PERSON_SUPPRESSED(HttpStatus.CONFLICT,

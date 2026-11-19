@@ -583,8 +583,6 @@ class CandidatePoolCrmIntegrationTest extends FlowTestSupport {
         assertThat(body(mvc.perform(get("/api/v1/candidates/" + unlinked).header("Authorization", "Bearer " + admin))
                 .andReturn()).get("research").isNull()).isTrue();
 
-        mvc.perform(post("/api/v1/candidates/" + researched + "/research").header("Authorization", "Bearer " + admin))
-                .andExpect(status().isAccepted());
         assertThat(body(mvc.perform(post("/api/v1/candidates/bulk/research")
                         .header("Authorization", "Bearer " + admin)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -592,6 +590,14 @@ class CandidatePoolCrmIntegrationTest extends FlowTestSupport {
                                 {"personIds":["%s","%s"]}""".formatted(researched, unlinked)))
                 .andExpect(status().isAccepted())
                 .andReturn()).get("changed").asInt()).isEqualTo(1);
+        assertThat(body(mvc.perform(post("/api/v1/candidates/" + researched + "/research")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isConflict())
+                .andReturn()).get("code").asString()).isEqualTo("PERSON_RESEARCH_REFRESHING");
+        assertThat(body(mvc.perform(post("/api/v1/candidates/" + unlinked + "/research")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isUnprocessableContent())
+                .andReturn()).get("code").asString()).isEqualTo("PERSON_RESEARCH_NEEDS_PROFILE");
 
         String client = clientOn(cfo);
         mvc.perform(post("/api/v1/candidates/" + researched + "/research").header("Authorization", "Bearer " + client))

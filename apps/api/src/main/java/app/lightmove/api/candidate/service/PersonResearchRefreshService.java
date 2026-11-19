@@ -35,6 +35,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Slf4j
 public class PersonResearchRefreshService {
 
+    private static final Duration ONE_REFRESH_PER = Duration.ofMinutes(10);
+
     private final PersonRepository people;
     private final PersonPhotoRepository photos;
     private final PersonActivityRecorder activity;
@@ -49,10 +51,21 @@ public class PersonResearchRefreshService {
         if (person.isProcessingRestricted()) {
             throw ApiException.of(ErrorCode.PERSON_PROCESSING_RESTRICTED);
         }
-        return refresh(userId, List.of(person));
+        if (LinkedInUrls.profileSlugOrNull(person.getLinkedinUrl()) == null) {
+            throw ApiException.of(ErrorCode.PERSON_RESEARCH_NEEDS_PROFILE);
+        }
+        if (!claim(person)) {
+            throw ApiException.of(ErrorCode.PERSON_RESEARCH_REFRESHING);
+        }
+        spendBudget(userId, true);
+        publish(userId, person);
+        return new BulkPeopleChangeResponse(1);
     }
 
-    /** Someone restricted, or with no LinkedIn profile to read, is passed over; the answer counts who was sent. */
+    /**
+     * Someone restricted, with no LinkedIn profile to read, or refreshed in the last few minutes is passed over; the
+     * answer counts who was sent.
+     */
     @Transactional(readOnly = true)
     public BulkPeopleChangeResponse refreshMany(UUID userId, UUID workspaceId, Collection<UUID> personIds) {
         return refresh(userId, people.findByWorkspaceIdAndIdIn(workspaceId, personIds));
@@ -61,21 +74,36 @@ public class PersonResearchRefreshService {
     private BulkPeopleChangeResponse refresh(UUID userId, List<Person> asked) {
         int sent = 0;
         for (Person person : asked) {
-            if (person.isProcessingRestricted() || LinkedInUrls.profileSlugOrNull(person.getLinkedinUrl()) == null) {
+            if (person.isProcessingRestricted() || LinkedInUrls.profileSlugOrNull(person.getLinkedinUrl()) == null
+                    || !claim(person)) {
                 continue;
             }
-            if (!limiter.tryAcquire("research-refresh:user:%s".formatted(userId),
-                    properties.enrichment().researchRefreshesPerUserPerHour(), Duration.ofHours(1))) {
-                if (sent == 0) {
-                    throw ApiException.of(ErrorCode.RATE_LIMITED);
-                }
+            if (!spendBudget(userId, sent == 0)) {
                 break;
             }
-            events.publishEvent(new PersonResearchRefreshRequested(person.getWorkspaceId(), person.getId(), userId,
-                    person.getLinkedinUrl()));
+            publish(userId, person);
             sent++;
         }
         return new BulkPeopleChangeResponse(sent);
+    }
+
+    /** One paid read per person at a time: a double click, a second tab or an overlapping selection asks nothing. */
+    private boolean claim(Person person) {
+        return limiter.tryAcquire("research-refresh:person:%s".formatted(person.getId()), 1, ONE_REFRESH_PER);
+    }
+
+    private boolean spendBudget(UUID userId, boolean refuseWhenSpent) {
+        boolean spent = limiter.tryAcquire("research-refresh:user:%s".formatted(userId),
+                properties.enrichment().researchRefreshesPerUserPerHour(), Duration.ofHours(1));
+        if (!spent && refuseWhenSpent) {
+            throw ApiException.of(ErrorCode.RATE_LIMITED);
+        }
+        return spent;
+    }
+
+    private void publish(UUID userId, Person person) {
+        events.publishEvent(new PersonResearchRefreshRequested(person.getWorkspaceId(), person.getId(), userId,
+                person.getLinkedinUrl()));
     }
 
     /**
@@ -93,8 +121,7 @@ public class PersonResearchRefreshService {
                 return;
             }
             person.refreshResearch(enriched);
-            people.flush();
-            vendorRecords.keep(workspaceId, personId, enriched.vendorRecords());
+            vendorRecords.keepFor(person, enriched);
             if (enriched.photo() != null && !photos.existsByPersonId(personId)) {
                 photos.save(PersonPhoto.of(personId, enriched.photo()));
             }
