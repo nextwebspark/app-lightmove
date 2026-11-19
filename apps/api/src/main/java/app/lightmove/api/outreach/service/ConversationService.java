@@ -115,6 +115,11 @@ public class ConversationService {
     private static final Set<PersonActivityKind> HISTORY_KINDS = EnumSet.of(PersonActivityKind.OUTREACH_ENROLLED,
             PersonActivityKind.OUTREACH_STOPPED, PersonActivityKind.STATUS_CHANGED);
 
+    /** An own email failed for these is the person's or the position's doing: there is nothing to retry or fix. */
+    private static final Set<OutreachStopReason> UNACTIONABLE_OWN_FAILURES = EnumSet.of(
+            OutreachStopReason.DO_NOT_CONTACT, OutreachStopReason.OPTED_OUT, OutreachStopReason.PROCESSING_RESTRICTED,
+            OutreachStopReason.UNMAPPED, OutreachStopReason.SENDER_WITHOUT_ACCESS);
+
     private static final Comparator<Instant> LATEST_FIRST = Comparator.nullsLast(Comparator.reverseOrder());
     private static final Comparator<Instant> SOONEST_FIRST = Comparator.nullsLast(Comparator.naturalOrder());
 
@@ -206,8 +211,10 @@ public class ConversationService {
         Instant lastActivityAt = shown.stream().map(ConversationEventResponse::at)
                 .filter(at -> at != null && !at.isAfter(now)).findFirst().orElse(null);
         Instant firstContactedAt = messages.findFirstSentAt(workspaceId, projectId, personId);
-        Instant repliedAt = runs.stream().map(OutreachEnrollment::getRepliedAt).filter(Objects::nonNull)
-                .max(Comparator.naturalOrder()).orElse(null);
+        // A reply to a one-off email, or one after its run ended, has no run to carry it: the key date once stayed blank.
+        Instant repliedAt = latestOf(messages.findLatestReplyAt(workspaceId, projectId, personId),
+                runs.stream().map(OutreachEnrollment::getRepliedAt).filter(Objects::nonNull)
+                        .max(Comparator.naturalOrder()).orElse(null));
         return new ConversationResponse(executive, openTasks, currentRun,
                 new ConversationKeyDatesResponse(executive.addedAt(), firstContactedAt, repliedAt, lastActivityAt,
                         lastCalls.lastCallOf(workspaceId, personId).orElse(null)),
@@ -258,16 +265,19 @@ public class ConversationService {
                     latestRuns.putIfAbsent(run.getPersonId(), run);
                     senders.computeIfAbsent(run.getPersonId(), person -> new HashSet<>()).add(run.getSenderUserId());
                 });
-        latestMessages.values().forEach(message -> senders
-                .computeIfAbsent(message.getPersonId(), person -> new HashSet<>()).add(message.getSenderUserId()));
-        messages.findScheduledSendersOfEachPerson(workspaceId, projectId).forEach(scheduled -> senders
-                .computeIfAbsent(scheduled.getPersonId(), person -> new HashSet<>()).add(scheduled.getSenderUserId()));
+        // Every sender, not only the latest line's: a teammate's later email once hid the executive from my Mine.
+        messages.findSendersOfEachPerson(workspaceId, projectId).forEach(sender -> senders
+                .computeIfAbsent(sender.getPersonId(), person -> new HashSet<>()).add(sender.getSenderUserId()));
         Map<UUID, OutreachRunResponse> runResponses = monitor.runsOf(workspaceId, projectId,
                         List.copyOf(latestRuns.values())).stream()
                 .collect(Collectors.toMap(OutreachRunResponse::id, Function.identity()));
         List<UUID> personIds = executives.stream().map(PipelineRowResponse::personId).toList();
         Set<UUID> met = new HashSet<>(personMeetings.findPersonIdsMetAmong(workspaceId, personIds));
         Map<UUID, Instant> latestNotes = notes.latestNoteAtOfEach(workspaceId, projectId, personIds);
+        Instant now = clock.instant();
+        Map<UUID, Instant> latestHistory = timeline.latestPositionLineAtOfEach(workspaceId, projectId, personIds,
+                HISTORY_KINDS, now);
+        Map<UUID, Instant> latestMeetings = meetings.latestMeetingAtOfEach(workspaceId, personIds, now);
 
         return executives.stream().map(executive -> {
             UUID personId = executive.personId();
@@ -276,8 +286,13 @@ public class ConversationService {
             return QueueEntry.of(executive, tasks.getOrDefault(executive.candidateId(), List.of()), run,
                     run == null ? null : runResponses.get(run.getId()), latestMessages.get(personId),
                     tally == null ? null : tally.getLastSentAt(), ownSends.get(personId),
-                    senders.getOrDefault(personId, Set.of()), met.contains(personId), latestNotes.get(personId));
+                    senders.getOrDefault(personId, Set.of()), met.contains(personId),
+                    latestOf(latestNotes.get(personId), latestHistory.get(personId), latestMeetings.get(personId)));
         }).toList();
+    }
+
+    private static Instant latestOf(Instant... moments) {
+        return Stream.of(moments).filter(Objects::nonNull).max(Comparator.naturalOrder()).orElse(null);
     }
 
     private Set<UUID> matchingPeople(UUID workspaceId, UUID projectId, List<QueueEntry> entries, String needle) {
@@ -387,14 +402,16 @@ public class ConversationService {
 
         static QueueEntry of(PipelineRowResponse executive, List<CandidateOpenTaskDto> tasks, OutreachEnrollment run,
                              OutreachRunResponse runResponse, OutreachMessage latestMessage, Instant lastSentAt,
-                             Instant ownSendAt, Set<UUID> senders, boolean met, Instant latestNoteAt) {
+                             Instant ownSendAt, Set<UUID> senders, boolean met, Instant latestOtherActivityAt) {
             Instant runEnded = run == null ? null : OutreachMonitorService.endedAtOf(run);
             CandidateOpenTaskDto bounceTask = firstWithRule(tasks, CandidateOpenTaskDto.BOUNCE_RULE);
             CandidateOpenTaskDto replyTask = firstWithRule(tasks, CandidateOpenTaskDto.REPLY_RULE);
             boolean failedSend = run != null && run.getStatus() == EnrollmentStatus.STOPPED
                     && FAILED_SEND.contains(run.getStopReason())
                     && (lastSentAt == null || runEnded == null || !lastSentAt.isAfter(runEnded));
-            boolean ownEmailFailed = latestMessage != null && latestMessage.getStatus() == MessageStatus.FAILED;
+            // Only a failure someone can act on: an own email failed because the person opted out or may not be
+            // contacted once kept them under Delivery problems for good, with nothing left to send or mark handled.
+            boolean ownEmailFailed = isActionableFailure(latestMessage);
 
             ConversationGroup group = null;
             CandidateOpenTaskDto action = null;
@@ -411,12 +428,17 @@ public class ConversationService {
             Instant scheduledAt = Stream.of(run != null && run.isLive() ? run.getNextSendAt() : null, ownSendAt)
                     .filter(Objects::nonNull).min(Comparator.naturalOrder()).orElse(null);
             // A logged call or WhatsApp is activity too: the row once kept last month's email while the pane it opens
-            // said today.
+            // said today. So is a stage change or a meeting, which the pane counts.
             Instant lastActivityAt = Stream.of(latestMessage == null ? null : latestMessage.getOccurredAt(),
-                            run == null ? null : run.getEnrolledAt(), runEnded, latestNoteAt)
+                            run == null ? null : run.getEnrolledAt(), runEnded, latestOtherActivityAt)
                     .filter(Objects::nonNull).max(Comparator.naturalOrder()).orElse(null);
             return new QueueEntry(executive, group, action, run, runResponse, latestMessage, lastSentAt, scheduledAt,
                     lastActivityAt, senders, met, !tasks.isEmpty());
+        }
+
+        private static boolean isActionableFailure(OutreachMessage message) {
+            return message != null && message.getStatus() == MessageStatus.FAILED
+                    && !UNACTIONABLE_OWN_FAILURES.contains(message.getFailReason());
         }
 
         /** Someone the conversation has something about: an email, one still to go, a run, a meeting or a task. */
@@ -429,7 +451,7 @@ public class ConversationService {
             if (action != null) {
                 return action.assignee() != null && userId.equals(action.assignee().userId());
             }
-            if (latestMessage != null && latestMessage.getStatus() == MessageStatus.FAILED) {
+            if (isActionableFailure(latestMessage)) {
                 return userId.equals(latestMessage.getSenderUserId());
             }
             return run != null && userId.equals(run.getSenderUserId());

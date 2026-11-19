@@ -27,6 +27,7 @@ export const STOP_NOTES: Record<StopReason, string> = {
   SEND_FAILED: "The mail service refused it",
   SEND_UNCERTAIN: "A send may not have gone",
   POSITION_ARCHIVED: "Position archived",
+  WORKSPACE_DELETED: "Workspace deleted",
   SENDER_WITHOUT_ACCESS: "The sender no longer works this position",
   OPTED_OUT: "Opted out by email",
 };

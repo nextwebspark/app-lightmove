@@ -87,10 +87,13 @@ public interface OutreachEnrollmentRepository extends JpaRepository<OutreachEnro
                                                                  Instant claimedBefore);
 
     /**
-     * Threads the reply poll still listens to: anything sent recently that has not been answered or
-     * stopped. A system job's read, so across workspaces by design; no request path may use it.
+     * Threads the reply poll still listens to: every run still waiting to send, however long its gap — a follow-up
+     * may wait longer than the listening window, and a run once dropped out mid-gap and wrote to someone who had
+     * replied — and a run that ended unanswered while its last email is recent. A system job's read, so across
+     * workspaces by design; no request path may use it.
      */
-    @Query("select e from OutreachEnrollment e where e.threadId is not null and e.lastSentAt >= :since "
-            + "and e.status in :statuses")
-    List<OutreachEnrollment> findListeningSince(Instant since, Collection<EnrollmentStatus> statuses);
+    @Query("select e from OutreachEnrollment e where e.threadId is not null and (e.status in :waiting "
+            + "or (e.status in :ended and e.lastSentAt >= :since))")
+    List<OutreachEnrollment> findListening(Instant since, Collection<EnrollmentStatus> waiting,
+                                           Collection<EnrollmentStatus> ended);
 }

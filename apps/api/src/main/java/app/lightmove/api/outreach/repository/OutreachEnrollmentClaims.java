@@ -44,9 +44,8 @@ public class OutreachEnrollmentClaims {
     private final JdbcTemplate jdbc;
 
     @Transactional
-    public List<UUID> claimDue(Instant now, int limit) {
-        Timestamp at = Timestamp.from(now);
-        return jdbc.queryForList(CLAIM_DUE, UUID.class, at, at, limit);
+    public List<UUID> claimDue(Instant dueBy, Instant claimedAt, int limit) {
+        return jdbc.queryForList(CLAIM_DUE, UUID.class, Timestamp.from(claimedAt), Timestamp.from(dueBy), limit);
     }
 
     /**

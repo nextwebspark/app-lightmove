@@ -6,6 +6,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import app.lightmove.api.FixtureJdbc;
@@ -306,6 +307,28 @@ class OutreachSequenceIntegrationTest extends FlowTestSupport {
         String stored = jdbc.queryForObject("select first_subject from app_lm_outreach_enrollment where project_id = ?::uuid",
                 String.class, projectId);
         assertThat(stored).isEqualTo(longTitle + " / " + longTitle).hasSizeGreaterThan(300);
+    }
+
+    @Test
+    @DisplayName("once anyone is on a sequence its steps are fixed in number, while their words can still change")
+    void aLiveSequenceKeepsItsSteps() throws Exception {
+        String draft = createSequence("Draft approach");
+        as(consultant, put(outreach("/sequences/" + draft)).contentType(MediaType.APPLICATION_JSON)
+                .content(sequenceJson("Draft approach", 2)))
+                .andExpect(status().isOk());
+
+        String sequenceId = createSequence("First approach");
+        String priya = executive("Priya Raman", "priya@target.example", null);
+        connectMailbox();
+        start(sequenceId, List.of(person(priya, "priya@target.example", null, false))).andExpect(status().isCreated());
+
+        as(consultant, put(outreach("/sequences/" + sequenceId)).contentType(MediaType.APPLICATION_JSON)
+                .content(sequenceJson("First approach", 2)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("OUTREACH_SEQUENCE_STEPS_FIXED"));
+        as(consultant, put(outreach("/sequences/" + sequenceId)).contentType(MediaType.APPLICATION_JSON)
+                .content(sequenceJson("Reworded approach", 3)))
+                .andExpect(status().isOk());
     }
 
     @Test

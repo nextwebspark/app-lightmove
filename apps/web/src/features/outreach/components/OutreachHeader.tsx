@@ -29,6 +29,7 @@ export function OutreachHeader({
   searchFromLg = false,
   chip,
   action,
+  onNavigate,
 }: {
   projectId: string;
   section: OutreachSection;
@@ -38,6 +39,8 @@ export function OutreachHeader({
   /** The mailbox chip, only where it draws something. */
   chip?: ReactNode;
   action?: ReactNode;
+  /** Where a page holding unsaved edits asks before the view switch leaves it. */
+  onNavigate?: (to: string) => void;
 }) {
   const navigate = useNavigate();
   const { pathname } = useLocation();
@@ -52,7 +55,7 @@ export function OutreachHeader({
         divider={divider}
         onChange={(next) => {
           const to = next === "sequences" ? `${base}/sequences` : base;
-          if (pathname.replace(/\/$/, "") !== to) navigate(to);
+          if (pathname.replace(/\/$/, "") !== to) (onNavigate ?? navigate)(to);
         }}
       />
       {search && <div className={cn("contents", searchFromLg && "max-lg:hidden")}>{search}</div>}

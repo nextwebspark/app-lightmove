@@ -259,9 +259,9 @@ export function EnrolDialog({
         signature.signatureId,
       ),
     onSuccess: (started) => {
-      void queryClient.invalidateQueries({
-        queryKey: sequenceApi.SEQUENCES_KEY(projectId),
-      });
+      // Every outreach read of the position: the drawer's Sequence row, the people table and the conversation
+      // once kept offering Add to sequence for someone just started.
+      void queryClient.invalidateQueries({ queryKey: ["outreach", projectId] });
       toast(startedToastOf(started, startChoice.mode, timeZone));
       onClose();
     },

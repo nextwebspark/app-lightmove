@@ -6,7 +6,7 @@ import app.lightmove.api.outreach.constant.MessageStatus;
 import app.lightmove.api.outreach.model.OutreachMessage;
 import app.lightmove.api.outreach.model.PersonMessageTouch;
 import app.lightmove.api.outreach.model.PersonNextSend;
-import app.lightmove.api.outreach.model.PersonScheduledSender;
+import app.lightmove.api.outreach.model.PersonMessageSender;
 import app.lightmove.api.outreach.model.PersonSentTally;
 import java.time.Instant;
 import java.util.Collection;
@@ -143,13 +143,25 @@ public interface OutreachMessageRepository extends JpaRepository<OutreachMessage
             """)
     List<PersonNextSend> findNextSendOfEachPerson(UUID workspaceId, UUID projectId);
 
-    /** Who has an own email waiting to go to each executive on a position: it makes the conversation theirs too. */
+    /**
+     * Whose mailbox each executive's emails on a position went from or wait to go from, replies to them included:
+     * every one of them makes the conversation theirs too, not only the sender of its latest line.
+     */
     @Query("""
             select distinct m.personId as personId, m.senderUserId as senderUserId from OutreachMessage m
             where m.workspaceId = :workspaceId and m.projectId = :projectId
-              and m.status = app.lightmove.api.outreach.constant.MessageStatus.SCHEDULED
+              and m.status <> app.lightmove.api.outreach.constant.MessageStatus.CANCELLED
             """)
-    List<PersonScheduledSender> findScheduledSendersOfEachPerson(UUID workspaceId, UUID projectId);
+    List<PersonMessageSender> findSendersOfEachPerson(UUID workspaceId, UUID projectId);
+
+    /** When one executive on a position last replied, to any email: a one-off's reply has no run to carry it. */
+    @Query("""
+            select max(m.occurredAt) from OutreachMessage m
+            where m.workspaceId = :workspaceId and m.projectId = :projectId and m.personId = :personId
+              and m.direction = app.lightmove.api.outreach.constant.MessageDirection.INBOUND
+              and m.kind = app.lightmove.api.outreach.constant.MessageKind.REPLY
+            """)
+    Instant findLatestReplyAt(UUID workspaceId, UUID projectId, UUID personId);
 
     /**
      * Every email that went or waits to go to these people since {@code since}, and every reply, on any position:

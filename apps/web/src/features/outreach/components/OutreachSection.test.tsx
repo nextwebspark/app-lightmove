@@ -117,6 +117,20 @@ describe("OutreachSection", () => {
     expect(screen.queryByRole("button", { name: "Stop sequence" })).not.toBeInTheDocument();
   });
 
+  it("says a run the workspace's deletion stopped was stopped, rather than failing to draw", async () => {
+    renderSection({
+      run: { ...RUN, status: "STOPPED", stopReason: "WORKSPACE_DELETED", nextSendAt: null, endedAt: "2026-10-05T06:00:00Z" },
+      steps: [
+        { number: 1, subject: "Confidential: CFO", state: "SENT", at: "2026-10-05T05:12:00Z", notSentBecause: null },
+        { number: 2, subject: null, state: "NOT_SENT", at: null, notSentBecause: "WORKSPACE_DELETED" },
+      ],
+    });
+
+    const row = await screen.findByRole("button", { name: /CFO — first approach/ });
+    expect(row).toHaveTextContent("stopped after step 1 — workspace deleted");
+    expect(screen.queryByText(/undefined/)).not.toBeInTheDocument();
+  });
+
   it("folds to its one row, which opens it", async () => {
     const onToggle = renderSection(
       {

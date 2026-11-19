@@ -2,6 +2,7 @@ package app.lightmove.api.candidate.repository;
 
 import app.lightmove.api.candidate.constant.PersonActivityKind;
 import app.lightmove.api.candidate.model.PersonActivity;
+import app.lightmove.api.candidate.model.PersonLatestAtRow;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
@@ -62,6 +63,17 @@ public interface PersonActivityRepository extends JpaRepository<PersonActivity, 
     List<PersonActivity> findWorkspaceFeed(UUID workspaceId, long before, Collection<PersonActivityKind> kinds,
                                            boolean anyActor, UUID actor, boolean anyProject, UUID projectId,
                                            Instant from, Instant to, Limit limit);
+
+    /** When each named person's latest line of these kinds about one position happened, by now. */
+    @Query("""
+            select a.personId as personId, max(a.occurredAt) as at from PersonActivity a
+            where a.workspaceId = :workspaceId and a.projectId = :projectId and a.personId in :personIds
+              and a.kind in :kinds and a.occurredAt <= :now
+            group by a.personId
+            """)
+    List<PersonLatestAtRow> findLatestPositionLineAtOfEach(UUID workspaceId, UUID projectId,
+                                                           Collection<UUID> personIds,
+                                                           Collection<PersonActivityKind> kinds, Instant now);
 
     /** Each named person's latest line of a kind not left out, at most one each. */
     @Query(value = """

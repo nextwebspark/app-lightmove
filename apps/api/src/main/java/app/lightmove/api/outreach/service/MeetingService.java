@@ -1,6 +1,7 @@
 package app.lightmove.api.outreach.service;
 
 import app.lightmove.api.candidate.model.OutreachRecipient;
+import app.lightmove.api.candidate.model.PersonLatestAtRow;
 import app.lightmove.api.candidate.service.CandidateOutreachService;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
@@ -40,6 +41,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -85,6 +87,15 @@ public class MeetingService {
     private final ApplicationEventPublisher events;
     private final AvailabilityService availability;
     private final Clock clock;
+
+    /** When each of these people's latest meeting on a teammate's calendar began, by now. */
+    @Transactional(readOnly = true)
+    public Map<UUID, Instant> latestMeetingAtOfEach(UUID workspaceId, Collection<UUID> personIds, Instant now) {
+        if (personIds.isEmpty()) {
+            return Map.of();
+        }
+        return PersonLatestAtRow.byPerson(meetings.findLatestMeetingAtOfEach(workspaceId, personIds, now));
+    }
 
     @Transactional(readOnly = true)
     public PersonMeetingsResponse ofCandidate(UUID userId, UUID workspaceId, UUID projectId, UUID candidateId) {
