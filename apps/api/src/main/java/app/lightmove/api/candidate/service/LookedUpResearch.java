@@ -58,6 +58,7 @@ public class LookedUpResearch implements PersonErasureContributor {
     private final PersonEmployerResolver employers;
     private final SuppressionGate suppression;
     private final TriageCompanyService triage;
+    private final PersonVendorRecordStore vendorRecords;
     private final PersonActivityRecorder activity;
     private final ApplicationEventPublisher events;
 
@@ -142,6 +143,7 @@ public class LookedUpResearch implements PersonErasureContributor {
         if (!Objects.equals(savedSlug, LinkedInUrls.profileSlugOrNull(person.getLinkedinUrl()))) {
             return;
         }
+        vendorRecords.keepFor(person, research);
         if (!person.isResearched()) {
             person.enrich(research);
             keepPhoto(person.getId(), research.photo());

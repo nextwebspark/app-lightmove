@@ -13,7 +13,7 @@ import app.lightmove.api.core.resilience.model.VendorException;
 import app.lightmove.api.enrichment.candidate.model.BrightDataPerson;
 import app.lightmove.api.enrichment.common.model.ContactOutCount;
 import app.lightmove.api.enrichment.common.service.ContactOutPeopleClient;
-import app.lightmove.api.enrichment.common.service.ContactOutProfileDetailsReader;
+import app.lightmove.api.enrichment.common.service.ResearchedProfileDetailsReader;
 import app.lightmove.api.enrichment.peoplesearch.dto.PeopleCountResponse;
 import app.lightmove.api.enrichment.peoplesearch.dto.PeopleSearchPageResponse;
 import app.lightmove.api.enrichment.peoplesearch.dto.PeopleSearchResultsResponse;
@@ -193,7 +193,7 @@ public class StrategyPeopleService {
     private PersonResultDto resultOf(BrightDataPerson person, Map<String, UUID> held, Map<String, String> sources) {
         String slug = person.linkedinId() == null ? null : person.linkedinId().toLowerCase(Locale.ROOT);
         return PersonResultDto.of(person,
-                slug == null ? null : ContactOutProfileDetailsReader.read(sources.get(slug), json).orElse(null),
+                slug == null ? null : ResearchedProfileDetailsReader.read(sources.get(slug), json).orElse(null),
                 slug == null ? null : held.get(slug));
     }
 

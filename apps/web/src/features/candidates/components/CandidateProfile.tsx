@@ -91,6 +91,7 @@ import {
 } from "./CandidateFieldGroups";
 import { CareerTimeline } from "./CareerTimeline";
 import { ClampedText, EducationList, FoldAllButton, PersonHeaderLayout, PillRow } from "./ProfileParts";
+import { ResearchedProfileSections } from "./ResearchedProfileSections";
 import { CompensationSummary } from "./CompensationSummary";
 import { DocumentPreviewSheet, type PreviewTarget } from "./documents/DocumentPreviewSheet";
 import {
@@ -114,6 +115,11 @@ const PROFILE_TAB_FOLDS: readonly ProfileSection[] = [
   "summary",
   "experience",
   "education",
+  "profile",
+  "certifications",
+  "publications",
+  "projects",
+  "volunteering",
   "background",
   "compensation",
   "documents",
@@ -417,6 +423,7 @@ export function CandidateProfile({
       backgroundPencil
     );
 
+  const researchFold = (id: ProfileSection) => ({ id, open: sections.isOpen(id), onToggle: () => sections.toggle(id) });
   const foldProps = (id: ProfileSection & EditableSection) => ({
     id,
     open: editing === id || sections.isOpen(id),
@@ -650,6 +657,8 @@ export function CandidateProfile({
               <EducationList education={candidate.education} />
             </CollapsibleSection>
           )}
+
+          <ResearchedProfileSections details={personRecord.data?.research} fold={researchFold} />
 
           <CollapsibleSection
             {...foldProps("background")}

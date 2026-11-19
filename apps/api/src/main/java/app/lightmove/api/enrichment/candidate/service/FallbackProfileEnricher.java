@@ -20,14 +20,23 @@ public class FallbackProfileEnricher implements LinkedInProfileEnricher {
 
     @Override
     public Optional<EnrichedProfile> fetch(String linkedinUrl) {
-        ResearchAttempt dataset = attempt(primary, linkedinUrl, "dataset");
+        return research(linkedinUrl, LinkedInProfileEnricher::fetch);
+    }
+
+    @Override
+    public Optional<EnrichedProfile> fetchFresh(String linkedinUrl) {
+        return research(linkedinUrl, LinkedInProfileEnricher::fetchFresh);
+    }
+
+    private Optional<EnrichedProfile> research(String linkedinUrl, ResearchCall call) {
+        ResearchAttempt dataset = attempt(primary, call, linkedinUrl, "dataset");
         if (dataset.answer().isPresent() && answersTheQuestion(dataset.answer().get())) {
             return dataset.answer();
         }
         // Debug: a LinkedIn URL identifies the person, which VendorException keeps out of its message.
         log.debug("Primary research {} for {} — falling back to the live scrape",
                 dataset.answer().isPresent() ? "was thin" : "missed", linkedinUrl);
-        ResearchAttempt live = attempt(secondary, linkedinUrl, "live scrape");
+        ResearchAttempt live = attempt(secondary, call, linkedinUrl, "live scrape");
         if (live.answer().isPresent()) {
             return live.answer();
         }
@@ -38,9 +47,10 @@ public class FallbackProfileEnricher implements LinkedInProfileEnricher {
         return dataset.answer();
     }
 
-    private static ResearchAttempt attempt(LinkedInProfileEnricher enricher, String url, String which) {
+    private static ResearchAttempt attempt(LinkedInProfileEnricher enricher, ResearchCall call, String url,
+                                           String which) {
         try {
-            return new ResearchAttempt(enricher.fetch(url), null);
+            return new ResearchAttempt(call.research(enricher, url), null);
         } catch (RuntimeException ex) {
             log.warn("The {} failed: {}", which, ex.getMessage());
             log.debug("The {} failed for {}", which, url);
@@ -49,6 +59,11 @@ public class FallbackProfileEnricher implements LinkedInProfileEnricher {
     }
 
     private record ResearchAttempt(Optional<EnrichedProfile> answer, RuntimeException failure) {}
+
+    @FunctionalInterface
+    private interface ResearchCall {
+        Optional<EnrichedProfile> research(LinkedInProfileEnricher enricher, String linkedinUrl);
+    }
 
     private static boolean answersTheQuestion(EnrichedProfile answer) {
         return answer.career().stream().anyMatch(post -> post.title() != null);

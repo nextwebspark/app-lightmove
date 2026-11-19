@@ -141,6 +141,7 @@ public class CandidateService {
     private final WorkspaceSettingsService workspaceSettings;
     private final LookedUpResearch lookedUp;
     private final CorrectedProfileResearch correctedProfiles;
+    private final PersonVendorRecordStore vendorRecords;
 
     public CandidateService(CandidateRepository candidates, PersonRepository people, PersonMatcher matcher,
                             PersonActivityRecorder activity, PersonNoteService personNotes,
@@ -155,7 +156,7 @@ public class CandidateService {
                             CandidateRemoval removal, SuppressionGate suppression,
                             WorkspaceAiControlsReader aiControls, WorkspaceSettingsService workspaceSettings,
                             LookedUpResearch lookedUp, CorrectedProfileResearch correctedProfiles,
-                            LightMoveProperties properties) {
+                            PersonVendorRecordStore vendorRecords, LightMoveProperties properties) {
         this.candidates = candidates;
         this.people = people;
         this.matcher = matcher;
@@ -182,6 +183,7 @@ public class CandidateService {
         this.workspaceSettings = workspaceSettings;
         this.lookedUp = lookedUp;
         this.correctedProfiles = correctedProfiles;
+        this.vendorRecords = vendorRecords;
     }
 
     /**
@@ -692,6 +694,7 @@ public class CandidateService {
             // Two mandates capturing one new person before either's research lands each queue a call;
             // the second finds the person researched, but its own mandate still wants the employer
             // filed; the background run that follows asks nothing once the first has filled it.
+            vendorRecords.keepFor(person, enriched);
             if (fresh) {
                 person.enrich(enriched);
                 keepPhoto(person.getId(), enriched);
@@ -770,6 +773,7 @@ public class CandidateService {
                 request.exitNote(), details);
         Candidate candidate = filed.candidate();
         Person person = candidate.getPerson();
+        vendorRecords.keepFor(person, research);
         if (!person.isResearched()) {
             person.enrich(research);
             keepPhoto(person.getId(), research);
@@ -1112,6 +1116,7 @@ public class CandidateService {
                 return;
             }
             person.replaceResearch(enriched);
+            vendorRecords.keepFor(person, enriched);
             photos.findByPersonId(person.getId()).ifPresent(photos::delete);
             photos.flush();
             keepPhoto(person.getId(), enriched);
@@ -1120,6 +1125,7 @@ public class CandidateService {
             stream.publish(projectId, ProjectStreamKind.CANDIDATE_ENRICHED);
         });
     }
+
 
     private void keepPhoto(UUID personId, EnrichedProfile enriched) {
         if (enriched.photo() == null || photos.existsByPersonId(personId)) {

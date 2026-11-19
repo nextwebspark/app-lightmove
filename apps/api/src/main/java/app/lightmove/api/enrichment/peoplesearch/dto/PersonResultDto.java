@@ -3,10 +3,11 @@ package app.lightmove.api.enrichment.peoplesearch.dto;
 import app.lightmove.api.candidate.constant.EnrichmentVendor;
 import app.lightmove.api.candidate.dto.CandidateCareerEntryDto;
 import app.lightmove.api.candidate.dto.CandidateEducationEntryDto;
+import app.lightmove.api.candidate.dto.PersonResearchDetailsDto;
 import app.lightmove.api.candidate.model.EnrichedProfile;
+import app.lightmove.api.candidate.model.ResearchedProfileDetails;
 import app.lightmove.api.enrichment.candidate.model.BrightDataPerson;
 import app.lightmove.api.enrichment.candidate.service.BrightDataPersonProfiles;
-import app.lightmove.api.enrichment.common.model.ContactOutProfileDetails;
 import java.util.List;
 import java.util.UUID;
 
@@ -21,10 +22,10 @@ public record PersonResultDto(String linkedinSlug, String fullName, String title
                               String companyLinkedinUrl, String companyLogoUrl, String location,
                               String countryCode, String photoUrl, String profileUrl, String about,
                               List<CandidateCareerEntryDto> career, List<CandidateEducationEntryDto> education,
-                              List<String> skills, List<String> languages, PersonDetailsDto details,
+                              List<String> skills, List<String> languages, PersonResearchDetailsDto details,
                               UUID candidateId, boolean held) {
 
-    public static PersonResultDto of(BrightDataPerson person, ContactOutProfileDetails details, UUID candidateId) {
+    public static PersonResultDto of(BrightDataPerson person, ResearchedProfileDetails details, UUID candidateId) {
         EnrichedProfile profile = BrightDataPersonProfiles.toEnrichedProfile(person, EnrichmentVendor.CONTACTOUT);
         return new PersonResultDto(person.linkedinId(), person.name(), profile.title(),
                 profile.employerName() != null ? profile.employerName() : person.currentCompanyName(),
@@ -38,7 +39,7 @@ public record PersonResultDto(String linkedinSlug, String fullName, String title
                 profile.education().stream()
                         .map(school -> new CandidateEducationEntryDto(school.school(), school.degree(), school.period()))
                         .toList(),
-                profile.skills(), profile.languages(), details == null ? null : PersonDetailsDto.of(details),
+                profile.skills(), profile.languages(), PersonResearchDetailsDto.of(details),
                 candidateId, candidateId != null);
     }
 }

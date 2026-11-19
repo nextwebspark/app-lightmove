@@ -10,6 +10,7 @@ import static org.mockito.Mockito.when;
 import app.lightmove.api.candidate.model.CandidateCapturedEvent;
 import app.lightmove.api.candidate.model.EnrichedProfile;
 import app.lightmove.api.candidate.service.CandidateService;
+import app.lightmove.api.candidate.service.PersonResearchRefreshService;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
@@ -32,7 +33,8 @@ class CandidateEnrichmentWorkerTest {
         CandidateService candidates = mock(CandidateService.class);
         doThrow(new DataIntegrityViolationException("app_lm_person_profile_slug_uk"))
                 .when(candidates).adoptPublicProfile(projectId, candidateId, research);
-        CandidateEnrichmentWorker worker = new CandidateEnrichmentWorker(enricher, candidates);
+        CandidateEnrichmentWorker worker = new CandidateEnrichmentWorker(enricher, candidates,
+                mock(PersonResearchRefreshService.class));
 
         assertThatCode(() -> worker.enrich(new CandidateCapturedEvent(candidateId, projectId,
                 "https://www.linkedin.com/in/ACoAAB1234567890abcdefGHIJ"))).doesNotThrowAnyException();

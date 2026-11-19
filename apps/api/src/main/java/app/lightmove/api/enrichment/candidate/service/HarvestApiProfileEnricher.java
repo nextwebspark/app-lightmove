@@ -4,6 +4,7 @@ import app.lightmove.api.candidate.constant.EnrichmentVendor;
 import app.lightmove.api.candidate.model.CandidateCareerEntry;
 import app.lightmove.api.candidate.model.CandidateEducationEntry;
 import app.lightmove.api.candidate.model.EnrichedProfile;
+import app.lightmove.api.candidate.model.VendorProfileRecord;
 import app.lightmove.api.common.location.service.Countries;
 import app.lightmove.api.core.config.HarvestApiSettings;
 import app.lightmove.api.core.resilience.constant.VendorFailureKind;
@@ -15,15 +16,18 @@ import app.lightmove.api.core.resilience.service.VendorClientFactory;
 import app.lightmove.api.core.resilience.service.VendorRateLimiter;
 import app.lightmove.api.core.resilience.service.VendorRetryPredicate;
 import app.lightmove.api.core.text.service.LinkedInUrls;
+import app.lightmove.api.enrichment.common.service.VendorProfileRecords;
 import java.util.List;
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.resilience.annotation.Retryable;
 import org.springframework.web.client.RestClient;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * HarvestAPI's LinkedIn profile scrape (~3–15s): the freshness fallback behind the Bright Data
- * dataset. The records carry only the fields this feature reads.
+ * dataset. The records carry only the fields this feature reads; the whole answer is kept beside them.
  */
 @Slf4j
 public class HarvestApiProfileEnricher implements LinkedInProfileEnricher {
@@ -33,12 +37,14 @@ public class HarvestApiProfileEnricher implements LinkedInProfileEnricher {
     private final RestClient client;
     private final VendorCallGuard guard;
     private final ProfilePhotoDownloader photos;
+    private final ObjectMapper json;
 
     public HarvestApiProfileEnricher(HarvestApiSettings config, VendorClientFactory clientFactory,
                                      VendorRateLimiter rateLimiter, VendorCallGuard guard,
-                                     ProfilePhotoDownloader photos, RestClient.Builder builder) {
+                                     ProfilePhotoDownloader photos, RestClient.Builder builder, ObjectMapper json) {
         this.guard = guard;
         this.photos = photos;
+        this.json = json;
         this.client = clientFactory.create(VendorClientSpec.header(VENDOR, config.baseUrl(),
                 "X-API-Key", config.apiKey(), config.readTimeout(), config.requestsPerSecond()),
                 builder, rateLimiter);
@@ -53,20 +59,21 @@ public class HarvestApiProfileEnricher implements LinkedInProfileEnricher {
             multiplierString = "${lightmove.resilience.retry-multiplier}",
             maxDelayString = "${lightmove.resilience.retry-max-delay}")
     public Optional<EnrichedProfile> fetch(String linkedinUrl) {
-        HarvestApiEnvelope envelope;
+        JsonNode answer;
         try {
-            envelope = guard.call(VendorCall.of(VENDOR, "profile-scrape"), () -> client.get()
+            answer = guard.call(VendorCall.of(VENDOR, "profile-scrape"), () -> client.get()
                     .uri(uri -> uri.path("/linkedin/profile")
                             .queryParam("url", linkedinUrl)
                             .build())
                     .retrieve()
-                    .body(HarvestApiEnvelope.class));
+                    .body(JsonNode.class));
         } catch (VendorException failed) {
             if (failed.getKind() != VendorFailureKind.NOT_FOUND) {
                 throw failed;
             }
             return Optional.empty();
         }
+        HarvestApiEnvelope envelope = answer == null ? null : json.treeToValue(answer, HarvestApiEnvelope.class);
 
         if (envelope == null || envelope.element() == null) {
             log.debug("HarvestAPI answered without a profile: {}", envelope == null ? null : envelope.error());
@@ -75,7 +82,8 @@ public class HarvestApiProfileEnricher implements LinkedInProfileEnricher {
         EnrichedProfile enriched = toEnrichedProfile(envelope.element());
         String vanity = envelope.element().publicIdentifier();
         return Optional.of(withPhoto(enriched, envelope.element())
-                .withPublicProfileUrl(vanity == null || vanity.isBlank() ? null : LinkedInUrls.profileUrlOf(vanity)));
+                .withPublicProfileUrl(vanity == null || vanity.isBlank() ? null : LinkedInUrls.profileUrlOf(vanity))
+                .withVendorRecord(VendorProfileRecords.of(VendorProfileRecord.HARVESTAPI, answer.path("element").toString(), json)));
     }
 
     private EnrichedProfile withPhoto(EnrichedProfile enriched, HarvestApiProfile profile) {

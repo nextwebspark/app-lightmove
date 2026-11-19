@@ -18,6 +18,7 @@ import app.lightmove.api.enrichment.candidate.service.CachedPeopleStore;
 import app.lightmove.api.enrichment.candidate.service.CachedPeopleStore.OnFile;
 import app.lightmove.api.enrichment.candidate.service.ProfilePhotoDownloader;
 import app.lightmove.api.enrichment.common.service.SearchHitFiling;
+import app.lightmove.api.enrichment.common.service.VendorProfileRecords;
 import app.lightmove.api.enrichment.sourcing.dto.AddSuggestionsRequest;
 import app.lightmove.api.enrichment.sourcing.dto.AddSuggestionsRequest.PickedPerson;
 import app.lightmove.api.enrichment.sourcing.dto.AddSuggestionsResponse;
@@ -39,6 +40,7 @@ import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * Add: the people ticked in the panel become executives of the position, each at the company a search found them
@@ -56,17 +58,19 @@ public class SuggestionFiling {
     private final SuppressionGate suppression;
     private final ProfilePhotoDownloader photos;
     private final AuditService audit;
+    private final ObjectMapper json;
     private final Duration ttl;
 
     public SuggestionFiling(SuggestionStore suggestions, CachedPeopleStore people, CandidateService candidates,
                             SuppressionGate suppression, ProfilePhotoDownloader photos, AuditService audit,
-                            LightMoveProperties properties) {
+                            LightMoveProperties properties, ObjectMapper json) {
         this.suggestions = suggestions;
         this.people = people;
         this.candidates = candidates;
         this.suppression = suppression;
         this.photos = photos;
         this.audit = audit;
+        this.json = json;
         this.ttl = properties.enrichment().peopleCacheTtl();
     }
 
@@ -164,7 +168,9 @@ public class SuggestionFiling {
             Map<String, CompletableFuture<EnrichedProfile>> pending = new LinkedHashMap<>();
             read.forEach((slug, onFile) -> pending.put(slug, CompletableFuture.supplyAsync(() ->
                     BrightDataPersonProfiles.toEnrichedProfile(onFile.person(), vendorOf(onFile.provider()))
-                            .withPhoto(photos.fetchOrNull(onFile.person().usableAvatarUrl())), withRequestContext)));
+                            .withPhoto(photos.fetchOrNull(onFile.person().usableAvatarUrl()))
+                            .withVendorRecord(VendorProfileRecords.of(onFile.provider(), onFile.ownRecord(), json)),
+                    withRequestContext)));
             Map<String, EnrichedProfile> research = new LinkedHashMap<>();
             pending.forEach((slug, profile) -> research.put(slug, profile.join()));
             return research;

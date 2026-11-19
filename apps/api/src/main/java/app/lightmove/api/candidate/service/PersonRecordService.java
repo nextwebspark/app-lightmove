@@ -8,12 +8,14 @@ import app.lightmove.api.candidate.dto.CandidateExitReasonResponse;
 import app.lightmove.api.candidate.dto.PersonPositionResponse;
 import app.lightmove.api.candidate.dto.PersonPrivacyResponse;
 import app.lightmove.api.candidate.dto.PersonRecordResponse;
+import app.lightmove.api.candidate.dto.PersonResearchDetailsDto;
 import app.lightmove.api.candidate.dto.ProcessingRestrictionResponse;
 import app.lightmove.api.candidate.model.Candidate;
 import app.lightmove.api.candidate.model.CandidatePrivacySettings;
 import app.lightmove.api.candidate.model.Person;
 import app.lightmove.api.candidate.model.PersonConsent;
 import app.lightmove.api.candidate.model.PersonEmployer;
+import app.lightmove.api.candidate.model.PersonResearchOnFile;
 import app.lightmove.api.candidate.model.StoredPhoto;
 import app.lightmove.api.candidate.repository.CandidateRepository;
 import app.lightmove.api.candidate.repository.PersonPhotoRepository;
@@ -64,6 +66,7 @@ public class PersonRecordService {
     private final CandidateExitReasons exitReasons;
     private final CandidatePrivacySettingsService privacySettings;
     private final PersonConsentStore consentStore;
+    private final PersonVendorRecordStore vendorRecords;
     private final Clock clock;
 
     /** The person a mandate's row maps, after checking the mandate is the caller's workspace's. */
@@ -98,6 +101,7 @@ public class PersonRecordService {
                 mapped.stream().map(Candidate::getAddedBy)).toList());
         User filer = named.get(person.getCreatedBy());
         PersonEmployer employer = PersonEmployerResolver.employerOf(person, mapped);
+        PersonResearchOnFile research = vendorRecords.researchOf(person.getWorkspaceId(), person.getId());
         return new PersonRecordResponse(person.getId(), person.getFullName(), person.getTitle(),
                 employer.name(),
                 employers.logosOf(person.getWorkspaceId(), Map.of(person.getId(), employer)).get(person.getId()),
@@ -113,7 +117,8 @@ public class PersonRecordService {
                 processingRestrictionOf(userId, person, named), privacyOf(person, named),
                 List.copyOf(person.getTagIds()),
                 person.getSource().value(), person.getCreatedAt(), person.getCreatedBy(),
-                filer == null ? null : filer.getFullName());
+                filer == null ? null : filer.getFullName(), PersonResearchDetailsDto.of(research.details()),
+                research.vendorSeenAt());
     }
 
     /**

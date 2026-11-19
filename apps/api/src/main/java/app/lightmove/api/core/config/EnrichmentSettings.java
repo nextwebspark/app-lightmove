@@ -31,5 +31,8 @@ public record EnrichmentSettings(
         @DefaultValue("30d") Duration peopleCacheTtl,
 
         /** The Add form's profile lookups one person may run a minute: each is a paid vendor read. */
-        @DefaultValue("20") int profileLookupsPerUserPerMinute
+        @DefaultValue("20") int profileLookupsPerUserPerMinute,
+
+        /** People one person may send to Refresh research an hour: each is a paid read past the people cache. */
+        @DefaultValue("200") int researchRefreshesPerUserPerHour
 ) {}

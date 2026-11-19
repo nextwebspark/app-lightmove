@@ -4,10 +4,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import app.lightmove.api.candidate.constant.EnrichmentVendor;
 import app.lightmove.api.candidate.model.EnrichedProfile;
+import app.lightmove.api.candidate.model.ResearchedProfileDetails;
+import app.lightmove.api.candidate.model.ResearchedProfileItem;
+import app.lightmove.api.candidate.model.ResearchedProfileLink;
 import app.lightmove.api.enrichment.candidate.model.BrightDataPeopleHits;
 import app.lightmove.api.enrichment.candidate.model.BrightDataPerson;
 import app.lightmove.api.enrichment.candidate.service.BrightDataPersonProfiles;
-import app.lightmove.api.enrichment.common.model.ContactOutProfileDetails;
 import app.lightmove.api.enrichment.common.service.ContactOutPeopleRecords.ContactOutEmployerKey;
 import app.lightmove.api.enrichment.common.service.ContactOutPeopleRecords.ContactOutSearchAnswer;
 import java.io.InputStream;
@@ -85,13 +87,13 @@ class ContactOutPeopleRecordsTest {
     void keepsTheProviderRecordAndReadsItsExtras() throws Exception {
         BrightDataPeopleHits hits = ContactOutPeopleRecords.toHits(fixture(), JSON);
 
-        ContactOutProfileDetails details = ContactOutProfileDetailsReader.read(hits.sourceRecordOf(0), JSON)
+        ResearchedProfileDetails details = ResearchedProfileDetailsReader.read(hits.sourceRecordOf(0), JSON)
                 .orElseThrow();
 
         assertThat(hits.sourceRecords()).hasSize(1);
         assertThat(details.headline()).isEqualTo("Group CFO | Board Member");
         assertThat(details.followers()).isEqualTo(1200L);
-        assertThat(details.links()).extracting(ContactOutProfileDetails.ProfileLink::url)
+        assertThat(details.links()).extracting(ResearchedProfileLink::url)
                 .containsExactly("https://github.com/samplecfo", "https://x.com/samplecfo");
         assertThat(details.certifications()).singleElement().satisfies(certificate -> {
             assertThat(certificate.title()).isEqualTo("Chartered Accountant");
@@ -110,7 +112,7 @@ class ContactOutPeopleRecordsTest {
     @Test
     @DisplayName("a profile carrying none of the extras, or odd types for them, reads as absent rather than failing")
     void readsASparseProfile() {
-        ContactOutProfileDetails details = ContactOutProfileDetailsReader.read("""
+        ResearchedProfileDetails details = ResearchedProfileDetailsReader.read("""
                 {"full_name":"Sparse","followers":"2.5K+","company":"not an object",
                  "certifications":[{"authority":"no title"}, "Plain Certificate"],"contact_availability":null}""",
                 JSON).orElseThrow();
@@ -118,9 +120,9 @@ class ContactOutPeopleRecordsTest {
         assertThat(details.followers()).isEqualTo(25L);
         assertThat(details.company()).isNull();
         assertThat(details.contactAvailability()).isNull();
-        assertThat(details.certifications()).extracting(ContactOutProfileDetails.ProfileItem::title)
+        assertThat(details.certifications()).extracting(ResearchedProfileItem::title)
                 .containsExactly("Plain Certificate");
-        assertThat(ContactOutProfileDetailsReader.read("not json", JSON)).isEmpty();
+        assertThat(ResearchedProfileDetailsReader.read("not json", JSON)).isEmpty();
     }
 
     @Test

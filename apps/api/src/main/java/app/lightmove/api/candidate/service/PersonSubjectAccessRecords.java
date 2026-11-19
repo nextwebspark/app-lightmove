@@ -23,8 +23,8 @@ import tools.jackson.databind.JsonNode;
 
 /**
  * The person's own tables in a subject access export: the record, contacts, tags, notes (a deleted one too, until
- * it is purged), documents, the timeline, every mapping with V91's frozen copy on it, and the scorecards. Only
- * machinery is withheld — the row version, a storage key, a lookup key derived from a value already exported.
+ * it is purged), documents, what research vendors answered (V229), the timeline, every mapping with V91's frozen copy
+ * on it, and the scorecards. Only machinery is withheld — the row version, a storage key, a lookup key derived from a value already exported.
  */
 @Component
 @RequiredArgsConstructor
@@ -41,7 +41,7 @@ class PersonSubjectAccessRecords implements SubjectAccessContributor {
                 "app_lm_person_note", "app_lm_person_document", "app_lm_person_document_version",
                 "app_lm_person_activity", "app_lm_project_candidate", "app_lm_candidate_contact",
                 "app_lm_candidate_photo", "app_lm_candidate_scorecard", "app_lm_person_privacy_link",
-                "app_lm_person_consent", "app_lm_person_consent_event");
+                "app_lm_person_consent", "app_lm_person_consent_event", "app_lm_person_vendor_record");
     }
 
     @Override
@@ -74,6 +74,9 @@ class PersonSubjectAccessRecords implements SubjectAccessContributor {
         sections.add(new SubjectAccessSection("documentVersions", "Document files", rows.rowsOf("""
                 SELECT * FROM app_lm_person_document_version WHERE person_id = :personId
                 ORDER BY document_id, version_no""", parameters, Set.of("storage_key"))));
+        sections.add(new SubjectAccessSection("research", "What research providers said about you", rows.rowsOf("""
+                SELECT * FROM app_lm_person_vendor_record WHERE workspace_id = :workspaceId AND person_id = :personId
+                ORDER BY provider""", parameters, Set.of("workspace_id"))));
         List<Map<String, Object>> timeline = rows.rowsOf("""
                 SELECT * FROM app_lm_person_activity WHERE workspace_id = :workspaceId AND person_id = :personId
                 ORDER BY occurred_at, id""", parameters, Set.of("workspace_id"));

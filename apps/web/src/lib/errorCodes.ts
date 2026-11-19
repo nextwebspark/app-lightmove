@@ -99,6 +99,8 @@ export type ApiErrorCode =
   | "PERSON_SUPPRESSED"
   | "PERSON_PROCESSING_RESTRICTED"
   | "PERSON_PROCESSING_RESTRICTION_NOT_YOURS"
+  | "PERSON_RESEARCH_NEEDS_PROFILE"
+  | "PERSON_RESEARCH_REFRESHING"
   | "PERSON_ERASE_SEND_IN_FLIGHT"
   | "SUPPRESSION_UNAVAILABLE"
   | "CANDIDATE_PRIVACY_NOT_SET_UP"
@@ -345,6 +347,8 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   PERSON_PROCESSING_RESTRICTED:
     "Processing is restricted for this person, so this can't be done until the restriction is lifted.",
   PERSON_PROCESSING_RESTRICTION_NOT_YOURS: "Only the person who restricted processing, or an admin, can lift it.",
+  PERSON_RESEARCH_NEEDS_PROFILE: "Add their LinkedIn profile first, so research has a profile to read.",
+  PERSON_RESEARCH_REFRESHING: "Their research is already being refreshed. Give it a few minutes.",
   PERSON_ERASE_SEND_IN_FLIGHT: "An email to this person is sending right now. Try again in a minute.",
   SUPPRESSION_UNAVAILABLE: "Your workspace's suppression list can't be checked right now, so nobody can be added. Contact Uncava support.",
   CANDIDATE_PRIVACY_NOT_SET_UP:
