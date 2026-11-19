@@ -1,27 +1,27 @@
 package app.lightmove.api.notification.service;
 
 import app.lightmove.api.candidate.service.CandidateTaskService;
-import app.lightmove.api.common.time.model.DateTimePreferences;
-import app.lightmove.api.common.time.service.DateTimeFormats;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.email.constant.PrivacyRequestEmailKind;
 import app.lightmove.api.core.email.model.EmailMessage;
 import app.lightmove.api.core.email.service.EmailSender;
 import app.lightmove.api.core.email.service.EmailTemplates;
 import app.lightmove.api.core.security.model.User;
-import app.lightmove.api.core.security.rbac.ProjectAccess;
 import app.lightmove.api.core.security.rbac.ProjectAction;
 import app.lightmove.api.core.security.rbac.WorkspaceAccess;
 import app.lightmove.api.core.security.repository.UserRepository;
 import app.lightmove.api.core.tenant.EveryWorkspace;
 import app.lightmove.api.core.tenant.TenantResolvers;
 import app.lightmove.api.core.tenant.WorkspaceScope;
+import app.lightmove.api.core.time.model.DateTimePreferences;
+import app.lightmove.api.core.time.service.DateTimeFormats;
 import app.lightmove.api.notification.constant.NotificationKind;
 import app.lightmove.api.notification.model.Notification;
 import app.lightmove.api.notification.repository.NotificationRecipientRow;
 import app.lightmove.api.notification.repository.NotificationRepository;
 import app.lightmove.api.project.model.Project;
-import app.lightmove.api.project.repository.ProjectRepository;
+import app.lightmove.api.project.service.ProjectAccess;
+import app.lightmove.api.project.service.ProjectLookup;
 import app.lightmove.api.task.dto.TaskResponse;
 import app.lightmove.api.task.model.DueDigest;
 import app.lightmove.api.task.model.DueDigestLine;
@@ -86,7 +86,7 @@ public class NotificationEmails {
     private final NotificationPreferences preferences;
     private final TaskService tasks;
     private final CandidateTaskService people;
-    private final ProjectRepository projects;
+    private final ProjectLookup projects;
     private final UserRepository users;
     private final WorkspaceAccess workspaceAccess;
     private final ProjectAccess projectAccess;
@@ -134,7 +134,7 @@ public class NotificationEmails {
     private boolean stillTheirs(Notification row) {
         return preferences.of(row.getRecipientUserId(), row.getWorkspaceId(), row.getKind().preference()).email()
                 && workspaceAccess.isStaff(row.getRecipientUserId(), row.getWorkspaceId())
-                && (row.getProjectId() == null || (!projects.existsByIdAndArchivedAtIsNotNull(row.getProjectId())
+                && (row.getProjectId() == null || (!projects.isArchived(row.getProjectId())
                         && projectAccess.allows(row.getRecipientUserId(), row.getWorkspaceId(),
                                 row.getProjectId(), ProjectAction.WORK_EXECUTE)));
     }

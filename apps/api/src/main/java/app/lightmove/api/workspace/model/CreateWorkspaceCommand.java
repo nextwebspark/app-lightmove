@@ -1,6 +1,6 @@
 package app.lightmove.api.workspace.model;
 
-import app.lightmove.api.workspace.constant.WorkspaceMode;
+import app.lightmove.api.core.tenant.WorkspaceMode;
 
 /**
  * Signup's organisation step. No email domain — it comes from the verified address, or anyone could

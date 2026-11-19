@@ -11,13 +11,13 @@ import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.security.apikey.ApiKeyScope;
 import app.lightmove.api.core.security.apikey.PublicReader;
-import app.lightmove.api.core.security.rbac.ProjectAccess;
 import app.lightmove.api.core.security.rbac.ProjectAction;
 import app.lightmove.api.core.security.rbac.ProjectAudience;
 import app.lightmove.api.pairing.model.PairedStage;
 import app.lightmove.api.pairing.service.StagePairingService;
 import app.lightmove.api.project.constant.ProjectListScope;
 import app.lightmove.api.project.dto.ProjectResponse;
+import app.lightmove.api.project.service.ProjectAccess;
 import app.lightmove.api.project.service.ProjectService;
 import app.lightmove.api.publicapi.dto.PublicCandidate;
 import app.lightmove.api.publicapi.dto.PublicCompany;
@@ -43,6 +43,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
 import lombok.RequiredArgsConstructor;
+import org.springframework.modulith.NamedInterface;
 import org.springframework.stereotype.Service;
 
 /**
@@ -52,6 +53,7 @@ import org.springframework.stereotype.Service;
  */
 @Service
 @RequiredArgsConstructor
+@NamedInterface(name = "api", propagate = false)
 public class PublicReadService {
 
     private final ProjectService projects;

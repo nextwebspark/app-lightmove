@@ -1,6 +1,6 @@
 package app.lightmove.api.strategy.dto;
 
-import app.lightmove.api.strategy.model.NumericRange;
+import app.lightmove.api.universe.model.NumericRange;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.PositiveOrZero;

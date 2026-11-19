@@ -3,8 +3,8 @@ package app.lightmove.api.workspace.service;
 import app.lightmove.api.common.persona.model.HiringCompanyProfile;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
-import app.lightmove.api.strategy.model.CompanyRow;
-import app.lightmove.api.strategy.service.ApolloCompanyQueryService;
+import app.lightmove.api.universe.model.CompanyRow;
+import app.lightmove.api.universe.service.ApolloCompanyQueryService;
 import app.lightmove.api.workspace.model.Firm;
 import app.lightmove.api.workspace.model.Workspace;
 import app.lightmove.api.workspace.model.WorkspaceCompany;
@@ -12,12 +12,14 @@ import app.lightmove.api.workspace.repository.WorkspaceRepository;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springframework.modulith.NamedInterface;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /** The firm a workspace is, for a reader outside {@code workspace} — the assistant's context. */
 @Service
 @RequiredArgsConstructor
+@NamedInterface(name = "api", propagate = false)
 public class FirmService {
 
     private final WorkspaceRepository workspaces;

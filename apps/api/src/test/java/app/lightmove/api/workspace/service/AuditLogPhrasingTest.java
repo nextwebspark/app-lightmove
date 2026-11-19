@@ -10,7 +10,7 @@ import app.lightmove.api.core.audit.constant.PlatformEventType;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.constant.SecurityEventType;
 import app.lightmove.api.core.audit.constant.WorkspaceEventType;
-import app.lightmove.api.workspace.constant.WorkspaceMode;
+import app.lightmove.api.core.tenant.WorkspaceMode;
 import app.lightmove.api.workspace.model.AuditLine;
 import java.util.Arrays;
 import java.util.HashMap;

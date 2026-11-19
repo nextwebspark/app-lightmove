@@ -4,12 +4,14 @@ import app.lightmove.api.geocoding.model.GeoPoint;
 import app.lightmove.api.geocoding.model.PlaceSuggestion;
 import java.util.List;
 import java.util.Optional;
+import org.springframework.modulith.NamedInterface;
 
 /**
  * The vendor seam, one method per precision so each is one call and one retry policy, and the caller
  * decides the city-to-country fallback. Empty means the vendor had nothing; a vendor that could not
  * answer throws {@code VendorException}.
  */
+@NamedInterface(name = "api", propagate = false)
 public interface Geocoder {
 
     /** Within the named country when one is known. */

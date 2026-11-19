@@ -4,11 +4,13 @@ import app.lightmove.api.candidate.model.TranscriptOnFile;
 import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
+import org.springframework.modulith.NamedInterface;
 
 /**
  * The transcripts of the calls a position recorded with a person, answered by {@code notetaker}, which already
  * depends on {@code candidate}, so the dependency stays one-way.
  */
+@NamedInterface(name = "api", propagate = false)
 public interface MeetingTranscriptLookup {
 
     /**

@@ -1,6 +1,6 @@
 package app.lightmove.api.assistant.tool;
 
-import app.lightmove.api.strategy.model.CompanyRow;
+import app.lightmove.api.universe.model.CompanyRow;
 
 /**
  * One market company as the model sees it — narrower than {@code CompanyRow}, since every field costs context and money.

@@ -9,6 +9,7 @@ import app.lightmove.api.core.security.model.MfaChallengeIssued;
 import app.lightmove.api.core.security.model.ProviderIdentity;
 import app.lightmove.api.core.security.registration.PendingRegistrationCookieFactory;
 import app.lightmove.api.core.security.registration.PendingRegistrationService;
+import app.lightmove.api.core.security.service.AuthResponseAssembler;
 import app.lightmove.api.core.security.service.ProviderSignInService;
 import app.lightmove.api.core.security.token.RefreshCookieFactory;
 import jakarta.servlet.http.HttpServletRequest;

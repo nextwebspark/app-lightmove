@@ -2,7 +2,7 @@ package app.lightmove.api.core.security.rbac;
 
 /**
  * Who is reading a position's executives: staff working it, or a client seat reading it. Resolved once
- * where the caller is known ({@link ProjectAccess#audienceOf}) and handed down, so a read that cannot
+ * where the caller is known ({@code ProjectAccess#audienceOf}) and handed down, so a read that cannot
  * name its reader does not compile rather than seeing everyone.
  */
 public enum ProjectAudience {

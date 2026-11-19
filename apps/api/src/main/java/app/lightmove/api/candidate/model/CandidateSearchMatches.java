@@ -7,12 +7,14 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import org.springframework.modulith.NamedInterface;
 
 /**
  * What the mandate's one search box matched: executives on their own, and companies on theirs. An executive is
  * kept when they match or their company does, so a matching company keeps everyone at it. {@code stage}, when not
  * null, is the one stage the executives were matched among.
  */
+@NamedInterface(name = "api", propagate = false)
 public record CandidateSearchMatches(TriageCompanyStatus stage, Set<UUID> candidateIds,
                                      Set<UUID> candidateCompanyIds, CompanySearchMatches companies) {
 

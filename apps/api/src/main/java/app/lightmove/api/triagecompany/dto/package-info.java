@@ -3,4 +3,7 @@
  * models: {@link app.lightmove.api.triagecompany.dto.AddTriageCompanyRequest} names an id only,
  * {@link app.lightmove.api.triagecompany.dto.CaptureCompanyRequest} carries the fields.
  */
+@NamedInterface(name = "api", propagate = false)
 package app.lightmove.api.triagecompany.dto;
+
+import org.springframework.modulith.NamedInterface;

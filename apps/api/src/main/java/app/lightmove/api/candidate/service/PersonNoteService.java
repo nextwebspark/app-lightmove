@@ -15,20 +15,20 @@ import app.lightmove.api.candidate.repository.CandidateRepository;
 import app.lightmove.api.candidate.repository.DeletedPersonNoteRow;
 import app.lightmove.api.candidate.repository.PersonNoteRepository;
 import app.lightmove.api.candidate.repository.PersonRepository;
+import app.lightmove.api.common.constant.NoteFormat;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
+import app.lightmove.api.core.constant.ApiValueEnum;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
-import app.lightmove.api.common.constant.ApiValueEnum;
-import app.lightmove.api.common.constant.NoteFormat;
 import app.lightmove.api.core.security.model.User;
-import app.lightmove.api.core.security.rbac.ProjectAccess;
 import app.lightmove.api.core.security.rbac.ProjectAction;
 import app.lightmove.api.core.security.rbac.WorkspaceAccess;
 import app.lightmove.api.core.security.rbac.WorkspaceAction;
 import app.lightmove.api.core.security.repository.UserRepository;
 import app.lightmove.api.project.model.Project;
-import app.lightmove.api.project.repository.ProjectRepository;
+import app.lightmove.api.project.service.ProjectAccess;
+import app.lightmove.api.project.service.ProjectLookup;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Clock;
 import java.time.Instant;
@@ -42,6 +42,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Limit;
+import org.springframework.modulith.NamedInterface;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -55,6 +56,7 @@ import org.springframework.transaction.annotation.Transactional;
  */
 @Service
 @RequiredArgsConstructor
+@NamedInterface(name = "api", propagate = false)
 public class PersonNoteService {
 
     private static final String PERSON_TARGET = "person";
@@ -62,7 +64,7 @@ public class PersonNoteService {
     private final PersonRepository people;
     private final PersonNoteRepository notes;
     private final CandidateRepository candidates;
-    private final ProjectRepository projects;
+    private final ProjectLookup projects;
     private final UserRepository users;
     private final WorkspaceAccess workspaceAccess;
     private final ProjectAccess projectAccess;

@@ -1,8 +1,10 @@
 package app.lightmove.api.enrichment.company.model;
 
 import java.util.concurrent.atomic.AtomicInteger;
+import org.springframework.modulith.NamedInterface;
 
 /** Billed name searches left, shared across one lookup's threads so ten names cannot become sixty searches. */
+@NamedInterface(name = "api", propagate = false)
 public final class VendorSearchAllowance {
 
     private final int granted;

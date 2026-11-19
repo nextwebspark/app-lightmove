@@ -1,6 +1,7 @@
 package app.lightmove.api.candidate.model;
 
 import java.util.List;
+import org.springframework.modulith.NamedInterface;
 
 /**
  * What a contact lookup answered for the phone channel, shaped like {@link FoundEmails}.
@@ -9,6 +10,7 @@ import java.util.List;
  * and dashed forms, and normalising without knowing the country would turn a number that dials into
  * one that does not.
  */
+@NamedInterface(name = "api", propagate = false)
 public record FoundPhones(String source, List<String> phones) {
 
     public FoundPhones {

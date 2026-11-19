@@ -4,8 +4,8 @@ import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
+import app.lightmove.api.core.security.membership.WorkspaceMember;
 import app.lightmove.api.core.security.model.User;
-import app.lightmove.api.core.security.rbac.ProjectAccess;
 import app.lightmove.api.core.security.rbac.ProjectAudience;
 import app.lightmove.api.core.security.rbac.ProjectRole;
 import app.lightmove.api.core.security.rbac.RbacService;
@@ -15,7 +15,7 @@ import app.lightmove.api.core.security.rbac.WorkspaceAction;
 import app.lightmove.api.core.security.rbac.WorkspaceRole;
 import app.lightmove.api.core.security.repository.UserRepository;
 import app.lightmove.api.core.text.service.ConfirmationName;
-import app.lightmove.api.position.service.PositionService;
+import app.lightmove.api.project.constant.ClientRepStatus;
 import app.lightmove.api.project.constant.ProjectHealth;
 import app.lightmove.api.project.constant.ProjectListScope;
 import app.lightmove.api.project.constant.ProjectStage;
@@ -25,13 +25,13 @@ import app.lightmove.api.project.dto.ProjectArchivePreviewResponse;
 import app.lightmove.api.project.dto.ProjectResponse;
 import app.lightmove.api.project.dto.TeamMemberResponse;
 import app.lightmove.api.project.dto.UpdateProjectRequest;
-import app.lightmove.api.project.constant.ClientRepStatus;
 import app.lightmove.api.project.model.CandidateCountScope;
 import app.lightmove.api.project.model.Client;
 import app.lightmove.api.project.model.ClientRepresentative;
 import app.lightmove.api.project.model.PendingRepresentativeAttachment;
 import app.lightmove.api.project.model.Project;
 import app.lightmove.api.project.model.ProjectArchived;
+import app.lightmove.api.project.model.ProjectCreated;
 import app.lightmove.api.project.model.ProjectMember;
 import app.lightmove.api.project.model.ProjectTimeline;
 import app.lightmove.api.project.repository.ClientRepository;
@@ -39,7 +39,6 @@ import app.lightmove.api.project.repository.ClientRepresentativeRepository;
 import app.lightmove.api.project.repository.PendingRepresentativeAttachmentRepository;
 import app.lightmove.api.project.repository.ProjectMemberRepository;
 import app.lightmove.api.project.repository.ProjectRepository;
-import app.lightmove.api.workspace.model.WorkspaceMember;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Clock;
 import java.time.LocalDate;
@@ -57,6 +56,7 @@ import java.util.stream.Stream;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.modulith.NamedInterface;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -68,6 +68,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 @Slf4j
+@NamedInterface(name = "api", propagate = false)
 public class ProjectService {
 
     private final ProjectRepository projects;
@@ -76,7 +77,6 @@ public class ProjectService {
     private final ClientRegistrar clientRegistrar;
     private final ClientRepresentativeRepository representatives;
     private final PendingRepresentativeAttachmentRepository pendingAttachments;
-    private final PositionService positionService;
     private final ProjectCompanyCounter companyCounter;
     private final ProjectCandidateCounter candidateCounter;
     private final WorkspaceAccess access;
@@ -177,8 +177,8 @@ public class ProjectService {
                 request.positionTitle(), request.targetDate(), request.projectType(), timeline, userId));
         seats.save(ProjectMember.of(project.getId(), creator.getId(),
                 rbac.projectRoles(EnumSet.of(ProjectRole.LEAD)), userId));
-        positionService.seedFor(workspaceId, project.getId(), project.getPositionTitle(),
-                client.getHqCountry());
+        events.publishEvent(new ProjectCreated(workspaceId, project.getId(), project.getPositionTitle(),
+                client.getHqCountry()));
 
         log.info("User {} created project {} in workspace {}", userId, project.getId(), workspaceId);
         if (request.newClient() != null) {

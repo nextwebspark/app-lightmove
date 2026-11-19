@@ -2,9 +2,11 @@ package app.lightmove.api.candidate.model;
 
 import app.lightmove.api.candidate.constant.ScorecardReportSection;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import org.springframework.modulith.NamedInterface;
 
 /** The written half of an assessment: five sections, each a consultant's words, the AI's draft, or nothing yet. */
 @JsonIgnoreProperties(ignoreUnknown = true)
+@NamedInterface(name = "api", propagate = false)
 public record ScorecardReport(
         String careerSummary,
         String coreValue,

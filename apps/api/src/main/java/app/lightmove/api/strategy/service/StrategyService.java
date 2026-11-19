@@ -1,38 +1,39 @@
 package app.lightmove.api.strategy.service;
 
-import app.lightmove.api.common.constant.ApiValueEnum;
 import app.lightmove.api.common.location.service.Countries;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.config.CompanyListSettings;
 import app.lightmove.api.core.config.CompanySearchSettings;
 import app.lightmove.api.core.config.LightMoveProperties;
+import app.lightmove.api.core.constant.ApiValueEnum;
+import app.lightmove.api.core.constant.SortDirection;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
-import app.lightmove.api.project.repository.ProjectRepository;
-import app.lightmove.api.strategy.constant.CompanySortField;
-import app.lightmove.api.strategy.constant.EmployeeBand;
-import app.lightmove.api.strategy.constant.RevenueBand;
-import app.lightmove.api.strategy.constant.SortDirection;
+import app.lightmove.api.project.service.ProjectLookup;
 import app.lightmove.api.strategy.dto.CompanyRefDto;
-import app.lightmove.api.strategy.dto.CompanyResultDto;
 import app.lightmove.api.strategy.dto.NumericRangeDto;
 import app.lightmove.api.strategy.dto.PeopleFilterDto;
-import app.lightmove.api.strategy.dto.PutPeopleFilterRequest;
 import app.lightmove.api.strategy.dto.PutOffLimitsRequest;
+import app.lightmove.api.strategy.dto.PutPeopleFilterRequest;
 import app.lightmove.api.strategy.dto.PutStrategyFilterRequest;
 import app.lightmove.api.strategy.dto.StrategyCompaniesResponse;
 import app.lightmove.api.strategy.dto.StrategyFilterDto;
 import app.lightmove.api.strategy.dto.StrategyResponse;
-import app.lightmove.api.strategy.model.CompanyExclusion;
-import app.lightmove.api.strategy.model.CompanyRow;
-import app.lightmove.api.strategy.model.CompanyScope;
-import app.lightmove.api.strategy.model.NumericRange;
 import app.lightmove.api.strategy.model.PeopleFilter;
 import app.lightmove.api.strategy.model.Strategy;
 import app.lightmove.api.strategy.model.StrategyCompanyRef;
 import app.lightmove.api.strategy.model.StrategyFilter;
 import app.lightmove.api.strategy.repository.StrategyRepository;
+import app.lightmove.api.universe.constant.CompanySortField;
+import app.lightmove.api.universe.constant.EmployeeBand;
+import app.lightmove.api.universe.constant.RevenueBand;
+import app.lightmove.api.universe.dto.CompanyResultDto;
+import app.lightmove.api.universe.model.CompanyExclusion;
+import app.lightmove.api.universe.model.CompanyRow;
+import app.lightmove.api.universe.model.CompanyScope;
+import app.lightmove.api.universe.model.NumericRange;
+import app.lightmove.api.universe.service.ApolloCompanyQueryService;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -42,6 +43,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
+import org.springframework.modulith.NamedInterface;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -51,13 +53,14 @@ import org.springframework.transaction.annotation.Transactional;
  * caller supplies only the name filter, page and an allowlisted sort.
  */
 @Service
+@NamedInterface(name = "api", propagate = false)
 public class StrategyService {
 
     private static final CompanySortField DEFAULT_SORT = CompanySortField.EMPLOYEES;
     private static final SortDirection DEFAULT_DIRECTION = SortDirection.DESC;
 
     private final StrategyRepository strategies;
-    private final ProjectRepository projects;
+    private final ProjectLookup projects;
     private final StrategySearchService searches;
     private final AuditService audit;
     private final ApolloCompanyQueryService companies;
@@ -66,7 +69,7 @@ public class StrategyService {
     private final CompanyListSettings listConfig;
     private final CompanySearchSettings searchConfig;
 
-    public StrategyService(StrategyRepository strategies, ProjectRepository projects,
+    public StrategyService(StrategyRepository strategies, ProjectLookup projects,
                            StrategySearchService searches, AuditService audit,
                            ApolloCompanyQueryService companies, TriagedCompanyLookup triagedLookup,
                            PeopleFilterReader peopleFilters, LightMoveProperties properties) {

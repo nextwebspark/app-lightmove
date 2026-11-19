@@ -1,7 +1,7 @@
 package app.lightmove.api.workspace.model;
 
 import app.lightmove.api.core.audit.constant.AuditOutcome;
-import app.lightmove.api.workspace.constant.WorkspaceMode;
+import app.lightmove.api.core.tenant.WorkspaceMode;
 import java.util.Map;
 import java.util.Set;
 

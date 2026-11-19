@@ -19,7 +19,7 @@ import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.security.rbac.ProjectAudience;
 import app.lightmove.api.core.text.model.SearchText;
-import app.lightmove.api.project.repository.ProjectRepository;
+import app.lightmove.api.project.service.ProjectLookup;
 import jakarta.servlet.http.HttpServletRequest;
 import java.math.BigDecimal;
 import java.math.MathContext;
@@ -31,6 +31,7 @@ import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import org.springframework.modulith.NamedInterface;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -42,6 +43,7 @@ import org.springframework.transaction.annotation.Transactional;
  */
 @Service
 @RequiredArgsConstructor
+@NamedInterface(name = "api", propagate = false)
 public class PositionPipelineService {
 
     /** The gap left between rows ranked in one go, so later drags have room to land between them. */
@@ -62,7 +64,7 @@ public class PositionPipelineService {
             .thenComparing(STAGE_ORDER);
 
     private final CandidateRepository candidates;
-    private final ProjectRepository projects;
+    private final ProjectLookup projects;
     private final CandidatePipelineCatalog pipeline;
     private final CandidateExitReasons exitReasons;
     private final PersonActivityRecorder activity;

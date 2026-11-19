@@ -2,8 +2,10 @@ package app.lightmove.api.candidate.model;
 
 import java.time.Instant;
 import java.util.List;
+import org.springframework.modulith.NamedInterface;
 
 /** One person as the Candidates page's export writes them: a line of the file, already resolved to text. */
+@NamedInterface(name = "api", propagate = false)
 public record PoolPersonExport(
         String fullName,
         String title,

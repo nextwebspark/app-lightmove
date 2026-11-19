@@ -28,6 +28,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
+import org.springframework.modulith.NamedInterface;
 
 /**
  * One role template: the brief a mandate for this kind of role starts from. A workspace row sharing a
@@ -37,6 +38,7 @@ import org.hibernate.type.SqlTypes;
 @Table(name = "app_lm_position_template")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
+@NamedInterface(name = "api", propagate = false)
 public class PositionTemplate extends BaseEntity {
 
     private static final Pattern NON_WORD = Pattern.compile("[^\\p{L}\\p{N}]+");

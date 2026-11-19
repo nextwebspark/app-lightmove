@@ -16,6 +16,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.modulith.NamedInterface;
 import org.springframework.stereotype.Service;
 
 /**
@@ -26,6 +27,7 @@ import org.springframework.stereotype.Service;
  */
 @Service
 @Slf4j
+@NamedInterface(name = "api", propagate = false)
 public class GeocodingService {
 
     private final Geocoder geocoder;

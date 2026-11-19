@@ -16,6 +16,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.OptionalLong;
 import java.util.UUID;
+import org.springframework.modulith.NamedInterface;
 import org.springframework.stereotype.Service;
 
 /**
@@ -23,6 +24,7 @@ import org.springframework.stereotype.Service;
  * before any row is written — and the queueing of what it filed. The research itself is the worker's.
  */
 @Service
+@NamedInterface(name = "api", propagate = false)
 public class ImportEnrichmentService {
 
     public static final String ENRICH_FIELD = "enrich";

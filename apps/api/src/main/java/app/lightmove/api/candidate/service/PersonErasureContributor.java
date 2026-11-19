@@ -6,11 +6,13 @@ import app.lightmove.api.core.error.constant.ErrorCode;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.modulith.NamedInterface;
 
 /**
  * What a person's erasure must reach that no cascade does — a send in flight, a file, a call at Recall, a copy of
  * their name — declared here and implemented where the rows live, so {@code candidate} depends on none of them.
  */
+@NamedInterface(name = "api", propagate = false)
 public interface PersonErasureContributor {
 
     /** What this feature holds about the person, for the warning. */

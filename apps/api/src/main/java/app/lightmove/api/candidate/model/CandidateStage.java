@@ -12,6 +12,7 @@ import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.springframework.modulith.NamedInterface;
 
 /**
  * One column of a workspace's pipeline (V131). Retired rather than deleted, and only once none of its statuses is
@@ -21,6 +22,7 @@ import lombok.NoArgsConstructor;
 @Table(name = "app_lm_workspace_candidate_stage")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
+@NamedInterface(name = "api", propagate = false)
 public class CandidateStage extends BaseEntity {
 
     public static final int MAX_LABEL = 40;

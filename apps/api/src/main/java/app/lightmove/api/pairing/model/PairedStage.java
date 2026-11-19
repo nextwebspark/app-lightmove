@@ -5,12 +5,14 @@ import app.lightmove.api.triagecompany.dto.TriageCompaniesResponse;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import org.springframework.modulith.NamedInterface;
 
 /**
  * One stage's companies and the executives the grid pairs with them. {@code people} keeps the order
  * they were mapped in, and is {@code byCompany} and {@code unassigned} together; {@code totalCandidates}
  * is the whole mandate's count, for a caller to hold against its cap.
  */
+@NamedInterface(name = "api", propagate = false)
 public record PairedStage(
         TriageCompaniesResponse companies,
         Map<UUID, List<CandidateResponse>> byCompany,

@@ -5,12 +5,14 @@ import static app.lightmove.api.core.text.service.SuppliedText.blankToNull;
 import app.lightmove.api.candidate.constant.LongTermIncentiveType;
 import java.util.List;
 import java.util.Objects;
+import org.springframework.modulith.NamedInterface;
 
 /**
  * An executive's current package: one currency, never converted, and null is never zero. {@code allowances} is the
  * total the breakdown itemises, reconciled here alone: lines supply a missing total, a contradicting total drops them;
  * an LTIP amount above nought drops a recorded "None".
  */
+@NamedInterface(name = "api", propagate = false)
 public record CandidateCompensation(String currency, Long baseSalary, Long bonus, Long allowances,
                                     Long longTermIncentive, String noticePeriod,
                                     CompensationBreakdown breakdown) {

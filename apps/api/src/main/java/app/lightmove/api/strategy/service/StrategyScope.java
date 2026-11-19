@@ -1,7 +1,7 @@
 package app.lightmove.api.strategy.service;
 
-import app.lightmove.api.strategy.model.CompanyExclusion;
-import app.lightmove.api.strategy.model.CompanyScope;
+import app.lightmove.api.universe.model.CompanyExclusion;
+import app.lightmove.api.universe.model.CompanyScope;
 import app.lightmove.api.strategy.model.Strategy;
 import app.lightmove.api.strategy.model.StrategyFilter;
 

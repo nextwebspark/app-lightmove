@@ -3,12 +3,14 @@ package app.lightmove.api.candidate.model;
 import app.lightmove.api.candidate.constant.AiEnrichTrigger;
 import app.lightmove.api.candidate.constant.CandidateSource;
 import java.util.UUID;
+import org.springframework.modulith.NamedInterface;
 
 /**
  * How a vendor search hit is filed: the door it came through, the automatic AI run it queues — none when
  * {@code enrichTrigger} is null — the Find executives run that found it, and the employer to capture
  * with it, when there is one.
  */
+@NamedInterface(name = "api", propagate = false)
 public record ResearchedFiling(CandidateSource source, AiEnrichTrigger enrichTrigger, UUID runId,
                                ResearchedEmployer employer) {
 

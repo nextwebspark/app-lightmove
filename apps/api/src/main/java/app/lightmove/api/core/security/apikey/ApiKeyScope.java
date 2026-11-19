@@ -1,6 +1,6 @@
 package app.lightmove.api.core.security.apikey;
 
-import app.lightmove.api.common.constant.ApiValueEnum;
+import app.lightmove.api.core.constant.ApiValueEnum;
 import com.fasterxml.jackson.annotation.JsonValue;
 import java.util.Arrays;
 import java.util.List;

@@ -1,6 +1,6 @@
 package app.lightmove.api.task.service;
 
-import app.lightmove.api.common.constant.ApiValueEnum;
+import app.lightmove.api.core.constant.ApiValueEnum;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.error.constant.ErrorCode;

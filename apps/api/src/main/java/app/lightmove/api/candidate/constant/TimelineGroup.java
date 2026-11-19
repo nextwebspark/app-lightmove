@@ -1,6 +1,6 @@
 package app.lightmove.api.candidate.constant;
 
-import app.lightmove.api.common.constant.ApiValueEnum;
+import app.lightmove.api.core.constant.ApiValueEnum;
 import java.util.EnumSet;
 import java.util.Set;
 import lombok.Getter;

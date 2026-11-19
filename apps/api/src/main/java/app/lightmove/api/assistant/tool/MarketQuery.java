@@ -2,9 +2,9 @@ package app.lightmove.api.assistant.tool;
 
 import app.lightmove.api.common.industry.service.Industries;
 import app.lightmove.api.common.location.service.Countries;
-import app.lightmove.api.strategy.model.CompanyExclusion;
-import app.lightmove.api.strategy.model.CompanyScope;
-import app.lightmove.api.strategy.model.NumericRange;
+import app.lightmove.api.universe.model.CompanyExclusion;
+import app.lightmove.api.universe.model.CompanyScope;
+import app.lightmove.api.universe.model.NumericRange;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.UnaryOperator;

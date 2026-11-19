@@ -17,14 +17,6 @@ import org.springframework.data.repository.query.Param;
 /** Every finder carries the workspace id — an unscoped lookup on tenant data must not exist. */
 public interface ProjectRepository extends JpaRepository<Project, UUID> {
 
-    /**
-     * The archived positions, in JPQL and in SQL: the one definition every read that leaves them out — My tasks,
-     * the due scan, the bell — is written against, as {@code project_id NOT IN (…)}.
-     */
-    String ARCHIVED_IDS_JPQL = "select archived.id from Project archived where archived.archivedAt is not null";
-    String ARCHIVED_IDS_SQL =
-            "SELECT archived.id FROM app_lm_project archived WHERE archived.archived_at IS NOT NULL";
-
     List<Project> findByWorkspaceIdOrderByCreatedAtDesc(UUID workspaceId);
 
     List<Project> findByWorkspaceIdAndArchivedAtIsNullOrderByCreatedAtDesc(UUID workspaceId);

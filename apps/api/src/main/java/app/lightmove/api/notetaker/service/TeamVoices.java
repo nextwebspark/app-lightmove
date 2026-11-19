@@ -4,7 +4,7 @@ import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.rbac.WorkspaceAccess;
 import app.lightmove.api.core.security.repository.UserRepository;
 import app.lightmove.api.notetaker.model.SpeakerVoice;
-import app.lightmove.api.workspace.model.WorkspaceMember;
+import app.lightmove.api.core.security.membership.WorkspaceMember;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.LinkedHashMap;

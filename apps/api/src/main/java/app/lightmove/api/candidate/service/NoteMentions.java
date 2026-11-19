@@ -4,7 +4,7 @@ import app.lightmove.api.candidate.model.PersonNote;
 import app.lightmove.api.candidate.model.PersonNoteMentioned;
 import app.lightmove.api.candidate.repository.CandidateRepository;
 import app.lightmove.api.common.note.NoteMentionTokens;
-import app.lightmove.api.core.security.rbac.ProjectAccess;
+import app.lightmove.api.project.service.ProjectAccess;
 import app.lightmove.api.core.security.rbac.ProjectAction;
 import java.util.LinkedHashSet;
 import java.util.Set;

@@ -1,8 +1,9 @@
 package app.lightmove.api.workspace.dto;
 
 import app.lightmove.api.common.persona.model.HiringPersona;
+import app.lightmove.api.core.security.dto.WorkspaceCompanyResponse;
+import app.lightmove.api.core.tenant.WorkspaceMode;
 import app.lightmove.api.workspace.constant.CalendarSync;
-import app.lightmove.api.workspace.constant.WorkspaceMode;
 import java.time.Instant;
 import java.util.UUID;
 

@@ -15,9 +15,9 @@ import app.lightmove.api.candidate.repository.CandidateRepository;
 import app.lightmove.api.candidate.repository.PersonNoteRepository;
 import app.lightmove.api.core.security.repository.UserRepository;
 import app.lightmove.api.project.model.Project;
-import app.lightmove.api.project.repository.ProjectRepository;
+import app.lightmove.api.project.service.ProjectLookup;
 import app.lightmove.api.workspace.model.Workspace;
-import app.lightmove.api.workspace.repository.WorkspaceRepository;
+import app.lightmove.api.workspace.service.WorkspaceLookup;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -35,12 +35,14 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import lombok.RequiredArgsConstructor;
+import org.springframework.modulith.NamedInterface;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /** Recently approached: who on the team reached these people on any position, and where else they are mapped. */
 @Service
 @RequiredArgsConstructor
+@NamedInterface(name = "api", propagate = false)
 public class RecentApproachReader {
 
     static final int MAX_TOUCHES = 10;
@@ -67,8 +69,8 @@ public class RecentApproachReader {
     private final PersonApproachHistory history;
     private final PersonNoteRepository notes;
     private final CandidateRepository candidates;
-    private final ProjectRepository projects;
-    private final WorkspaceRepository workspaces;
+    private final ProjectLookup projects;
+    private final WorkspaceLookup workspaces;
     private final UserRepository users;
     private final PositionRedaction redaction;
     private final Clock clock;

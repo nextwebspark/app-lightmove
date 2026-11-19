@@ -2,6 +2,7 @@ package app.lightmove.api.position.model;
 
 import app.lightmove.api.common.constant.Seniority;
 import java.util.List;
+import org.springframework.modulith.NamedInterface;
 
 /**
  * What the AI reads of a brief to assess an executive against it: the role, why it exists, what it asks for, and
@@ -9,6 +10,7 @@ import java.util.List;
  *
  * @param strategicPriorities the selected ones only
  */
+@NamedInterface(name = "api", propagate = false)
 public record AssessmentBrief(
         String roleTitle,
         Seniority seniority,

@@ -9,7 +9,7 @@ import static org.mockito.Mockito.when;
 
 import app.lightmove.api.assistant.model.AssistantStep;
 import app.lightmove.api.assistant.model.AssistantStepEvent;
-import app.lightmove.api.strategy.service.IndustryAdjacency;
+import app.lightmove.api.universe.service.IndustryAdjacency;
 import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
 import app.lightmove.api.triagecompany.model.MandateStages;
 import app.lightmove.api.triagecompany.service.TriageCompanyReadService;

@@ -1,10 +1,10 @@
 package app.lightmove.api.customcolumn.service;
 
-import app.lightmove.api.common.constant.ApiValueEnum;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.config.CustomColumnSettings;
 import app.lightmove.api.core.config.LightMoveProperties;
+import app.lightmove.api.core.constant.ApiValueEnum;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.customcolumn.constant.CustomColumnTarget;
@@ -17,7 +17,7 @@ import app.lightmove.api.customcolumn.dto.UpdateCustomColumnRequest;
 import app.lightmove.api.customcolumn.model.CustomFieldValues;
 import app.lightmove.api.customcolumn.model.ProjectCustomColumn;
 import app.lightmove.api.customcolumn.repository.ProjectCustomColumnRepository;
-import app.lightmove.api.project.repository.ProjectRepository;
+import app.lightmove.api.project.service.ProjectLookup;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -29,6 +29,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import org.springframework.modulith.NamedInterface;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -37,14 +38,15 @@ import org.springframework.transaction.annotation.Transactional;
  * column keeps its values, so redefining it under the same name brings its data back.
  */
 @Service
+@NamedInterface(name = "api", propagate = false)
 public class CustomColumnService {
 
     private final ProjectCustomColumnRepository columns;
-    private final ProjectRepository projects;
+    private final ProjectLookup projects;
     private final AuditService audit;
     private final CustomColumnSettings settings;
 
-    public CustomColumnService(ProjectCustomColumnRepository columns, ProjectRepository projects,
+    public CustomColumnService(ProjectCustomColumnRepository columns, ProjectLookup projects,
                                AuditService audit, LightMoveProperties properties) {
         this.columns = columns;
         this.projects = projects;

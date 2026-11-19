@@ -6,7 +6,7 @@ import app.lightmove.api.FixtureJdbc;
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.common.industry.model.ResolvedIndustry;
 import app.lightmove.api.common.industry.service.Industries;
-import app.lightmove.api.strategy.service.SectorTaxonomy;
+import app.lightmove.api.universe.service.SectorTaxonomy;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.HashSet;

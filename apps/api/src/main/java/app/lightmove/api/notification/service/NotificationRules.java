@@ -5,7 +5,7 @@ import app.lightmove.api.candidate.model.PersonNoteMentioned;
 import app.lightmove.api.candidate.model.PersonOptedOut;
 import app.lightmove.api.candidate.model.PersonPrivacyRequested;
 import app.lightmove.api.candidate.service.CandidateTaskService;
-import app.lightmove.api.core.security.rbac.ProjectAccess;
+import app.lightmove.api.project.service.ProjectAccess;
 import app.lightmove.api.core.security.rbac.ProjectAction;
 import app.lightmove.api.core.security.rbac.WorkspaceAccess;
 import app.lightmove.api.core.security.rbac.WorkspaceAction;

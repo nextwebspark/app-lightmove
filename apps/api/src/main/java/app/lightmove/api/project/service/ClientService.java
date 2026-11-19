@@ -1,17 +1,17 @@
 package app.lightmove.api.project.service;
 
-import app.lightmove.api.common.constant.ApiValueEnum;
 import app.lightmove.api.common.constant.NoteFormat;
 import app.lightmove.api.common.persona.model.HiringCompanyProfile;
 import app.lightmove.api.common.persona.model.HiringPersona;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
+import app.lightmove.api.core.constant.ApiValueEnum;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.security.model.User;
+import app.lightmove.api.core.security.rbac.ProjectRole;
 import app.lightmove.api.core.security.repository.UserRepository;
 import app.lightmove.api.core.text.service.ConfirmationName;
-import app.lightmove.api.core.security.rbac.ProjectRole;
 import app.lightmove.api.project.constant.ClientListScope;
 import app.lightmove.api.project.constant.ClientRepStatus;
 import app.lightmove.api.project.constant.ClientType;
@@ -31,8 +31,8 @@ import app.lightmove.api.project.model.Project;
 import app.lightmove.api.project.repository.ClientRepository;
 import app.lightmove.api.project.repository.ClientRepresentativeRepository;
 import app.lightmove.api.project.repository.ProjectRepository;
-import app.lightmove.api.strategy.model.CompanyRow;
-import app.lightmove.api.strategy.service.ApolloCompanyQueryService;
+import app.lightmove.api.universe.model.CompanyRow;
+import app.lightmove.api.universe.service.ApolloCompanyQueryService;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Clock;
 import java.util.Collections;
@@ -42,12 +42,14 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import org.springframework.modulith.NamedInterface;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /** The client registry. A record is made by {@link ClientRegistrar}, which a new position also makes one through. */
 @Service
 @RequiredArgsConstructor
+@NamedInterface(name = "api", propagate = false)
 public class ClientService {
 
     private final ClientRepository clients;

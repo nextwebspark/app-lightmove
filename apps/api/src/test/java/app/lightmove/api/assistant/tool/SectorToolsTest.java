@@ -5,7 +5,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import app.lightmove.api.assistant.model.AssistantStepEvent;
-import app.lightmove.api.strategy.service.IndustryAdjacency;
+import app.lightmove.api.universe.service.IndustryAdjacency;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;

@@ -6,12 +6,12 @@ import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.repository.UserRepository;
-import app.lightmove.api.project.repository.ProjectRepository;
+import app.lightmove.api.project.service.ProjectLookup;
 import app.lightmove.api.strategy.constant.SearchKind;
 import app.lightmove.api.strategy.constant.SearchVisibility;
+import app.lightmove.api.strategy.dto.PeopleFilterDto;
 import app.lightmove.api.strategy.dto.SaveSearchRequest;
 import app.lightmove.api.strategy.dto.SavedSearchResponse;
-import app.lightmove.api.strategy.dto.PeopleFilterDto;
 import app.lightmove.api.strategy.dto.StrategyFilterDto;
 import app.lightmove.api.strategy.dto.UpdateSearchRequest;
 import app.lightmove.api.strategy.model.PeopleFilter;
@@ -46,7 +46,7 @@ public class StrategySearchService {
 
     private final StrategySearchRepository searches;
     private final StrategyRepository strategies;
-    private final ProjectRepository projects;
+    private final ProjectLookup projects;
     private final UserRepository users;
     private final AuditService audit;
 

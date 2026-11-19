@@ -1,12 +1,14 @@
 package app.lightmove.api.candidate.model;
 
 import java.util.UUID;
+import org.springframework.modulith.NamedInterface;
 
 /**
  * Who an assessed executive is, as far as the Ranking chapter draws them — no contact, package or profile beyond it.
  *
  * @param processingRestricted their processing is restricted (V198): still shown to staff, never sent to a model
  */
+@NamedInterface(name = "api", propagate = false)
 public record RankedPerson(
         UUID candidateId,
         UUID personId,

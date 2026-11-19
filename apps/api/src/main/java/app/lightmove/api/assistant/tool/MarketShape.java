@@ -1,8 +1,8 @@
 package app.lightmove.api.assistant.tool;
 
-import app.lightmove.api.strategy.dto.FacetCount;
-import app.lightmove.api.strategy.dto.SectorGroup;
-import app.lightmove.api.strategy.model.ScopeBreakdown;
+import app.lightmove.api.universe.dto.FacetCount;
+import app.lightmove.api.universe.dto.SectorGroup;
+import app.lightmove.api.universe.model.ScopeBreakdown;
 import java.util.List;
 
 /**

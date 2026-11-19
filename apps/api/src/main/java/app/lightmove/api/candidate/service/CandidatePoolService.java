@@ -27,12 +27,12 @@ import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.security.model.User;
-import app.lightmove.api.core.security.rbac.ProjectAccess;
 import app.lightmove.api.core.security.rbac.ProjectAction;
 import app.lightmove.api.core.security.rbac.WorkspaceAccess;
 import app.lightmove.api.core.security.repository.UserRepository;
 import app.lightmove.api.project.model.Project;
-import app.lightmove.api.project.repository.ProjectRepository;
+import app.lightmove.api.project.service.ProjectAccess;
+import app.lightmove.api.project.service.ProjectLookup;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.Collection;
 import java.util.Comparator;
@@ -43,6 +43,7 @@ import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import org.springframework.modulith.NamedInterface;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -54,6 +55,7 @@ import org.springframework.transaction.annotation.Transactional;
  */
 @Service
 @RequiredArgsConstructor
+@NamedInterface(name = "api", propagate = false)
 public class CandidatePoolService {
 
     public static final int DEFAULT_PAGE_SIZE = 50;
@@ -65,7 +67,7 @@ public class CandidatePoolService {
     private final CandidateRepository candidates;
     private final CandidateTagRepository tagCatalog;
     private final CandidateTagService tags;
-    private final ProjectRepository projects;
+    private final ProjectLookup projects;
     private final UserRepository users;
     private final WorkspaceAccess workspaceAccess;
     private final PersonRecordService records;

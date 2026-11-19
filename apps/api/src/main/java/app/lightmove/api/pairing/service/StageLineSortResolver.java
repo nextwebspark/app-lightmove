@@ -1,13 +1,13 @@
 package app.lightmove.api.pairing.service;
 
-import app.lightmove.api.common.constant.ApiValueEnum;
+import app.lightmove.api.core.constant.ApiValueEnum;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.customcolumn.dto.CustomColumnDto;
 import app.lightmove.api.customcolumn.service.CustomColumnService;
 import app.lightmove.api.pairing.constant.StageLineSortField;
 import app.lightmove.api.pairing.model.StageLineSort;
-import app.lightmove.api.strategy.constant.SortDirection;
+import app.lightmove.api.core.constant.SortDirection;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;

@@ -19,7 +19,7 @@ import app.lightmove.api.candidate.model.CompensationBreakdown;
 import app.lightmove.api.candidate.model.ContactEntry;
 import app.lightmove.api.candidate.model.Person;
 import app.lightmove.api.candidate.repository.CandidateRepository;
-import app.lightmove.api.common.constant.ApiValueEnum;
+import app.lightmove.api.core.constant.ApiValueEnum;
 import app.lightmove.api.common.constant.Seniority;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;

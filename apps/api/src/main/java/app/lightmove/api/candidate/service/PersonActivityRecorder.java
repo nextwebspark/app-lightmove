@@ -6,7 +6,7 @@ import app.lightmove.api.candidate.model.Person;
 import app.lightmove.api.candidate.model.PersonActivity;
 import app.lightmove.api.candidate.repository.PersonActivityRepository;
 import app.lightmove.api.project.model.Project;
-import app.lightmove.api.project.repository.ProjectRepository;
+import app.lightmove.api.project.service.ProjectLookup;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -23,7 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 class PersonActivityRecorder {
 
     private final PersonActivityRepository activity;
-    private final ProjectRepository projects;
+    private final ProjectLookup projects;
 
     @Transactional(propagation = Propagation.MANDATORY)
     public void record(Candidate candidate, UUID actor, PersonActivityKind kind) {

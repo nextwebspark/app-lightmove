@@ -5,7 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import app.lightmove.api.assistant.model.HiringSide;
 import app.lightmove.api.common.persona.model.HiringCompanyProfile;
 import app.lightmove.api.common.persona.model.HiringPersona;
-import app.lightmove.api.workspace.constant.WorkspaceMode;
+import app.lightmove.api.core.tenant.WorkspaceMode;
 import app.lightmove.api.workspace.model.Firm;
 import java.util.List;
 import java.util.stream.IntStream;

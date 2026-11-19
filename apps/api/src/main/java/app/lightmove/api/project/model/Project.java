@@ -15,12 +15,14 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.springframework.modulith.NamedInterface;
 
 /** One search mandate inside exactly one workspace. Its gate is {@link ProjectStage#reached}, not the stored stage. */
 @Entity
 @Table(name = "app_lm_project")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
+@NamedInterface(name = "api", propagate = false)
 public class Project extends BaseEntity {
 
     @Column(name = "workspace_id", nullable = false)

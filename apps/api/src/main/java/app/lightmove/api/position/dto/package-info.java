@@ -3,4 +3,7 @@
  * Size and range ceilings are enforced; cross-field agreement deliberately is not, so autosave can
  * persist a half-typed section.
  */
+@NamedInterface(name = "api", propagate = false)
 package app.lightmove.api.position.dto;
+
+import org.springframework.modulith.NamedInterface;

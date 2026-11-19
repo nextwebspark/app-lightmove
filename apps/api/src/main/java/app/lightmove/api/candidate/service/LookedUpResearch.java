@@ -29,6 +29,7 @@ import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.modulith.NamedInterface;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -41,6 +42,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
  */
 @Component
 @RequiredArgsConstructor
+@NamedInterface(name = "api", propagate = false)
 public class LookedUpResearch implements PersonErasureContributor {
 
     private static final Duration HELD_FOR = Duration.ofMinutes(30);

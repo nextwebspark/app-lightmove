@@ -4,11 +4,13 @@ import app.lightmove.api.candidate.model.LoggedRecording;
 import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.modulith.NamedInterface;
 
 /**
  * A person's Notetaker recording on a position, of a call already begun, for notes logged about it. Answered by
  * {@code notetaker}, which already depends on {@code candidate}, so the dependency stays one-way.
  */
+@NamedInterface(name = "api", propagate = false)
 public interface PastRecordingLookup {
 
     Optional<LoggedRecording> pastRecordingOf(UUID workspaceId, UUID projectId, UUID personId, UUID recordingId,

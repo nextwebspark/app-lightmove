@@ -1,6 +1,7 @@
 package app.lightmove.api.candidate.model;
 
 import app.lightmove.api.candidate.dto.CandidateResponse;
+import org.springframework.modulith.NamedInterface;
 
 /**
  * What one scoped read tells a contact lookup before it decides whether to spend anything: the
@@ -8,6 +9,7 @@ import app.lightmove.api.candidate.dto.CandidateResponse;
  * anything on it, whether the person may be approached or processed at all, and the row to answer with when nothing
  * needs asking.
  */
+@NamedInterface(name = "api", propagate = false)
 public record CandidateContactState(String linkedinUrl, boolean emailsAsked, boolean phonesAsked,
                                     boolean hasFoundEmails, boolean hasFoundPhones, boolean doNotContact,
                                     boolean processingRestricted, CandidateResponse candidate) {}

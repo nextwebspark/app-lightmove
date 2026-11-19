@@ -14,7 +14,7 @@ import app.lightmove.api.candidate.model.StoredDocumentFile;
 import app.lightmove.api.candidate.repository.PersonDocumentRepository;
 import app.lightmove.api.candidate.repository.PersonDocumentVersionRepository;
 import app.lightmove.api.candidate.repository.PersonRepository;
-import app.lightmove.api.common.constant.ApiValueEnum;
+import app.lightmove.api.core.constant.ApiValueEnum;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.config.LightMoveProperties;

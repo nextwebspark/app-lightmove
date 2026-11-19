@@ -1,7 +1,7 @@
 package app.lightmove.api.candidate.service;
 
 import app.lightmove.api.candidate.model.PositionVisibility;
-import app.lightmove.api.core.security.rbac.ProjectAccess;
+import app.lightmove.api.project.service.ProjectAccess;
 import app.lightmove.api.core.security.rbac.ProjectAction;
 import java.util.Collection;
 import java.util.UUID;

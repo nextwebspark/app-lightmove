@@ -9,7 +9,6 @@ import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.config.OutreachSettings;
 import app.lightmove.api.core.resilience.constant.VendorFailureKind;
 import app.lightmove.api.core.resilience.model.VendorException;
-import app.lightmove.api.core.security.rbac.ProjectAccess;
 import app.lightmove.api.core.security.rbac.ProjectAction;
 import app.lightmove.api.outreach.constant.MailboxGatewayKind;
 import app.lightmove.api.outreach.constant.MessageStatus;
@@ -26,7 +25,8 @@ import app.lightmove.api.outreach.repository.MailboxConnectionRepository;
 import app.lightmove.api.outreach.repository.OutreachEnrollmentRepository;
 import app.lightmove.api.outreach.repository.OutreachMessageClaims;
 import app.lightmove.api.outreach.repository.OutreachMessageRepository;
-import app.lightmove.api.project.repository.ProjectRepository;
+import app.lightmove.api.project.service.ProjectAccess;
+import app.lightmove.api.project.service.ProjectLookup;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -63,7 +63,7 @@ public class OutreachMessageSendService {
     private final MailboxConnectionRepository mailboxes;
     private final CandidateOutreachService people;
     private final OutreachOutcomes outcomes;
-    private final ProjectRepository projects;
+    private final ProjectLookup projects;
     private final ProjectAccess access;
     private final MailboxGateway gateway;
     private final TransactionTemplate transactions;
@@ -149,7 +149,7 @@ public class OutreachMessageSendService {
         if (message == null || !message.isScheduled() || message.getSendingSince() == null) {
             return null;
         }
-        if (projects.existsByIdAndArchivedAtIsNotNull(message.getProjectId())) {
+        if (projects.isArchived(message.getProjectId())) {
             failed(message, OutreachStopReason.POSITION_ARCHIVED, now);
             return null;
         }

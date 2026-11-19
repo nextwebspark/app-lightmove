@@ -1,7 +1,7 @@
 package app.lightmove.api.common.location.service;
 
 import app.lightmove.api.common.location.model.Country;
-import app.lightmove.api.common.service.ClasspathJsonLoader;
+import app.lightmove.api.core.json.ClasspathJsonLoader;
 import app.lightmove.api.core.text.service.SuppliedText;
 import java.util.ArrayList;
 import java.util.HashMap;

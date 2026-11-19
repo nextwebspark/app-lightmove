@@ -2,7 +2,7 @@ package app.lightmove.api.project.repository;
 
 import app.lightmove.api.project.constant.ProjectStage;
 import app.lightmove.api.project.model.ProjectMember;
-import app.lightmove.api.workspace.constant.MemberStatus;
+import app.lightmove.api.core.security.membership.MemberStatus;
 import app.lightmove.api.workspace.model.LedAlonePosition;
 import java.util.Collection;
 import java.util.List;

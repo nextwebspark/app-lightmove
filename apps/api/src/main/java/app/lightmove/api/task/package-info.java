@@ -3,4 +3,12 @@
  * ({@code NextActionLookupAdapter}). Depends on {@code candidate}, {@code project} and {@code outreach}; only
  * {@code notification} depends back.
  */
+@ApplicationModule(allowedDependencies = {
+        "candidate :: api",
+        "outreach :: api",
+        "project :: api",
+        "workspace :: api"
+})
 package app.lightmove.api.task;
+
+import org.springframework.modulith.ApplicationModule;

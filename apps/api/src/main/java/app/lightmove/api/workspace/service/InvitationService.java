@@ -10,7 +10,11 @@ import app.lightmove.api.core.email.service.EmailSender;
 import app.lightmove.api.core.email.service.EmailTemplates;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
+import app.lightmove.api.core.persistence.service.RequiresNewTransactions;
 import app.lightmove.api.core.ratelimit.service.RateLimitGuard;
+import app.lightmove.api.core.security.membership.MemberStatus;
+import app.lightmove.api.core.security.membership.WorkspaceMember;
+import app.lightmove.api.core.security.membership.WorkspaceMemberRepository;
 import app.lightmove.api.core.security.model.AuthPrincipal;
 import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.rbac.RbacService;
@@ -18,20 +22,16 @@ import app.lightmove.api.core.security.rbac.Role;
 import app.lightmove.api.core.security.rbac.WorkspaceAccess;
 import app.lightmove.api.core.security.rbac.WorkspaceRole;
 import app.lightmove.api.core.security.repository.UserRepository;
-import app.lightmove.api.core.persistence.service.RequiresNewTransactions;
 import app.lightmove.api.core.security.token.Tokens;
 import app.lightmove.api.workspace.constant.InvitationStatus;
 import app.lightmove.api.workspace.constant.InvitationWithdrawal;
-import app.lightmove.api.workspace.constant.MemberStatus;
 import app.lightmove.api.workspace.model.ClientInvitationState;
 import app.lightmove.api.workspace.model.ClientInvitationWithdrawn;
 import app.lightmove.api.workspace.model.ClientRepresentativeOnboarding;
 import app.lightmove.api.workspace.model.Invitation;
 import app.lightmove.api.workspace.model.InviteCommand;
 import app.lightmove.api.workspace.model.Workspace;
-import app.lightmove.api.workspace.model.WorkspaceMember;
 import app.lightmove.api.workspace.repository.InvitationRepository;
-import app.lightmove.api.workspace.repository.WorkspaceMemberRepository;
 import app.lightmove.api.workspace.repository.WorkspaceRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import java.net.URLEncoder;
@@ -52,6 +52,7 @@ import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.modulith.NamedInterface;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -69,6 +70,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 @Service
 @RequiredArgsConstructor
 @Slf4j
+@NamedInterface(name = "api", propagate = false)
 public class InvitationService {
 
     private final InvitationRepository invitations;

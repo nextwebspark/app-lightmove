@@ -16,7 +16,7 @@ import app.lightmove.api.core.config.PersonDocumentSettings;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.project.model.Project;
-import app.lightmove.api.project.repository.ProjectRepository;
+import app.lightmove.api.project.service.ProjectLookup;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -35,12 +35,12 @@ class PersonDocumentWriter {
     private final PersonRepository people;
     private final PersonDocumentRepository documents;
     private final PersonDocumentVersionRepository versions;
-    private final ProjectRepository projects;
+    private final ProjectLookup projects;
     private final PersonActivityRecorder activity;
     private final PersonDocumentSettings settings;
 
     PersonDocumentWriter(PersonRepository people, PersonDocumentRepository documents,
-                         PersonDocumentVersionRepository versions, ProjectRepository projects,
+                         PersonDocumentVersionRepository versions, ProjectLookup projects,
                          PersonActivityRecorder activity, LightMoveProperties properties) {
         this.people = people;
         this.documents = documents;

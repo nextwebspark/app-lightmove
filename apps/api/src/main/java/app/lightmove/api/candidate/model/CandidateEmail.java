@@ -4,12 +4,14 @@ import static app.lightmove.api.core.text.service.SuppliedText.blankToNull;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import java.util.Locale;
+import org.springframework.modulith.NamedInterface;
 
 /**
  * One address a lookup found: {@code kind} work or personal and {@code status} the provider's word, each null where
  * it did not say. Strings, not enums, so an unseen value from the jsonb lands in the drawer instead of breaking it.
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
+@NamedInterface(name = "api", propagate = false)
 public record CandidateEmail(String address, String kind, String status) {
 
     public static final String WORK = "work";

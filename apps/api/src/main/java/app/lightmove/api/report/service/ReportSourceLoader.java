@@ -8,13 +8,13 @@ import app.lightmove.api.core.config.ReportSettings;
 import app.lightmove.api.core.security.rbac.ProjectAudience;
 import app.lightmove.api.position.service.PositionService;
 import app.lightmove.api.project.model.Project;
-import app.lightmove.api.project.repository.ProjectRepository;
+import app.lightmove.api.project.service.ProjectLookup;
 import app.lightmove.api.report.model.ExecutiveRow;
 import app.lightmove.api.report.model.ReportSources;
 import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
 import app.lightmove.api.triagecompany.dto.TriageCompaniesResponse;
-import app.lightmove.api.triagecompany.model.TriageCompanyFilters;
 import app.lightmove.api.triagecompany.dto.TriageCompanyResponse;
+import app.lightmove.api.triagecompany.model.TriageCompanyFilters;
 import app.lightmove.api.triagecompany.service.TriageCompanyReadService;
 import java.util.ArrayList;
 import java.util.List;
@@ -33,14 +33,14 @@ import org.springframework.stereotype.Component;
 @Component
 class ReportSourceLoader {
 
-    private final ProjectRepository projects;
+    private final ProjectLookup projects;
     private final TriageCompanyReadService triage;
     private final CandidateService candidates;
     private final CandidatePipelineCatalog pipeline;
     private final PositionService positions;
     private final ReportSettings caps;
 
-    ReportSourceLoader(ProjectRepository projects, TriageCompanyReadService triage, CandidateService candidates,
+    ReportSourceLoader(ProjectLookup projects, TriageCompanyReadService triage, CandidateService candidates,
                        CandidatePipelineCatalog pipeline, PositionService positions, LightMoveProperties properties) {
         this.projects = projects;
         this.triage = triage;

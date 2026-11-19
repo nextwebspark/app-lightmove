@@ -1,21 +1,21 @@
 package app.lightmove.api.outreach.service;
 
-import app.lightmove.api.common.time.service.DateTimeFormats;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.email.service.EmailSender;
 import app.lightmove.api.core.email.service.EmailTemplates;
+import app.lightmove.api.core.security.membership.MemberStatus;
+import app.lightmove.api.core.security.membership.WorkspaceMemberRepository;
 import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.rbac.WorkspaceAction;
 import app.lightmove.api.core.security.repository.UserRepository;
 import app.lightmove.api.core.tenant.EveryWorkspace;
+import app.lightmove.api.core.time.service.DateTimeFormats;
 import app.lightmove.api.outreach.constant.CredentialMode;
 import app.lightmove.api.outreach.model.WorkspaceMailIntegration;
 import app.lightmove.api.outreach.repository.WorkspaceMailIntegrationRepository;
-import app.lightmove.api.workspace.constant.MemberStatus;
 import app.lightmove.api.workspace.model.Workspace;
-import app.lightmove.api.workspace.repository.WorkspaceMemberRepository;
-import app.lightmove.api.workspace.repository.WorkspaceRepository;
 import app.lightmove.api.workspace.service.DateTimePreferenceService;
+import app.lightmove.api.workspace.service.WorkspaceLookup;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
@@ -41,7 +41,7 @@ public class IntegrationSecretExpiryWarnings {
 
     private final WorkspaceMailIntegrationRepository integrations;
     private final WorkspaceMemberRepository members;
-    private final WorkspaceRepository workspaces;
+    private final WorkspaceLookup workspaces;
     private final UserRepository users;
     private final EmailTemplates templates;
     private final EmailSender emailSender;

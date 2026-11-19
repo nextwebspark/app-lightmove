@@ -17,8 +17,8 @@ import app.lightmove.api.outreach.model.DraftedOpener;
 import app.lightmove.api.outreach.model.OpenerBrief;
 import app.lightmove.api.position.dto.PositionDetailsDto;
 import app.lightmove.api.position.service.PositionService;
-import app.lightmove.api.project.repository.ProjectRepository;
 import app.lightmove.api.project.service.ClientService;
+import app.lightmove.api.project.service.ProjectLookup;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -43,7 +43,7 @@ public class OutreachOpenerService {
     private final CandidateOutreachService people;
     private final PositionService positions;
     private final ClientService clients;
-    private final ProjectRepository projects;
+    private final ProjectLookup projects;
     private final OutreachOpenerDrafter drafter;
     private final OutreachEligibility eligibility;
     private final LlmBudgetGuard llmBudget;

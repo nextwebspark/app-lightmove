@@ -3,4 +3,12 @@
  * write-time snapshot, never a foreign key: the ETL reloads {@code app_lm_apollo_companies} wholesale.
  * Removing a row removes the decision only. Depends on {@code strategy}, never the reverse.
  */
+@ApplicationModule(allowedDependencies = {
+        "customcolumn :: api",
+        "project :: api",
+        "strategy :: api",
+        "universe :: api"
+})
 package app.lightmove.api.triagecompany;
+
+import org.springframework.modulith.ApplicationModule;

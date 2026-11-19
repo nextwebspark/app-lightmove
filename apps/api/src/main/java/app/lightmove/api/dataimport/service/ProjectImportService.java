@@ -30,7 +30,7 @@ import app.lightmove.api.dataimport.model.SheetColumn;
 import app.lightmove.api.enrichment.importrun.model.ImportEnrichmentTarget;
 import app.lightmove.api.enrichment.importrun.model.QueuedEnrichment;
 import app.lightmove.api.enrichment.importrun.service.ImportEnrichmentService;
-import app.lightmove.api.project.repository.ProjectRepository;
+import app.lightmove.api.project.service.ProjectLookup;
 import app.lightmove.api.triagecompany.dto.CaptureCompanyRequest;
 import app.lightmove.api.triagecompany.dto.EditTriageCompanyRequest;
 import app.lightmove.api.triagecompany.dto.TriageCompanyResponse;
@@ -71,7 +71,7 @@ public class ProjectImportService {
     private final TriageCompanyService triage;
     private final CandidateService candidates;
     private final ImportRequestBuilder requests;
-    private final ProjectRepository projects;
+    private final ProjectLookup projects;
     private final AuditService audit;
     private final ImportEnrichmentService enrichment;
 

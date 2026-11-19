@@ -1,7 +1,7 @@
 package app.lightmove.api.mcp.service;
 
 import app.lightmove.api.core.security.apikey.ApiKeyScope;
-import app.lightmove.api.core.security.apikey.PublicApiAuthorizer;
+import app.lightmove.api.publicapi.service.PublicApiAuthorizer;
 import app.lightmove.api.mcp.constant.McpResponseFormat;
 import app.lightmove.api.mcp.dto.McpCandidatePage;
 import app.lightmove.api.mcp.dto.McpCandidateRow;

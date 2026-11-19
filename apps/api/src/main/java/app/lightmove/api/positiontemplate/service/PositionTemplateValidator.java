@@ -3,7 +3,7 @@ package app.lightmove.api.positiontemplate.service;
 import app.lightmove.api.common.constant.CompetencyPanel;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
-import app.lightmove.api.core.validation.CurrencyCodeValidator;
+import app.lightmove.api.common.location.validation.CurrencyCodeValidator;
 import app.lightmove.api.positiontemplate.model.PositionTemplate;
 import app.lightmove.api.positiontemplate.model.PositionTemplateBenefit;
 import app.lightmove.api.positiontemplate.model.PositionTemplateBody;

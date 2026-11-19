@@ -2,8 +2,8 @@ package app.lightmove.api.assistant.tool;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import app.lightmove.api.strategy.model.CompanyScope;
-import app.lightmove.api.strategy.model.NumericRange;
+import app.lightmove.api.universe.model.CompanyScope;
+import app.lightmove.api.universe.model.NumericRange;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

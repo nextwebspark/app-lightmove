@@ -5,6 +5,7 @@ import app.lightmove.api.core.config.PositionExtractionSettings;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import java.util.List;
+import org.springframework.modulith.NamedInterface;
 import org.springframework.stereotype.Service;
 
 /**
@@ -14,6 +15,7 @@ import org.springframework.stereotype.Service;
  * <p>The format is decided by the bytes' own signature, never the declared content type.
  */
 @Service
+@NamedInterface(name = "api", propagate = false)
 public class PositionDocumentTextReader {
 
     private final List<PositionDocumentFormatReader> formatReaders;

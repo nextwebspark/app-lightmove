@@ -7,7 +7,7 @@ import app.lightmove.api.candidate.dto.UpdateCandidateTagRequest;
 import app.lightmove.api.candidate.model.CandidateTag;
 import app.lightmove.api.candidate.model.CandidateTagUsage;
 import app.lightmove.api.candidate.repository.CandidateTagRepository;
-import app.lightmove.api.common.constant.ApiValueEnum;
+import app.lightmove.api.core.constant.ApiValueEnum;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.error.constant.ErrorCode;

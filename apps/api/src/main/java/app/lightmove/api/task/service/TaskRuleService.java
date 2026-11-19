@@ -4,7 +4,7 @@ import app.lightmove.api.candidate.constant.PersonActivityKind;
 import app.lightmove.api.candidate.service.CandidateTaskService;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
-import app.lightmove.api.core.security.rbac.ProjectAccess;
+import app.lightmove.api.project.service.ProjectAccess;
 import app.lightmove.api.core.security.rbac.ProjectAction;
 import app.lightmove.api.outreach.model.OutreachBounced;
 import app.lightmove.api.outreach.model.OutreachCallBooked;

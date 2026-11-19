@@ -3,11 +3,13 @@ package app.lightmove.api.triagecompany.model;
 import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
 import java.util.Locale;
 import java.util.Map;
+import org.springframework.modulith.NamedInterface;
 
 /**
  * Where the companies a caller asked about already stand in one mandate: by Apollo account id, and by
  * name for a company the mandate may hold without one. Absent means the mandate holds no row for it.
  */
+@NamedInterface(name = "api", propagate = false)
 public record MandateStages(Map<String, TriageCompanyStatus> byAccountId,
                             Map<String, TriageCompanyStatus> byLowerCaseName) {
 

@@ -4,11 +4,13 @@ import java.time.Instant;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.UUID;
+import org.springframework.modulith.NamedInterface;
 
 /**
  * A meeting with a person as another feature reads it: the call, the link to join it, whose calendar holds this copy
  * of it, who booked it in Uncava, if anyone did, and when the row was first kept.
  */
+@NamedInterface(name = "api", propagate = false)
 public record KeptMeeting(UUID id, UUID personId, String title, Instant startsAt, Instant endsAt, String joinUrl,
                           UUID holderUserId, UUID bookedByUserId, Instant keptSince) {
 

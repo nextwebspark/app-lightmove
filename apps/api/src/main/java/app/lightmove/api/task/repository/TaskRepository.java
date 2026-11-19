@@ -2,7 +2,7 @@ package app.lightmove.api.task.repository;
 
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
-import app.lightmove.api.project.repository.ProjectRepository;
+import app.lightmove.api.project.model.ArchivedProjects;
 import app.lightmove.api.task.constant.TaskRule;
 import app.lightmove.api.task.constant.TaskStatus;
 import app.lightmove.api.task.model.Task;
@@ -22,7 +22,7 @@ import org.springframework.data.jpa.repository.Query;
  */
 public interface TaskRepository extends JpaRepository<Task, UUID> {
 
-    String ON_LIVE_POSITION = " and t.projectId not in (" + ProjectRepository.ARCHIVED_IDS_JPQL + ")\n";
+    String ON_LIVE_POSITION = " and t.projectId not in (" + ArchivedProjects.IDS_JPQL + ")\n";
 
     Optional<Task> findByIdAndWorkspaceId(UUID id, UUID workspaceId);
 
@@ -70,7 +70,7 @@ public interface TaskRepository extends JpaRepository<Task, UUID> {
                    count(*) FILTER (WHERE due_at IS NULL OR due_at >= :tomorrow) AS upcoming
             FROM app_lm_task
             WHERE workspace_id = :workspaceId AND assignee_user_id = :userId AND status = 'OPEN'
-            """ + "  AND project_id NOT IN (" + ProjectRepository.ARCHIVED_IDS_SQL + ")", nativeQuery = true)
+            """ + "  AND project_id NOT IN (" + ArchivedProjects.IDS_SQL + ")", nativeQuery = true)
     MyTaskTally tallyOpenAssignedTo(UUID workspaceId, UUID userId, Instant now, Instant tomorrow);
 
     @Query("""

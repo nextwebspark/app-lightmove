@@ -3,6 +3,7 @@ package app.lightmove.api.strategy.model;
 import app.lightmove.api.common.industry.model.ResolvedIndustry;
 import app.lightmove.api.common.industry.service.Industries;
 import app.lightmove.api.common.location.service.Countries;
+import app.lightmove.api.universe.model.CompanyRow;
 import jakarta.persistence.Column;
 import jakarta.persistence.Embeddable;
 import lombok.AccessLevel;

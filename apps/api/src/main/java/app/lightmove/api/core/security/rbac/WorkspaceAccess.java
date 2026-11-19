@@ -2,9 +2,9 @@ package app.lightmove.api.core.security.rbac;
 
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
-import app.lightmove.api.workspace.constant.MemberStatus;
-import app.lightmove.api.workspace.model.WorkspaceMember;
-import app.lightmove.api.workspace.repository.WorkspaceMemberRepository;
+import app.lightmove.api.core.security.membership.MemberStatus;
+import app.lightmove.api.core.security.membership.WorkspaceMember;
+import app.lightmove.api.core.security.membership.WorkspaceMemberRepository;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;

@@ -27,7 +27,7 @@ import app.lightmove.api.project.repository.ClientRepresentativeRepository;
 import app.lightmove.api.project.repository.PendingRepresentativeAttachmentRepository;
 import app.lightmove.api.project.repository.ProjectMemberRepository;
 import app.lightmove.api.project.repository.ProjectRepository;
-import app.lightmove.api.workspace.model.WorkspaceMember;
+import app.lightmove.api.core.security.membership.WorkspaceMember;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.HashSet;
 import java.util.List;

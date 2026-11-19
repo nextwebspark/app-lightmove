@@ -6,7 +6,7 @@ import app.lightmove.api.candidate.repository.MovedCompanyCount;
 import app.lightmove.api.candidate.repository.SearchMatchedCandidate;
 import app.lightmove.api.core.security.rbac.ProjectAudience;
 import app.lightmove.api.core.text.model.SearchText;
-import app.lightmove.api.project.repository.ProjectRepository;
+import app.lightmove.api.project.service.ProjectLookup;
 import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
 import app.lightmove.api.triagecompany.service.MappedExecutiveLookup;
 import java.util.Collection;
@@ -32,7 +32,7 @@ import org.springframework.stereotype.Component;
 class MappedExecutiveLookupAdapter implements MappedExecutiveLookup {
 
     private final CandidateRepository candidates;
-    private final ProjectRepository projects;
+    private final ProjectLookup projects;
     private final CandidatePipelineCatalog pipeline;
 
     @Override

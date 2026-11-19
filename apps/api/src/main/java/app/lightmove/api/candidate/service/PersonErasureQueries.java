@@ -3,8 +3,10 @@ package app.lightmove.api.candidate.service;
 import java.util.UUID;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.modulith.NamedInterface;
 
 /** The one scoping every erasure query binds: {@code :personId} within {@code :workspaceId}. */
+@NamedInterface(name = "api", propagate = false)
 public final class PersonErasureQueries {
 
     private PersonErasureQueries() {

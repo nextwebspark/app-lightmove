@@ -1,9 +1,10 @@
 package app.lightmove.api.triagecompany.service;
 
-import app.lightmove.api.common.constant.ApiValueEnum;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.config.LightMoveProperties;
+import app.lightmove.api.core.constant.ApiValueEnum;
+import app.lightmove.api.core.constant.SortDirection;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.stream.ProjectStreamKind;
@@ -12,12 +13,7 @@ import app.lightmove.api.core.text.service.LikePatterns;
 import app.lightmove.api.core.text.service.LinkedInUrls;
 import app.lightmove.api.customcolumn.constant.CustomColumnTarget;
 import app.lightmove.api.customcolumn.service.CustomColumnService;
-import app.lightmove.api.project.repository.ProjectRepository;
-import app.lightmove.api.strategy.constant.CompanySortField;
-import app.lightmove.api.strategy.constant.SortDirection;
-import app.lightmove.api.strategy.model.CompanyRow;
-import app.lightmove.api.strategy.model.CompanyScope;
-import app.lightmove.api.strategy.service.ApolloCompanyQueryService;
+import app.lightmove.api.project.service.ProjectLookup;
 import app.lightmove.api.strategy.service.StrategyService;
 import app.lightmove.api.triagecompany.constant.TriageCompanySource;
 import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
@@ -38,6 +34,10 @@ import app.lightmove.api.triagecompany.model.TriageCompanyRenamed;
 import app.lightmove.api.triagecompany.model.TriageCompanyWorked;
 import app.lightmove.api.triagecompany.repository.TriageCompanyRepository;
 import app.lightmove.api.triagecompany.repository.TriageCompanyWriter;
+import app.lightmove.api.universe.constant.CompanySortField;
+import app.lightmove.api.universe.model.CompanyRow;
+import app.lightmove.api.universe.model.CompanyScope;
+import app.lightmove.api.universe.service.ApolloCompanyQueryService;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.Comparator;
 import java.util.List;
@@ -49,6 +49,7 @@ import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.modulith.NamedInterface;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -60,6 +61,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @Slf4j
 @RequiredArgsConstructor
+@NamedInterface(name = "api", propagate = false)
 public class TriageCompanyService {
 
     /** The doors a caller may supply a company through. {@code STRATEGY} is the server's to write. */
@@ -73,7 +75,7 @@ public class TriageCompanyService {
 
     private final TriageCompanyRepository triaged;
     private final TriageCompanyWriter writer;
-    private final ProjectRepository projects;
+    private final ProjectLookup projects;
     private final StrategyService strategy;
     private final CustomColumnService customColumns;
     private final AuditService audit;

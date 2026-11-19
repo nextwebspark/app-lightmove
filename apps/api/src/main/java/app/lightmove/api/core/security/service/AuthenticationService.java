@@ -19,7 +19,7 @@ import app.lightmove.api.core.security.repository.UserRepository;
 import app.lightmove.api.core.security.token.RevokeReason;
 import app.lightmove.api.core.security.token.SessionClient;
 import app.lightmove.api.core.security.token.TokenService;
-import app.lightmove.api.workspace.model.WorkspaceMember;
+import app.lightmove.api.core.security.membership.WorkspaceMember;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Instant;
 import java.util.Optional;

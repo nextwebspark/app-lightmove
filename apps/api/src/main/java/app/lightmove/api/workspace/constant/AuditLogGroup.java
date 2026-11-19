@@ -1,6 +1,6 @@
 package app.lightmove.api.workspace.constant;
 
-import app.lightmove.api.common.constant.ApiValueEnum;
+import app.lightmove.api.core.constant.ApiValueEnum;
 import app.lightmove.api.core.audit.constant.AuditEventType;
 import app.lightmove.api.core.audit.constant.AuthEventType;
 import app.lightmove.api.core.audit.constant.PlatformEventType;

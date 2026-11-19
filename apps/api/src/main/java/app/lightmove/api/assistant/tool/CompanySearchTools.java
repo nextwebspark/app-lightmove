@@ -1,6 +1,6 @@
 package app.lightmove.api.assistant.tool;
 
-import app.lightmove.api.strategy.service.IndustryAdjacency;
+import app.lightmove.api.universe.service.IndustryAdjacency;
 import app.lightmove.api.triagecompany.service.TriageCompanyReadService;
 import java.util.List;
 import java.util.Locale;

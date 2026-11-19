@@ -2,6 +2,7 @@ package app.lightmove.api.candidate.model;
 
 import java.util.List;
 import java.util.UUID;
+import org.springframework.modulith.NamedInterface;
 
 /**
  * An executive as outreach reads them: enough to decide whether they may be approached and to fill a
@@ -9,6 +10,7 @@ import java.util.UUID;
  * {@code status} is the status key; {@code leftTheRunning} says it is out of process. {@code processingRestricted}
  * keeps them from every approach, recording and model run, as {@code doNotContact} does from every approach.
  */
+@NamedInterface(name = "api", propagate = false)
 public record OutreachRecipient(UUID candidateId, UUID personId, UUID triageCompanyId, String fullName,
                                 String title, String companyName, String locationCity, String locationCountry,
                                 String status, boolean leftTheRunning, boolean doNotContact,

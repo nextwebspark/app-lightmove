@@ -20,6 +20,7 @@ import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.modulith.NamedInterface;
 import org.springframework.stereotype.Service;
 
 /**
@@ -29,6 +30,7 @@ import org.springframework.stereotype.Service;
  */
 @Slf4j
 @Service
+@NamedInterface(name = "api", propagate = false)
 public class FairUseGuard {
 
     private final UsageEventStore events;

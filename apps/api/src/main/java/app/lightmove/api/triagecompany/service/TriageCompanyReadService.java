@@ -1,8 +1,9 @@
 package app.lightmove.api.triagecompany.service;
 
-import app.lightmove.api.common.constant.ApiValueEnum;
 import app.lightmove.api.core.config.CompanyListSettings;
 import app.lightmove.api.core.config.LightMoveProperties;
+import app.lightmove.api.core.constant.ApiValueEnum;
+import app.lightmove.api.core.constant.SortDirection;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.security.model.User;
@@ -11,24 +12,23 @@ import app.lightmove.api.core.security.repository.UserRepository;
 import app.lightmove.api.core.text.model.SearchText;
 import app.lightmove.api.core.text.service.LinkedInUrls;
 import app.lightmove.api.core.text.service.SuppliedText;
-import app.lightmove.api.project.repository.ProjectRepository;
-import app.lightmove.api.strategy.constant.SortDirection;
-import app.lightmove.api.strategy.service.ApolloCompanyQueryService;
+import app.lightmove.api.project.service.ProjectLookup;
 import app.lightmove.api.triagecompany.constant.TriageCompanySortField;
 import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
 import app.lightmove.api.triagecompany.dto.TriageCompaniesResponse;
-import app.lightmove.api.triagecompany.dto.TriageCompanyResponse;
 import app.lightmove.api.triagecompany.dto.TriageCompanyListCriteria;
+import app.lightmove.api.triagecompany.dto.TriageCompanyResponse;
 import app.lightmove.api.triagecompany.dto.TriageCountsDto;
 import app.lightmove.api.triagecompany.model.CompanySearchMatches;
 import app.lightmove.api.triagecompany.model.MandateStages;
+import app.lightmove.api.triagecompany.model.StageSearchMatches;
 import app.lightmove.api.triagecompany.model.TriageCompany;
 import app.lightmove.api.triagecompany.model.TriageCompanyFilters;
 import app.lightmove.api.triagecompany.model.TriageCompanyLogo;
-import app.lightmove.api.triagecompany.model.StageSearchMatches;
 import app.lightmove.api.triagecompany.model.TriageCompanyMatches;
 import app.lightmove.api.triagecompany.repository.SearchMatchedCompany;
 import app.lightmove.api.triagecompany.repository.TriageCompanyRepository;
+import app.lightmove.api.universe.service.ApolloCompanyQueryService;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -48,12 +48,14 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.modulith.NamedInterface;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /** Reads a mandate's triaged companies a stage at a time: the grid's filtered page, or the whole stage. */
 @Service
 @RequiredArgsConstructor
+@NamedInterface(name = "api", propagate = false)
 public class TriageCompanyReadService {
 
     private static final Sort NEWEST_FIRST = Sort.by(Sort.Direction.DESC, "createdAt");
@@ -66,7 +68,7 @@ public class TriageCompanyReadService {
 
     private final TriageCompanyRepository triaged;
     private final ApolloCompanyQueryService market;
-    private final ProjectRepository projects;
+    private final ProjectLookup projects;
     private final LightMoveProperties properties;
     private final MappedExecutiveLookup executives;
     private final CompanyNoteService companyNotes;

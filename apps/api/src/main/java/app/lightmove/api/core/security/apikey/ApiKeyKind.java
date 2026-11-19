@@ -1,6 +1,6 @@
 package app.lightmove.api.core.security.apikey;
 
-import app.lightmove.api.common.constant.ApiValueEnum;
+import app.lightmove.api.core.constant.ApiValueEnum;
 
 /** Whose key it is: one member's, bounded by what they can open, or the workspace's, reading every position. */
 public enum ApiKeyKind implements ApiValueEnum {
