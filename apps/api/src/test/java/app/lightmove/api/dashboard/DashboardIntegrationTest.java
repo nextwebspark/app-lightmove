@@ -11,14 +11,15 @@ import app.lightmove.api.FixtureJdbc;
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
-import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.ResultActions;
+import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import tools.jackson.databind.JsonNode;
 
 /**
@@ -90,7 +91,7 @@ class DashboardIntegrationTest extends FlowTestSupport {
                 widget("executivesBy", "bar", "{\"group\":\"salary\"}", "M"))
                 .andExpect(status().isBadRequest()).andReturn())).isEqualTo("CHART_OPTION_INVALID");
         String[] many = new String[31];
-        java.util.Arrays.fill(many, widget("executivesIdentified", "kpi", "{}", "S"));
+        Arrays.fill(many, widget("executivesIdentified", "kpi", "{}", "S"));
         assertThat(codeOf(save(admin, post(url), "Board pack", false, null, many)
                 .andExpect(status().isBadRequest()).andReturn())).isEqualTo("DASHBOARD_TOO_MANY_WIDGETS");
         save(admin, post(url), " ", false, null).andExpect(status().isBadRequest());
@@ -137,9 +138,16 @@ class DashboardIntegrationTest extends FlowTestSupport {
         String url = projectUrl(cfo);
         add(cfo, "Fatima Al Mazrouei", "C-Suite", "female");
         add(cfo, "Noura Al Qasimi", "C-Suite", "female");
+        add(cfo, "Layla Haddad", "C-Suite", "female");
         add(cfo, "Khalid Al Harbi", "C-Suite", "male");
+        add(cfo, "Omar Khoury", "C-Suite", "male");
+        add(cfo, "Ali Al Mansoori", "C-Suite", "male");
         add(cfo, "Reem Al Nuaimi", "C-Suite", "female");
         add(cfo, "Hamad Al Suwaidi", "N-1", "male");
+        add(cfo, "Saeed Al Ketbi", "N-2", "male");
+        add(cfo, "Majid Al Futtaim", "N-2", "male");
+        add(cfo, "Yousef Al Nahyan", "N-2", "male");
+        add(cfo, "Mariam Al Romaithi", "N-2", "female");
         db.update("UPDATE app_lm_person SET ai_inferred_fields = '[\"gender\"]'::jsonb WHERE full_name = ?",
                 "Reem Al Nuaimi");
 
@@ -153,15 +161,21 @@ class DashboardIntegrationTest extends FlowTestSupport {
 
         JsonNode byLevel = body(run(admin, url, "executivesBy", "{\"group\":\"level\"}")
                 .andExpect(status().isOk()).andReturn());
-        assertThat(byLevel.get("labels").valueStream().map(JsonNode::asText).toList()).containsExactly("C-Suite", "N-1");
-        assertThat(byLevel.get("values").get(0).asDouble()).isEqualTo(4d);
+        assertThat(byLevel.get("labels").valueStream().map(JsonNode::asText).toList())
+                .containsExactly("C-Suite", "N-1", "N-2");
+        assertThat(byLevel.get("values").get(0).asDouble()).isEqualTo(7d);
 
+        // C-Suite: 3 women and 3 men recorded (Reem's gender is the AI's guess, left out) — shown. N-1: one man —
+        // hidden. N-2: three men and one woman — hidden too, or the one woman would be named.
         JsonNode gender = body(run(admin, url, "genderByLevel", "{}").andExpect(status().isOk()).andReturn());
-        assertThat(gender.get("labels").valueStream().map(JsonNode::asText).toList()).containsExactly("C-Suite", "N-1");
-        assertThat(gender.get("suppressed").valueStream().map(JsonNode::asBoolean).toList()).containsExactly(false, true);
+        assertThat(gender.get("labels").valueStream().map(JsonNode::asText).toList())
+                .containsExactly("C-Suite", "N-1", "N-2");
+        assertThat(gender.get("suppressed").valueStream().map(JsonNode::asBoolean).toList())
+                .containsExactly(false, true, true);
         assertThat(gender.get("series").get(0).get("name").asText()).isEqualTo("Female");
-        assertThat(gender.get("series").get(0).get("values").get(0).asDouble()).isEqualTo(2d);
-        assertThat(gender.get("series").get(1).get("values").get(1).asDouble()).isZero();
+        assertThat(gender.get("series").get(0).get("values").get(0).asDouble()).isEqualTo(3d);
+        assertThat(gender.get("series").get(0).get("values").get(2).asDouble()).isZero();
+        assertThat(gender.get("series").get(1).get("values").get(2).asDouble()).isZero();
 
         assertThat(codeOf(run(admin, url, "executivesBy", "{\"top\":\"7\"}")
                 .andExpect(status().isBadRequest()).andReturn())).isEqualTo("CHART_OPTION_INVALID");
@@ -175,12 +189,86 @@ class DashboardIntegrationTest extends FlowTestSupport {
                     .isEqualTo(query.get("shape").asText());
         }
         JsonNode pipeline = body(run(admin, WORKSPACE, "pipelineByStage", "{}").andExpect(status().isOk()).andReturn());
-        assertThat(pipeline.get("values").valueStream().mapToDouble(JsonNode::asDouble).sum()).isEqualTo(5d);
+        assertThat(pipeline.get("values").valueStream().mapToDouble(JsonNode::asDouble).sum()).isEqualTo(12d);
         JsonNode open = body(run(admin, WORKSPACE, "openPositions", "{}").andExpect(status().isOk()).andReturn());
         assertThat(open.get("kpi").get("value").asText()).isEqualTo("1");
     }
 
+    @Test
+    @DisplayName("workspace charts count only positions the reader can work on, never one they may only browse")
+    void workspaceChartsAreSeatGated() throws Exception {
+        firm("Dashboard Seat Firm");
+        String cfo = mandate();
+        add(cfo, "Fatima Al Mazrouei", "C-Suite", "female");
+        add(cfo, "Khalid Al Harbi", "N-1", "male");
+        String seatlessEmail = "nadia@" + domain;
+        inviteAndAccept(admin, "Nadia Saleh", seatlessEmail, "MEMBER");
+        String seatless = login(seatlessEmail);
+
+        assertThat(sumOf(run(admin, WORKSPACE, "pipelineByStage", "{}"))).isEqualTo(2d);
+        assertThat(sumOf(run(seatless, WORKSPACE, "pipelineByStage", "{}"))).isZero();
+        assertThat(sumOf(run(seatless, WORKSPACE, "stageByUnit", "{}"))).isZero();
+        assertThat(sumOf(run(seatless, WORKSPACE, "executivesFiledPerWeek", "{}"))).isZero();
+        assertThat(sumOf(run(seatless, WORKSPACE, "executivesPerMember", "{}"))).isZero();
+        JsonNode open = body(run(seatless, WORKSPACE, "openPositions", "{}").andExpect(status().isOk()).andReturn());
+        assertThat(open.get("kpi").get("value").asText()).isEqualTo("0");
+    }
+
+    @Test
+    @DisplayName("a retired chart is kept as stored, dropped from a duplicate, and answered as such in a batch")
+    void retiredChartsAndTheBatch() throws Exception {
+        firm("Dashboard Retired Firm");
+        String cfo = mandate();
+        add(cfo, "Fatima Al Mazrouei", "C-Suite", "female");
+        String url = projectUrl(cfo);
+        JsonNode created = body(save(admin, post(url), "Board pack", true, null,
+                widget("executivesIdentified", "kpi", "{}", "S"), widget("executivesBy", "bar", "{}", "M"))
+                .andExpect(status().isCreated()).andReturn());
+        String id = created.get("id").asText();
+        db.update("""
+                UPDATE app_lm_dashboard SET widgets = jsonb_set(widgets, '{1,queryId}', '"retiredQuery"')
+                WHERE id = ?::uuid""", id);
+        long version = list(admin, url).getFirst().get("version").asLong();
+
+        JsonNode saved = body(save(admin, put(url + "/" + id), "Board pack", true, version,
+                widget("executivesIdentified", "kpi", "{}", "S"), widget("retiredQuery", "pie", "{\"x\":\"y\"}", "L"))
+                .andExpect(status().isOk()).andReturn());
+        JsonNode kept = saved.get("widgets").get(1);
+        assertThat(kept.get("chart").asText()).isEqualTo("bar");
+        assertThat(kept.get("size").asText()).isEqualTo("M");
+
+        String colleagueEmail = "maya@" + domain;
+        inviteAndAccept(admin, "Maya Saleh", colleagueEmail, "ADMIN");
+        JsonNode copy = body(mvc.perform(post(url + "/" + id + "/duplicate")
+                        .header("Authorization", "Bearer " + login(colleagueEmail)))
+                .andExpect(status().isCreated()).andReturn());
+        assertThat(copy.get("name").asText()).isEqualTo("Board pack (copy)");
+        assertThat(copy.get("owned").asBoolean()).isTrue();
+        assertThat(copy.get("shared").asBoolean()).isFalse();
+        assertThat(copy.get("widgets").findValuesAsString("queryId")).containsExactly("executivesIdentified");
+
+        JsonNode answers = body(mvc.perform(post(url + "/answers").header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"charts":[{"queryId":"executivesIdentified","options":{}},
+                                           {"queryId":"retiredQuery","options":{}},
+                                           {"queryId":"executivesBy","options":{"group":"salary"}}]}"""))
+                .andExpect(status().isOk()).andReturn());
+        assertThat(answers.get(0).get("result").get("kpi").get("value").asText()).isEqualTo("1");
+        assertThat(answers.get(1).get("code").asText()).isEqualTo("CHART_QUERY_NOT_FOUND");
+        assertThat(answers.get(2).get("code").asText()).isEqualTo("CHART_OPTION_INVALID");
+    }
+
     // ── fixture ──────────────────────────────────────────────────────────────
+
+    private double sumOf(ResultActions response) throws Exception {
+        JsonNode result = body(response.andExpect(status().isOk()).andReturn());
+        double sum = result.get("values").valueStream().mapToDouble(JsonNode::asDouble).sum();
+        for (JsonNode series : result.get("series")) {
+            sum += series.get("values").valueStream().mapToDouble(JsonNode::asDouble).sum();
+        }
+        return sum;
+    }
 
     private static String widget(String queryId, String chart, String options, String size) {
         return """
@@ -188,8 +276,7 @@ class DashboardIntegrationTest extends FlowTestSupport {
                 options, size);
     }
 
-    private ResultActions save(String token,
-                               org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder request,
+    private ResultActions save(String token, MockHttpServletRequestBuilder request,
                                String name, boolean shared, Long version, String... widgets) throws Exception {
         return mvc.perform(request.header("Authorization", "Bearer " + token)
                 .contentType(MediaType.APPLICATION_JSON)
@@ -270,10 +357,5 @@ class DashboardIntegrationTest extends FlowTestSupport {
 
     private static String projectUrl(String projectId) {
         return "/api/v1/projects/" + projectId + "/dashboards";
-    }
-
-    @SuppressWarnings("unused")
-    private static String randomId() {
-        return UUID.randomUUID().toString();
     }
 }

@@ -29,7 +29,7 @@ final class ChartShaping {
         if (raw.shape() == ChartShape.CATEGORICAL) {
             String top = options.get(ChartOptionKey.TOP.key());
             int keep = top == null || "all".equals(top) ? MAX_BUCKETS : Math.min(Integer.parseInt(top), MAX_BUCKETS);
-            return largest(raw, keep, !query.noSum(), keep == MAX_BUCKETS);
+            return largest(raw, keep, !query.notAdditive(), keep == MAX_BUCKETS);
         }
         return raw;
     }

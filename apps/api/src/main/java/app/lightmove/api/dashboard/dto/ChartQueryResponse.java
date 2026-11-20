@@ -7,5 +7,5 @@ import java.util.List;
  * a run's {@code allowedCharts} may be narrower (a pie past eight slices).
  */
 public record ChartQueryResponse(String id, String category, String label, String description, String shape,
-                                 boolean noSum, boolean staffOnly, String defaultChart, List<String> charts,
+                                 boolean notAdditive, String defaultChart, List<String> charts,
                                  List<ChartOptionDto> options) {}

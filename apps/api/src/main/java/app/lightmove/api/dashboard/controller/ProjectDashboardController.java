@@ -4,6 +4,8 @@ import app.lightmove.api.core.security.model.AuthPrincipal;
 import app.lightmove.api.core.security.rbac.ProjectAction;
 import app.lightmove.api.core.security.rbac.RequireProjectPermission;
 import app.lightmove.api.dashboard.constant.DashboardScope;
+import app.lightmove.api.dashboard.dto.ChartAnswerDto;
+import app.lightmove.api.dashboard.dto.ChartAnswersRequest;
 import app.lightmove.api.dashboard.dto.ChartQueryResponse;
 import app.lightmove.api.dashboard.dto.ChartResultResponse;
 import app.lightmove.api.dashboard.dto.DashboardResponse;
@@ -83,5 +85,22 @@ public class ProjectDashboardController {
         ChartQueryContext context = new ChartQueryContext(principal.userId(), principal.requireWorkspaceId(),
                 projectId);
         return queries.run(context, DashboardScope.PROJECT, queryId, request.options());
+    }
+
+    /** A private copy, without any chart whose query has left the library. */
+    @PostMapping("/{dashboardId}/duplicate")
+    @ResponseStatus(HttpStatus.CREATED)
+    @RequireProjectPermission(ProjectAction.WORK_EXECUTE)
+    public DashboardResponse duplicate(@AuthenticationPrincipal AuthPrincipal principal, @PathVariable UUID projectId,
+                                       @PathVariable UUID dashboardId) {
+        return dashboards.duplicate(principal.userId(), principal.requireWorkspaceId(), projectId, dashboardId);
+    }
+
+    @PostMapping("/answers")
+    @RequireProjectPermission(ProjectAction.WORK_EXECUTE)
+    public List<ChartAnswerDto> answers(@AuthenticationPrincipal AuthPrincipal principal, @PathVariable UUID projectId,
+                                        @Valid @RequestBody ChartAnswersRequest request) {
+        return queries.answers(new ChartQueryContext(principal.userId(), principal.requireWorkspaceId(), projectId),
+                DashboardScope.PROJECT, request.charts());
     }
 }

@@ -2,6 +2,8 @@ package app.lightmove.api.dashboard.controller;
 
 import app.lightmove.api.core.security.model.AuthPrincipal;
 import app.lightmove.api.dashboard.constant.DashboardScope;
+import app.lightmove.api.dashboard.dto.ChartAnswerDto;
+import app.lightmove.api.dashboard.dto.ChartAnswersRequest;
 import app.lightmove.api.dashboard.dto.ChartQueryResponse;
 import app.lightmove.api.dashboard.dto.ChartResultResponse;
 import app.lightmove.api.dashboard.dto.DashboardResponse;
@@ -74,5 +76,20 @@ public class WorkspaceDashboardController {
                                    @Valid @RequestBody RunChartQueryRequest request) {
         ChartQueryContext context = new ChartQueryContext(principal.userId(), principal.requireWorkspaceId(), null);
         return queries.run(context, DashboardScope.WORKSPACE, queryId, request.options());
+    }
+
+    /** A private copy, without any chart whose query has left the library. */
+    @PostMapping("/{dashboardId}/duplicate")
+    @ResponseStatus(HttpStatus.CREATED)
+    public DashboardResponse duplicate(@AuthenticationPrincipal AuthPrincipal principal,
+                                       @PathVariable UUID dashboardId) {
+        return dashboards.duplicate(principal.userId(), principal.requireWorkspaceId(), null, dashboardId);
+    }
+
+    @PostMapping("/answers")
+    public List<ChartAnswerDto> answers(@AuthenticationPrincipal AuthPrincipal principal,
+                                        @Valid @RequestBody ChartAnswersRequest request) {
+        return queries.answers(new ChartQueryContext(principal.userId(), principal.requireWorkspaceId(), null),
+                DashboardScope.WORKSPACE, request.charts());
     }
 }

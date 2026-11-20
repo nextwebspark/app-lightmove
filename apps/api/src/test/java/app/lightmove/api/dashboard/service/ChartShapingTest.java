@@ -16,8 +16,9 @@ import org.junit.jupiter.api.Test;
 class ChartShapingTest {
 
     private static ChartQuery breakdown(boolean noSum) {
-        return new ChartQuery("q", DashboardScope.PROJECT, "c", "l", "d", ChartShape.CATEGORICAL, noSum, false,
-                ChartType.BAR, List.of(ChartOption.top()), (context, options) -> null);
+        ChartQuery query = ChartQuery.breakdown(DashboardScope.PROJECT, "q", "c", "l", "d", ChartType.BAR,
+                List.of(ChartOption.top()), (context, options) -> null);
+        return noSum ? query.asNotAdditive() : query;
     }
 
     @Test
@@ -56,8 +57,8 @@ class ChartShapingTest {
     void aPeriodKeepsTheLatestWeeks() {
         ChartResult series = ChartResult.timeSeries("Week", "Executives", List.of("a", "b", "c", "d", "e"),
                 List.of(1d, 2d, 3d, 4d, 5d));
-        ChartQuery query = new ChartQuery("s", DashboardScope.PROJECT, "c", "l", "d", ChartShape.TIME_SERIES, false,
-                false, ChartType.LINE, List.of(ChartOption.range()), (context, options) -> null);
+        ChartQuery query = ChartQuery.overTime(DashboardScope.PROJECT, "s", "c", "l", "d", ChartType.LINE,
+                List.of(ChartOption.range()), (context, options) -> null);
         assertThat(ChartShaping.shape(query, series, Map.of("range", "4")).labels()).containsExactly("b", "c", "d", "e");
         assertThat(ChartShaping.shape(query, series, Map.of("range", "all")).labels()).hasSize(5);
     }

@@ -10,9 +10,9 @@ import java.util.Map;
 import java.util.Optional;
 
 /**
- * One ready-made chart in the library: written and reviewed here, never assembled from a caller's request.
- * {@code label} may end in " …", which the drawer completes with the chosen group. {@code noSum} marks a measure
- * whose parts do not add up to a whole (a median, a rate), which no pie may draw.
+ * One ready-made chart in the library, written and reviewed here. {@code label} may end in " …", which the drawer
+ * completes with the chosen group. {@code notAdditive} marks a measure whose parts are no whole (a median, a rate),
+ * which no pie may draw. Built through the shape factories, so each library entry reads on its own.
  */
 public record ChartQuery(
         String id,
@@ -21,8 +21,7 @@ public record ChartQuery(
         String label,
         String description,
         ChartShape shape,
-        boolean noSum,
-        boolean staffOnly,
+        boolean notAdditive,
         ChartType defaultChart,
         List<ChartOption> options,
         ChartQueryRunner runner
@@ -30,6 +29,43 @@ public record ChartQuery(
 
     public ChartQuery {
         options = List.copyOf(options);
+    }
+
+    public static ChartQuery kpi(DashboardScope scope, String id, String category, String label, String description,
+                                 ChartQueryRunner runner) {
+        return new ChartQuery(id, scope, category, label, description, ChartShape.KPI, false, ChartType.KPI, List.of(),
+                runner);
+    }
+
+    public static ChartQuery breakdown(DashboardScope scope, String id, String category, String label,
+                                       String description, ChartType defaultChart, List<ChartOption> options,
+                                       ChartQueryRunner runner) {
+        return new ChartQuery(id, scope, category, label, description, ChartShape.CATEGORICAL, false, defaultChart,
+                options, runner);
+    }
+
+    public static ChartQuery overTime(DashboardScope scope, String id, String category, String label,
+                                      String description, ChartType defaultChart, List<ChartOption> options,
+                                      ChartQueryRunner runner) {
+        return new ChartQuery(id, scope, category, label, description, ChartShape.TIME_SERIES, false, defaultChart,
+                options, runner);
+    }
+
+    public static ChartQuery breakdownByTwo(DashboardScope scope, String id, String category, String label,
+                                            String description, ChartQueryRunner runner) {
+        return new ChartQuery(id, scope, category, label, description, ChartShape.MATRIX, false, ChartType.STACKED,
+                List.of(), runner);
+    }
+
+    public static ChartQuery ranked(DashboardScope scope, String id, String category, String label,
+                                    String description, ChartQueryRunner runner) {
+        return new ChartQuery(id, scope, category, label, description, ChartShape.RANKED, false, ChartType.TABLE,
+                List.of(), runner);
+    }
+
+    /** This query, its parts no whole: a median or a rate per group. */
+    public ChartQuery asNotAdditive() {
+        return new ChartQuery(id, scope, category, label, description, shape, true, defaultChart, options, runner);
     }
 
     public Optional<ChartOption> option(ChartOptionKey key) {

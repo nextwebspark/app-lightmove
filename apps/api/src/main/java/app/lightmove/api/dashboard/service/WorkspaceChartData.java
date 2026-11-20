@@ -1,5 +1,6 @@
 package app.lightmove.api.dashboard.service;
 
+import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
@@ -77,7 +78,7 @@ class WorkspaceChartData {
             return List.of();
         }
         MapSqlParameterSource parameters = scope(workspaceId, projectIds).addValue("since",
-                java.sql.Timestamp.from(since));
+                Timestamp.from(since));
         return jdbc.query("""
                 SELECT to_char((c.created_at AT TIME ZONE 'UTC')::date, 'YYYY-MM-DD') AS day, count(*) AS executives
                 FROM app_lm_project_candidate c
@@ -94,7 +95,7 @@ class WorkspaceChartData {
             return List.of();
         }
         MapSqlParameterSource parameters = scope(workspaceId, projectIds).addValue("since",
-                java.sql.Timestamp.from(since));
+                Timestamp.from(since));
         return jdbc.query("""
                 SELECT u.full_name AS member, count(*) AS executives
                 FROM app_lm_project_candidate c

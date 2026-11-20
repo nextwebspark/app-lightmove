@@ -8,14 +8,12 @@ import app.lightmove.api.candidate.service.CandidateService;
 import app.lightmove.api.common.constant.Seniority;
 import app.lightmove.api.core.security.rbac.ProjectAudience;
 import app.lightmove.api.dashboard.constant.ChartOptionKey;
-import app.lightmove.api.dashboard.constant.ChartShape;
 import app.lightmove.api.dashboard.constant.ChartType;
 import app.lightmove.api.dashboard.constant.DashboardScope;
 import app.lightmove.api.dashboard.model.ChartChoice;
 import app.lightmove.api.dashboard.model.ChartOption;
 import app.lightmove.api.dashboard.model.ChartQuery;
 import app.lightmove.api.dashboard.model.ChartQueryContext;
-import app.lightmove.api.dashboard.model.ChartQueryRunner;
 import app.lightmove.api.dashboard.model.ChartResult;
 import app.lightmove.api.dashboard.model.ChartSeries;
 import app.lightmove.api.report.dto.DisclosureDto;
@@ -24,9 +22,11 @@ import app.lightmove.api.report.dto.MarketCellDto;
 import app.lightmove.api.report.dto.MarketShapeDto;
 import app.lightmove.api.report.dto.RemunerationDto;
 import app.lightmove.api.report.dto.ReportResponse;
+import app.lightmove.api.report.dto.TeamPerformanceDto;
 import app.lightmove.api.report.dto.WeeklyCountDto;
 import app.lightmove.api.report.service.ReportService;
-import java.time.format.DateTimeFormatter;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -35,6 +35,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -48,78 +49,58 @@ class ProjectChartQueries {
 
     static final int EXECUTIVE_CAP = 5_000;
     static final int SMALLEST_SHOWN_GROUP = 3;
-    static final String NOT_RECORDED = "Not recorded";
-    static final DateTimeFormatter WEEK_LABEL = DateTimeFormatter.ofPattern("d MMM", Locale.UK);
 
     private final ReportService reports;
     private final CandidateService candidates;
 
     List<ChartQuery> queries() {
+        DashboardScope here = DashboardScope.PROJECT;
         return List.of(
-                kpi("companiesMapped", "Mapping progress", "Companies mapped",
+                ChartQuery.kpi(here, "companiesMapped", "Mapping progress", "Companies mapped",
                         "Companies with at least one executive, against the scoped universe", this::companiesMapped),
-                kpi("executivesIdentified", "Mapping progress", "Executives identified",
+                ChartQuery.kpi(here, "executivesIdentified", "Mapping progress", "Executives identified",
                         "Every executive mapped on this position", this::executivesIdentified),
-                kpi("daysSinceLastExecutive", "Mapping progress", "Days since the last new executive",
+                ChartQuery.kpi(here, "daysSinceLastExecutive", "Mapping progress", "Days since the last new executive",
                         "How long since anyone filed a new executive", this::daysSinceLastExecutive),
-                series("executivesPerWeek", "Mapping progress", "Executives identified per week",
-                        "New executives each week — not cumulative", ChartType.COLUMN, this::executivesPerWeek),
-                series("companiesCoveredOverTime", "Mapping progress", "Companies covered over time",
+                ChartQuery.overTime(here, "executivesPerWeek", "Mapping progress", "Executives identified per week",
+                        "New executives each week — not cumulative", ChartType.COLUMN, List.of(ChartOption.range()),
+                        this::executivesPerWeek),
+                ChartQuery.overTime(here, "companiesCoveredOverTime", "Mapping progress", "Companies covered over time",
                         "Cumulative companies with an executive, week by week", ChartType.AREA,
-                        this::companiesCoveredOverTime),
-                new ChartQuery("executivesBy", DashboardScope.PROJECT, "Pipeline", "Executives by …",
-                        "The mapped executives by stage, status, level, country or source", ChartShape.CATEGORICAL,
-                        false, false, ChartType.BAR, List.of(executiveGroups(), ChartOption.top()),
-                        this::executivesBy),
-                new ChartQuery("stageByLevel", DashboardScope.PROJECT, "Pipeline", "Stage by level",
-                        "Where each level sits in the pipeline", ChartShape.MATRIX, false, false, ChartType.STACKED,
-                        List.of(), this::stageByLevel),
-                new ChartQuery("companiesBySector", DashboardScope.PROJECT, "Market", "Companies by sector",
-                        "The scoped universe by sector", ChartShape.CATEGORICAL, false, false, ChartType.PIE,
-                        List.of(ChartOption.top()), this::companiesBySector),
-                new ChartQuery("talentHubs", DashboardScope.PROJECT, "Market", "Executives by country",
-                        "Where the mapped talent sits, by country", ChartShape.CATEGORICAL, false, false,
-                        ChartType.BAR, List.of(ChartOption.top()), this::talentHubs),
-                new ChartQuery("sectorByLevel", DashboardScope.PROJECT, "Market", "Sector by level",
-                        "Executives in each sector at each level", ChartShape.MATRIX, false, false,
-                        ChartType.STACKED, List.of(), this::sectorByLevel),
-                new ChartQuery("medianPackageBy", DashboardScope.PROJECT, "Remuneration", "Median package by …",
+                        List.of(ChartOption.range()), this::companiesCoveredOverTime),
+                ChartQuery.breakdown(here, "executivesBy", "Pipeline", "Executives by …",
+                        "The mapped executives by stage, status, level, country or source", ChartType.BAR,
+                        List.of(executiveGroups(), ChartOption.top()), this::executivesBy),
+                ChartQuery.breakdownByTwo(here, "stageByLevel", "Pipeline", "Stage by level",
+                        "Where each level sits in the pipeline", this::stageByLevel),
+                ChartQuery.overTime(here, "statusChangesPerWeek", "Pipeline", "Executives moved per week",
+                        "Executives whose status last changed in each week", ChartType.LINE,
+                        List.of(ChartOption.range()), this::statusChangesPerWeek),
+                ChartQuery.breakdown(here, "companiesBySector", "Market", "Companies by sector",
+                        "The scoped universe by sector", ChartType.PIE, List.of(ChartOption.top()),
+                        this::companiesBySector),
+                ChartQuery.breakdown(here, "talentHubs", "Market", "Executives by country",
+                        "Where the mapped talent sits, by country", ChartType.BAR, List.of(ChartOption.top()),
+                        this::talentHubs),
+                ChartQuery.breakdownByTwo(here, "sectorByLevel", "Market", "Sector by level",
+                        "Executives in each sector at each level", this::sectorByLevel),
+                ChartQuery.breakdown(here, "medianPackageBy", "Remuneration", "Median package by …",
                         "Disclosed total packages in the brief's currency, median per group — other currencies are "
                                 + "not converted",
-                        ChartShape.CATEGORICAL, true, true, ChartType.COLUMN,
-                        List.of(new ChartOption(ChartOptionKey.GROUP, "Group by",
-                                List.of(new ChartChoice("country", "Country"), new ChartChoice("status", "Status")),
-                                "country")),
-                        this::medianPackageBy),
-                kpiStaff("packagesAboveBand", "Remuneration", "Packages above our band",
+                        ChartType.COLUMN, List.of(packageGroups()), this::medianPackageBy).asNotAdditive(),
+                ChartQuery.kpi(here, "packagesAboveBand", "Remuneration", "Packages above our band",
                         "Disclosed packages priced above the brief's package band", this::packagesAboveBand),
-                new ChartQuery("genderByLevel", DashboardScope.PROJECT, "Diversity & DEI", "Gender by level",
+                ChartQuery.breakdownByTwo(here, "genderByLevel", "Diversity & DEI", "Gender by level",
                         "Recorded by a researcher only, never inferred — aggregate, no individual identifiable",
-                        ChartShape.MATRIX, false, false, ChartType.STACKED, List.of(), this::genderByLevel),
-                new ChartQuery("executivesPerResearcher", DashboardScope.PROJECT, "Team",
-                        "Executives found per researcher", "Who on the team filed which executives",
-                        ChartShape.CATEGORICAL, false, true, ChartType.BAR, List.of(), this::executivesPerResearcher),
-                new ChartQuery("statusChangesPerWeek", DashboardScope.PROJECT, "Pipeline",
-                        "Executives moved per week", "Executives whose status last changed in each week",
-                        ChartShape.TIME_SERIES, false, false, ChartType.LINE, List.of(ChartOption.range()),
-                        this::statusChangesPerWeek));
+                        this::genderByLevel),
+                ChartQuery.breakdown(here, "executivesPerResearcher", "Team", "Executives found per researcher",
+                        "Who on the team filed which executives", ChartType.BAR, List.of(),
+                        this::executivesPerResearcher));
     }
 
-    private static ChartQuery kpi(String id, String category, String label, String description, ChartQueryRunner run) {
-        return new ChartQuery(id, DashboardScope.PROJECT, category, label, description, ChartShape.KPI, false, false,
-                ChartType.KPI, List.of(), run);
-    }
-
-    private static ChartQuery kpiStaff(String id, String category, String label, String description,
-                                       ChartQueryRunner run) {
-        return new ChartQuery(id, DashboardScope.PROJECT, category, label, description, ChartShape.KPI, false, true,
-                ChartType.KPI, List.of(), run);
-    }
-
-    private static ChartQuery series(String id, String category, String label, String description, ChartType chart,
-                                     ChartQueryRunner run) {
-        return new ChartQuery(id, DashboardScope.PROJECT, category, label, description, ChartShape.TIME_SERIES, false,
-                false, chart, List.of(ChartOption.range()), run);
+    private static ChartOption packageGroups() {
+        return new ChartOption(ChartOptionKey.GROUP, "Group by",
+                List.of(new ChartChoice("country", "Country"), new ChartChoice("status", "Status")), "country");
     }
 
     private static ChartOption executiveGroups() {
@@ -129,12 +110,13 @@ class ProjectChartQueries {
     }
 
     private ReportResponse report(ChartQueryContext context) {
-        return reports.read(context.workspaceId(), context.projectId(), ProjectAudience.STAFF);
+        return context.sharedRead("report",
+                () -> reports.read(context.workspaceId(), context.projectId(), ProjectAudience.STAFF));
     }
 
     private CandidatesResponse executives(ChartQueryContext context) {
-        return candidates.listAllOfProject(context.workspaceId(), context.projectId(), EXECUTIVE_CAP,
-                ProjectAudience.STAFF);
+        return context.sharedRead("executives", () -> candidates.listAllOfProject(context.workspaceId(),
+                context.projectId(), EXECUTIVE_CAP, ProjectAudience.STAFF));
     }
 
     private ChartResult companiesMapped(ChartQueryContext context, Map<String, String> options) {
@@ -142,7 +124,7 @@ class ProjectChartQueries {
         List<Integer> cumulative = progress.companiesCumulative();
         int mapped = cumulative.isEmpty() ? 0 : cumulative.getLast();
         long target = progress.targetCompanies();
-        String sub = target == 0 ? "no companies in scope yet" : percent(mapped, target) + "% of the scoped universe";
+        String sub = target == 0 ? "no companies in scope yet" : ChartLabels.percent(mapped, target) + "% of the scoped universe";
         return ChartResult.kpi(String.valueOf(mapped), "/" + target, sub, false);
     }
 
@@ -163,7 +145,7 @@ class ProjectChartQueries {
     private ChartResult executivesPerWeek(ChartQueryContext context, Map<String, String> options) {
         List<WeeklyCountDto> weekly = report(context).progress().weekly();
         return ChartResult.timeSeries("Week ending", "Executives",
-                weekly.stream().map(week -> WEEK_LABEL.format(week.weekEnding())).toList(),
+                weekly.stream().map(week -> ChartLabels.WEEK_ENDING.format(week.weekEnding())).toList(),
                 weekly.stream().map(week -> (double) week.identified()).toList());
     }
 
@@ -173,7 +155,7 @@ class ProjectChartQueries {
         List<String> labels = new ArrayList<>();
         List<Double> values = new ArrayList<>();
         for (int week = 0; week < weeks; week++) {
-            labels.add(WEEK_LABEL.format(progress.weekly().get(week).weekEnding()));
+            labels.add(ChartLabels.WEEK_ENDING.format(progress.weekly().get(week).weekEnding()));
             values.add((double) progress.companiesCumulative().get(week));
         }
         return ChartResult.timeSeries("Week ending", "Companies", labels, values);
@@ -202,7 +184,7 @@ class ProjectChartQueries {
             for (String level : levels) {
                 values.add((double) found.candidates().stream()
                         .filter(executive -> stage.equals(stageLabel(executive))
-                                && level.equals(orNotRecorded(executive.seniority())))
+                                && level.equals(ChartLabels.orNotRecorded(executive.seniority())))
                         .count());
             }
             series.add(new ChartSeries(stage, values));
@@ -247,7 +229,7 @@ class ProjectChartQueries {
                 : DisclosureDto::country;
         Map<String, List<Long>> packages = new LinkedHashMap<>();
         remuneration.disclosures().forEach(disclosure -> packages
-                .computeIfAbsent(orNotRecorded(groupOf.apply(disclosure)), key -> new ArrayList<>())
+                .computeIfAbsent(ChartLabels.orNotRecorded(groupOf.apply(disclosure)), key -> new ArrayList<>())
                 .add(disclosure.totalPackage()));
         List<String> labels = new ArrayList<>(packages.keySet());
         List<Double> medians = labels.stream().map(label -> median(packages.get(label))).toList();
@@ -265,18 +247,18 @@ class ProjectChartQueries {
         long ceiling = remuneration.packageBand().high();
         long above = remuneration.disclosures().stream().filter(disclosure -> disclosure.totalPackage() > ceiling)
                 .count();
-        String sub = disclosed == 0 ? "no package disclosed yet" : percent(above, disclosed) + "% of disclosed packages";
+        String sub = disclosed == 0 ? "no package disclosed yet" : ChartLabels.percent(above, disclosed) + "% of disclosed packages";
         return ChartResult.kpi(String.valueOf(above), "/" + disclosed, sub, above > 0);
     }
 
     /**
      * Counts only a gender a researcher recorded or confirmed: one a model proposed and nobody changed is in
-     * {@code aiInferredFields} and is left out. A level with fewer than {@value #SMALLEST_SHOWN_GROUP} recorded is
-     * held back and zeroed, so nobody can be singled out of a small group.
+     * {@code aiInferredFields} and is left out. A level is held back and zeroed when it has fewer than
+     * {@value #SMALLEST_SHOWN_GROUP} recorded or when any gender in it counts fewer than that, so nobody can be
+     * singled out of a small group — two men and one woman would otherwise name the woman.
      */
     private ChartResult genderByLevel(ChartQueryContext context, Map<String, String> options) {
-        CandidatesResponse found = executives(context);
-        List<CandidateResponse> recorded = found.candidates().stream()
+        List<CandidateResponse> recorded = executives(context).candidates().stream()
                 .filter(executive -> Gender.fromValue(executive.gender()) != null)
                 .filter(executive -> executive.aiInferredFields() == null
                         || !executive.aiInferredFields().contains("gender"))
@@ -286,27 +268,32 @@ class ProjectChartQueries {
         if (recorded.stream().anyMatch(executive -> Gender.fromValue(executive.gender()) == Gender.OTHER)) {
             genders.add(Gender.OTHER);
         }
-        List<Boolean> suppressed = levels.stream().map(level -> recorded.stream()
-                .filter(executive -> level.equals(orNotRecorded(executive.seniority()))).count()
-                < SMALLEST_SHOWN_GROUP).toList();
+        List<List<Long>> counts = levels.stream().map(level -> genders.stream().map(gender -> recorded.stream()
+                .filter(executive -> level.equals(ChartLabels.orNotRecorded(executive.seniority()))
+                        && Gender.fromValue(executive.gender()) == gender)
+                .count()).toList()).toList();
+        List<Boolean> suppressed = counts.stream().map(ProjectChartQueries::tooSmallToShow).toList();
         List<ChartSeries> series = new ArrayList<>();
-        for (Gender gender : genders) {
+        for (int column = 0; column < genders.size(); column++) {
             List<Double> values = new ArrayList<>();
-            for (int index = 0; index < levels.size(); index++) {
-                String level = levels.get(index);
-                values.add(suppressed.get(index) ? 0d : (double) recorded.stream()
-                        .filter(executive -> level.equals(orNotRecorded(executive.seniority()))
-                                && Gender.fromValue(executive.gender()) == gender)
-                        .count());
+            for (int row = 0; row < levels.size(); row++) {
+                values.add(suppressed.get(row) ? 0d : (double) counts.get(row).get(column));
             }
-            series.add(new ChartSeries(genderLabel(gender), values));
+            series.add(new ChartSeries(genderLabel(genders.get(column)), values));
         }
         return ChartResult.matrix("Level", levels, series, suppressed, true,
-                "A level with fewer than 3 recorded is hidden so no one can be singled out.");
+                "A level where any group has fewer than " + SMALLEST_SHOWN_GROUP
+                        + " recorded is hidden, so no one can be singled out.");
+    }
+
+    private static boolean tooSmallToShow(List<Long> genderCounts) {
+        long total = genderCounts.stream().mapToLong(Long::longValue).sum();
+        return total < SMALLEST_SHOWN_GROUP
+                || genderCounts.stream().anyMatch(count -> count > 0 && count < SMALLEST_SHOWN_GROUP);
     }
 
     private ChartResult executivesPerResearcher(ChartQueryContext context, Map<String, String> options) {
-        var team = reports.readTeam(context.workspaceId(), context.projectId(), null, null);
+        TeamPerformanceDto team = reports.readTeam(context.workspaceId(), context.projectId(), null, null);
         return ChartResult.categorical("Researcher", "Executives", "",
                 team.researchers().stream().map(researcher -> researcher.name()).toList(),
                 team.researchers().stream().map(researcher -> (double) researcher.executives()).toList());
@@ -314,18 +301,19 @@ class ProjectChartQueries {
 
     private ChartResult statusChangesPerWeek(ChartQueryContext context, Map<String, String> options) {
         List<WeeklyCountDto> weekly = report(context).progress().weekly();
-        CandidatesResponse found = executives(context);
+        Map<LocalDate, Long> perDay = executives(context).candidates().stream()
+                .map(CandidateResponse::statusChangedAt)
+                .filter(Objects::nonNull)
+                .collect(Collectors.groupingBy(at -> at.atZone(ZoneOffset.UTC).toLocalDate(), Collectors.counting()));
         List<String> labels = new ArrayList<>();
         List<Double> values = new ArrayList<>();
         for (WeeklyCountDto week : weekly) {
-            var end = week.weekEnding();
-            var start = end.minusDays(6);
-            labels.add(WEEK_LABEL.format(end));
-            values.add((double) found.candidates().stream()
-                    .filter(executive -> executive.statusChangedAt() != null)
-                    .map(executive -> executive.statusChangedAt().atZone(java.time.ZoneOffset.UTC).toLocalDate())
-                    .filter(day -> !day.isBefore(start) && !day.isAfter(end))
-                    .count());
+            long moved = 0;
+            for (int day = 0; day < 7; day++) {
+                moved += perDay.getOrDefault(week.weekEnding().minusDays(day), 0L);
+            }
+            labels.add(ChartLabels.WEEK_ENDING.format(week.weekEnding()));
+            values.add((double) moved);
         }
         return ChartResult.timeSeries("Week ending", "Executives", labels, values);
     }
@@ -336,7 +324,7 @@ class ProjectChartQueries {
         if (order != null) {
             order.forEach(label -> counts.put(label, 0L));
         }
-        executives.forEach(executive -> counts.merge(orNotRecorded(keyOf.apply(executive)), 1L, Long::sum));
+        executives.forEach(executive -> counts.merge(ChartLabels.orNotRecorded(keyOf.apply(executive)), 1L, Long::sum));
         List<Map.Entry<String, Long>> entries = new ArrayList<>(counts.entrySet());
         entries.removeIf(entry -> entry.getValue() == 0);
         if (order == null) {
@@ -351,13 +339,13 @@ class ProjectChartQueries {
         for (Seniority seniority : Seniority.values()) {
             order.add(seniority.value());
         }
-        order.add(NOT_RECORDED);
+        order.add(ChartLabels.NOT_RECORDED);
         return order;
     }
 
     private static List<String> presentLevels(List<CandidateResponse> executives) {
         return levelOrder().stream()
-                .filter(level -> executives.stream().anyMatch(executive -> level.equals(orNotRecorded(executive.seniority()))))
+                .filter(level -> executives.stream().anyMatch(executive -> level.equals(ChartLabels.orNotRecorded(executive.seniority()))))
                 .toList();
     }
 
@@ -392,13 +380,7 @@ class ProjectChartQueries {
         };
     }
 
-    static String orNotRecorded(String value) {
-        return value == null || value.isBlank() ? NOT_RECORDED : value;
-    }
 
-    static long percent(long part, long whole) {
-        return whole == 0 ? 0 : Math.round(part * 100.0 / whole);
-    }
 
     private static double median(List<Long> values) {
         List<Long> sorted = values.stream().sorted().toList();
