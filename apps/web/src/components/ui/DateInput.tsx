@@ -14,6 +14,7 @@ export function DateInput({
   min,
   max,
   ariaLabel,
+  disabled = false,
   className,
 }: {
   /** ISO yyyy-MM-dd as the API speaks it; "" when unset. */
@@ -25,6 +26,7 @@ export function DateInput({
   max?: string;
   /** For a date shown without a `Field` label around it. */
   ariaLabel?: string;
+  disabled?: boolean;
   className?: string;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -44,6 +46,7 @@ export function DateInput({
       className={cn(
         "relative flex w-full items-center justify-between rounded-[6px] border border-u-border-strong bg-u-raised",
         "px-3 py-2.5 font-mono text-[13px] transition focus-within:border-u-accent",
+        disabled && "opacity-50",
         className,
       )}
     >
@@ -58,9 +61,10 @@ export function DateInput({
         min={min}
         max={max}
         aria-label={ariaLabel}
+        disabled={disabled}
         onChange={(event) => onChange(event.target.value)}
         onClick={openPicker}
-        className="absolute inset-0 cursor-pointer opacity-0"
+        className="absolute inset-0 cursor-pointer opacity-0 disabled:cursor-default"
       />
     </div>
   );

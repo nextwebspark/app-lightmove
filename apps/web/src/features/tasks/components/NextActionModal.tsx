@@ -12,15 +12,15 @@ import { useComboboxList } from "../../../lib/useComboboxList";
 import { useAuth } from "../../auth/AuthProvider";
 import { useWorkspaceVocabulary } from "../../workspace/lib/vocabulary";
 import * as tasksApi from "../api/tasksApi";
-import type { TaskKind, TaskNote, TaskPreset, TaskResponse } from "../api/types";
+import type { TaskKind, TaskNote, TaskPreset, TaskResponse, UpdateTaskRequest } from "../api/types";
 import {
   defaultDueOf,
   dueInstantOf,
   localDueOf,
   presetDueLabel,
   presetDueOf,
-  QUICK_DUES,
   quickDueOf,
+  quickDuesAt,
   viewerTimeZone,
   type LocalDue,
 } from "../lib/due";
@@ -161,12 +161,17 @@ function NextActionForm({
   const { user } = useAuth();
   const managesPresets = user?.workspace?.roles.includes("ADMIN") ?? false;
   const editing = task !== null;
-  const readOnly = editing && !task.editable;
+  // A closed task is read, not edited: changing one would tell a new holder about work already finished. Only a done
+  // one reopens; the server leaves a cancelled one as it is.
+  const finished = editing && task.status !== "open";
+  const done = editing && task.status === "done";
+  const readOnly = editing && (!task.editable || finished);
   const [title, setTitle] = useState(task?.title ?? "");
   const [presetId, setPresetId] = useState<string | null>(task?.presetId ?? null);
   const [kind, setKind] = useState<TaskKind>(task?.kind ?? "call");
   const [assigneeId, setAssigneeId] = useState(task?.assignee.userId ?? viewerId ?? "");
-  const [due, setDue] = useState<LocalDue>(task?.dueAt ? localDueOf(task.dueAt) : defaultDueOf());
+  const [initialDue] = useState<LocalDue>(() => (task?.dueAt ? localDueOf(task.dueAt) : defaultDueOf()));
+  const [due, setDue] = useState<LocalDue>(initialDue);
   const [detail, setDetail] = useState(task?.detail ?? "");
   const [error, setError] = useState<string | null>(null);
   const [listArmed, setListArmed] = useState(!editing);
@@ -212,21 +217,18 @@ function NextActionForm({
 
   const save = useMutation({
     mutationFn: () => {
-      const change = {
+      if (task) {
+        return tasksApi.updateTask(task.id, editedFieldsOf(task));
+      }
+      return tasksApi.createTask(target.projectId, target.candidateId, {
         title: title.trim(),
         kind,
         assigneeUserId: assigneeId,
         dueAt: dueAt!,
-        // A blank detail clears it on an edit; null would leave the old one standing.
-        detail: task ? detail.trim() : detail.trim() || null,
-      };
-      return task
-        ? tasksApi.updateTask(task.id, change)
-        : tasksApi.createTask(target.projectId, target.candidateId, {
-            ...change,
-            presetId,
-            noteId: target.note?.id ?? null,
-          });
+        detail: detail.trim() || null,
+        presetId,
+        noteId: target.note?.id ?? null,
+      });
     },
     onSuccess: () => {
       if (notifies && assignee) succeed(`Assigned to ${assignee.fullName} · they've been notified`);
@@ -235,6 +237,18 @@ function NextActionForm({
     },
     onError: fail,
   });
+  // Only what the person changed: the inputs hold a due to the minute, so resending an untouched one moved a rule's
+  // task by its seconds and sent its due-soon notice again, and an untouched title unlinked a renamed preset.
+  function editedFieldsOf(edited: TaskResponse): UpdateTaskRequest {
+    const change: UpdateTaskRequest = {};
+    if (title.trim() !== edited.title) change.title = title.trim();
+    if (kind !== edited.kind) change.kind = kind;
+    if (assigneeId !== edited.assignee.userId) change.assigneeUserId = assigneeId;
+    if ((due.date !== initialDue.date || due.time !== initialDue.time) && dueAt) change.dueAt = dueAt;
+    // A blank detail clears it on an edit; null would leave the old one standing.
+    if (detail.trim() !== (edited.detail ?? "")) change.detail = detail.trim();
+    return change;
+  }
   const complete = useMutation({
     mutationFn: () => tasksApi.updateTask(task!.id, { status: "done" }),
     onSuccess: () => {
@@ -248,8 +262,13 @@ function NextActionForm({
     onSuccess: () => succeed("Task deleted"),
     onError: fail,
   });
+  const reopen = useMutation({
+    mutationFn: () => tasksApi.updateTask(task!.id, { status: "open" }),
+    onSuccess: () => succeed("Next action reopened"),
+    onError: fail,
+  });
 
-  const busy = save.isPending || complete.isPending || remove.isPending;
+  const busy = save.isPending || complete.isPending || remove.isPending || reopen.isPending;
   const canSave = !readOnly && !busy && title.trim().length > 0 && dueAt !== null && assignee !== null;
   const saveLabel = notifies && assignee ? `Save & notify ${firstNameOf(assignee.fullName)}` : "Save";
 
@@ -272,29 +291,44 @@ function NextActionForm({
       }}
       footer={
         <>
+          {done && (
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={busy}
+              loading={reopen.isPending}
+              onClick={() => reopen.mutate()}
+            >
+              Reopen
+            </Button>
+          )}
           {editing && (
             <>
-              <Button
-                type="button"
-                variant="secondary"
-                className="text-u-direct hover:border-u-direct hover:text-u-direct"
-                disabled={busy}
-                loading={complete.isPending}
-                onClick={() => complete.mutate()}
-              >
-                <Icon d={ICONS.check} size={14} />
-                Mark done
-              </Button>
-              <button
-                type="button"
-                aria-label="Delete task"
-                title="Delete task"
-                disabled={readOnly || busy}
-                onClick={() => remove.mutate()}
-                className="grid size-10 flex-none place-items-center rounded-u-control border border-u-border-strong text-u-text3 transition hover:border-u-offlimits hover:text-u-offlimits disabled:opacity-50"
-              >
-                <Icon d={ICONS.trash} size={15} />
-              </button>
+              {!finished && (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="text-u-direct hover:border-u-direct hover:text-u-direct"
+                  disabled={busy}
+                  loading={complete.isPending}
+                  onClick={() => complete.mutate()}
+                >
+                  <Icon d={ICONS.check} size={14} />
+                  Mark done
+                </Button>
+              )}
+              {task.status !== "cancelled" && (
+                <button
+                  type="button"
+                  aria-label="Delete task"
+                  title="Delete task"
+                  disabled={!task.editable || busy}
+                  onClick={() => remove.mutate()}
+                  className="grid size-10 flex-none place-items-center rounded-u-control border border-u-border-strong text-u-text3 transition hover:border-u-offlimits hover:text-u-offlimits disabled:opacity-50"
+                >
+                  <Icon d={ICONS.trash} size={15} />
+                </button>
+              )}
             </>
           )}
           <span className="flex-1" />
@@ -443,6 +477,7 @@ function NextActionForm({
           <div className="grid grid-cols-[1fr_120px] gap-2.5">
             <DateInput
               ariaLabel="Due date"
+              disabled={readOnly}
               value={due.date}
               onChange={(date) => setDue((current) => ({ ...current, date }))}
             />
@@ -454,7 +489,7 @@ function NextActionForm({
             />
           </div>
           <div className="flex flex-wrap gap-1.5">
-            {QUICK_DUES.map((quick) => {
+            {quickDuesAt().map((quick) => {
               const quickDue = quickDueOf(quick.key);
               const on = quickDue.date === due.date && quickDue.time === due.time;
               return (
@@ -507,7 +542,9 @@ function NextActionForm({
             </span>
           </p>
         )}
-        {readOnly && (
+        {done && <p className="text-note text-u-text3">This next action is done. Reopen it to change it.</p>}
+        {finished && !done && <p className="text-note text-u-text3">This next action was deleted.</p>}
+        {readOnly && !finished && (
           <p className="text-note text-u-text3">
             Only whoever set this, whoever it's assigned to, or the lead can change it. Anyone on the team can mark it
             done.

@@ -114,6 +114,7 @@ export type ApiErrorCode =
   | "SHARE_CLIENT_CONFIDENTIAL"
   | "TASK_ASSIGNEE_NOT_ON_TEAM"
   | "TASK_NOT_YOURS"
+  | "TASK_CLOSED"
   | "STRATEGY_SEARCH_NAME_TAKEN"
   | "ASSISTANT_UNAVAILABLE"
   | "ASSISTANT_BUSY"
@@ -317,6 +318,7 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
     "Some variables have nothing to fill them for this executive. Fill them in, give them a fallback or remove them.",
   TASK_ASSIGNEE_NOT_ON_TEAM: "They aren't on this position's team. Add them in Team & access, or pick someone who is.",
   TASK_NOT_YOURS: "Only whoever set this task, whoever it's assigned to, the position's lead or an admin can change it.",
+  TASK_CLOSED: "This task is done or deleted. Reopen it to change it.",
   CANDIDATE_TAG_EXISTS: "Your team already has that tag.",
   CANDIDATE_TAG_RETIRED: "That tag is retired. Restore it in Settings to use it again.",
   CANDIDATE_ASSESSMENT_STALE: "Someone saved this assessment after you opened it. Reload to keep your changes over theirs.",

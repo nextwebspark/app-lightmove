@@ -354,6 +354,9 @@ public enum ErrorCode {
 
     TASK_PRESET_EXISTS(HttpStatus.CONFLICT, "Your team already has that preset"),
 
+    /** A done or cancelled task is history: it is reopened before it is changed or handed to someone. */
+    TASK_CLOSED(HttpStatus.CONFLICT, "Reopen this task to change it"),
+
     /** A person's owner is a colleague: an active member who is not a client representative. */
     PERSON_OWNER_NOT_STAFF(HttpStatus.BAD_REQUEST, "The owner must be someone on your team"),
 

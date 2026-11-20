@@ -330,6 +330,59 @@ describe("NextActionModal", () => {
     );
   });
 
+  it("sends only what was changed on an edit, so an untouched due keeps its seconds", async () => {
+    const ruleTask = { ...openTask, dueAt: "2026-10-03T14:03:27.512Z", presetId: "pr2", title: "Reference check" };
+    vi.mocked(tasksApi.getCandidateTasks).mockResolvedValue({ open: [ruleTask], done: [], doneCount: 0 });
+    vi.mocked(tasksApi.updateTask).mockResolvedValue(ruleTask);
+    renderModal({ ...newTarget, taskId: "t1" });
+
+    await userEvent.type(await screen.findByRole("textbox", { name: "Detail" }), " please");
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() => expect(tasksApi.updateTask).toHaveBeenCalledWith("t1", { detail: "Before Thursday please" }));
+  });
+
+  it("reads a done task without editing it, and offers Reopen", async () => {
+    const doneTask = { ...openTask, status: "done" as const, completedAt: local(3, 9) };
+    vi.mocked(tasksApi.getCandidateTasks).mockResolvedValue({ open: [], done: [doneTask], doneCount: 1 });
+    vi.mocked(tasksApi.updateTask).mockResolvedValue({ ...doneTask, status: "open", completedAt: null });
+    const { onClose } = renderModal({ ...newTarget, taskId: "t1" });
+
+    expect(await screen.findByText("This next action is done. Reopen it to change it.")).toBeInTheDocument();
+    expect(whatField()).toBeDisabled();
+    expect(screen.getByLabelText("Due date")).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "Mark done" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Delete task" })).toBeEnabled();
+
+    await userEvent.click(screen.getByRole("button", { name: "Reopen" }));
+
+    await waitFor(() => expect(tasksApi.updateTask).toHaveBeenCalledWith("t1", { status: "open" }));
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+  });
+
+  it("reads a deleted task without offering Reopen or Delete", async () => {
+    const cancelled = { ...openTask, status: "cancelled" as const };
+    vi.mocked(tasksApi.getCandidateTasks).mockResolvedValue({ open: [], done: [cancelled], doneCount: 1 });
+    renderModal({ ...newTarget, taskId: "t1" });
+
+    expect(await screen.findByText("This next action was deleted.")).toBeInTheDocument();
+    expect(screen.queryByText("This next action is done. Reopen it to change it.")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Reopen" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Delete task" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+  });
+
+  it("puts a same-day preset on tomorrow morning once today's end has gone, and offers no Today chip", async () => {
+    vi.setSystemTime(new Date(2026, 9, 3, 18, 30));
+    renderModal();
+
+    await userEvent.click(await screen.findByRole("option", { name: /Debrief after meeting/ }));
+
+    expect(dueLine()).toHaveTextContent(/^Due 04 Oct 2026, 09:00 · /);
+    expect(screen.queryByRole("button", { name: /^Today/ })).not.toBeInTheDocument();
+  });
+
   it("cancels the task it edits on Delete", async () => {
     vi.mocked(tasksApi.getCandidateTasks).mockResolvedValue({ open: [openTask], done: [], doneCount: 0 });
     vi.mocked(tasksApi.cancelTask).mockResolvedValue(undefined);
