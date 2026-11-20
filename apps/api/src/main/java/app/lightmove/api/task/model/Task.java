@@ -35,6 +35,7 @@ public class Task extends BaseEntity {
     public static final String ONE_LINE = "[^\\r\\n]*";
     public static final String ONE_LINE_ONLY = "Keep it to one line";
     public static final int MAX_DETAIL = 500;
+    private static final String RELEASED = ":released:";
 
     @Column(name = "workspace_id", nullable = false, updatable = false)
     private UUID workspaceId;
@@ -178,10 +179,20 @@ public class Task extends BaseEntity {
         this.completedAt = null;
     }
 
-    /** A rule's task that stands for another event now, or for none, gives up the key the first one claimed. */
+    /** A rule's task that stands for another event now takes that event's key. */
     public void rekey(String newRuleKey) {
         if (ruleKey != null && newRuleKey != null) {
             this.ruleKey = newRuleKey;
+        }
+    }
+
+    /**
+     * Gives up its event's key for one of its own, so the event is free to file again. Built on the event's key every
+     * time: released twice, a debrief's key outgrew {@code rule_key}'s 160 characters and its call's cancel failed.
+     */
+    public void releaseRuleKey() {
+        if (ruleKey != null) {
+            this.ruleKey = ruleKey.split(RELEASED, 2)[0] + RELEASED + getId();
         }
     }
 

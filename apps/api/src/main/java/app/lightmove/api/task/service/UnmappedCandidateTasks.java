@@ -13,10 +13,8 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * An executive taken off a position takes their open tasks there with them, cancelled in the removing transaction:
- * left open, they kept falling due in My tasks, the bell and the digest for someone the position no longer holds.
- * The history stays on the person's timeline. Not audited here: the audit writer is async and would outlive a removal
- * that rolls back, and the removal is audited itself.
+ * An executive taken off a position takes their open tasks there with them; left open, they kept falling due. Not
+ * audited: the async audit writer would outlive a removal that rolls back, and the removal is audited itself.
  */
 @Component
 @RequiredArgsConstructor
@@ -32,10 +30,7 @@ class UnmappedCandidateTasks {
                 TaskStatus.OPEN);
         for (Task task : open) {
             task.cancel();
-            // A rule's task gives up its event's key, as a cancelled call's debrief does.
-            if (task.getRuleKey() != null) {
-                task.rekey(TaskRuleService.releasedKeyOf(task));
-            }
+            task.releaseRuleKey();
             timeline.record(task, unmapped.removedBy(), PersonActivityKind.TASK_CANCELLED, null);
         }
     }

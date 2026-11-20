@@ -131,12 +131,7 @@ public class TaskService {
                 || request.dueAt() != null || request.assigneeUserId() != null;
         if (changesTheTask) {
             requireMayChange(userId, task);
-            // A cancelled task, or a done one not reopened by this change, refused a reassignment nowhere: its new
-            // holder was told they had been handed it, work long over.
-            boolean reopens = task.getStatus() == TaskStatus.DONE && TaskStatus.OPEN.value().equals(request.status());
-            if (!task.isOpen() && !reopens) {
-                throw ApiException.of(ErrorCode.TASK_CLOSED);
-            }
+            requireOpenOrReopening(task, request.status());
         }
         EditableTask before = EditableTask.of(task);
         UUID assignedBefore = task.getAssigneeUserId();
@@ -286,6 +281,14 @@ public class TaskService {
         if (task.reassign(assigneeUserId)) {
             line(task, actor, PersonActivityKind.TASK_REASSIGNED, previous);
             announceAssignment(task, actor);
+        }
+    }
+
+    /** Shipped bug: a closed task could be reassigned, and its new holder was told about finished work. */
+    private static void requireOpenOrReopening(Task task, String status) {
+        boolean reopens = task.getStatus() == TaskStatus.DONE && TaskStatus.OPEN.value().equals(status);
+        if (!task.isOpen() && !reopens) {
+            throw ApiException.of(ErrorCode.TASK_CLOSED);
         }
     }
 

@@ -55,7 +55,6 @@ public class TaskRuleService {
     private static final Duration REPLY_WITHIN = Duration.ofDays(1);
     private static final Duration BOUNCE_WITHIN = Duration.ofDays(2);
     private static final Duration CALL_LENGTH_UNKNOWN = Duration.ofMinutes(30);
-    private static final String RELEASED = ":released:";
 
     private final JdbcTemplate jdbc;
     private final TaskRepository tasks;
@@ -135,8 +134,11 @@ public class TaskRuleService {
                 callEndOf(moved.previousStartsAt(), moved.previousEndsAt()), moved.movedBy(),
                 ProjectEventType.TASK_UPDATED, task -> {
                     task.reschedule(callEndOf(moved.startsAt(), moved.endsAt()));
-                    task.rekey(tasks.existsByWorkspaceIdAndRuleKey(moved.workspaceId(), movedKey)
-                            ? releasedKeyOf(task) : movedKey);
+                    if (tasks.existsByWorkspaceIdAndRuleKey(moved.workspaceId(), movedKey)) {
+                        task.releaseRuleKey();
+                    } else {
+                        task.rekey(movedKey);
+                    }
                 });
     }
 
@@ -152,7 +154,7 @@ public class TaskRuleService {
                 callEndOf(cancelled.startsAt(), cancelled.endsAt()), cancelled.cancelledBy(),
                 ProjectEventType.TASK_CANCELLED, task -> {
                     task.cancel();
-                    task.rekey(releasedKeyOf(task));
+                    task.releaseRuleKey();
                     timeline.record(task, cancelled.cancelledBy(), PersonActivityKind.TASK_CANCELLED, null);
                 });
     }
@@ -172,15 +174,6 @@ public class TaskRuleService {
 
     private static String bookedCallKey(UUID projectId, UUID personId, Instant startsAt) {
         return "booked_call:" + projectId + ":" + personId + ":" + startsAt.getEpochSecond();
-    }
-
-    /**
-     * Built on the event's own key, never on a key already released: a debrief moved onto a taken slot and then
-     * cancelled was released twice, outgrew {@code rule_key}'s 160 characters, and the failed cancel left it open.
-     */
-    static String releasedKeyOf(Task task) {
-        String eventKey = task.getRuleKey().split(RELEASED, 2)[0];
-        return eventKey + RELEASED + task.getId();
     }
 
     /**
