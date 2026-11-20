@@ -288,6 +288,27 @@ public enum ErrorCode {
     RANKING_SCENARIO_STALE(HttpStatus.CONFLICT,
             "Someone saved this scenario after you opened it. Reload to see their changes"),
 
+    /** A dashboard that does not exist, is another workspace's, or is someone else's and not shared. */
+    DASHBOARD_NOT_FOUND(HttpStatus.NOT_FOUND, "That dashboard does not exist or is not shared with you"),
+
+    /** A teammate's shared dashboard: anyone it is shared with may open it, only the one who made it changes it. */
+    DASHBOARD_READ_ONLY(HttpStatus.FORBIDDEN, "Only the person who made this dashboard can change it"),
+
+    /** The dashboard was saved elsewhere after it was opened here. */
+    DASHBOARD_STALE(HttpStatus.CONFLICT, "This dashboard was changed since you opened it. Reload to see the changes"),
+
+    /** A dashboard holds at most thirty charts, so it stays readable and quick to load. */
+    DASHBOARD_TOO_MANY_WIDGETS(HttpStatus.BAD_REQUEST, "A dashboard can hold up to 30 charts"),
+
+    /** A library query that does not exist, or not on this kind of dashboard. */
+    CHART_QUERY_NOT_FOUND(HttpStatus.NOT_FOUND, "That chart is no longer available"),
+
+    /** A chart type that cannot honestly draw this query's answer: a pie of a median, a line of a breakdown. */
+    CHART_TYPE_NOT_ALLOWED(HttpStatus.BAD_REQUEST, "That chart type does not fit this data"),
+
+    /** An option the query does not offer, or a value it does not allow. */
+    CHART_OPTION_INVALID(HttpStatus.BAD_REQUEST, "That option is not available for this chart"),
+
     /** The brief's competencies changed after the ranking was opened, so the scenario names the wrong ones. */
     RANKING_BRIEF_CHANGED(HttpStatus.CONFLICT,
             "The brief's competencies changed since you opened this. Reload to see them"),
