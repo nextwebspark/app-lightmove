@@ -16,6 +16,12 @@ and wait on the decisions in [governance-decisions.md](governance-decisions.md).
 | [breach-runbook.md](breach-runbook.md) | Detecting, assessing and notifying a personal data breach; the breach register |
 | [subject-requests-procedure.md](subject-requests-procedure.md) | Requests that reach Uncava rather than a firm (website #28) |
 | [governance-decisions.md](governance-decisions.md) | Every open decision for counsel and the business |
+| [uae-alignment.md](uae-alignment.md) | The UAE lawyer's items (PDPL, DIFC, ADGM) against what is built, with the build backlog |
+| [information-security-policy.md](information-security-policy.md) | Information security policy (ISO 27001 style), with a client summary |
+| [access-control-policy.md](access-control-policy.md) | Roles, seats, MFA, workspace separation |
+| [backup-and-recovery.md](backup-and-recovery.md) | Backup and recovery procedure and restore drill |
+| [data-flow-map.md](data-flow-map.md) | How data moves between Uncava, clients and providers |
+| [client-message-templates.md](client-message-templates.md) | Candidate message templates for firms, including an access-request reply |
 
 ## How the product handles it
 
