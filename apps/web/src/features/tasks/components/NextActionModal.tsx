@@ -161,8 +161,10 @@ function NextActionForm({
   const { user } = useAuth();
   const managesPresets = user?.workspace?.roles.includes("ADMIN") ?? false;
   const editing = task !== null;
-  // A done task is read, not edited: changing one would tell a new holder about work already finished.
+  // A closed task is read, not edited: changing one would tell a new holder about work already finished. Only a done
+  // one reopens; the server leaves a cancelled one as it is.
   const finished = editing && task.status !== "open";
+  const done = editing && task.status === "done";
   const readOnly = editing && (!task.editable || finished);
   const [title, setTitle] = useState(task?.title ?? "");
   const [presetId, setPresetId] = useState<string | null>(task?.presetId ?? null);
@@ -289,7 +291,7 @@ function NextActionForm({
       }}
       footer={
         <>
-          {finished && (
+          {done && (
             <Button
               type="button"
               variant="secondary"
@@ -315,16 +317,18 @@ function NextActionForm({
                   Mark done
                 </Button>
               )}
-              <button
-                type="button"
-                aria-label="Delete task"
-                title="Delete task"
-                disabled={!task.editable || busy}
-                onClick={() => remove.mutate()}
-                className="grid size-10 flex-none place-items-center rounded-u-control border border-u-border-strong text-u-text3 transition hover:border-u-offlimits hover:text-u-offlimits disabled:opacity-50"
-              >
-                <Icon d={ICONS.trash} size={15} />
-              </button>
+              {task.status !== "cancelled" && (
+                <button
+                  type="button"
+                  aria-label="Delete task"
+                  title="Delete task"
+                  disabled={!task.editable || busy}
+                  onClick={() => remove.mutate()}
+                  className="grid size-10 flex-none place-items-center rounded-u-control border border-u-border-strong text-u-text3 transition hover:border-u-offlimits hover:text-u-offlimits disabled:opacity-50"
+                >
+                  <Icon d={ICONS.trash} size={15} />
+                </button>
+              )}
             </>
           )}
           <span className="flex-1" />
@@ -538,9 +542,8 @@ function NextActionForm({
             </span>
           </p>
         )}
-        {finished && (
-          <p className="text-note text-u-text3">This next action is done. Reopen it to change it.</p>
-        )}
+        {done && <p className="text-note text-u-text3">This next action is done. Reopen it to change it.</p>}
+        {finished && !done && <p className="text-note text-u-text3">This next action was deleted.</p>}
         {readOnly && !finished && (
           <p className="text-note text-u-text3">
             Only whoever set this, whoever it's assigned to, or the lead can change it. Anyone on the team can mark it

@@ -324,6 +324,8 @@ describe("MyTasksCard", () => {
 
     await waitFor(() => expect(tasksApi.updateTask).toHaveBeenCalledWith("reply", { status: "done" }));
     await waitFor(() => expect(tab(/^Today/)).toHaveAccessibleName("Today · 5"));
+    expect(await screen.findByText("Someone already deleted this task")).toBeInTheDocument();
+    expect(screen.queryByRole("listitem", { name: "Reply to Rania Khoury" })).not.toBeInTheDocument();
   });
 
   it("strikes a completed task where it is and offers the next one", async () => {

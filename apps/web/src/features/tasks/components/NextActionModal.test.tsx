@@ -361,6 +361,18 @@ describe("NextActionModal", () => {
     await waitFor(() => expect(onClose).toHaveBeenCalled());
   });
 
+  it("reads a deleted task without offering Reopen or Delete", async () => {
+    const cancelled = { ...openTask, status: "cancelled" as const };
+    vi.mocked(tasksApi.getCandidateTasks).mockResolvedValue({ open: [], done: [cancelled], doneCount: 1 });
+    renderModal({ ...newTarget, taskId: "t1" });
+
+    expect(await screen.findByText("This next action was deleted.")).toBeInTheDocument();
+    expect(screen.queryByText("This next action is done. Reopen it to change it.")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Reopen" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Delete task" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+  });
+
   it("puts a same-day preset on tomorrow morning once today's end has gone, and offers no Today chip", async () => {
     vi.setSystemTime(new Date(2026, 9, 3, 18, 30));
     renderModal();

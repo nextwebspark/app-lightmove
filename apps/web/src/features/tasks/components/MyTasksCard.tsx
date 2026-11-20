@@ -122,13 +122,18 @@ export function MyTasksCard({ page = false }: {
                 ...current,
                 pages: current.pages.map((slice) => ({
                   ...slice,
-                  tasks: slice.tasks.map((task) => (task.id === saved.id ? saved : task)),
+                  // A row someone else deleted leaves the list: ticking it again would do nothing, silently.
+                  tasks:
+                    saved.status === "cancelled"
+                      ? slice.tasks.filter((task) => task.id !== saved.id)
+                      : slice.tasks.map((task) => (task.id === saved.id ? saved : task)),
                   counts: { ...slice.counts, [on.count]: slice.counts[on.count] + delta },
                 })),
               }
             : current,
       );
       tasksChanged(saved.projectId, { keepMyTasks: true });
+      if (saved.status === "cancelled") toast("Someone already deleted this task");
     },
     onError: (error) => toast.error(messageFor(error)),
   });
