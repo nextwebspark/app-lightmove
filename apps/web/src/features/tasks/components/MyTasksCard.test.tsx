@@ -312,6 +312,20 @@ describe("MyTasksCard", () => {
     expect(tab(/^Overdue/)).toHaveAccessibleName("Overdue · 1");
   });
 
+  it("counts a task off its tab when the tick finds someone already cancelled it", async () => {
+    vi.mocked(tasksApi.updateTask).mockImplementation(async (taskId) => ({
+      ...BY_VIEW.today.find((task) => task.id === taskId)!,
+      status: "cancelled",
+    }));
+    renderCard();
+    await screen.findByRole("list", { name: "Today tasks" });
+
+    await userEvent.click(screen.getByRole("checkbox", { name: "Complete Reply to Rania Khoury" }));
+
+    await waitFor(() => expect(tasksApi.updateTask).toHaveBeenCalledWith("reply", { status: "done" }));
+    await waitFor(() => expect(tab(/^Today/)).toHaveAccessibleName("Today · 5"));
+  });
+
   it("strikes a completed task where it is and offers the next one", async () => {
     vi.mocked(tasksApi.updateTask).mockImplementation(async (taskId) => ({
       ...BY_VIEW.today.find((task) => task.id === taskId)!,

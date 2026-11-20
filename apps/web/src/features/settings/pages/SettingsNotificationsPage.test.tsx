@@ -140,6 +140,25 @@ describe("SettingsNotificationsPage", () => {
     expect(await screen.findByText("Saved for the whole workspace")).toBeInTheDocument();
   });
 
+  it("sends two quick flips of the automatic tasks in the order they were made", async () => {
+    const answers: (() => void)[] = [];
+    vi.mocked(tasksApi.putTaskRules).mockImplementation(
+      (next) => new Promise((resolve) => answers.push(() => resolve(next))),
+    );
+    renderPage();
+    const card = await screen.findByRole("region", { name: "Automatic tasks for the workspace" });
+    const booked = await within(card).findByRole("switch", { name: "Automatic task on Booked call" });
+    await waitFor(() => expect(booked).toBeEnabled());
+
+    await userEvent.click(booked);
+    await userEvent.click(within(card).getByRole("switch", { name: "Automatic task on Reply" }));
+    expect(tasksApi.putTaskRules).toHaveBeenCalledTimes(1);
+
+    answers[0]();
+    await waitFor(() => expect(tasksApi.putTaskRules).toHaveBeenCalledTimes(2));
+    expect(tasksApi.putTaskRules).toHaveBeenLastCalledWith({ reply: false, bounce: true, bookedCall: true });
+  });
+
   it("shows a member no automatic tasks, and never asks for them", async () => {
     currentUser = aUser({ workspace: aWorkspace({ roles: ["MEMBER"] }) });
     renderPage();

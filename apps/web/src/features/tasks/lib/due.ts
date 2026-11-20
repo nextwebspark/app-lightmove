@@ -58,9 +58,22 @@ export function dueInstantOf(due: LocalDue): string | null {
   return Number.isNaN(moment.getTime()) ? null : moment.toISOString();
 }
 
-/** A preset's due: so many days from today at 09:00, or 17:00 when it falls due the same day. */
+/**
+ * A preset's due: so many days from today at 09:00, or 17:00 when it falls due the same day — tomorrow morning once
+ * today's 17:00 has gone, or the task would be filed overdue.
+ */
 export function presetDueOf(offsetDays: number, now: Date = new Date()): LocalDue {
+  if (offsetDays === 0 && isPastEndOfDay(now)) return { date: daysAfter(now, 1), time: MORNING };
   return { date: daysAfter(now, offsetDays), time: offsetDays === 0 ? END_OF_DAY : MORNING };
+}
+
+/** The quick dues still ahead: Today 17:00 is left out once it has gone. */
+export function quickDuesAt(now: Date = new Date()): readonly { key: QuickDueKey; readonly label: string }[] {
+  return isPastEndOfDay(now) ? QUICK_DUES.filter((quick) => quick.key !== "today") : QUICK_DUES;
+}
+
+function isPastEndOfDay(now: Date): boolean {
+  return wallClockOf(now).time >= END_OF_DAY;
 }
 
 /** A new task's due until somebody says otherwise: tomorrow morning. */

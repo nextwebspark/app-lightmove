@@ -17,8 +17,9 @@ import {
   TaskPresetRow,
   type PresetEditorFocus,
 } from "../components/TaskPresetRow";
-import { inPresetOrder, openSuggestions, timesLabel } from "../lib/taskPresetView";
+import { inPresetOrder, openSuggestions, PRESET_LABEL_MAX, timesLabel } from "../lib/taskPresetView";
 
+const PRESET_ORDER_KEY = ["task-presets", "order"] as const;
 const NEW_PRESET: TaskPresetDraft = { label: "", kind: "todo", dueOffsetDays: 1 };
 
 /** What the one inline editor is open on: a preset by id, or a new one. */
@@ -77,9 +78,17 @@ export function SettingsTaskPresetsPage() {
     onSettled: refresh,
   });
 
+  // One move at a time, in the order they were made, and only the last answer drawn: an earlier move's answer arriving
+  // after a later move put the list back in the older order.
   const reordering = useMutation({
+    mutationKey: PRESET_ORDER_KEY,
+    scope: { id: "task-preset-order" },
     mutationFn: (liveIds: string[]) => tasksApi.reorderTaskPresets(liveIds),
-    onSuccess: (saved) => queryClient.setQueryData(tasksApi.TASK_PRESETS_KEY, saved),
+    onSuccess: (saved) => {
+      if (queryClient.isMutating({ mutationKey: PRESET_ORDER_KEY }) <= 1) {
+        queryClient.setQueryData(tasksApi.TASK_PRESETS_KEY, saved);
+      }
+    },
     onError: (error) => {
       refuse(error);
       refresh();
@@ -253,7 +262,9 @@ export function SettingsTaskPresetsPage() {
                       size="xs"
                       disabled={editor !== null}
                       aria-label={`Make a preset of ${suggestion.label}`}
-                      onClick={() => openEditor(null, "kind", { ...NEW_PRESET, label: suggestion.label })}
+                      onClick={() =>
+                        openEditor(null, "kind", { ...NEW_PRESET, label: suggestion.label.slice(0, PRESET_LABEL_MAX) })
+                      }
                     >
                       <Icon d={ICONS.plus} size={12} />
                       Make a preset
