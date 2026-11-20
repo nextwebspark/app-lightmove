@@ -1,6 +1,7 @@
 import { DndContext, closestCenter, type DragEndEvent } from "@dnd-kit/core";
 import { rectSortingStrategy, SortableContext, useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { useQuery } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Button, useToast } from "../../../components/ui";
@@ -9,9 +10,13 @@ import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
 import { cn } from "../../../lib/cn";
 import { moveItem } from "../../../lib/moveItem";
 import { useSortableSensors } from "../../../lib/sortableSensors";
+import * as dashboardsApi from "../api/dashboardsApi";
 import type { ChartQueryDef, Dashboard, DashboardScope, DashboardWidget, WidgetSize } from "../api/types";
 import { NEXT_SIZE, SIZE_LABELS } from "../lib/chartRules";
 import { bodyOf, useDashboardWrites } from "../lib/useDashboardWrites";
+
+/** Figures stay live without a refetch on every focus: each answer is a server-side aggregate. */
+const ANSWERS_STALE_MS = 60_000;
 import { ChartCard } from "./ChartCard";
 import { ChartLibraryDrawer, draftFor, type ChartDraft } from "./ChartLibraryDrawer";
 import { DashboardNameDialog } from "./DashboardNameDialog";
@@ -56,7 +61,7 @@ export function DashboardView({
   onDeleted: () => void;
 }) {
   const toast = useToast();
-  const { create, save, remove } = useDashboardWrites(scope);
+  const { duplicate, save, remove } = useDashboardWrites(scope);
   const sensors = useSortableSensors();
   const [draft, setDraft] = useState<DraftItem[] | null>(null);
   const [libraryDraft, setLibraryDraft] = useState<ChartDraft | null | "library">(null);
@@ -64,6 +69,13 @@ export function DashboardView({
   const editing = draft !== null;
   const items = draft ?? dashboard.widgets.map((widget, index) => ({ key: `saved-${index}`, widget }));
   const queryOf = (id: string) => library.find((query) => query.id === id);
+  const asked = items.map((item) => item.widget);
+  const answers = useQuery({
+    queryKey: dashboardsApi.CHART_ANSWERS_KEY(scope, asked),
+    queryFn: ({ signal }) => dashboardsApi.getChartAnswers(scope, asked, signal),
+    enabled: asked.length > 0,
+    staleTime: ANSWERS_STALE_MS,
+  });
 
   const startEditing = (extra: DashboardWidget[] = []) =>
     setDraft([...(draft ?? dashboard.widgets.map(keyed)), ...extra.map(keyed)]);
@@ -118,15 +130,12 @@ export function DashboardView({
   };
 
   const handleDuplicate = () =>
-    create.mutate(
-      { name: `${dashboard.name} (copy)`.slice(0, 80), shared: false, widgets: dashboard.widgets, version: null },
-      {
-        onSuccess: (copy) => {
-          toast.success("Dashboard duplicated");
-          onOpen(copy.id);
-        },
+    duplicate.mutate(dashboard.id, {
+      onSuccess: (copy) => {
+        toast.success("Dashboard duplicated");
+        onOpen(copy.id);
       },
-    );
+    });
 
   return (
     <section aria-label={dashboard.name} className="animate-fade-up">
@@ -171,7 +180,7 @@ export function DashboardView({
           </div>
         )}
         {!dashboard.owned && (
-          <Button variant="secondary" size="sm" loading={create.isPending} onClick={handleDuplicate}>
+          <Button variant="secondary" size="sm" loading={duplicate.isPending} onClick={handleDuplicate}>
             <Icon d={ICONS.copy} size={14} />
             Duplicate to edit
           </Button>
@@ -230,6 +239,9 @@ export function DashboardView({
                       scope={scope}
                       widget={item.widget}
                       query={queryOf(item.widget.queryId)}
+                      answer={answers.data?.[index]}
+                      isPending={answers.isPending}
+                      isError={answers.isError}
                       className={cn(editing && "pb-10 outline-[1.5px] -outline-offset-[1.5px] outline-dashed outline-u-accent-ring")}
                       actions={
                         editing ? (

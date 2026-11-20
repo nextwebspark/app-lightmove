@@ -156,9 +156,6 @@ function Library({
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2 text-body font-semibold">
                     {relabel(query.label)}
-                    {query.staffOnly && (
-                      <span className="rounded-full bg-u-raised px-2 py-0.5 text-meta font-medium text-u-text3">Staff only</span>
-                    )}
                   </div>
                   <div className="mt-0.5 text-note text-u-text2">{relabel(query.description)}</div>
                   <div className="mt-1.5 flex items-center gap-1.5 text-u-text3">
@@ -205,7 +202,7 @@ function ShowAs({
     queryKey: dashboardsApi.CHART_RESULT_KEY(scope, query.id, draft.options),
     queryFn: ({ signal }) => dashboardsApi.runChartQuery(scope, query.id, draft.options, signal),
   });
-  const allowed = result ? result.allowedCharts : allowedCharts(query.shape, query.noSum, 0);
+  const allowed = result ? result.allowedCharts : allowedCharts(query.shape, query.notAdditive, 0);
   const chart = allowed.includes(draft.chart) ? draft.chart : allowed[0];
   const title = draft.title.trim() || relabel(defaultTitle(query, draft.options));
 

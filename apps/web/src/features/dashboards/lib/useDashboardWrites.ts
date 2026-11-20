@@ -22,6 +22,13 @@ export function useDashboardWrites(scope: DashboardScope) {
     },
     onError: refuse,
   });
+  const duplicate = useMutation({
+    mutationFn: (id: string) => dashboardsApi.duplicateDashboard(scope, id),
+    onSuccess: (copy) => {
+      client.setQueryData<Dashboard[]>(listKey, (list) => [...(list ?? []), copy]);
+    },
+    onError: refuse,
+  });
   const save = useMutation({
     mutationFn: ({ id, body }: { id: string; body: SaveDashboard }) => dashboardsApi.updateDashboard(scope, id, body),
     onSuccess: (saved) => {
@@ -36,7 +43,7 @@ export function useDashboardWrites(scope: DashboardScope) {
     },
     onError: refuse,
   });
-  return { create, save, remove };
+  return { create, duplicate, save, remove };
 }
 
 /** A dashboard's body as saved, with whatever changed. */

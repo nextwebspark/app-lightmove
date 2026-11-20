@@ -8,8 +8,7 @@ const executivesBy: ChartQueryDef = {
   label: "Executives by …",
   description: "",
   shape: "CATEGORICAL",
-  noSum: false,
-  staffOnly: false,
+  notAdditive: false,
   defaultChart: "bar",
   charts: ["bar", "column", "pie", "donut", "table"],
   options: [

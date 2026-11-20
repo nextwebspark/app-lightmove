@@ -53,12 +53,19 @@ export interface ChartQueryDef {
   label: string;
   description: string;
   shape: ChartShape;
-  noSum: boolean;
-  staffOnly: boolean;
+  /** Its parts are no whole (a median, a rate): never a pie. */
+  notAdditive: boolean;
   defaultChart: ChartType;
   /** The types the shape allows before data is known; a result's `allowedCharts` may be narrower. */
   charts: ChartType[];
   options: ChartOptionDef[];
+}
+
+/** One chart's answer from a dashboard's batch: the result, or the code of why it has none. */
+export interface ChartAnswer {
+  queryId: string;
+  result: ChartResult | null;
+  code: string | null;
 }
 
 export interface ChartSeries {

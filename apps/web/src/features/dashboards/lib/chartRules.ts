@@ -13,9 +13,9 @@ const SHAPE_CHARTS: Record<ChartShape, readonly ChartType[]> = {
 export const MAX_PIE_SLICES = 8;
 
 /** A pie needs parts of one whole — never a median or a rate — and stops reading past eight slices. */
-export function allowedCharts(shape: ChartShape, noSum: boolean, labelCount: number): ChartType[] {
+export function allowedCharts(shape: ChartShape, notAdditive: boolean, labelCount: number): ChartType[] {
   const charts = SHAPE_CHARTS[shape];
-  if (shape === "CATEGORICAL" && (noSum || labelCount > MAX_PIE_SLICES)) {
+  if (shape === "CATEGORICAL" && (notAdditive || labelCount > MAX_PIE_SLICES)) {
     return charts.filter((chart) => chart !== "pie" && chart !== "donut");
   }
   return [...charts];

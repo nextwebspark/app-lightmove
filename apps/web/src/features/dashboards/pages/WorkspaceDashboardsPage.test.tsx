@@ -13,6 +13,8 @@ vi.mock("../api/dashboardsApi", async (importOriginal) => ({
   listDashboards: vi.fn(),
   getChartLibrary: vi.fn(),
   runChartQuery: vi.fn(),
+  getChartAnswers: vi.fn(),
+  duplicateDashboard: vi.fn(),
   createDashboard: vi.fn(),
   updateDashboard: vi.fn(),
   deleteDashboard: vi.fn(),
@@ -29,8 +31,7 @@ const positionsBy: ChartQueryDef = {
   label: "Open positions by …",
   description: "Open positions by health, stage, business unit or lead",
   shape: "CATEGORICAL",
-  noSum: false,
-  staffOnly: false,
+  notAdditive: false,
   defaultChart: "donut",
   charts: ["bar", "column", "pie", "donut", "table"],
   options: [
@@ -52,8 +53,7 @@ const perWeek: ChartQueryDef = {
   label: "Executives mapped per week",
   description: "Across every open position — not cumulative",
   shape: "TIME_SERIES",
-  noSum: false,
-  staffOnly: false,
+  notAdditive: false,
   defaultChart: "line",
   charts: ["line", "area", "column", "table"],
   options: [],
@@ -110,11 +110,18 @@ describe("WorkspaceDashboardsPage", () => {
     mode = "COMPANY";
     vi.mocked(dashboardsApi.listDashboards).mockReset().mockResolvedValue([pipeline]);
     vi.mocked(dashboardsApi.getChartLibrary).mockReset().mockResolvedValue([positionsBy, perWeek]);
-    vi.mocked(dashboardsApi.runChartQuery).mockReset().mockImplementation(async (_scope, queryId) =>
+    const answerFor = (queryId: string) =>
       queryId === "executivesFiledPerWeek"
         ? result({ queryId, shape: "TIME_SERIES", allowedCharts: ["line", "area", "column", "table"],
             dimension: "Week ending", labels: ["7 Sept", "14 Sept"], values: [4, 7] })
-        : result({}),
+        : result({});
+    vi.mocked(dashboardsApi.runChartQuery).mockReset().mockImplementation(async (_scope, queryId) => answerFor(queryId));
+    vi.mocked(dashboardsApi.getChartAnswers).mockReset().mockImplementation(async (_scope, widgets) =>
+      widgets.map((widget) =>
+        widget.queryId === "retired"
+          ? { queryId: widget.queryId, result: null, code: "CHART_QUERY_NOT_FOUND" }
+          : { queryId: widget.queryId, result: answerFor(widget.queryId), code: null },
+      ),
     );
     vi.mocked(dashboardsApi.updateDashboard).mockReset();
   });
@@ -176,6 +183,17 @@ describe("WorkspaceDashboardsPage", () => {
     ]);
     renderPage();
     expect(await screen.findByText(/This chart is no longer available/)).toBeInTheDocument();
+    expect(dashboardsApi.runChartQuery).not.toHaveBeenCalled();
+  });
+
+  it("answers every chart of a dashboard in one request", async () => {
+    vi.mocked(dashboardsApi.listDashboards).mockResolvedValue([
+      { ...pipeline, widgets: [...pipeline.widgets, { queryId: "executivesFiledPerWeek", chart: "line", options: {}, title: null, size: "M" }] },
+    ]);
+    renderPage();
+    await screen.findByRole("region", { name: "Executives mapped per week" });
+    await waitFor(() => expect(screen.getByText("On track")).toBeInTheDocument());
+    expect(dashboardsApi.getChartAnswers).toHaveBeenCalledTimes(1);
     expect(dashboardsApi.runChartQuery).not.toHaveBeenCalled();
   });
 
