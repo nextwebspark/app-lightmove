@@ -443,8 +443,9 @@ class TaskIntegrationTest extends PipelineFlowSupport {
         Instant ten = Instant.now().plus(3, ChronoUnit.DAYS).truncatedTo(ChronoUnit.HOURS);
         Instant eleven = ten.plus(1, ChronoUnit.HOURS);
         booked(personId, eleven);
-        String earlier = db.queryForObject("select id::text from app_lm_task where rule = 'BOOKED_CALL'",
-                String.class);
+        String earlier = db.queryForObject("""
+                select id::text from app_lm_task where rule = 'BOOKED_CALL' and project_id = ?::uuid""",
+                String.class, projectId);
         write(researcher, "PATCH", "/api/v1/tasks/" + earlier, """
                 {"status":"done"}""");
         booked(personId, ten);
@@ -456,8 +457,9 @@ class TaskIntegrationTest extends PipelineFlowSupport {
                 UUID.fromString(workspaceId), UUID.fromString(projectId), personId, UUID.fromString(researcherId),
                 eleven, eleven.plus(30, ChronoUnit.MINUTES)))));
 
-        assertThat(db.queryForList("select status from app_lm_task where rule = 'BOOKED_CALL' order by status",
-                String.class)).containsExactly("CANCELLED", "DONE");
+        assertThat(db.queryForList("""
+                select status from app_lm_task where rule = 'BOOKED_CALL' and project_id = ?::uuid
+                order by status""", String.class, projectId)).containsExactly("CANCELLED", "DONE");
     }
 
     private void booked(UUID personId, Instant startsAt) {
