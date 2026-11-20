@@ -82,6 +82,7 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
         items: [
           { to: `/${listSearch}`, label: "My positions", icon: ICONS.myProjects, count: myCount, end: true },
           { to: `/all${listSearch}`, label: "All positions", icon: ICONS.allProjects, count: projects && livePositions(projects).length },
+          { to: "/dashboards", label: "Dashboards", icon: ICONS.dashboard },
         ],
       };
 

@@ -83,6 +83,7 @@ Likelihood and severity: L(ow), M(edium), H(igh). Residual risk assumes the meas
 | R11 | A breach goes unnoticed | M | H | lockout, rate limits, ERROR/5xx alerts | audit-event alerts; [breach-runbook.md](breach-runbook.md) | M |
 | R12 | Personal data in logs outlives an erasure | M | L | `PersonalDataLogMasker`; ids-only audit; 30-day logs | the `?q=` request-log decision ⚖️ (#927) | L |
 | R13 | Client representative reads staff-only data | L | M | client seats never receive notes, documents, tasks, assessments, AI readings or contacts | hide restricted people from client seats ⚖️ (#920) | L |
+| R14 | A dashboard chart singles out a person in a small group, or states an AI guess as fact | L | M | library queries only, no free-form builder; gender counted from researcher-recorded values only and a level under 3 recorded suppressed server-side; no nationality chart; staff only ([custom-dashboards.md](../custom-dashboards.md)) | — | L |
 
 ## 6. Consultation and sign-off
 

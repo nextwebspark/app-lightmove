@@ -14,10 +14,14 @@ export function ReportNav({
   chapters,
   activeKey,
   footer,
+  extra,
 }: {
   chapters: readonly ReportChapterLink[];
+  /** No chapter is current while a custom dashboard is open: "". */
   activeKey: string;
   footer: ReactNode;
+  /** Drawn under the chapters — the staff's "Your dashboards". */
+  extra?: (collapsed: boolean) => ReactNode;
 }) {
   const { collapsed, toggle } = useReportNavCollapsed();
   return (
@@ -40,6 +44,7 @@ export function ReportNav({
           activeKey={activeKey}
           collapsed={collapsed}
         />
+        {extra?.(collapsed)}
         <div
           className={cn(
             "mt-3 text-[11px] italic leading-[1.7] text-u-text3 lg:mt-7 lg:border-t lg:border-u-border lg:pt-5",

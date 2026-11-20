@@ -79,6 +79,13 @@ export type ApiErrorCode =
   | "CANDIDATE_ASSESSMENT_NOTHING_OPEN"
   | "AI_ASSESSMENT_DISABLED"
   | "RANKING_SCENARIO_STALE"
+  | "DASHBOARD_NOT_FOUND"
+  | "DASHBOARD_READ_ONLY"
+  | "DASHBOARD_STALE"
+  | "DASHBOARD_TOO_MANY_WIDGETS"
+  | "CHART_QUERY_NOT_FOUND"
+  | "CHART_TYPE_NOT_ALLOWED"
+  | "CHART_OPTION_INVALID"
   | "RANKING_BRIEF_CHANGED"
   | "AI_UNAVAILABLE"
   | "PIPELINE_STAGE_NOT_EMPTY"
@@ -324,6 +331,13 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   CANDIDATE_ASSESSMENT_STALE: "Someone saved this assessment after you opened it. Reload to keep your changes over theirs.",
   RANKING_SCENARIO_STALE: "Someone saved this scenario after you opened it. Reload to keep your changes over theirs.",
   RANKING_BRIEF_CHANGED: "The brief's competencies changed since you opened this. Reload to see them.",
+  DASHBOARD_NOT_FOUND: "That dashboard no longer exists, or it is no longer shared with you.",
+  DASHBOARD_READ_ONLY: "Only the person who made this dashboard can change it. Duplicate it to make your own.",
+  DASHBOARD_STALE: "This dashboard was changed since you opened it. Reload to see the changes.",
+  DASHBOARD_TOO_MANY_WIDGETS: "A dashboard can hold up to 30 charts. Remove one to add another.",
+  CHART_QUERY_NOT_FOUND: "That chart is no longer available. Remove it, or pick a replacement from the library.",
+  CHART_TYPE_NOT_ALLOWED: "That chart type doesn't fit this data. Pick another way to show it.",
+  CHART_OPTION_INVALID: "That option isn't available for this chart.",
   CANDIDATE_ASSESSMENT_NO_CRITERIA:
     "The brief has no competencies to assess against yet. Add them in the position's Assessment Criteria step.",
   CANDIDATE_ASSESSMENT_NOTHING_OPEN:
