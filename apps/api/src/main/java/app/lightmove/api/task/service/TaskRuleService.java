@@ -55,6 +55,7 @@ public class TaskRuleService {
     private static final Duration REPLY_WITHIN = Duration.ofDays(1);
     private static final Duration BOUNCE_WITHIN = Duration.ofDays(2);
     private static final Duration CALL_LENGTH_UNKNOWN = Duration.ofMinutes(30);
+    private static final String RELEASED = ":released:";
 
     private final JdbcTemplate jdbc;
     private final TaskRepository tasks;
@@ -173,8 +174,13 @@ public class TaskRuleService {
         return "booked_call:" + projectId + ":" + personId + ":" + startsAt.getEpochSecond();
     }
 
-    private static String releasedKeyOf(Task task) {
-        return task.getRuleKey() + ":released:" + task.getId();
+    /**
+     * Built on the event's own key, never on a key already released: a debrief moved onto a taken slot and then
+     * cancelled was released twice, outgrew {@code rule_key}'s 160 characters, and the failed cancel left it open.
+     */
+    static String releasedKeyOf(Task task) {
+        String eventKey = task.getRuleKey().split(RELEASED, 2)[0];
+        return eventKey + RELEASED + task.getId();
     }
 
     /**

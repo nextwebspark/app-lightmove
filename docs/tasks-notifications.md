@@ -16,6 +16,9 @@ the drawer's Next actions, the card), `Notifications.dc.html` (the bell), `Works
   position — `WORK_EXECUTE` on it, re-read when saved — which is its staff seats and the workspace's admins.
   Never a client seat. A seat that goes moves its holder's open tasks there to the position's first lead, as does
   losing the admin role or leaving the workspace for a task on a position its holder worked only as an admin.
+  An executive taken off the position takes their open tasks there with them, cancelled in the same transaction
+  (`CandidateUnmapped`); a rule's task gives up its key. A task that changes hands may warn its new holder again,
+  due soon and overdue.
 - **Presets** are the workspace's catalog (`app_lm_workspace_task_preset`): seeded on first read, edited
   under `WORKSPACE_MANAGE`, retired rather than deleted. Free text is a title only.
 - **Rules** file tasks from outreach — a reply (`Reply to {name}`), a bounce (`Find a working email for
@@ -101,7 +104,8 @@ interface MyTasksResponse {
 
 Changing, reassigning or cancelling a task is its creator's, its assignee's, a `TEAM_MANAGE` holder's on the
 position (its lead) or a `WORKSPACE_MANAGE` holder's (`TASK_NOT_YOURS`); completing one is anyone's who works
-the position. An assignee who may not work the position is `TASK_ASSIGNEE_NOT_ON_TEAM`.
+the position. A done or cancelled task is not changed or reassigned (`TASK_CLOSED`) unless the same PATCH
+reopens a done one; an edit sends only the fields the person changed. An assignee who may not work the position is `TASK_ASSIGNEE_NOT_ON_TEAM`.
 
 The Pipeline row's `nextAction` is the earliest open task:
 

@@ -155,10 +155,14 @@ public class Task extends BaseEntity {
         }
     }
 
-    /** Whether it changed hands. */
+    /** Whether it changed hands. A new holder has not been warned: both notices may go once more, to them. */
     public boolean reassign(UUID newAssignee) {
         boolean changed = !assigneeUserId.equals(newAssignee);
         this.assigneeUserId = newAssignee;
+        if (changed) {
+            this.dueSoonNotifiedAt = null;
+            this.overdueNotifiedAt = null;
+        }
         return changed;
     }
 

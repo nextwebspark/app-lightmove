@@ -131,6 +131,12 @@ public class TaskService {
                 || request.dueAt() != null || request.assigneeUserId() != null;
         if (changesTheTask) {
             requireMayChange(userId, task);
+            // A cancelled task, or a done one not reopened by this change, refused a reassignment nowhere: its new
+            // holder was told they had been handed it, work long over.
+            boolean reopens = task.getStatus() == TaskStatus.DONE && TaskStatus.OPEN.value().equals(request.status());
+            if (!task.isOpen() && !reopens) {
+                throw ApiException.of(ErrorCode.TASK_CLOSED);
+            }
         }
         EditableTask before = EditableTask.of(task);
         UUID assignedBefore = task.getAssigneeUserId();

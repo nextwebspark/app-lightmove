@@ -9,6 +9,9 @@ import app.lightmove.api.FixtureJdbc;
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.candidate.PipelineFlowSupport;
 import app.lightmove.api.core.tenant.TenantResolvers;
+import app.lightmove.api.outreach.model.OutreachCallBooked;
+import app.lightmove.api.outreach.model.OutreachCallCancelled;
+import app.lightmove.api.outreach.model.OutreachCallMoved;
 import app.lightmove.api.outreach.model.OutreachReplied;
 import app.lightmove.api.task.service.TaskDueScanner;
 import java.time.Instant;
@@ -367,6 +370,104 @@ class TaskIntegrationTest extends PipelineFlowSupport {
             assertThat(row.get("kind").asText()).isEqualTo("outreach_replied");
             assertThat(row.get("taskId").isNull()).isTrue();
         });
+    }
+
+    @Test
+    @DisplayName("a done or cancelled task is not changed or handed on until it is reopened")
+    void aClosedTaskIsReopenedBeforeItChanges() throws Exception {
+        String doneId = body(created(admin, layla, "Request CV", adminId, "2026-11-02T09:00:00Z")).get("id").asText();
+        write(admin, "PATCH", "/api/v1/tasks/" + doneId, """
+                {"status":"done"}""");
+        assertThat(codeOf(write(admin, "PATCH", "/api/v1/tasks/" + doneId, """
+                {"assigneeUserId":"%s"}""".formatted(researcherId)))).isEqualTo("TASK_CLOSED");
+
+        String cancelledId = body(created(admin, layla, "Reference check", adminId, "2026-11-02T09:00:00Z"))
+                .get("id").asText();
+        mvc.perform(delete("/api/v1/tasks/" + cancelledId).header("Authorization", "Bearer " + admin))
+                .andExpect(status().isNoContent());
+        assertThat(codeOf(write(admin, "PATCH", "/api/v1/tasks/" + cancelledId, """
+                {"assigneeUserId":"%s","status":"open"}""".formatted(researcherId)))).isEqualTo("TASK_CLOSED");
+        assertThat(read(researcher, "/api/v1/me/notifications?filter=unread").get("items"))
+                .noneSatisfy(row -> assertThat(row.get("kind").asText()).isEqualTo("task_assigned"));
+
+        JsonNode reopened = body(write(admin, "PATCH", "/api/v1/tasks/" + doneId, """
+                {"status":"open","assigneeUserId":"%s"}""".formatted(researcherId)));
+        assertThat(reopened.get("status").asText()).isEqualTo("open");
+        assertThat(reopened.at("/assignee/userId").asText()).isEqualTo(researcherId);
+    }
+
+    @Test
+    @DisplayName("an executive taken off the position takes their open tasks there with them")
+    void anUnmappedExecutivesOpenTasksAreCancelled() throws Exception {
+        Instant now = Instant.now();
+        String openId = body(created(admin, layla, "Call back", researcherId,
+                now.plus(30, ChronoUnit.MINUTES).toString())).get("id").asText();
+        String doneId = body(created(admin, layla, "Request CV", researcherId, "2026-11-02T09:00:00Z"))
+                .get("id").asText();
+        write(admin, "PATCH", "/api/v1/tasks/" + doneId, """
+                {"status":"done"}""");
+
+        mvc.perform(delete(candidatesUrl(projectId) + "/" + layla).header("Authorization", "Bearer " + admin))
+                .andExpect(status().isNoContent());
+        dueScanner.scanAt(now);
+
+        assertThat(statusOf(openId)).isEqualTo("CANCELLED");
+        assertThat(statusOf(doneId)).isEqualTo("DONE");
+        assertThat(read(researcher, "/api/v1/me/tasks?view=today").get("tasks")).isEmpty();
+        assertThat(read(researcher, "/api/v1/me/notifications?filter=unread").get("items"))
+                .noneSatisfy(row -> assertThat(row.get("kind").asText()).isEqualTo("task_due_soon"));
+    }
+
+    @Test
+    @DisplayName("a task handed to someone else warns its new holder as it falls due")
+    void aReassignedTaskWarnsItsNewHolder() throws Exception {
+        Instant now = Instant.now();
+        String taskId = body(created(admin, layla, "Call back", adminId, now.plus(30, ChronoUnit.MINUTES).toString()))
+                .get("id").asText();
+        dueScanner.scanAt(now);
+        write(admin, "PATCH", "/api/v1/tasks/" + taskId, """
+                {"assigneeUserId":"%s"}""".formatted(researcherId));
+
+        dueScanner.scanAt(now.plus(5, ChronoUnit.MINUTES));
+
+        assertThat(db.queryForList("""
+                SELECT kind FROM app_lm_notification WHERE task_id = ?::uuid AND recipient_user_id = ?::uuid""",
+                String.class, taskId, researcherId)).contains("TASK_ASSIGNED", "TASK_DUE_SOON");
+    }
+
+    @Test
+    @DisplayName("a debrief moved onto a slot another debrief holds is still cancelled with its call")
+    void aDebriefMovedOntoATakenSlotIsCancelledWithItsCall() throws Exception {
+        UUID personId = db.queryForObject("select person_id from app_lm_project_candidate where id = ?::uuid",
+                UUID.class, layla);
+        Instant ten = Instant.now().plus(3, ChronoUnit.DAYS).truncatedTo(ChronoUnit.HOURS);
+        Instant eleven = ten.plus(1, ChronoUnit.HOURS);
+        booked(personId, eleven);
+        String earlier = db.queryForObject("select id::text from app_lm_task where rule = 'BOOKED_CALL'",
+                String.class);
+        write(researcher, "PATCH", "/api/v1/tasks/" + earlier, """
+                {"status":"done"}""");
+        booked(personId, ten);
+        inWorkspace(() -> transactions.executeWithoutResult(status -> events.publishEvent(new OutreachCallMoved(
+                UUID.fromString(workspaceId), UUID.fromString(projectId), personId, UUID.fromString(researcherId),
+                ten, ten.plus(30, ChronoUnit.MINUTES), eleven, eleven.plus(30, ChronoUnit.MINUTES)))));
+
+        inWorkspace(() -> transactions.executeWithoutResult(status -> events.publishEvent(new OutreachCallCancelled(
+                UUID.fromString(workspaceId), UUID.fromString(projectId), personId, UUID.fromString(researcherId),
+                eleven, eleven.plus(30, ChronoUnit.MINUTES)))));
+
+        assertThat(db.queryForList("select status from app_lm_task where rule = 'BOOKED_CALL' order by status",
+                String.class)).containsExactly("CANCELLED", "DONE");
+    }
+
+    private void booked(UUID personId, Instant startsAt) {
+        inWorkspace(() -> transactions.executeWithoutResult(status -> events.publishEvent(new OutreachCallBooked(
+                UUID.fromString(workspaceId), UUID.fromString(projectId), UUID.fromString(layla), personId,
+                UUID.fromString(researcherId), startsAt, startsAt.plus(30, ChronoUnit.MINUTES), false))));
+    }
+
+    private String statusOf(String taskId) {
+        return db.queryForObject("select status from app_lm_task where id = ?::uuid", String.class, taskId);
     }
 
     private void replied(UUID messageId) {
