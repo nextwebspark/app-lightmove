@@ -1,5 +1,5 @@
 import { ICONS } from "../../../components/layout/Icon";
-import type { ChartQueryDef, ChartShape, ChartType, WidgetSize } from "../api/types";
+import type { ChartQueryDef, ChartShape, ChartType } from "../api/types";
 
 /** Mirrors the server's ChartRules: which chart types can honestly draw an answer of each shape. */
 const SHAPE_CHARTS: Record<ChartShape, readonly ChartType[]> = {
@@ -57,10 +57,6 @@ export const SHAPE_LABELS: Record<ChartShape, string> = {
   MATRIX: "Breakdown by two",
   RANKED: "Ranked list",
 };
-
-export const SIZE_LABELS: Record<WidgetSize, string> = { S: "Small", M: "Medium", L: "Full width" };
-
-export const NEXT_SIZE: Record<WidgetSize, WidgetSize> = { S: "M", M: "L", L: "S" };
 
 /** "Executives by …" completed with the chosen group, lower-cased: "Executives by level". */
 export function defaultTitle(query: ChartQueryDef, options: Record<string, string>): string {

@@ -4,11 +4,11 @@ import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.dashboard.constant.ChartType;
 import app.lightmove.api.dashboard.constant.DashboardScope;
-import app.lightmove.api.dashboard.constant.WidgetSize;
 import app.lightmove.api.dashboard.dto.DashboardWidgetDto;
 import app.lightmove.api.dashboard.model.ChartQuery;
 import app.lightmove.api.dashboard.model.Dashboard;
 import app.lightmove.api.dashboard.model.DashboardWidget;
+import app.lightmove.api.dashboard.model.WidgetLayout;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -20,8 +20,8 @@ import org.springframework.stereotype.Component;
 
 /**
  * Every chart a save sends, checked against the library: the query on this kind of dashboard, a chart type its shape
- * allows, its own options, a known size. A chart whose query has since left the library is kept exactly as it was
- * stored — never as the request now spells it — so it can still be removed, and nothing new can arrive that way.
+ * allows, its own options, a place on the grid. A chart whose query has since left the library is kept as it was
+ * stored — only its place follows the request — so it can still be moved or removed, and nothing new arrives that way.
  */
 @Component
 @RequiredArgsConstructor
@@ -45,18 +45,19 @@ class DashboardWidgetValidator {
 
     private DashboardWidget checked(DashboardScope scope, DashboardWidgetDto widget,
                                     Map<String, DashboardWidget> storedByQueryId) {
+        WidgetLayout layout = widget.layout();
+        if (layout == null || !layout.fitsTheGrid()) {
+            throw new ApiException(ErrorCode.VALIDATION_FAILED, "Chart " + widget.queryId() + " is off the grid");
+        }
         Optional<ChartQuery> found = library.find(scope, widget.queryId());
         if (found.isEmpty()) {
             DashboardWidget retired = storedByQueryId.get(widget.queryId());
             if (retired == null) {
                 throw new ApiException(ErrorCode.CHART_QUERY_NOT_FOUND, "No library query " + widget.queryId());
             }
-            return retired;
+            return retired.placedAt(layout);
         }
         ChartQuery query = found.get();
-        if (WidgetSize.fromValue(widget.size()) == null) {
-            throw new ApiException(ErrorCode.VALIDATION_FAILED, "Unknown widget size " + widget.size());
-        }
         ChartType chart = ChartType.fromValue(widget.chart());
         if (chart == null || !ChartRules.allowedBeforeData(query.shape(), query.notAdditive()).contains(chart)) {
             throw new ApiException(ErrorCode.CHART_TYPE_NOT_ALLOWED,
@@ -65,6 +66,6 @@ class DashboardWidgetValidator {
         Map<String, String> options = widget.options() == null ? Map.of() : widget.options();
         ChartQueryService.requireValidOptions(query, options);
         String title = widget.title() == null || widget.title().isBlank() ? null : widget.title().strip();
-        return new DashboardWidget(query.id(), chart.value(), query.settle(options), title, widget.size());
+        return new DashboardWidget(query.id(), chart.value(), query.settle(options), title, layout);
     }
 }

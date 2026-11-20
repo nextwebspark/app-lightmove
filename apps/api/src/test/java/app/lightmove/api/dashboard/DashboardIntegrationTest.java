@@ -45,7 +45,7 @@ class DashboardIntegrationTest extends FlowTestSupport {
         String colleague = login(colleagueEmail);
 
         JsonNode created = body(save(admin, post(WORKSPACE), "Pipeline across positions", false, null,
-                widget("openPositions", "kpi", "{}", "S"), widget("positionsBy", "donut", "{\"group\":\"stage\"}", "M"))
+                widget("openPositions", "kpi", "{}", 4), widget("positionsBy", "donut", "{\"group\":\"stage\"}", 6))
                 .andExpect(status().isCreated()).andReturn());
         String id = created.get("id").asText();
         assertThat(created.get("owned").asBoolean()).isTrue();
@@ -55,7 +55,7 @@ class DashboardIntegrationTest extends FlowTestSupport {
 
         long version = created.get("version").asLong();
         JsonNode shared = body(save(admin, put(WORKSPACE + "/" + id), "Pipeline across positions", true, version,
-                widget("openPositions", "kpi", "{}", "S")).andExpect(status().isOk()).andReturn());
+                widget("openPositions", "kpi", "{}", 4)).andExpect(status().isOk()).andReturn());
         List<JsonNode> seen = list(colleague, WORKSPACE);
         assertThat(seen).hasSize(1);
         assertThat(seen.getFirst().get("owned").asBoolean()).isFalse();
@@ -78,25 +78,28 @@ class DashboardIntegrationTest extends FlowTestSupport {
         String cfo = mandate();
         String url = projectUrl(cfo);
 
-        assertThat(codeOf(save(admin, post(url), "Board pack", false, null, widget("noSuchQuery", "bar", "{}", "M"))
+        assertThat(codeOf(save(admin, post(url), "Board pack", false, null, widget("noSuchQuery", "bar", "{}", 6))
                 .andExpect(status().isNotFound()).andReturn())).isEqualTo("CHART_QUERY_NOT_FOUND");
-        assertThat(codeOf(save(admin, post(url), "Board pack", false, null, widget("openPositions", "kpi", "{}", "S"))
+        assertThat(codeOf(save(admin, post(url), "Board pack", false, null, widget("openPositions", "kpi", "{}", 4))
                 .andExpect(status().isNotFound()).andReturn())).isEqualTo("CHART_QUERY_NOT_FOUND");
-        assertThat(codeOf(save(admin, post(url), "Board pack", false, null, widget("executivesPerWeek", "pie", "{}", "M"))
+        assertThat(codeOf(save(admin, post(url), "Board pack", false, null, widget("executivesPerWeek", "pie", "{}", 6))
                 .andExpect(status().isBadRequest()).andReturn())).isEqualTo("CHART_TYPE_NOT_ALLOWED");
         assertThat(codeOf(save(admin, post(url), "Board pack", false, null,
-                widget("medianPackageBy", "donut", "{}", "M"))
+                widget("medianPackageBy", "donut", "{}", 6))
                 .andExpect(status().isBadRequest()).andReturn())).isEqualTo("CHART_TYPE_NOT_ALLOWED");
         assertThat(codeOf(save(admin, post(url), "Board pack", false, null,
-                widget("executivesBy", "bar", "{\"group\":\"salary\"}", "M"))
+                widget("executivesBy", "bar", "{\"group\":\"salary\"}", 6))
                 .andExpect(status().isBadRequest()).andReturn())).isEqualTo("CHART_OPTION_INVALID");
+        assertThat(codeOf(save(admin, post(url), "Board pack", false, null,
+                widget("executivesIdentified", "kpi", "{}", 8, 6))
+                .andExpect(status().isBadRequest()).andReturn())).isEqualTo("VALIDATION_FAILED");
         String[] many = new String[31];
-        Arrays.fill(many, widget("executivesIdentified", "kpi", "{}", "S"));
+        Arrays.fill(many, widget("executivesIdentified", "kpi", "{}", 4));
         assertThat(codeOf(save(admin, post(url), "Board pack", false, null, many)
                 .andExpect(status().isBadRequest()).andReturn())).isEqualTo("DASHBOARD_TOO_MANY_WIDGETS");
         save(admin, post(url), " ", false, null).andExpect(status().isBadRequest());
 
-        save(admin, post(url), "Board pack", false, null, widget("executivesBy", "pie", "{\"group\":\"level\"}", "M"))
+        save(admin, post(url), "Board pack", false, null, widget("executivesBy", "pie", "{\"group\":\"level\"}", 6))
                 .andExpect(status().isCreated());
         assertThat(list(admin, url)).hasSize(1);
         assertThat(list(admin, WORKSPACE)).isEmpty();
@@ -222,7 +225,7 @@ class DashboardIntegrationTest extends FlowTestSupport {
         add(cfo, "Fatima Al Mazrouei", "C-Suite", "female");
         String url = projectUrl(cfo);
         JsonNode created = body(save(admin, post(url), "Board pack", true, null,
-                widget("executivesIdentified", "kpi", "{}", "S"), widget("executivesBy", "bar", "{}", "M"))
+                widget("executivesIdentified", "kpi", "{}", 4), widget("executivesBy", "bar", "{}", 6))
                 .andExpect(status().isCreated()).andReturn());
         String id = created.get("id").asText();
         db.update("""
@@ -231,11 +234,11 @@ class DashboardIntegrationTest extends FlowTestSupport {
         long version = list(admin, url).getFirst().get("version").asLong();
 
         JsonNode saved = body(save(admin, put(url + "/" + id), "Board pack", true, version,
-                widget("executivesIdentified", "kpi", "{}", "S"), widget("retiredQuery", "pie", "{\"x\":\"y\"}", "L"))
+                widget("executivesIdentified", "kpi", "{}", 4), widget("retiredQuery", "pie", "{\"x\":\"y\"}", 12))
                 .andExpect(status().isOk()).andReturn());
         JsonNode kept = saved.get("widgets").get(1);
         assertThat(kept.get("chart").asText()).isEqualTo("bar");
-        assertThat(kept.get("size").asText()).isEqualTo("M");
+        assertThat(kept.get("layout").get("w").asInt()).isEqualTo(12);
 
         String colleagueEmail = "maya@" + domain;
         inviteAndAccept(admin, "Maya Saleh", colleagueEmail, "ADMIN");
@@ -270,10 +273,14 @@ class DashboardIntegrationTest extends FlowTestSupport {
         return sum;
     }
 
-    private static String widget(String queryId, String chart, String options, String size) {
+    private static String widget(String queryId, String chart, String options, int width) {
+        return widget(queryId, chart, options, 0, width);
+    }
+
+    private static String widget(String queryId, String chart, String options, int x, int width) {
         return """
-                {"queryId":"%s","chart":"%s","options":%s,"title":null,"size":"%s"}""".formatted(queryId, chart,
-                options, size);
+                {"queryId":"%s","chart":"%s","options":%s,"title":null,"layout":{"x":%d,"y":0,"w":%d,"h":4}}"""
+                .formatted(queryId, chart, options, x, width);
     }
 
     private ResultActions save(String token, MockHttpServletRequestBuilder request,

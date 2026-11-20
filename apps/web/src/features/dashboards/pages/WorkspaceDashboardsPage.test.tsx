@@ -87,7 +87,7 @@ const pipeline: Dashboard = {
   name: "Pipeline across positions",
   shared: true,
   owned: true,
-  widgets: [{ queryId: "positionsBy", chart: "donut", options: { group: "health" }, title: null, size: "M" }],
+  widgets: [{ queryId: "positionsBy", chart: "donut", options: { group: "health" }, title: null, layout: { x: 0, y: 0, w: 6, h: 6 } }],
   version: 3,
   updatedAt: "2026-11-01T10:00:00Z",
 };
@@ -179,7 +179,7 @@ describe("WorkspaceDashboardsPage", () => {
 
   it("says so when a chart's query has left the library, rather than drawing it", async () => {
     vi.mocked(dashboardsApi.listDashboards).mockResolvedValue([
-      { ...pipeline, widgets: [{ queryId: "retired", chart: "bar", options: {}, title: "Old chart", size: "M" }] },
+      { ...pipeline, widgets: [{ queryId: "retired", chart: "bar", options: {}, title: "Old chart", layout: { x: 0, y: 0, w: 6, h: 6 } }] },
     ]);
     renderPage();
     expect(await screen.findByText(/This chart is no longer available/)).toBeInTheDocument();
@@ -188,7 +188,7 @@ describe("WorkspaceDashboardsPage", () => {
 
   it("answers every chart of a dashboard in one request", async () => {
     vi.mocked(dashboardsApi.listDashboards).mockResolvedValue([
-      { ...pipeline, widgets: [...pipeline.widgets, { queryId: "executivesFiledPerWeek", chart: "line", options: {}, title: null, size: "M" }] },
+      { ...pipeline, widgets: [...pipeline.widgets, { queryId: "executivesFiledPerWeek", chart: "line", options: {}, title: null, layout: { x: 0, y: 0, w: 6, h: 6 } }] },
     ]);
     renderPage();
     await screen.findByRole("region", { name: "Executives mapped per week" });

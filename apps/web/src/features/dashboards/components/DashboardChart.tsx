@@ -25,7 +25,7 @@ export function formatFigure(value: number, unit = ""): string {
 /** One library answer drawn as `chart`. Hand-drawn like the report's charts, in the same tokens. */
 export function DashboardChart({ result, chart }: { result: ChartResult; chart: ChartType }) {
   return (
-    <div>
+    <div className="flex min-h-0 flex-1 flex-col">
       {chart === "kpi" && <KpiFigure result={result} />}
       {chart === "bar" && <BarRows result={result} />}
       {chart === "column" && <Columns result={result} />}
@@ -89,7 +89,7 @@ function Columns({ result }: { result: ChartResult }) {
   const max = Math.max(...result.values, 1);
   return (
     <div role="img" aria-label={`${result.measure || "Count"} by ${result.dimension.toLowerCase()}`}
-         className="mt-4 flex h-40 items-end gap-2">
+         className="mt-4 flex min-h-28 flex-[1_1_10rem] items-end gap-2">
       {result.labels.map((label, index) => (
         <div
           key={label}

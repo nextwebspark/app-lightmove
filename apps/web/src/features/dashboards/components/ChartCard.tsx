@@ -28,7 +28,7 @@ export function ChartCard({
   answer: ChartAnswer | undefined;
   isPending: boolean;
   isError: boolean;
-  /** The card's controls: edit chart in view mode, move/size/remove in edit mode. */
+  /** The card's controls: edit chart in view mode, edit and remove in edit mode. */
   actions?: ReactNode;
   className?: string;
 }) {
@@ -40,7 +40,7 @@ export function ChartCard({
   const fits = result?.allowedCharts.includes(widget.chart) ?? true;
 
   return (
-    <section aria-label={title} className={cn("relative min-w-0 rounded-u-card border border-u-border bg-u-surface p-5", className)}>
+    <section aria-label={title} className={cn("relative flex h-full min-w-0 flex-col rounded-u-card border border-u-border bg-u-surface p-5", className)}>
       <div className="flex items-start justify-between gap-2.5">
         <div className="min-w-0">
           <h3 className="text-lead font-bold">{title}</h3>
@@ -59,7 +59,9 @@ export function ChartCard({
       ) : !fits ? (
         <Unavailable>This data no longer fits a {widget.chart} chart. Use the pencil to pick another way to show it.</Unavailable>
       ) : (
-        <DashboardChart result={{ ...result, dimension: relabel(result.dimension) }} chart={widget.chart} />
+        <div className="flex min-h-0 flex-1 flex-col overflow-auto">
+          <DashboardChart result={{ ...result, dimension: relabel(result.dimension) }} chart={widget.chart} />
+        </div>
       )}
     </section>
   );

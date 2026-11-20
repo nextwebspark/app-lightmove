@@ -5,15 +5,21 @@ export type ChartType = "kpi" | "bar" | "column" | "pie" | "donut" | "line" | "a
 
 export type ChartShape = "KPI" | "CATEGORICAL" | "TIME_SERIES" | "MATRIX" | "RANKED";
 
-/** S = a third of the row, M = half, L = the whole row. */
-export type WidgetSize = "S" | "M" | "L";
+/** A chart's place on the twelve-column grid: column `x`, row `y`, `w` columns wide, `h` rows tall. */
+export interface WidgetLayout {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
 
 export interface DashboardWidget {
   queryId: string;
   chart: ChartType;
   options: Record<string, string>;
   title: string | null;
-  size: WidgetSize;
+  /** Null only on a chart saved before the grid; the screen flows it into place. */
+  layout: WidgetLayout | null;
 }
 
 export interface Dashboard {

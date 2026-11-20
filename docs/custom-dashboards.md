@@ -11,8 +11,12 @@ and across the workspace (**Dashboards** in the sidebar). The design is `uncava-
 - **Add chart** from the library: ready-made queries by category, with a search. Picking one opens **Show as** —
   only the chart types that fit the answer can be picked (Number, Bar, Column, Pie, Donut, Line, Area, Stacked bar,
   Table) — its options (group by, period, top N), an optional title and a live preview.
-- **Edit layout**: drag a chart by its handle or move it earlier/later, cycle its size (Small = a third of the row,
-  Medium = half, Full width), change it with the pencil, remove it; nothing changes for anyone until **Save layout**.
+- **Edit layout**: the canvas turns to graph paper (the twelve columns and rows a chart snaps to). Press anywhere on a
+  chart and drag to move it; drag its right edge, bottom edge or corner to resize it, within its type's minimum
+  (`gridLayout.ts` `LIMITS`) and the full width. A chart it lands on is pushed down; charts then slide straight up into
+  empty rows, never sideways or into another row. Arrow keys move a focused chart, Shift + arrows resize it. The pencil
+  changes it, the × removes it; nothing changes for anyone until **Save layout**. Below ~720px the charts stack in
+  reading order and Edit layout is hidden.
 
 There is no free-form query builder, deliberately: recruiting platforms (Ashby, Greenhouse, Bullhorn, Lever) give
 every user a catalogue of reports with a chart choice and keep free-form builders for admins or premium plans, and a
@@ -22,7 +26,7 @@ someone wrote and reviewed it.
 ## How it is built
 
 - **Storage** — `app_lm_dashboard` (V231): workspace, project (null on the workspace's), owner, name, `shared`, and
-  `widgets` jsonb `[{queryId, chart, options, title, size}]`. The choice only, never a figure. Forced RLS.
+  `widgets` jsonb `[{queryId, chart, options, title, layout: {x, y, w, h}}]` (a row saved before the grid has `size` S/M/L and no layout; the SPA flows it into place). The choice only, never a figure. Forced RLS.
 - **Library** — `dashboard/service/ProjectChartQueries` (15) and `WorkspaceChartQueries` (11), registered by
   `ChartQueryLibrary`. Each `ChartQuery` declares its shape (`KPI`, `CATEGORICAL`, `TIME_SERIES`, `MATRIX`, `RANKED`),
   whether its parts add up (`notAdditive`: a median never draws as a pie), and its options — built through the

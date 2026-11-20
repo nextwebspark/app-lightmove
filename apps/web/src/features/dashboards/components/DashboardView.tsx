@@ -1,45 +1,46 @@
-import { DndContext, closestCenter, type DragEndEvent } from "@dnd-kit/core";
-import { rectSortingStrategy, SortableContext, useSortable } from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
 import { useQuery } from "@tanstack/react-query";
-import { useState, type ReactNode } from "react";
+import { useState } from "react";
+import { createPortal } from "react-dom";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Button, useToast } from "../../../components/ui";
 import { ActionMenu, MenuItem, MenuSeparator } from "../../../components/ui/ActionMenu";
 import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
 import { cn } from "../../../lib/cn";
-import { moveItem } from "../../../lib/moveItem";
-import { useSortableSensors } from "../../../lib/sortableSensors";
 import * as dashboardsApi from "../api/dashboardsApi";
-import type { ChartQueryDef, Dashboard, DashboardScope, DashboardWidget, WidgetSize } from "../api/types";
-import { NEXT_SIZE, SIZE_LABELS } from "../lib/chartRules";
+import type { ChartQueryDef, Dashboard, DashboardScope, DashboardWidget, WidgetLayout } from "../api/types";
+import { clampSize, compact, limitsFor, place, startingLayout, withLayouts } from "../lib/gridLayout";
 import { bodyOf, useDashboardWrites } from "../lib/useDashboardWrites";
 
 /** Figures stay live without a refetch on every focus: each answer is a server-side aggregate. */
 const ANSWERS_STALE_MS = 60_000;
 import { ChartCard } from "./ChartCard";
 import { ChartLibraryDrawer, draftFor, type ChartDraft } from "./ChartLibraryDrawer";
+import { DashboardGrid } from "./DashboardGrid";
 import { DashboardNameDialog } from "./DashboardNameDialog";
 
 export const MAX_CHARTS = 30;
 
-const SPAN: Record<WidgetSize, string> = {
-  S: "col-span-12 md:col-span-6 xl:col-span-4",
-  M: "col-span-12 md:col-span-6",
-  L: "col-span-12",
-};
-
 interface DraftItem {
   key: string;
-  widget: DashboardWidget;
+  widget: DashboardWidget & { layout: WidgetLayout };
 }
 
 let keySequence = 0;
-const keyed = (widget: DashboardWidget): DraftItem => ({ key: `chart-${++keySequence}`, widget });
+const keyed = (widget: DraftItem["widget"]): DraftItem => ({ key: `chart-${++keySequence}`, widget });
+
+function placed(widgets: DashboardWidget[]): DraftItem["widget"][] {
+  const laid = withLayouts(widgets) as DraftItem["widget"][];
+  const settled = compact(laid.map((widget) => widget.layout));
+  return laid.map((widget, index) => ({ ...widget, layout: settled[index] }));
+}
+
+function relaid(items: DraftItem[], layouts: WidgetLayout[]): DraftItem[] {
+  return items.map((item, index) => ({ ...item, widget: { ...item.widget, layout: layouts[index] } }));
+}
 
 /**
- * One custom dashboard: its charts on a twelve-column grid, and — for its owner — Edit layout (drag or move, resize,
- * remove), the chart library, and rename / duplicate / share / delete. A teammate's shared dashboard is read-only.
+ * One custom dashboard: its charts on a twelve-column grid, and — for its owner — Edit layout (drag, resize, remove),
+ * the chart library, and rename / duplicate / share / delete. A teammate's shared dashboard is read-only.
  */
 export function DashboardView({
   scope,
@@ -62,12 +63,11 @@ export function DashboardView({
 }) {
   const toast = useToast();
   const { duplicate, save, remove } = useDashboardWrites(scope);
-  const sensors = useSortableSensors();
   const [draft, setDraft] = useState<DraftItem[] | null>(null);
   const [libraryDraft, setLibraryDraft] = useState<ChartDraft | null | "library">(null);
   const [dialog, setDialog] = useState<"rename" | "delete" | null>(null);
   const editing = draft !== null;
-  const items = draft ?? dashboard.widgets.map((widget, index) => ({ key: `saved-${index}`, widget }));
+  const items = draft ?? placed(dashboard.widgets).map((widget, index) => ({ key: `saved-${index}`, widget }));
   const queryOf = (id: string) => library.find((query) => query.id === id);
   const asked = items.map((item) => item.widget);
   const answers = useQuery({
@@ -77,8 +77,8 @@ export function DashboardView({
     staleTime: ANSWERS_STALE_MS,
   });
 
-  const startEditing = (extra: DashboardWidget[] = []) =>
-    setDraft([...(draft ?? dashboard.widgets.map(keyed)), ...extra.map(keyed)]);
+  const startEditing = (extra: DraftItem["widget"][] = []) =>
+    setDraft([...(draft ?? placed(dashboard.widgets).map(keyed)), ...extra.map(keyed)]);
 
   const handleSave = () => {
     if (!draft) return;
@@ -94,12 +94,15 @@ export function DashboardView({
   };
 
   const handleCommit = (chart: ChartDraft) => {
-    const widget: DashboardWidget = {
+    const layouts = items.map((item) => item.widget.layout);
+    const widget = {
       queryId: chart.query.id,
       chart: chart.chart,
       options: chart.options,
       title: chart.title.trim() || null,
-      size: chart.index === null ? (chart.query.shape === "KPI" ? "S" : "M") : items[chart.index].widget.size,
+      layout: chart.index === null
+        ? startingLayout(layouts, chart.chart)
+        : clampSize(items[chart.index].widget.layout, limitsFor(chart.chart)),
     };
     if (chart.index === null) {
       if (items.length >= MAX_CHARTS) {
@@ -109,19 +112,19 @@ export function DashboardView({
       startEditing([widget]);
       return;
     }
+    const settled = compact(place(layouts, chart.index, widget.layout));
+    const updated = relaid(items.map((item, index) => (index === chart.index ? { ...item, widget } : item)), settled);
     if (editing) {
-      setDraft(draft.map((item, index) => (index === chart.index ? { ...item, widget } : item)));
+      setDraft(updated);
       return;
     }
-    const widgets = dashboard.widgets.map((saved, index) => (index === chart.index ? widget : saved));
+    const widgets = updated.map((item) => item.widget);
     save.mutate({ id: dashboard.id, body: bodyOf(dashboard, { widgets }) }, { onSuccess: () => toast.success("Chart updated") });
   };
 
-  const handleDragEnd = (event: DragEndEvent) => {
-    if (!draft || !event.over || event.active.id === event.over.id) return;
-    const from = draft.findIndex((item) => item.key === event.active.id);
-    const to = draft.findIndex((item) => item.key === event.over?.id);
-    if (from >= 0 && to >= 0) setDraft(moveItem(draft, from, to));
+  const removeChart = (index: number) => {
+    const kept = items.filter((_, other) => other !== index);
+    setDraft(relaid(kept, compact(kept.map((item) => item.widget.layout))));
   };
 
   const editChart = (index: number) => {
@@ -153,7 +156,7 @@ export function DashboardView({
         </div>
         {dashboard.owned && !editing && (
           <div className="flex items-center gap-2">
-            <Button variant="secondary" size="sm" onClick={() => startEditing()}>
+            <Button variant="secondary" size="sm" className="hidden md:inline-flex" onClick={() => startEditing()}>
               <Icon d={ICONS.dashboard} size={14} />
               Edit layout
             </Button>
@@ -203,7 +206,7 @@ export function DashboardView({
 
       {editing && (
         <p className="mt-4 rounded-u-chip bg-u-accent-tint px-3.5 py-2.5 text-note text-u-text2">
-          Drag a chart by its handle to move it, use its size to resize it, or the pencil to change its chart type and
+          Drag a chart anywhere to move it, and its edge or corner to resize it. The pencil changes its chart type and
           options. Nothing changes for anyone else until you save.
         </p>
       )}
@@ -225,144 +228,107 @@ export function DashboardView({
           )}
         </div>
       ) : (
-        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-          <SortableContext items={items.map((item) => item.key)} strategy={rectSortingStrategy}>
-            <div className="mt-5 grid grid-cols-12 gap-3.5">
-              {items.map((item, index) => (
-                <SortableChart key={item.key} id={item.key} editing={editing} className={SPAN[item.widget.size]}
-                               sizeLabel={SIZE_LABELS[item.widget.size]}
-                               onResize={() => setDraft(items.map((other, position) => position === index
-                                 ? { ...other, widget: { ...other.widget, size: NEXT_SIZE[other.widget.size] } }
-                                 : other))}>
-                  {(handle) => (
-                    <ChartCard
-                      scope={scope}
-                      widget={item.widget}
-                      query={queryOf(item.widget.queryId)}
-                      answer={answers.data?.[index]}
-                      isPending={answers.isPending}
-                      isError={answers.isError}
-                      className={cn(editing && "pb-10 outline-[1.5px] -outline-offset-[1.5px] outline-dashed outline-u-accent-ring")}
-                      actions={
-                        editing ? (
-                          <>
-                            {handle}
-                            <IconButton label="Move earlier" icon={ICONS.arrowLeft} disabled={index === 0}
-                                        onClick={() => setDraft(moveItem(items, index, index - 1))} />
-                            <IconButton label="Move later" icon={ICONS.arrowRight} disabled={index === items.length - 1}
-                                        onClick={() => setDraft(moveItem(items, index, index + 1))} />
-                            {queryOf(item.widget.queryId) && (
-                              <IconButton label="Edit chart" icon={ICONS.pencil} onClick={() => editChart(index)} />
-                            )}
-                            <IconButton label="Remove chart" icon={ICONS.close} tone="danger"
-                                        onClick={() => setDraft(items.filter((_, other) => other !== index))} />
-                          </>
-                        ) : dashboard.owned && queryOf(item.widget.queryId) ? (
+        <>
+          <DashboardGrid
+            editing={editing}
+            items={items.map((item) => ({
+              key: item.key,
+              layout: item.widget.layout,
+              limits: limitsFor(item.widget.chart),
+              label: item.widget.title || queryOf(item.widget.queryId)?.label || "Chart",
+            }))}
+            onChange={(layouts) => setDraft(relaid(items, layouts))}
+          >
+            {(index) => {
+              const item = items[index];
+              return (
+                <ChartCard
+                  scope={scope}
+                  widget={item.widget}
+                  query={queryOf(item.widget.queryId)}
+                  answer={answers.data?.[index]}
+                  isPending={answers.isPending}
+                  isError={answers.isError}
+                  className={cn(editing && "border-u-accent-ring shadow-u-e1 group-hover/chart:border-u-accent")}
+                  actions={
+                    editing ? (
+                      <>
+                        {queryOf(item.widget.queryId) && (
                           <IconButton label="Edit chart" icon={ICONS.pencil} onClick={() => editChart(index)} />
-                        ) : undefined
-                      }
-                    />
-                  )}
-                </SortableChart>
-              ))}
-              {editing && (
-                <button type="button" onClick={() => setLibraryDraft("library")}
-                        className="col-span-12 flex items-center justify-center gap-2 rounded-u-card border-[1.5px] border-dashed border-u-border-strong p-5 text-body font-medium text-u-text2 hover:border-u-accent-ring hover:text-u-accent">
-                  <Icon d={ICONS.plus} size={15} />
-                  Add chart
-                </button>
-              )}
-            </div>
-          </SortableContext>
-        </DndContext>
+                        )}
+                        <IconButton label="Remove chart" icon={ICONS.close} tone="danger" onClick={() => removeChart(index)} />
+                      </>
+                    ) : dashboard.owned && queryOf(item.widget.queryId) ? (
+                      <IconButton label="Edit chart" icon={ICONS.pencil} onClick={() => editChart(index)} />
+                    ) : undefined
+                  }
+                />
+              );
+            }}
+          </DashboardGrid>
+          {editing && (
+            <button type="button" onClick={() => setLibraryDraft("library")}
+                    className="mt-3.5 flex w-full items-center justify-center gap-2 rounded-u-card border-[1.5px] border-dashed border-u-border-strong p-5 text-body font-medium text-u-text2 hover:border-u-accent-ring hover:text-u-accent">
+              <Icon d={ICONS.plus} size={15} />
+              Add chart
+            </button>
+          )}
+        </>
       )}
 
-      {libraryDraft !== null && (
-        <ChartLibraryDrawer
-          scope={scope}
-          library={library}
-          onCountLabel={`${library.length} ready-made charts · ${items.length} on this dashboard`}
-          initialDraft={libraryDraft === "library" ? null : libraryDraft}
-          onCommit={handleCommit}
-          onClose={() => setLibraryDraft(null)}
-        />
+      {/* Portalled: this section's fade-up keeps a transform, which would pin a fixed drawer or dialog inside it. */}
+      {createPortal(
+        <>
+          {libraryDraft !== null && (
+            <ChartLibraryDrawer
+              scope={scope}
+              library={library}
+              onCountLabel={`${library.length} ready-made charts · ${items.length} on this dashboard`}
+              initialDraft={libraryDraft === "library" ? null : libraryDraft}
+              onCommit={handleCommit}
+              onClose={() => setLibraryDraft(null)}
+            />
+          )}
+          {dialog === "rename" && (
+            <DashboardNameDialog
+              title="Rename dashboard"
+              submitLabel="Save"
+              initialName={dashboard.name}
+              pending={save.isPending}
+              onClose={() => setDialog(null)}
+              onSubmit={(name) =>
+                save.mutate({ id: dashboard.id, body: bodyOf(dashboard, { name }) }, {
+                  onSuccess: () => {
+                    setDialog(null);
+                    toast.success("Dashboard renamed");
+                  },
+                })
+              }
+            />
+          )}
+          <ConfirmDialog
+            open={dialog === "delete"}
+            title={`Delete “${dashboard.name}”?`}
+            confirmLabel="Delete dashboard"
+            tone="danger"
+            pending={remove.isPending}
+            onClose={() => setDialog(null)}
+            onConfirm={() =>
+              remove.mutate(dashboard.id, {
+                onSuccess: () => {
+                  setDialog(null);
+                  toast.success(`${dashboard.name} deleted`);
+                  onDeleted();
+                },
+              })
+            }
+          >
+            Only this arrangement goes. No data is touched. Anyone it was shared with loses it too.
+          </ConfirmDialog>
+        </>,
+        document.body,
       )}
-      {dialog === "rename" && (
-        <DashboardNameDialog
-          title="Rename dashboard"
-          submitLabel="Save"
-          initialName={dashboard.name}
-          pending={save.isPending}
-          onClose={() => setDialog(null)}
-          onSubmit={(name) =>
-            save.mutate({ id: dashboard.id, body: bodyOf(dashboard, { name }) }, {
-              onSuccess: () => {
-                setDialog(null);
-                toast.success("Dashboard renamed");
-              },
-            })
-          }
-        />
-      )}
-      <ConfirmDialog
-        open={dialog === "delete"}
-        title={`Delete “${dashboard.name}”?`}
-        confirmLabel="Delete dashboard"
-        tone="danger"
-        pending={remove.isPending}
-        onClose={() => setDialog(null)}
-        onConfirm={() =>
-          remove.mutate(dashboard.id, {
-            onSuccess: () => {
-              setDialog(null);
-              toast.success(`${dashboard.name} deleted`);
-              onDeleted();
-            },
-          })
-        }
-      >
-        Only this arrangement goes. No data is touched. Anyone it was shared with loses it too.
-      </ConfirmDialog>
     </section>
-  );
-}
-
-function SortableChart({
-  id,
-  editing,
-  className,
-  sizeLabel,
-  onResize,
-  children,
-}: {
-  id: string;
-  editing: boolean;
-  className: string;
-  sizeLabel: string;
-  onResize: () => void;
-  children: (handle: ReactNode) => ReactNode;
-}) {
-  const sortable = useSortable({ id, disabled: !editing });
-  const handle = (
-    <button type="button" aria-label="Drag to move" title="Drag to move"
-            className="grid size-[26px] cursor-grab place-items-center rounded-u-control text-u-text3 hover:text-u-text"
-            {...sortable.attributes} {...sortable.listeners}>
-      <Icon d={ICONS.dragHandle} size={15} />
-    </button>
-  );
-  return (
-    <div ref={sortable.setNodeRef}
-         style={{ transform: CSS.Translate.toString(sortable.transform), transition: sortable.transition }}
-         className={cn("relative min-w-0", className, sortable.isDragging && "z-10 opacity-80")}>
-      {children(handle)}
-      {editing && (
-        <button type="button" onClick={onResize} aria-label={`${sizeLabel} — change size`} title="Change size"
-                className="absolute bottom-1.5 right-1.5 flex cursor-nwse-resize items-center gap-1 rounded-sm bg-u-raised px-1.5 py-0.5 text-meta font-medium text-u-text2 hover:text-u-text">
-          {sizeLabel}
-          <Icon d="M21 15l-6 6M21 8 8 21" size={11} />
-        </button>
-      )}
-    </div>
   );
 }
 

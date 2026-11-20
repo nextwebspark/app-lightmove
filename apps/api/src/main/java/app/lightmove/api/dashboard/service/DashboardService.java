@@ -98,7 +98,7 @@ public class DashboardService {
         return new DashboardResponse(dashboard.getId(), dashboard.getName(), dashboard.isShared(),
                 dashboard.isOwnedBy(userId),
                 dashboard.getWidgets().stream().map(widget -> new DashboardWidgetDto(widget.queryId(), widget.chart(),
-                        widget.options(), widget.title(), widget.size())).toList(),
+                        widget.options(), widget.title(), widget.layout())).toList(),
                 dashboard.getVersion(), dashboard.getUpdatedAt());
     }
 }
