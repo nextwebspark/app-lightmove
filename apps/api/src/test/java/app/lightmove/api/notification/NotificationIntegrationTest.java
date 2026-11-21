@@ -203,7 +203,10 @@ class NotificationIntegrationTest extends PipelineFlowSupport {
 
         assertThat(email.subjectsFor(researcherAddress)).filteredOn(subject -> subject.contains("mentioned you"))
                 .hasSize(1);
-        assertThat(email.sent()).filteredOn(sent -> sent.subject().contains("mentioned you"))
+        // Scoped to this test's recipient: emailEveryUnread sends every workspace's due rows, so another test's
+        // unread mention can be emailed (to its own address) during this one.
+        assertThat(email.sent()).filteredOn(sent -> sent.to().equalsIgnoreCase(researcherAddress))
+                .filteredOn(sent -> sent.subject().contains("mentioned you"))
                 .allSatisfy(sent -> assertThat(sent.textBody()).contains("note=" + noteId));
     }
 
