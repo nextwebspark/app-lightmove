@@ -20,6 +20,7 @@ export interface SidebarItem {
 }
 
 export interface SidebarGroup {
+  /** Empty for the group above every labelled one: Home and Positions. */
   label: string;
   items: SidebarItem[];
 }
@@ -77,15 +78,17 @@ export function Sidebar({
 
       <div className="-mx-2.5 min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-2.5">
         {groups.map((group) => (
-          <div key={group.label}>
-            <div
-              className={cn(
-                "px-2.5 pb-1.5 pt-3.5 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-u-text3",
-                labelsHidden,
-              )}
-            >
-              {group.label}
-            </div>
+          <div key={group.label || "main"}>
+            {group.label ? (
+              <div
+                className={cn(
+                  "px-2.5 pb-1.5 pt-3.5 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-u-text3",
+                  labelsHidden,
+                )}
+              >
+                {group.label}
+              </div>
+            ) : null}
             {group.items.map((item) => (
               <SidebarRow key={item.to} item={item} collapsed={collapsed} />
             ))}

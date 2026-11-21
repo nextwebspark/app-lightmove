@@ -1,11 +1,13 @@
 import { ICONS } from "../Icon";
 import type { MobileTab } from "./MobileTabBar";
 
-/** The workspace's bottom bar — the lists, Settings included. A pure client has their positions alone. */
+/** The workspace's bottom bar — Home and the lists, Settings included. A pure client has Home and their positions. */
 export function workspaceTabs(clientOnly: boolean, listSearch = ""): MobileTab[] {
-  if (clientOnly) return [{ to: "/", label: "Positions", icon: ICONS.myProjects, end: true }];
+  const home: MobileTab = { to: "/", label: "Home", icon: ICONS.home, end: true };
+  if (clientOnly) return [home, { to: "/positions", label: "Positions", icon: ICONS.myProjects, end: true }];
   return [
-    { to: `/${listSearch}`, label: "Positions", icon: ICONS.myProjects, end: true },
+    home,
+    { to: `/positions${listSearch}`, label: "Positions", icon: ICONS.myProjects, end: true },
     { to: "/tasks", label: "Tasks", icon: ICONS.checkCircle },
     { to: "/candidates", label: "Candidates", icon: ICONS.candidates },
   ];

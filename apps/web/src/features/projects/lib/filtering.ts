@@ -1,7 +1,7 @@
 import type { Project, ProjectStage } from "../api/types";
 
 /**
- * The workspace home's list logic — My/All, stage chips, search — extracted pure so the combination
+ * The Positions list's logic — stage chips and search — extracted pure so the combination
  * the whole screen hangs on is testable without a DOM. Ordering is the grid's: the columns declare
  * their own comparators and the table sorts the rows it was handed.
  */
@@ -43,14 +43,11 @@ export function isActive(project: Project): boolean {
 
 export function filterProjects(
   projects: Project[],
-  options: { view: "my" | "all"; myMemberId?: string; chip: ChipKey; query: string },
+  options: { chip: ChipKey; query: string },
 ): Project[] {
   const query = options.query.trim().toLowerCase();
 
   return projects.filter((project) => {
-    if (options.view === "my" && !project.team.some((seat) => seat.memberId === options.myMemberId)) {
-      return false;
-    }
     if ((options.chip === "archived") !== isArchived(project)) return false;
     if (options.chip === "active" && !isActive(project)) return false;
     if (

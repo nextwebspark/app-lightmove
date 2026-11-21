@@ -31,8 +31,7 @@ const renderFrom = (entry: string) =>
   render(
     <MemoryRouter initialEntries={[entry]}>
       <Routes>
-        <Route path="/" element={<OpenLink />} />
-        <Route path="/all" element={<OpenLink />} />
+        <Route path="/positions" element={<OpenLink />} />
         <Route path="/clients" element={<OpenLink />} />
         <Route
           path="/candidates"
@@ -51,8 +50,8 @@ describe("the list a position was opened from", () => {
   beforeEach(() => sessionStorage.clear());
 
   it.each([
-    ["/all?stage=allstages&q=cfo", "All positions"],
-    ["/", "My positions"],
+    ["/positions?stage=allstages&q=cfo", "Positions"],
+    ["/positions", "Positions"],
     ["/clients", "Clients"],
   ])("returns to %s, filters and all, and names it", async (from, label) => {
     renderFrom(from);
@@ -62,26 +61,26 @@ describe("the list a position was opened from", () => {
   });
 
   it("survives moving between the position's tabs", async () => {
-    renderFrom("/all?q=cfo");
+    renderFrom("/positions?q=cfo");
     await userEvent.click(screen.getByRole("link", { name: "Open" }));
     await userEvent.click(screen.getByRole("link", { name: "Strategy" }));
 
     expect(screen.getByTestId("at")).toHaveTextContent("/projects/p1/strategy");
-    expect(screen.getByRole("link", { name: "Back to All positions" })).toHaveAttribute("href", "/all?q=cfo");
+    expect(screen.getByRole("link", { name: "Back to Positions" })).toHaveAttribute("href", "/positions?q=cfo");
   });
 
-  it("falls back to My positions when nothing says where it came from", () => {
+  it("falls back to Positions when nothing says where it came from", () => {
     renderFrom("/projects/p1");
 
-    expect(screen.getByRole("link", { name: "Back to My positions" })).toHaveAttribute("href", "/");
+    expect(screen.getByRole("link", { name: "Back to Positions" })).toHaveAttribute("href", "/positions");
   });
 
   it("forgets an earlier list once the position is opened from somewhere else", async () => {
-    sessionStorage.setItem("lightmove.positionsOrigin.p1", "/all?q=cfo");
+    sessionStorage.setItem("lightmove.positionsOrigin.p1", "/positions?q=cfo");
     renderFrom("/candidates");
     await userEvent.click(screen.getByRole("link", { name: "Open" }));
 
-    expect(screen.getByRole("link", { name: "Back to My positions" })).toHaveAttribute("href", "/");
+    expect(screen.getByRole("link", { name: "Back to Positions" })).toHaveAttribute("href", "/positions");
     expect(sessionStorage.getItem("lightmove.positionsOrigin.p1")).toBeNull();
   });
 
@@ -89,6 +88,6 @@ describe("the list a position was opened from", () => {
     sessionStorage.setItem("lightmove.positionsOrigin.p1", kept);
     renderFrom("/projects/p1");
 
-    expect(screen.getByRole("link", { name: "Back to My positions" })).toHaveAttribute("href", "/");
+    expect(screen.getByRole("link", { name: "Back to Positions" })).toHaveAttribute("href", "/positions");
   });
 });

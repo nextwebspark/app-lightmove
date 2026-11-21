@@ -7,7 +7,7 @@ import * as poolApi from "../../features/candidates/api/poolApi";
 import * as clientsApi from "../../features/clients/api/clientsApi";
 import { liveClients } from "../../features/clients/lib/filtering";
 import * as projectsApi from "../../features/projects/api/projectsApi";
-import { isActive, livePositions } from "../../features/projects/lib/filtering";
+import { isActive } from "../../features/projects/lib/filtering";
 import * as workspaceApi from "../../features/workspace/api/workspaceApi";
 import { useWorkspaceVocabulary } from "../../features/workspace/lib/vocabulary";
 import { AppShell } from "./AppShell";
@@ -43,8 +43,8 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
   const clientOnly = isPureClient(roles);
   const vocabulary = useWorkspaceVocabulary();
   const { pathname, search } = useLocation();
-  // My and All are one list seen two ways, so moving between them keeps its stage and search.
-  const listSearch = pathname === "/" || pathname === "/all" ? search : "";
+  // Back on Positions from elsewhere in the shell, the list keeps the stage and search it was left with.
+  const listSearch = pathname === "/positions" ? search : "";
   const fullBleed = FULL_BLEED_ROUTES.some((route) => matchPath(route, pathname));
 
   const { data: projects } = useQuery({
@@ -67,30 +67,22 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
     enabled: !clientOnly,
   });
 
-  const myMemberId = members?.find((m) => m.userId === user?.id)?.memberId;
-  const active = projects?.filter(isActive);
-  const myCount = myMemberId
-    ? active?.filter((p) => p.team.some((seat) => seat.memberId === myMemberId)).length
-    : undefined;
+  const activeCount = projects?.filter(isActive).length;
 
-  const projectsGroup: SidebarGroup = clientOnly
-    ? {
-        label: "Positions",
-        items: [{ to: "/", label: "My positions", icon: ICONS.myProjects, end: true }],
-      }
-    : {
-        label: "Positions",
-        items: [
-          { to: `/${listSearch}`, label: "My positions", icon: ICONS.myProjects, count: myCount, end: true },
-          { to: `/all${listSearch}`, label: "All positions", icon: ICONS.allProjects, count: projects && livePositions(projects).length },
-          { to: "/dashboards", label: "Dashboards", icon: ICONS.dashboard },
-        ],
-      };
+  // The list is the server's answer: every position for an admin, the caller's own for anyone else.
+  const mainGroup: SidebarGroup = {
+    label: "",
+    items: [
+      { to: "/", label: "Home", icon: ICONS.home, end: true },
+      { to: `/positions${listSearch}`, label: "Positions", icon: ICONS.myProjects, count: clientOnly ? undefined : activeCount },
+      ...(clientOnly ? [] : [{ to: "/dashboards", label: "Dashboards", icon: ICONS.dashboard }]),
+    ],
+  };
 
   const groups: SidebarGroup[] = clientOnly
-    ? [projectsGroup]
+    ? [mainGroup]
     : [
-        projectsGroup,
+        mainGroup,
         {
           label: "Workspace",
           items: [
@@ -103,8 +95,8 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
       ];
 
   const sections: Record<string, string> = {
-    "/": "Positions",
-    "/all": "Positions",
+    "/": "Home",
+    "/positions": "Positions",
     "/dashboards": "Dashboards",
     "/candidates": "Candidates",
     "/tasks": "My tasks",

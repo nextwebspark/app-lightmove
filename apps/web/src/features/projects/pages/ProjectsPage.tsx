@@ -1,9 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
 import { PageHeader } from "../../../components/layout/PageHeader";
 import { Icon, ICONS } from "../../../components/layout/Icon";
-import { Button, buttonClassName, EmptyState, TableSkeleton } from "../../../components/ui";
+import { Button, EmptyState, TableSkeleton } from "../../../components/ui";
 import { ColumnPicker, hideableColumnsOf } from "../../../components/ui/ColumnPicker";
 import { healthLabel } from "../../../components/ui/Badge";
 import { GridFilterButton } from "../../../components/ui/GridFilters";
@@ -18,11 +17,9 @@ import { useAuth } from "../../auth/AuthProvider";
 import { isPureClient } from "../../auth/roles";
 import * as clientsApi from "../../clients/api/clientsApi";
 import { liveClients } from "../../clients/lib/filtering";
-import * as workspaceApi from "../../workspace/api/workspaceApi";
 import { useWorkspaceVocabulary } from "../../workspace/lib/vocabulary";
 import * as projectsApi from "../api/projectsApi";
 import type { Project, ProjectHealth } from "../api/types";
-import { MyTasksCard } from "../../tasks/components/MyTasksCard";
 import { NewProjectModal } from "../components/NewProjectModal";
 import { ProjectDrawer } from "../components/ProjectDrawer";
 import { ProjectsList } from "../components/ProjectsList";
@@ -32,7 +29,7 @@ import {
   projectColumns,
   type ProjectSortField,
 } from "../lib/projectColumns";
-import { CHIPS, filterProjects, isActive, isArchived, type ChipKey } from "../lib/filtering";
+import { CHIPS, filterProjects, isArchived, type ChipKey } from "../lib/filtering";
 import { useAddressedSearch } from "../../../lib/useAddressedSearch";
 
 const PROJECT_LAYOUT_COLUMNS = layoutColumnsOf(projectColumns);
@@ -66,16 +63,17 @@ function projectColumnFilters(projects: readonly Project[]): LocalGridFilter<Pro
 }
 
 /**
- * The workspace home: the mandate list under My/All views, with the search box, stage chips and
- * sortable columns from the mockup. All filtering is client-side over one query — a firm's mandate
- * list is tens of rows.
+ * Positions: the list the server answers, which is every position for an admin and only the ones the
+ * caller holds a seat on for anyone else. Search, stage chips and sortable columns are client-side over
+ * one query — a firm's mandate list is tens of rows.
  */
-export function ProjectsPage({ view }: { view: "my" | "all" }) {
+export function ProjectsPage() {
   const { user } = useAuth();
   const vocabulary = useWorkspaceVocabulary();
-  // The registry and roster are staff surfaces a pure client can't read; the server already scopes
-  // their project list to the mandates they're attached to, so that list IS "my projects" for them.
-  const clientOnly = isPureClient(user?.workspace?.roles ?? []);
+  const roles = user?.workspace?.roles ?? [];
+  const clientOnly = isPureClient(roles);
+  // Presentation only: which empty state to draw. The server decided what the list holds.
+  const seesEveryPosition = roles.includes("ADMIN");
   // In the address, so the back link from a position returns to the list as it was left.
   const { query, setQuery, flushQuery, chip, setChip, clear: clearFilters } = useAddressedSearch(
     "stage",
@@ -109,18 +107,10 @@ export function ProjectsPage({ view }: { view: "my" | "all" }) {
     queryFn: clientsApi.clients,
     enabled: Boolean(user) && !clientOnly,
   });
-  const { data: members = [], isPending: membersPending, isError: membersRefused } = useQuery({
-    queryKey: workspaceApi.MEMBERS_KEY,
-    queryFn: workspaceApi.members,
-    enabled: Boolean(user) && !clientOnly,
-  });
-
-  const myMemberId = members.find((m) => m.userId === user?.id)?.memberId;
-
   const columnFilterSpecs = useMemo(() => projectColumnFilters(projects), [projects]);
   const searched = useMemo(
-    () => filterProjects(projects, { view: clientOnly ? "all" : view, myMemberId, chip, query }),
-    [projects, view, clientOnly, myMemberId, chip, query],
+    () => filterProjects(projects, { chip, query }),
+    [projects, chip, query],
   );
   const {
     rows,
@@ -136,7 +126,7 @@ export function ProjectsPage({ view }: { view: "my" | "all" }) {
   const { reset: resetPage, clampTo } = paging;
   useEffect(() => {
     resetPage();
-  }, [resetPage, view, chip, query, sort, columnFilterKey]);
+  }, [resetPage, chip, query, sort, columnFilterKey]);
   useEffect(() => {
     clampTo(rows.length);
   }, [clampTo, rows.length]);
@@ -144,12 +134,12 @@ export function ProjectsPage({ view }: { view: "my" | "all" }) {
   const openProject = projects.find((p) => p.id === openProjectId) ?? null;
   const filtered = query.trim() !== "" || chip !== DEFAULT_CHIP || columnFiltered;
   const unfilteredCount = useMemo(
-    () => filterProjects(projects, { view: clientOnly ? "all" : view, myMemberId, chip: "allstages", query: "" }).length,
-    [projects, view, clientOnly, myMemberId],
+    () => filterProjects(projects, { chip: "allstages", query: "" }).length,
+    [projects],
   );
   const archivedCount = useMemo(
-    () => filterProjects(projects, { view: clientOnly ? "all" : view, myMemberId, chip: "archived", query: "" }).length,
-    [projects, view, clientOnly, myMemberId],
+    () => filterProjects(projects, { chip: "archived", query: "" }).length,
+    [projects],
   );
   // Archived is offered only once there is something under it, set apart from the stages it is not one of.
   const chips = useMemo(
@@ -160,13 +150,6 @@ export function ProjectsPage({ view }: { view: "my" | "all" }) {
       ),
     [archivedCount, chip],
   );
-  // Nothing on My positions because nobody has seated them yet — not because a filter found nothing.
-  const firstUse =
-    view === "my" &&
-    !clientOnly &&
-    myMemberId !== undefined &&
-    !projects.some((project) => project.team.some((seat) => seat.memberId === myMemberId));
-
   const newProjectButton = (
     <Button onClick={() => setModalOpen(true)} size="sm">
       <Icon d={ICONS.plus} size={15} />
@@ -180,7 +163,7 @@ export function ProjectsPage({ view }: { view: "my" | "all" }) {
     return (
       <>
         <PageHeader
-          title={view === "my" ? "My positions" : "All positions"}
+          title="Positions"
           subtitle={`workspace ${user?.workspace?.name ?? ""}`}
           action={newProjectButton}
         />
@@ -197,7 +180,7 @@ export function ProjectsPage({ view }: { view: "my" | "all" }) {
     return (
       <>
         <PageHeader
-          title={view === "my" ? "My positions" : "All positions"}
+          title="Positions"
           subtitle={`workspace ${user?.workspace?.name ?? ""}`}
         />
         <EmptyState
@@ -211,7 +194,7 @@ export function ProjectsPage({ view }: { view: "my" | "all" }) {
 
   const header = (
     <PageHeader
-      title={view === "my" ? "My positions" : "All positions"}
+      title="Positions"
       subtitle={`workspace ${user?.workspace?.name ?? ""}`}
       action={clientOnly ? undefined : newProjectButton}
     />
@@ -230,12 +213,21 @@ export function ProjectsPage({ view }: { view: "my" | "all" }) {
         </>
       );
     }
+    // An admin's empty list means the workspace has none; anyone else's only that nobody has seated them yet.
     const startCopy =
       "A position is one role you're filling. You'll write the brief, pick target companies, map the executives at them, and reach out — all in one place.";
     return (
       <>
         {header}
-        <EmptyState icon={<Icon d={ICONS.briefcase} size={24} />} title="Start your first search" body={startCopy} />
+        {seesEveryPosition ? (
+          <EmptyState icon={<Icon d={ICONS.briefcase} size={24} />} title="Start your first search" body={startCopy} />
+        ) : (
+          <EmptyState
+            icon={<Icon d={ICONS.briefcase} size={24} />}
+            title="You're not on any position yet"
+            body="When a lead adds you to a position, it appears here. You can also open one with New position."
+          />
+        )}
         {modalOpen && (
           <NewProjectModal open onClose={() => setModalOpen(false)} clients={liveClients(clients)} />
         )}
@@ -246,15 +238,12 @@ export function ProjectsPage({ view }: { view: "my" | "all" }) {
   return (
     <>
       <PageHeader
-        title={view === "my" ? "My positions" : "All positions"}
+        title="Positions"
         subtitle={`${chip === "archived" ? `${rows.length} archived` : countLabel(rows.length, unfilteredCount, filtered)} · workspace ${user?.workspace?.name ?? ""}`}
         action={clientOnly ? undefined : newProjectButton}
       />
 
-      {view === "my" && !clientOnly && <MyTasksCard />}
-
-      {!firstUse && (
-        <ListToolbar
+      <ListToolbar
           query={query}
           onQueryChange={setQuery}
           onQueryBlur={flushQuery}
@@ -273,26 +262,9 @@ export function ProjectsPage({ view }: { view: "my" | "all" }) {
             />
           }
         />
-      )}
 
-      {rows.length === 0 && view === "my" && !clientOnly && membersPending ? (
-        // Whose positions are "mine" is read off the roster; until it arrives, nothing can be said about none.
-        <TableSkeleton columns={["Position", "Stage", "Health", "Team", "Target", "Pipeline"]} />
-      ) : rows.length === 0 && view === "my" && !clientOnly && membersRefused ? (
-        // Without the roster nothing can be said about which positions are yours — least of all that there are none.
-        <EmptyState
-          icon={<Icon d={ICONS.lock} size={24} />}
-          title="Couldn't tell which positions are yours"
-          body="The team list didn't load. Reload the page, or browse every position in the meantime."
-        >
-          <Link to="/all" className={buttonClassName("secondary")}>
-            Browse all positions
-          </Link>
-        </EmptyState>
-      ) : rows.length === 0 ? (
+      {rows.length === 0 ? (
         <ListEmptyState
-          firstUse={firstUse}
-          openCount={projects.filter(isActive).length}
           archivedCount={archivedCount}
           filtered={filtered}
           onClearFilters={() => {
@@ -339,42 +311,18 @@ export function ProjectsPage({ view }: { view: "my" | "all" }) {
 }
 
 function ListEmptyState({
-  firstUse,
-  openCount,
   archivedCount,
   filtered,
   onClearFilters,
   onShowAllStages,
   onShowArchived,
 }: {
-  firstUse: boolean;
-  openCount: number;
   archivedCount: number;
   filtered: boolean;
   onClearFilters: () => void;
   onShowAllStages: () => void;
   onShowArchived: () => void;
 }) {
-  if (firstUse) {
-    const positions = openCount === 1 ? "1 open position" : `${openCount} open positions`;
-    return (
-      <EmptyState
-        icon={<Icon d={ICONS.briefcase} size={24} />}
-        title="You're not on any position yet"
-        body={
-          openCount > 0
-            ? `Your team has ${positions}. Ask a lead to add you, or browse them.`
-            : "Your team has no open positions right now. Open one with New position to get started."
-        }
-      >
-        {openCount > 0 && (
-          <Link to="/all" className={buttonClassName("primary")}>
-            Browse open positions ({openCount})
-          </Link>
-        )}
-      </EmptyState>
-    );
-  }
   if (filtered) {
     return (
       <EmptyState icon={<Icon d={ICONS.searchX} size={24} />} title="No positions match" body="Nothing fits this search and stage.">

@@ -142,7 +142,7 @@ export function NotificationPanel({ unreadCount, onClose }: { unreadCount: numbe
           Notification settings
         </Link>
         <Link
-          to="/"
+          to="/tasks"
           onClick={onClose}
           className="inline-flex items-center gap-1.5 rounded-u-control px-1.5 py-1 text-note font-medium text-u-accent transition hover:bg-u-surface"
         >

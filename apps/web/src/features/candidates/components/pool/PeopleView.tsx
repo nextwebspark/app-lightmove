@@ -212,7 +212,7 @@ export function PeopleView({
               title="No candidates yet"
               body="Everyone your team maps on a position lands here — added by hand, captured with the plugin, imported from a spreadsheet, or found by Find executives. Someone who is already here is added to the next position, never duplicated."
             >
-              <Link to="/all" className="font-mono text-[12.5px] font-semibold text-u-accent hover:underline">
+              <Link to="/positions" className="font-mono text-[12.5px] font-semibold text-u-accent hover:underline">
                 Go to your positions
               </Link>
             </EmptyState>

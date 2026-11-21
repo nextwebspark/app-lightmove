@@ -423,7 +423,7 @@ describe("routes — returning to where the guard interrupted", () => {
 
 /**
  * A typo'd URL, a stale bookmark, a deleted mandate and one the caller is not seated on all used to
- * bounce silently to My projects, leaving the four indistinguishable. They now render a screen that
+ * bounce silently to the positions list, leaving the four indistinguishable. They now render a screen that
  * says so — and keep the URL, so the address bar still shows what was asked for.
  */
 describe("routes — the not-found screen", () => {
@@ -447,7 +447,7 @@ describe("routes — the not-found screen", () => {
     expect(await screen.findByText("We couldn't open that page")).toBeInTheDocument();
     expect(screen.getByTestId("pathname").textContent).toBe("/nowhere-in-particular");
     // The shell, not a bare page: the rail is how the user gets anywhere else from here.
-    expect(screen.getByRole("link", { name: /my positions/i })).toBeInTheDocument();
+    expect(screen.getAllByRole("link", { name: /^positions/i }).length).toBeGreaterThan(0);
   });
 
   it("renders a project id it cannot read, rather than the list", async () => {
@@ -466,10 +466,10 @@ describe("routes — the not-found screen", () => {
     expect(body).toHaveTextContent(/may not be on its team/);
   });
 
-  it("offers the way back to My projects", async () => {
+  it("offers the way back to Home", async () => {
     renderAt("/nowhere-in-particular");
 
-    await userEvent.click(await screen.findByRole("button", { name: "Go to My positions" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Go to Home" }));
 
     await waitFor(() => expect(screen.getByTestId("pathname").textContent).toBe("/"));
   });
@@ -598,15 +598,23 @@ describe("routes — back from a position", () => {
     ]);
   });
 
-  it("returns to All positions with its stage and search, from the rail and the crumb", async () => {
-    renderAt("/all?stage=DELIVERED&q=cfo");
+  it("returns to Positions with its stage and search, from the rail and the crumb", async () => {
+    renderAt("/positions?stage=DELIVERED&q=cfo");
 
     await userEvent.click((await screen.findAllByRole("link", { name: "Open CFO Search" }))[0]);
 
-    const back = await screen.findByRole("link", { name: "All positions" });
-    expect(back).toHaveAttribute("href", "/all?stage=DELIVERED&q=cfo");
-    expect(back).toHaveAttribute("title", "Back to All positions");
-    expect(screen.getByRole("link", { name: "Positions" })).toHaveAttribute("href", "/all?stage=DELIVERED&q=cfo");
+    const back = await screen.findByTitle("Back to Positions");
+    expect(back).toHaveAttribute("href", "/positions?stage=DELIVERED&q=cfo");
+    for (const link of screen.getAllByRole("link", { name: "Positions" })) {
+      expect(link).toHaveAttribute("href", "/positions?stage=DELIVERED&q=cfo");
+    }
+  });
+
+  it("sends an old All positions link to Positions, its stage and search kept", async () => {
+    renderAt("/all?stage=DELIVERED&q=cfo");
+
+    await waitFor(() => expect(screen.getByTestId("pathname").textContent).toBe("/positions"));
+    expect(await screen.findAllByText("CFO Search")).not.toHaveLength(0);
   });
 });
 

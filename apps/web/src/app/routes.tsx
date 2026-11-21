@@ -41,6 +41,7 @@ import { SequencesPage } from "../features/outreach/pages/SequencesPage";
 import PipelineRedirect from "../features/pipeline/pages/PipelineRedirect";
 import { PositionPage } from "../features/position/pages/PositionPage";
 import { ProjectsPage } from "../features/projects/pages/ProjectsPage";
+import { HomePage } from "../features/home/pages/HomePage";
 import { ReportsPage } from "../features/reports/pages/ReportsPage";
 import { TeamAccessPage } from "../features/projects/pages/TeamAccessPage";
 import { SettingsBillingPage } from "../features/billing/pages/SettingsBillingPage";
@@ -132,10 +133,11 @@ export function AppRoutes() {
 
       {/* The app shell. Sidebar views are routes so every screen is deep-linkable. */}
       <Route element={<RequireWorkspace><WorkspaceLayout /></RequireWorkspace>}>
-        {/* The project list is everyone's, portal guests included: the server scopes theirs to the
-            mandates they are seated on. The registry and the roster are staff surfaces. */}
-        <Route path="/" element={<ProjectsPage view="my" />} />
-        <Route path="/all" element={<ProjectsPage view="all" />} />
+        {/* Home and the Positions list are everyone's, portal guests included: the server answers each
+            person only the positions they may see. The registry and the roster are staff surfaces. */}
+        <Route path="/" element={<HomePage />} />
+        <Route path="/positions" element={<ProjectsPage />} />
+        <Route path="/all" element={<PositionsRedirect />} />
         <Route element={<RequireStaff><Outlet /></RequireStaff>}>
           <Route path="/candidates" element={<CandidatesPage />} />
           <Route path="/dashboards" element={<WorkspaceDashboardsPage />} />
@@ -252,6 +254,12 @@ function AnonymousOnly({ children }: { children: ReactNode }) {
 }
 
 export { homeFor };
+
+/** All positions became Positions: an old link or bookmark lands on the list, its stage and search kept. */
+function PositionsRedirect() {
+  const { search } = useLocation();
+  return <Navigate to={`/positions${search}`} replace />;
+}
 
 function UnknownAddress() {
   const { user, loading } = useAuth();
