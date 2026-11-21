@@ -8,6 +8,7 @@ import { CurrencySelect } from "../../../components/ui/CurrencySelect";
 import { ApiRequestError } from "../../../lib/apiClient";
 import { cn } from "../../../lib/cn";
 import { codeOf, messageFor } from "../../../lib/errorCodes";
+import { PlatformTwoFactorRequired } from "../../platform/components/PlatformTwoFactorRequired";
 import { formatInstantDate } from "../../../lib/format";
 import {
   noticePairLabel,
@@ -203,6 +204,8 @@ function TemplateEditor({ scope, code }: { scope: TemplateScope; code: string | 
     if (LIFECYCLE[action].confirm) setConfirming(action);
     else lifecycle.mutate(action);
   };
+
+  if (codeOf(detailQuery.error) === "PLATFORM_TWO_FACTOR_REQUIRED") return <PlatformTwoFactorRequired />;
 
   if (code !== null && detailQuery.isError) {
     return (

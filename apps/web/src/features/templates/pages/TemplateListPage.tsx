@@ -6,7 +6,7 @@ import { hideableColumnsOf } from "../../../components/ui/ColumnPicker";
 import { GridFilterButton } from "../../../components/ui/GridFilters";
 import { PaginationBar } from "../../../components/ui/PaginationBar";
 import { cn } from "../../../lib/cn";
-import { messageFor } from "../../../lib/errorCodes";
+import { codeOf, messageFor } from "../../../lib/errorCodes";
 import { useColumnVisibility } from "../../../lib/useColumnVisibility";
 import { FULLSCREEN_PANEL, useFullscreen } from "../../../lib/useFullscreen";
 import { EMPTY_GRID_LAYOUT, layoutColumnsOf, useGridLayout } from "../../../lib/useGridLayout";
@@ -14,6 +14,7 @@ import { useGridPaging } from "../../../lib/useGridPaging";
 import { useGridSort, WORKSPACE_SCOPE } from "../../../lib/useGridSort";
 import { filterSpec, useLocalGridFilters, type LocalGridFilter } from "../../../lib/useLocalGridFilters";
 import { SENIORITY_LABELS, SENIORITY_TIERS } from "../../../lib/seniority";
+import { PlatformTwoFactorRequired } from "../../platform/components/PlatformTwoFactorRequired";
 import { POSITION_TEMPLATES_KEY } from "../../position/api/positionApi";
 import * as templateApi from "../api/templateAdminApi";
 import type { TemplateOverview, TemplateScope } from "../api/types";
@@ -76,10 +77,12 @@ function TemplateList({ scope }: { scope: TemplateScope }) {
   const [isFullscreen, toggleFullscreen] = useFullscreen();
   const { path } = SCOPE_COPY[scope];
 
-  const { data: templates, isPending, isError } = useQuery({
+  const { data: templates, isPending, isError, error } = useQuery({
     queryKey: templateApi.TEMPLATE_ADMIN_KEY(scope),
     queryFn: ({ signal }) => templateApi.listTemplates(scope, signal),
   });
+
+  const needsTwoFactor = codeOf(error) === "PLATFORM_TWO_FACTOR_REQUIRED";
 
   const searched = useMemo(() => filterTemplates(templates ?? [], query), [templates, query]);
   const columnFilterSpecs = useMemo(() => templateColumnFilters(scope), [scope]);
@@ -121,6 +124,8 @@ function TemplateList({ scope }: { scope: TemplateScope }) {
     mutationFn: () => templateApi.exportTemplates(scope),
     onError: (error) => toast.error(messageFor(error)),
   });
+
+  if (needsTwoFactor) return <PlatformTwoFactorRequired />;
 
   return (
     /* The shell hands grid pages the whole main area at a definite height (GRID_PAGES in
