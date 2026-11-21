@@ -666,8 +666,7 @@ because no crawler runs the bundle (README, "Link previews"). Publishing stamps 
 called the brief ready and **freezes nothing** (V38 retired the lock deliberately). Don't build ahead of
 the mockups: if a screen isn't being built this session, its tables and entities don't exist yet.
 
-The shared library is the first
-section of the **platform console** (#1312, `features/platform`): `/platform/*` in the same SPA, origin and session,
+The shared template library a super admin edits is the first section of the **platform console** (#1312, `features/platform`): `/platform/*` in the same SPA, origin and session,
 with its own shell (`PlatformLayout`: the "Uncava platform" header with no workspace menu, credit chip or bell, a rail
 from `platformSections`, **Back to workspace**), reached from a **Platform** item in the avatar menu that only a
 holder of a platform action sees. The whole tree is one lazy chunk (`PlatformRoutes`), mounted behind
