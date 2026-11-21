@@ -26,6 +26,13 @@ public class PlatformAccess {
         }
     }
 
+    /** The same 404 for someone holding no platform action at all. */
+    public void requireAnyAction(UUID userId) {
+        if (roles.findPlatformActionNames(userId).isEmpty()) {
+            throw new ApiException(ErrorCode.NOT_FOUND, "Requires a platform action");
+        }
+    }
+
     /**
      * Skips a name this build does not know rather than failing on it: a migration seeding a new platform
      * action lands while older instances are still serving, and this runs on every login, refresh and /me.

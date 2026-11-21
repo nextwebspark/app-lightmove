@@ -16,7 +16,9 @@ public enum PlatformEventType implements AuditEventType {
     INVOICED_SUBSCRIPTION_SET,
 
     PLATFORM_ROLE_GRANTED,
-    PLATFORM_ROLE_REVOKED;
+    PLATFORM_ROLE_REVOKED,
+    PLATFORM_STEP_UP_PASSED,
+    PLATFORM_STEP_UP_FAILED;
 
     @Override
     public String code() {

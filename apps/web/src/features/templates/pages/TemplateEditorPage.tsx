@@ -16,6 +16,7 @@ import {
   pairOfNoticePeriod,
 } from "../../../lib/noticePeriod";
 import { SENIORITY_LABELS, SENIORITY_TIERS } from "../../../lib/seniority";
+import { PlatformTwoFactorRequired } from "../../platform/components/PlatformTwoFactorRequired";
 import { POSITION_TEMPLATES_KEY } from "../../position/api/positionApi";
 import { useWorkspaceCurrency } from "../../workspace/lib/useWorkspaceCurrency";
 import type {
@@ -203,6 +204,8 @@ function TemplateEditor({ scope, code }: { scope: TemplateScope; code: string | 
     if (LIFECYCLE[action].confirm) setConfirming(action);
     else lifecycle.mutate(action);
   };
+
+  if (codeOf(detailQuery.error) === "PLATFORM_TWO_FACTOR_REQUIRED") return <PlatformTwoFactorRequired />;
 
   if (code !== null && detailQuery.isError) {
     return (
