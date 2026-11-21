@@ -836,6 +836,7 @@ export function payloadFor(pathname, search = "") {
   if (/\/projects\/[^/]+\/pipeline$/.test(pathname)) return { rows: [], stageCounts: [], total: 0 };
   if (pathname.endsWith("/workspace/pipeline")) return { stages: [] };
   if (pathname.endsWith("/me/outreach/needs")) return { rows: [], total: 0, truncated: false };
+  if (pathname.endsWith("/me/home")) return { layout: null };
   if (pathname.endsWith("/me/tasks")) {
     return { tasks: [], counts: { today: 0, overdue: 0, upcoming: 0, assignedByMe: 0 }, hasMore: false };
   }
