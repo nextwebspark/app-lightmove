@@ -59,6 +59,7 @@ export function PersonHeaderLayout({
   location,
   children,
   cornerButtons = 1,
+  contactsClassName,
 }: {
   avatar: ReactNode;
   fullName: string;
@@ -85,6 +86,8 @@ export function PersonHeaderLayout({
   children: ReactNode;
   /** How many buttons sit in the header's corner (Close, a ⋯, Previous and Next…), whose room the name keeps clear of. */
   cornerButtons?: number;
+  /** Hides the contacts where a rail beside the record lists them instead. */
+  contactsClassName?: string;
 }) {
   return (
     <div className="group flex items-start gap-3">
@@ -103,14 +106,16 @@ export function PersonHeaderLayout({
           {processLine !== undefined && (
             <div className="mt-2.5 flex h-7 min-w-0 items-center gap-2">{processLine}</div>
           )}
-          <HeaderContacts
-            contacts={contacts}
-            onEditContacts={onEditContacts}
-            onShowContacts={onShowContacts}
-            onWriteEmail={onWriteEmail}
-            emailNote={emailNote}
-            phoneActions={phoneActions}
-          />
+          <div className={contactsClassName}>
+            <HeaderContacts
+              contacts={contacts}
+              onEditContacts={onEditContacts}
+              onShowContacts={onShowContacts}
+              onWriteEmail={onWriteEmail}
+              emailNote={emailNote}
+              phoneActions={phoneActions}
+            />
+          </div>
         </div>
         {children}
       </div>
