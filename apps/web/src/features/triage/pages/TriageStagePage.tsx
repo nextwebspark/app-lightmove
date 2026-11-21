@@ -1,6 +1,6 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState, type ComponentProps } from "react";
-import { Navigate, useLocation, useNavigate, useOutletContext, useParams, useSearchParams } from "react-router-dom";
+import { Navigate, useLocation, useOutletContext, useParams, useSearchParams } from "react-router-dom";
 import type { ProjectOutletContext } from "../../../components/layout/ProjectLayout";
 import { ICONS } from "../../../components/layout/Icon";
 import { FullscreenButton } from "../../../components/ui";
@@ -24,13 +24,9 @@ import { useConsentMode } from "../../candidates/lib/useConsentMode";
 import { useWorkspaceVocabulary } from "../../workspace/lib/vocabulary";
 import { useExecutivesAtCompany } from "../../candidates/lib/useExecutivesAtCompany";
 import type { Candidate, CandidatesPage } from "../../candidates/api/types";
-import {
-  CandidateDrawer,
-  type CandidateCompanyContext,
-} from "../../candidates/components/CandidateDrawer";
+import { CandidateDrawer } from "../../candidates/components/CandidateDrawer";
 import type { RecordStepper } from "../../candidates/components/RecordCornerControls";
 import { CandidateRecordPage } from "../components/CandidateRecordPage";
-import { POSITION_STAFF_TABS } from "../../candidates/lib/drawerTabs";
 import { RemoveCandidateDialog } from "../../candidates/components/RemoveCandidateDialog";
 import { useChangeCandidateStatus } from "../../candidates/lib/useChangeCandidateStatus";
 import * as customColumnsApi from "../../customcolumns/api/customColumnsApi";
@@ -76,6 +72,8 @@ import { awaitingResearch, type TriageCompanyRow } from "../lib/triageRows";
 import { OFFERED_TRIAGE_STAGES, offeredStageBySlug } from "../lib/triageStages";
 import { resolveCompaniesView, useCompaniesViews } from "../lib/useCompaniesViews";
 import { useLineSelection } from "../lib/useLineSelection";
+import { useOpenRecord } from "../lib/useOpenRecord";
+import { executivesOf } from "../lib/triageVocabulary";
 import { useProjectStream, type ProjectStreamKind } from "../../../lib/useProjectStream";
 
 /**
@@ -132,8 +130,6 @@ export function TriageStagePage() {
 
 function TriageStage() {
   const { stage: stageSlug } = useParams();
-  const location = useLocation();
-  const navigate = useNavigate();
   const { project } = useOutletContext<ProjectOutletContext>();
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -183,8 +179,6 @@ function TriageStage() {
   const [openCompany, setOpenCompany] = useState<OpenCompany | null>(null);
   const [pendingRemoval, setPendingRemoval] = useState<TriageCompany | null>(null);
   const [pendingDecline, setPendingDecline] = useState<PendingDecline | null>(null);
-  /** The add form, open on a company or on none; an existing executive's panel is the URL's `?candidate=`. */
-  const [adding, setAdding] = useState<OpenProfile | null>(null);
   const [pendingCandidateRemoval, setPendingCandidateRemoval] = useState<Candidate | null>(null);
   const [importing, setImporting] = useState(false);
   const lineSelection = useLineSelection(TICKED_LINES_CAP);
@@ -205,7 +199,7 @@ function TriageStage() {
     if (!user) return;
     if (canWrite) {
       if (addRequest === "company") setOpenCompany({ company: null });
-      else setAdding({ candidate: null, company: null });
+      else setProfile({ candidate: null, company: null });
     }
     setSearchParams(
       (current) => {
@@ -250,79 +244,8 @@ function TriageStage() {
     );
   };
 
-  /**
-   * The executive the panel is open on lives in the URL, so a refresh, a shared link or Back reopens them. The board
-   * reads the same `?candidate=` for its own panel.
-   */
-  const openCandidateId = isBoard ? null : searchParams.get("candidate");
-  const requestedTab = searchParams.get("tab");
-  const focusTab = POSITION_STAFF_TABS.find((tab) => tab === requestedTab) ?? null;
-  const openCandidate = useQuery({
-    queryKey: candidatesApi.CANDIDATE_KEY(project.id, openCandidateId ?? ""),
-    queryFn: ({ signal }) => candidatesApi.getCandidate(project.id, openCandidateId!, signal),
-    enabled: openCandidateId !== null,
-  });
-  const setOpenCandidateParam = (candidateId: string | null) =>
-    setSearchParams(
-      (current) => {
-        const params = new URLSearchParams(current);
-        if (candidateId) params.set("candidate", candidateId);
-        else {
-          params.delete("candidate");
-          params.delete("record");
-        }
-        params.delete("note");
-        params.delete("section");
-        params.delete("tab");
-        return params;
-      },
-      // A save re-opens the same person and keeps how the page was entered; a step does not.
-      { replace: true, state: candidateId === openCandidateId ? location.state : undefined },
-    );
-  const profile: OpenProfile | null =
-    adding ??
-    (openCandidateId !== null && openCandidate.data?.id === openCandidateId
-      ? { candidate: openCandidate.data, company: null }
-      : null);
+  const { profile, setProfile, focusTab, recordPage, setRecordPage } = useOpenRecord(project.id, !isBoard, view === "table");
   const profileCompany = profile?.company ?? null;
-  const recordPage = view === "table" && searchParams.get("record") === "page" && profile?.candidate != null;
-  // Going in pushes, so Back returns to the peek. Coming out pops that entry while it still holds the person it was
-  // pushed for, rather than leaving the same peek twice in history; after a step, or on a loaded link, it replaces.
-  const enteredRecordFor = (location.state as RecordEntry | null)?.recordEnteredFor ?? null;
-  const setRecordPage = (onPage: boolean) => {
-    if (!onPage && enteredRecordFor !== null && enteredRecordFor === openCandidateId) {
-      navigate(-1);
-      return;
-    }
-    setSearchParams(
-      (current) => {
-        const params = new URLSearchParams(current);
-        if (onPage) params.set("record", "page");
-        else params.delete("record");
-        return params;
-      },
-      onPage ? { state: { recordEnteredFor: openCandidateId } satisfies RecordEntry } : { replace: true },
-    );
-  };
-  /** Opens the panel on an executive (into the URL) or on the add form, or closes it with null. */
-  const setProfile = (next: OpenProfile | null) => {
-    if (next?.candidate) {
-      queryClient.setQueryData(candidatesApi.CANDIDATE_KEY(project.id, next.candidate.id), next.candidate);
-      setAdding(null);
-      setOpenCandidateParam(next.candidate.id);
-      return;
-    }
-    setAdding(next);
-    if (openCandidateId !== null) setOpenCandidateParam(null);
-  };
-  // Someone removed since the link was made, or out of this reader's reach: say so and leave the grid as it is.
-  const openCandidateFailed = openCandidateId !== null && openCandidate.isError && openCandidate.data === undefined;
-  useEffect(() => {
-    if (!openCandidateFailed) return;
-    toast.error(messageFor(openCandidate.error));
-    setOpenCandidateParam(null);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [openCandidateFailed]);
 
   /**
    * The mandate's currency, offered to a new executive's package so a consultant stops picking it on
@@ -644,6 +567,10 @@ function TriageStage() {
       return line.candidate ? [{ company: null, candidate: line.candidate, candidateAddedBy }] : [];
     });
   }, [lines.data]);
+  const recordEntries = useMemo(
+    () => rows.flatMap((row) => (row.candidate ? [{ candidate: row.candidate, companyLogo: row.company?.logoUrl ?? null }] : [])),
+    [rows],
+  );
 
   /**
    * A company's move carries the people still where it stood, and someone moved on their own stays put (#903). The
@@ -799,6 +726,8 @@ function TriageStage() {
       refreshEverything();
       setPendingCandidateRemoval(null);
       setProfile(null);
+      // Their cached read would otherwise come back on Back, showing someone the server no longer holds.
+      queryClient.removeQueries({ queryKey: candidatesApi.CANDIDATE_KEY(project.id, candidate.id), exact: true });
       toast(
         withCompany
           ? `${candidate.fullName} and ${candidate.companyName} removed from this mandate`
@@ -1042,56 +971,56 @@ function TriageStage() {
        than guessed from a hard-coded amount of chrome that any topbar change would falsify. */
     <div className={cn("flex min-h-0 flex-1 flex-col", isFullscreen && FULLSCREEN_PANEL)}>
       {!recordPage && (
-      <TriageToolbar
-        search={search}
-        onSearch={setSearch}
-        searchPlaceholder={!canWrite ? "Search companies and executives…" : "Search companies, executives, notes…"}
-        filter={
-          view === "table" ? (
-            <GridFilterButton
-              filters={columnFilters}
-              resultLabel={totalCount === undefined ? undefined : `${totalCount} ${totalCount === 1 ? "result" : "results"}`}
-            />
-          ) : undefined
-        }
-        views={views}
-        view={view}
-        onViewChange={handleViewChange}
-        addToSequence={
-          addToSequenceOffered
-            ? {
-                onPress: enrolTicked,
-                unavailable: toolbarEnrolUnavailable(),
-                count: view === "pipeline" ? pipelineSelection.size : lineSelection.candidateIds.length,
-              }
-            : undefined
-        }
-        create={
-          canWrite && !isBoard && !declinedStage
-            ? {
-                onAddExecutive: () => setProfile({ candidate: null, company: null }),
-                onAddCompany: () => setOpenCompany({ company: null }),
-              }
-            : undefined
-        }
-        findExecutives={
-          findExecutivesOffered && !isBoard
-            ? {
-                onPress: handleFindExecutives,
-                state: sourcing.button,
-                unavailable: findExecutivesUnavailable(),
-                companies: tickedCompanies.length,
-                last: sourcing.run ? { summary: lastSearchSummary(sourcing.run), onOpen: () => setFindingAt({ scope: [], search: false }) } : undefined,
-              }
-            : undefined
-        }
-        advanced={isBoard ? undefined : advancedSections()}
-        advancedDot={
-          view === "table" && hiddenColumnCount > 0
-            ? `${hiddenColumnCount} column${hiddenColumnCount === 1 ? "" : "s"} hidden`
-            : undefined
-        }
-      />
+        <TriageToolbar
+          search={search}
+          onSearch={setSearch}
+          searchPlaceholder={!canWrite ? "Search companies and executives…" : "Search companies, executives, notes…"}
+          filter={
+            view === "table" ? (
+              <GridFilterButton
+                filters={columnFilters}
+                resultLabel={totalCount === undefined ? undefined : `${totalCount} ${totalCount === 1 ? "result" : "results"}`}
+              />
+            ) : undefined
+          }
+          views={views}
+          view={view}
+          onViewChange={handleViewChange}
+          addToSequence={
+            addToSequenceOffered
+              ? {
+                  onPress: enrolTicked,
+                  unavailable: toolbarEnrolUnavailable(),
+                  count: view === "pipeline" ? pipelineSelection.size : lineSelection.candidateIds.length,
+                }
+              : undefined
+          }
+          create={
+            canWrite && !isBoard && !declinedStage
+              ? {
+                  onAddExecutive: () => setProfile({ candidate: null, company: null }),
+                  onAddCompany: () => setOpenCompany({ company: null }),
+                }
+              : undefined
+          }
+          findExecutives={
+            findExecutivesOffered && !isBoard
+              ? {
+                  onPress: handleFindExecutives,
+                  state: sourcing.button,
+                  unavailable: findExecutivesUnavailable(),
+                  companies: tickedCompanies.length,
+                  last: sourcing.run ? { summary: lastSearchSummary(sourcing.run), onOpen: () => setFindingAt({ scope: [], search: false }) } : undefined,
+                }
+              : undefined
+          }
+          advanced={isBoard ? undefined : advancedSections()}
+          advancedDot={
+            view === "table" && hiddenColumnCount > 0
+              ? `${hiddenColumnCount} column${hiddenColumnCount === 1 ? "" : "s"} hidden`
+              : undefined
+          }
+        />
       )}
 
       {findExecutivesOffered && (
@@ -1129,9 +1058,7 @@ function TriageStage() {
         <CandidateRecordPage
           projectId={project.id}
           stageLabel={stage.label}
-          entries={rows.flatMap((row) =>
-            row.candidate ? [{ candidate: row.candidate, companyLogo: row.company?.logoUrl ?? null }] : [],
-          )}
+          entries={recordEntries}
           openId={profile.candidate.id}
           onOpen={(candidate) => setProfile({ candidate, company: null })}
           onExit={() => setRecordPage(false)}
@@ -1394,10 +1321,6 @@ function stepperAlong(
   };
 }
 
-function executivesOf(count: number): string {
-  return count === 1 ? "1 executive" : `${count} executives`;
-}
-
 /** Who Add to sequence was asked for: the ticked companies' executives, or the ticked executives. */
 interface Enrolment {
   scope: ComponentProps<typeof EnrolDialog>["scope"];
@@ -1420,15 +1343,6 @@ interface CompanyMove {
 }
 
 /**
- * What the profile drawer is open on: an existing executive, or a blank one at a known company. Both
- * null is the toolbar's "Add executive", which maps someone with no company at all.
- */
-interface OpenProfile {
-  candidate: Candidate | null;
-  company: CandidateCompanyContext | null;
-}
-
-/**
  * What the company panel is open on. A wrapper rather than a bare `TriageCompany | null`, because
  * "closed" and "open on a new company" are both null on their own and the panel has to tell them
  * apart — one shows nothing, the other shows the Add form.
@@ -1447,11 +1361,6 @@ function withSavedFacts(held: TriageCompany, saved: TriageCompany): TriageCompan
     addedByName: held.addedByName,
     addedByAvatarUrl: held.addedByAvatarUrl,
   };
-}
-
-/** History state on the entry the record full page was pushed as. */
-interface RecordEntry {
-  recordEnteredFor: string | null;
 }
 
 interface OpenCompany {

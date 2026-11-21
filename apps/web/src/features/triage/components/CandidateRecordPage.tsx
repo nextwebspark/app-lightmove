@@ -2,11 +2,13 @@ import { useState, type ReactNode } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { CompanyLogo } from "../../../components/ui/CompanyLogo";
 import { cn } from "../../../lib/cn";
-import { useEscapeKey } from "../../../lib/useEscapeKey";
+import { EscapeLayerContext, useEscapeKey } from "../../../lib/useEscapeKey";
 import type { Candidate } from "../../candidates/api/types";
 import { CandidateAvatar } from "../../candidates/components/CandidateAvatar";
 import { pipelineSwatchClass, statusStyle } from "../../candidates/lib/pipelineStatus";
+import type { PipelineCatalog } from "../../workspace/api/types";
 import { usePipelineCatalog } from "../../workspace/lib/usePipelineCatalog";
+import { executivesOf } from "../lib/triageVocabulary";
 
 /** One executive in the full page's list, with the logo of the company the grid's row drew them at. */
 export interface RecordListEntry {
@@ -36,14 +38,14 @@ export function CandidateRecordPage({
   const [search, setSearch] = useState("");
   const [listOpen, setListOpen] = useState(false);
   // Topmost only, so a window the record opens over the page takes Esc first; then the list's overlay, then the page.
-  useEscapeKey(true, () => (listOpen ? setListOpen(false) : onExit()));
+  const isTopLayer = useEscapeKey(true, () => (listOpen ? setListOpen(false) : onExit()));
   const needle = search.trim().toLowerCase();
   const shown = needle
     ? entries.filter(({ candidate }) =>
         [candidate.fullName, candidate.title, candidate.companyName].some((field) => field?.toLowerCase().includes(needle)),
       )
     : entries;
-  const count = `${entries.length} ${entries.length === 1 ? "executive" : "executives"}`;
+  const { catalog } = usePipelineCatalog();
 
   return (
     <div className="relative flex min-h-0 min-w-0 flex-1">
@@ -66,7 +68,7 @@ export function CandidateRecordPage({
             {stageLabel}
           </button>
           <p className="mt-2 px-1 text-meta text-u-text3">
-            {count} · same filters and sort as the grid
+            {executivesOf(entries.length)} · same filters and sort as the grid
           </p>
           <label className="mt-2 flex items-center gap-2 rounded-md border border-u-border bg-u-canvas px-2.5 py-1.5">
             <Icon d={ICONS.search} size={14} className="flex-none text-u-text3" />
@@ -92,6 +94,7 @@ export function CandidateRecordPage({
             <li key={entry.candidate.id}>
               <RecordListRow
                 projectId={projectId}
+                catalog={catalog}
                 entry={entry}
                 isOpen={entry.candidate.id === openId}
                 onOpen={() => {
@@ -125,7 +128,7 @@ export function CandidateRecordPage({
           aria-label="Executive record"
           className="flex min-h-0 w-full max-w-[820px] flex-1 flex-col bg-u-surface lg:border-e lg:border-u-border"
         >
-          {children}
+          <EscapeLayerContext.Provider value={isTopLayer}>{children}</EscapeLayerContext.Provider>
         </section>
       </div>
     </div>
@@ -134,16 +137,17 @@ export function CandidateRecordPage({
 
 function RecordListRow({
   projectId,
+  catalog,
   entry,
   isOpen,
   onOpen,
 }: {
   projectId: string;
+  catalog: PipelineCatalog | null;
   entry: RecordListEntry;
   isOpen: boolean;
   onOpen: () => void;
 }) {
-  const { catalog } = usePipelineCatalog();
   const { candidate, companyLogo } = entry;
   const status = statusStyle(candidate.status, candidate, catalog);
   const subline = [candidate.title, candidate.companyName].filter(Boolean).join(" · ");

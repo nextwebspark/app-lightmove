@@ -1,4 +1,5 @@
-import { useEffect } from "react";
+import { useContext, useEffect } from "react";
+import { EscapeLayerContext } from "../../../lib/useEscapeKey";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { cn } from "../../../lib/cn";
 
@@ -7,9 +8,7 @@ import { cn } from "../../../lib/cn";
  * grid and the full page with the list beside it. Absent where the record stands alone (a report figure, a bell row).
  */
 export interface RecordStepper {
-  /** Absent on the first row. */
   onPrevious?: () => void;
-  /** Absent on the last row. */
   onNext?: () => void;
   frame: "peek" | "page";
   /** The peek's Open full page, the page's Exit full page; absent where the screen has no full page. */
@@ -80,7 +79,6 @@ export function RecordCornerControls({
   );
 }
 
-/** How many corner buttons the header's name keeps clear of. */
 export function cornerButtonCount(stepper: RecordStepper | undefined): number {
   if (!stepper) return 1;
   return 2 + (stepper.onToggleFrame ? 1 : 0) + (stepper.frame === "peek" ? 1 : 0);
@@ -88,16 +86,18 @@ export function cornerButtonCount(stepper: RecordStepper | undefined): number {
 
 /**
  * J and K step down and up the list while the record is open, as in a mail client; never while someone types, holds
- * a modifier, or has a window of the record's own open over it (`paused`).
+ * a modifier, is mid-edit (`paused`), or has any window over the record — the same topmost rule as Escape, so a
+ * dialog, a popover or a drawer opened over it holds the record still.
  */
 export function useRecordStepKeys(stepper: RecordStepper | undefined, paused: boolean) {
   const onNext = stepper?.onNext;
   const onPrevious = stepper?.onPrevious;
+  const isTopLayer = useContext(EscapeLayerContext);
   useEffect(() => {
     if (paused || (!onNext && !onPrevious)) return;
     const handleKey = (event: KeyboardEvent) => {
       if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return;
-      if (isTypingTarget(event.target)) return;
+      if (isTypingTarget(event.target) || !isTopLayer()) return;
       const key = event.key.toLowerCase();
       const step = key === "j" ? onNext : key === "k" ? onPrevious : undefined;
       if (!step) return;
@@ -106,7 +106,7 @@ export function useRecordStepKeys(stepper: RecordStepper | undefined, paused: bo
     };
     document.addEventListener("keydown", handleKey);
     return () => document.removeEventListener("keydown", handleKey);
-  }, [onNext, onPrevious, paused]);
+  }, [onNext, onPrevious, paused, isTopLayer]);
 }
 
 function isTypingTarget(target: EventTarget | null): boolean {

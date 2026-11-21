@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { act, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Outlet, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -1690,6 +1690,29 @@ describe("TriageStagePage", () => {
     await userEvent.keyboard("k");
     expect(await screen.findByRole("dialog", { name: /Yasmin El-Sayed/i })).toBeInTheDocument();
     await userEvent.keyboard("j");
+    expect(await screen.findByRole("dialog", { name: /Omar Saleh/i })).toBeInTheDocument();
+  });
+
+  it("holds J and K while a window is open over the record, as Escape would close that window first", async () => {
+    const omar: Candidate = { ...yasmin, id: "c2", fullName: "Omar Saleh" };
+    vi.mocked(candidatesApi.getCandidates).mockImplementation(async (_project, scope) =>
+      peopleOf(scope.unmapped ? [] : [yasmin, omar]),
+    );
+    vi.mocked(candidatesApi.getCandidate).mockImplementation(async (_project, id) => (id === omar.id ? omar : yasmin));
+    render(stageTree("universe", project, `?candidate=${yasmin.id}`));
+
+    const drawer = await screen.findByRole("dialog", { name: /Yasmin El-Sayed/i });
+    await within(drawer).findByRole("button", { name: "Next executive" });
+    await userEvent.click(within(drawer).getByRole("button", { name: /^Status: / }));
+    await screen.findByRole("listbox");
+
+    fireEvent.keyDown(document.body, { key: "j" });
+    expect(screen.getByRole("dialog", { name: /Yasmin El-Sayed/i })).toBeInTheDocument();
+    expect(screen.queryByRole("dialog", { name: /Omar Saleh/i })).not.toBeInTheDocument();
+
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("listbox")).not.toBeInTheDocument());
+    fireEvent.keyDown(document.body, { key: "j" });
     expect(await screen.findByRole("dialog", { name: /Omar Saleh/i })).toBeInTheDocument();
   });
 

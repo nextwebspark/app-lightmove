@@ -79,49 +79,30 @@ export function CandidateDrawer({
     onSaved(saved);
   };
 
-  if (frame === "page") {
-    if (!open || !shown) return null;
-    return (
-      <CandidateProfile
-        key={shown.id}
-        projectId={projectId}
-        candidate={shown}
-        customColumns={customColumns}
-        canWrite={canWrite}
-        briefCurrency={defaultCurrency}
-        onClose={onClose}
-        onSaved={handleSaved}
-        onRemove={canWrite ? onDelete : undefined}
-        onOpenCompany={onOpenCompany}
-        focusNoteId={focusNoteId}
-        focusSection={focusSection}
-        focusTab={focusTab}
-        stepper={stepper}
-      />
-    );
-  }
+  const profile = shown && (
+    // Keyed so moving to another person starts the fold and edit state fresh.
+    <CandidateProfile
+      key={shown.id}
+      projectId={projectId}
+      candidate={shown}
+      customColumns={customColumns}
+      canWrite={canWrite}
+      briefCurrency={defaultCurrency}
+      onClose={onClose}
+      onSaved={handleSaved}
+      onRemove={canWrite ? onDelete : undefined}
+      onOpenCompany={onOpenCompany}
+      focusNoteId={focusNoteId}
+      focusSection={focusSection}
+      focusTab={focusTab}
+      stepper={stepper}
+    />
+  );
+  if (frame === "page") return open ? profile : null;
 
   return (
     <Drawer open={open} onClose={onClose} wide label={shown ? shown.fullName : "Add executive"}>
-      {shown ? (
-        // Keyed so moving to another person starts the fold and edit state fresh.
-        <CandidateProfile
-          key={shown.id}
-          projectId={projectId}
-          candidate={shown}
-          customColumns={customColumns}
-          canWrite={canWrite}
-          briefCurrency={defaultCurrency}
-          onClose={onClose}
-          onSaved={handleSaved}
-          onRemove={canWrite ? onDelete : undefined}
-          onOpenCompany={onOpenCompany}
-          focusNoteId={focusNoteId}
-          focusSection={focusSection}
-          focusTab={focusTab}
-          stepper={stepper}
-        />
-      ) : (
+      {profile || (
         <AddCandidateForm
           projectId={projectId}
           company={company}
