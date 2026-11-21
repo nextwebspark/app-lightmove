@@ -209,7 +209,7 @@ deliberate:
   never before it, so the 404 above still answers everyone else: an enabled factor on every platform route
   (`PLATFORM_TWO_FACTOR_REQUIRED`, 403), and on a high-impact one (`@RequireRecentTwoFactor`: a credit grant, an
   invoiced subscription) a code entered within `step-up-window` (`PLATFORM_STEP_UP_REQUIRED`, 403), given at
-  `POST /api/v1/platform/step-up`. When the code was entered is a row (`app_lm_platform_step_up`, V233), never a
+  `POST /api/v1/platform/step-up`. When the code was entered is a row (`app_lm_platform_step_up`, V234), never a
   claim: a token cannot say it, and a second instance must agree. It is the person's, not the session's — the
   access token names no session and the refresh cookie never reaches `/api/v1/platform` — and a code older than
   the factor it was entered for does not count, so turning two-factor off and on carries no window across. A new

@@ -519,7 +519,7 @@ V233 adds `app_lm_home_layout` (docs/custom-dashboards.md, Home): a member's own
 
 V232 seeds the workspace action `PROJECT_BROWSE_ALL`, granted to ADMIN alone: seeing every position of the workspace. Anyone without it is answered only the positions they hold a seat on (`ProjectService.visibilityOf`); `PROJECT_BROWSE` stays with ADMIN and MEMBER for the reference data a member works with. No table changes.
 
-V233 adds `app_lm_platform_step_up` (#1313): when a platform admin last entered a two-factor code for a high-impact
+V234 adds `app_lm_platform_step_up` (#1313): when a platform admin last entered a two-factor code for a high-impact
 action, one row per user, overwritten by each right code (`PlatformStepUpStore`). Account data like the factor's own
 tables: no `workspace_id` and no reference into a tenant table, so `TenantTableGuard` never reaches it; it goes with
 the account (`ON DELETE CASCADE`). Read only while `lightmove.platform.require-two-factor` is on.

@@ -8,7 +8,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
-/** When each platform admin last entered a fresh two-factor code (V233): one row per person, overwritten. */
+/** When each platform admin last entered a fresh two-factor code (V234): one row per person, overwritten. */
 @Repository
 @RequiredArgsConstructor
 public class PlatformStepUpStore {
