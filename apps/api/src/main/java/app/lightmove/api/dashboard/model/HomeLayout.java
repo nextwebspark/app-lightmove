@@ -59,6 +59,6 @@ public class HomeLayout extends BaseEntity {
     }
 
     public List<DashboardWidget> charts() {
-        return tiles.stream().filter(tile -> "CHART".equals(tile.kind())).map(HomeTile::asWidget).toList();
+        return tiles.stream().filter(tile -> tile.kind().isChart()).map(HomeTile::asWidget).toList();
     }
 }

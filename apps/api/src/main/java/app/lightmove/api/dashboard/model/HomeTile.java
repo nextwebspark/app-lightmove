@@ -1,5 +1,6 @@
 package app.lightmove.api.dashboard.model;
 
+import app.lightmove.api.dashboard.constant.HomeTileKind;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import java.util.Map;
 
@@ -8,19 +9,20 @@ import java.util.Map;
  * {@code CHART}, which also carries the library query, its chart type, options and title as a dashboard widget does.
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
-public record HomeTile(String kind, WidgetLayout layout, String queryId, String chart, Map<String, String> options,
+public record HomeTile(HomeTileKind kind, WidgetLayout layout, String queryId, String chart, Map<String, String> options,
                        String title) {
 
     public HomeTile {
         options = options == null ? Map.of() : Map.copyOf(options);
     }
 
-    public static HomeTile section(String kind, WidgetLayout layout) {
+    public static HomeTile section(HomeTileKind kind, WidgetLayout layout) {
         return new HomeTile(kind, layout, null, null, null, null);
     }
 
     public static HomeTile chart(DashboardWidget widget) {
-        return new HomeTile("CHART", widget.layout(), widget.queryId(), widget.chart(), widget.options(), widget.title());
+        return new HomeTile(HomeTileKind.CHART, widget.layout(), widget.queryId(), widget.chart(), widget.options(),
+                widget.title());
     }
 
     public DashboardWidget asWidget() {

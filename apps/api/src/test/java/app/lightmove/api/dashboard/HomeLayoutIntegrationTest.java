@@ -56,7 +56,7 @@ class HomeLayoutIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("a save keeps Needs you, one of each section, workspace charts that fit, and twelve charts at most")
+    @DisplayName("a save keeps Needs you, one of each section at a readable size, workspace charts that fit, twelve at most")
     void tilesAreChecked() throws Exception {
         String admin = firm("Home Rules Firm");
         String today = "{\"kind\":\"TODAY\",\"layout\":{\"x\":8,\"y\":0,\"w\":4,\"h\":5}}";
@@ -69,6 +69,8 @@ class HomeLayoutIntegrationTest extends FlowTestSupport {
                 .formatted(NEEDS)).andExpect(status().isBadRequest()).andReturn())).isEqualTo("VALIDATION_FAILED");
         assertThat(codeOf(save(admin, "{\"tiles\":[%s,{\"kind\":\"TODAY\",\"layout\":{\"x\":10,\"y\":0,\"w\":4,\"h\":4}}],\"landing\":\"HOME\"}"
                 .formatted(NEEDS)).andExpect(status().isBadRequest()).andReturn())).isEqualTo("VALIDATION_FAILED");
+        assertThat(codeOf(save(admin, "{\"tiles\":[{\"kind\":\"NEEDS\",\"layout\":{\"x\":0,\"y\":0,\"w\":1,\"h\":1}}],\"landing\":\"HOME\"}")
+                .andExpect(status().isBadRequest()).andReturn())).isEqualTo("VALIDATION_FAILED");
         assertThat(codeOf(save(admin, "{\"tiles\":[%s],\"needs\":{\"GOSSIP\":true},\"landing\":\"HOME\"}".formatted(NEEDS))
                 .andExpect(status().isBadRequest()).andReturn())).isEqualTo("VALIDATION_FAILED");
         assertThat(codeOf(save(admin, "{\"tiles\":[%s],\"landing\":\"TASKS\"}".formatted(NEEDS))
@@ -85,6 +87,30 @@ class HomeLayoutIntegrationTest extends FlowTestSupport {
 
         save(admin, "{\"tiles\":[%s,%s],\"landing\":\"HOME\"}".formatted(NEEDS, chart("openPositions", "kpi")))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("a save opened before another window's save, or before a reset, is refused rather than lost")
+    void aStaleWindowCannotOverwrite() throws Exception {
+        String admin = firm("Home Stale Firm");
+        String body = "{\"tiles\":[%s],\"landing\":\"%s\",\"version\":%s}";
+
+        long first = body(save(admin, body.formatted(NEEDS, "HOME", "null")).andExpect(status().isOk()).andReturn())
+                .get("layout").get("version").asLong();
+        assertThat(codeOf(save(admin, body.formatted(NEEDS, "POSITIONS", "null"))
+                .andExpect(status().isConflict()).andReturn())).isEqualTo("HOME_LAYOUT_STALE");
+
+        long second = body(save(admin, body.formatted(NEEDS, "POSITIONS", first)).andExpect(status().isOk()).andReturn())
+                .get("layout").get("version").asLong();
+        assertThat(second).isGreaterThan(first);
+        assertThat(codeOf(save(admin, body.formatted(NEEDS, "HOME", first))
+                .andExpect(status().isConflict()).andReturn())).isEqualTo("HOME_LAYOUT_STALE");
+        assertThat(read(admin).get("layout").get("landing").asText()).isEqualTo("POSITIONS");
+
+        mvc.perform(delete(HOME).header("Authorization", "Bearer " + admin)).andExpect(status().isNoContent());
+        assertThat(codeOf(save(admin, body.formatted(NEEDS, "HOME", second))
+                .andExpect(status().isConflict()).andReturn())).isEqualTo("HOME_LAYOUT_STALE");
+        save(admin, body.formatted(NEEDS, "HOME", "null")).andExpect(status().isOk());
     }
 
     @Test

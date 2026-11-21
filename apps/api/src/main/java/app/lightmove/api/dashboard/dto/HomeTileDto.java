@@ -1,5 +1,6 @@
 package app.lightmove.api.dashboard.dto;
 
+import app.lightmove.api.dashboard.model.HomeTile;
 import app.lightmove.api.dashboard.model.WidgetLayout;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -17,4 +18,13 @@ public record HomeTileDto(
         @Size(max = 16) String chart,
         @Size(max = 8) Map<String, String> options,
         @Size(max = 80) String title
-) {}
+) {
+
+    public static HomeTileDto from(HomeTile tile) {
+        if (!tile.kind().isChart()) {
+            return new HomeTileDto(tile.kind().value(), tile.layout(), null, null, null, null);
+        }
+        return new HomeTileDto(tile.kind().value(), tile.layout(), tile.queryId(), tile.chart(), tile.options(),
+                tile.title());
+    }
+}
