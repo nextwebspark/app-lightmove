@@ -23,6 +23,7 @@ import { VerifyEmailPage } from "../features/auth/pages/VerifyEmailPage";
 import { WorkspaceStepPage } from "../features/auth/pages/WorkspaceStepPage";
 import { isPureClient } from "../features/auth/roles";
 import { CandidatesPage } from "../features/candidates/pages/CandidatesPage";
+import { WorkspaceDashboardsPage } from "../features/dashboards/pages/WorkspaceDashboardsPage";
 import { MyTasksPage } from "../features/tasks/pages/MyTasksPage";
 import { ClientsPage } from "../features/clients/pages/ClientsPage";
 import { MCP_GUIDE_PATH } from "../features/docs/lib/paths";
@@ -137,6 +138,7 @@ export function AppRoutes() {
         <Route path="/all" element={<ProjectsPage view="all" />} />
         <Route element={<RequireStaff><Outlet /></RequireStaff>}>
           <Route path="/candidates" element={<CandidatesPage />} />
+          <Route path="/dashboards" element={<WorkspaceDashboardsPage />} />
           <Route path="/tasks" element={<MyTasksPage />} />
           <Route path="/clients" element={<ClientsPage />} />
           <Route path="/team" element={<TeamPage />} />

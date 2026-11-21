@@ -10,7 +10,7 @@
     "arbitraryRadius": 1
   },
   "components/layout/Topbar.tsx": {
-    "arbitraryText": 7,
+    "arbitraryText": 3,
     "arbitraryRadius": 3
   },
   "components/layout/UncavaRailNav.tsx": {

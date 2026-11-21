@@ -14,9 +14,10 @@ import { AppShell } from "./AppShell";
 import { ICONS } from "./Icon";
 import { workspaceTabs } from "./mobile/mobileTabs";
 import { type SidebarGroup } from "./Sidebar";
+import { WorkspaceBreadcrumb } from "./Topbar";
 
 /** Screens that draw their own toolbar and rail edge to edge and scroll inside, as Strategy does. */
-const FULL_BLEED_ROUTES = ["/candidates/*"];
+const FULL_BLEED_ROUTES = ["/candidates/*", "/dashboards"];
 
 /**
  * The app shell: topbar, the workspace sidebar with live counts, and the main panel the routed page
@@ -82,6 +83,7 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
         items: [
           { to: `/${listSearch}`, label: "My positions", icon: ICONS.myProjects, count: myCount, end: true },
           { to: `/all${listSearch}`, label: "All positions", icon: ICONS.allProjects, count: projects && livePositions(projects).length },
+          { to: "/dashboards", label: "Dashboards", icon: ICONS.dashboard },
         ],
       };
 
@@ -100,10 +102,21 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
         },
       ];
 
+  const sections: Record<string, string> = {
+    "/": "Positions",
+    "/all": "Positions",
+    "/dashboards": "Dashboards",
+    "/candidates": "Candidates",
+    "/tasks": "My tasks",
+    "/clients": vocabulary.units,
+    "/team": "Team",
+  };
+
   return (
     /* Wider than the mockups' 1160px on purpose: the data tables need the room, and a wide monitor
        was otherwise leaving ~280px unused. Text blocks cap themselves. */
     <AppShell
+      breadcrumb={<WorkspaceBreadcrumb section={sections[pathname] ?? null} />}
       navGroups={groups}
       mobileTabs={workspaceTabs(clientOnly, listSearch)}
       mobileTitle={user?.workspace?.name ?? "Workspace"}

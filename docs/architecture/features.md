@@ -439,6 +439,13 @@ in the mandate the panel's Contact fold is the candidate drawer's, Find email an
 results read as a Table or as Cards (a per-viewer localStorage choice). The Location box suggests from
 two letters: countries, then LinkedIn's own spellings of where people on file live (`raw ->> 'city'`),
 then Mapbox, sent as `City, Country`. Saved searches carry a `kind`.
+**Custom dashboards** (`dashboard`, docs/custom-dashboards.md): beside the fixed report, a member builds named
+dashboards — under **Your dashboards** in the report's rail (`?dashboard=<id>` replaces the chapter body) and on
+**Dashboards** in the workspace sidebar (`/dashboards`) — from a server-side library of ready-made chart queries, each
+drawn as one of the chart types its answer fits. Private, or shared read-only with the staff; staff only throughout.
+`dashboard` reads `report` (`ReportService`), `candidate` and `project` through their public services; nothing
+depends back.
+
 The **Reports**
 tab — **Dashboard** in the rail and the phone's bar, while the route and code keep `reports` — is the mandate's talent
 mapping report (`GET /projects/{id}/report`): four chapters — mapping
