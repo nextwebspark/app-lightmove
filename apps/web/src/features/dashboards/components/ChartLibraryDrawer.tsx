@@ -55,10 +55,13 @@ export function ChartLibraryDrawer({
   initialDraft,
   onCommit,
   onClose,
+  addLabel = "Add to dashboard",
 }: {
   scope: DashboardScope;
   library: ChartQueryDef[];
   onCountLabel: string;
+  /** The button that adds a new chart: "Add to dashboard", or "Add to Home". */
+  addLabel?: string;
   /** Opens straight on "Show as" for a chart already on the dashboard. */
   initialDraft: ChartDraft | null;
   onCommit: (draft: ChartDraft) => void;
@@ -72,6 +75,7 @@ export function ChartLibraryDrawer({
         <ShowAs
           scope={scope}
           draft={draft}
+          addLabel={addLabel}
           onChange={setDraft}
           onBack={() => (editingExisting ? onClose() : setDraft(null))}
           onCommit={(final) => {
@@ -187,11 +191,13 @@ function ShowAs({
   scope,
   draft,
   onChange,
+  addLabel,
   onBack,
   onCommit,
 }: {
   scope: DashboardScope;
   draft: ChartDraft;
+  addLabel: string;
   onChange: (draft: ChartDraft) => void;
   onBack: () => void;
   onCommit: (final: ChartDraft) => void;
@@ -282,7 +288,7 @@ function ShowAs({
           Back
         </Button>
         <Button type="button" onClick={() => onCommit({ ...draft, chart })}>
-          {draft.index === null ? "Add to dashboard" : "Update chart"}
+          {draft.index === null ? addLabel : "Update chart"}
         </Button>
       </DrawerFooter>
     </>

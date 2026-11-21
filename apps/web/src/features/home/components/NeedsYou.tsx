@@ -59,8 +59,8 @@ export function NeedsYou({
   const shown = expanded ? items : items.slice(0, VISIBLE);
 
   return (
-    <section aria-label="Needs you" className="min-w-0 overflow-hidden rounded-u-card border border-u-border-strong bg-u-surface">
-      <div className="flex flex-wrap items-center gap-x-3.5 gap-y-2 border-b border-u-border px-4 py-3">
+    <section aria-label="Needs you" className="flex h-full min-w-0 flex-col overflow-hidden rounded-u-card border border-u-border-strong bg-u-surface">
+      <div className="flex flex-none flex-wrap items-center gap-x-3.5 gap-y-2 border-b border-u-border px-4 py-3">
         <h2 className="text-body font-semibold">
           Needs you <span className="font-mono text-note font-medium text-u-text3">· {items.length}{more ? "+" : ""}</span>
         </h2>
@@ -78,6 +78,7 @@ export function NeedsYou({
         )}
       </div>
 
+      <div className="min-h-0 flex-1 overflow-y-auto">
       {pending ? (
         <div className="p-4">
           <LinesSkeleton lines={4} />
@@ -107,9 +108,10 @@ export function NeedsYou({
           ))}
         </ul>
       )}
+      </div>
 
       {!pending && !refused && items.length > 0 && (
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 border-t border-u-border px-4 py-2.5 text-note font-medium">
+        <div className="flex flex-none flex-wrap items-center gap-x-4 gap-y-1.5 border-t border-u-border px-4 py-2.5 text-note font-medium">
           {more && <span className="text-u-text3">More wait on each position's Outreach page.</span>}
           {items.length > VISIBLE && (
             <button type="button" onClick={() => setExpanded(!expanded)} className="text-u-accent hover:underline">
