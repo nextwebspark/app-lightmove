@@ -25,13 +25,14 @@ vi.mock("../../tasks/api/tasksApi", async (importOriginal) => ({
 vi.mock("../api/homeApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api/homeApi")>()),
   getMyOutreachNeeds: vi.fn(),
+  getHomeLayout: vi.fn(),
+  saveHomeLayout: vi.fn(),
+  resetHomeLayout: vi.fn(),
 }));
 vi.mock("../../dashboards/api/dashboardsApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../dashboards/api/dashboardsApi")>()),
   getChartLibrary: async () => [],
-  runChartQuery: async () => {
-    throw new Error("not in this test");
-  },
+  getChartAnswers: vi.fn(async () => []),
 }));
 vi.mock("../../clients/api/clientsApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../clients/api/clientsApi")>()),
@@ -101,6 +102,8 @@ describe("HomePage", () => {
     vi.mocked(restoreSession).mockResolvedValue("token");
     vi.mocked(tasksApi.getMyTasks).mockResolvedValue(noTasks);
     vi.mocked(homeApi.getMyOutreachNeeds).mockResolvedValue({ rows: [], truncated: false });
+    vi.mocked(homeApi.getHomeLayout).mockResolvedValue(null);
+    vi.mocked(homeApi.saveHomeLayout).mockImplementation(async (layout) => layout);
   });
   afterEach(() => localStorage.clear());
 
@@ -180,7 +183,7 @@ describe("HomePage", () => {
     expect(screen.getByRole("region", { name: "Your positions" })).toHaveTextContent("Product Planning");
   });
 
-  it("lets the person hide a section, and keeps their choice", async () => {
+  it("takes a section off Home in edit mode, and keeps it only once the layout is saved", async () => {
     vi.mocked(authApi.me).mockResolvedValue(aUser({ id: "u1", workspace: aWorkspace({ roles: ["MEMBER"] }) }));
     vi.mocked(projectsApi.projects).mockResolvedValue([position("p1", "Product Planning", [seat("u1", "RESEARCHER")])]);
     const user = userEvent.setup();
@@ -188,11 +191,43 @@ describe("HomePage", () => {
     renderHome();
     await screen.findByRole("region", { name: "Your positions" });
     expect(screen.queryByRole("radio", { name: "Team" })).not.toBeInTheDocument();
+
     await user.click(screen.getByRole("button", { name: /Customize/ }));
+    await user.click(screen.getByRole("button", { name: "Remove Your positions" }));
+    expect(screen.queryByRole("region", { name: "Your positions" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Remove Needs you" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(screen.getByRole("region", { name: "Your positions" })).toBeInTheDocument();
+    expect(homeApi.saveHomeLayout).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("button", { name: /Customize/ }));
+    await user.click(screen.getByRole("button", { name: "Options" }));
     await user.click(screen.getByRole("switch", { name: "Show Your positions" }));
+    await user.click(screen.getByRole("button", { name: "Done" }));
+    await user.click(screen.getByRole("button", { name: "Save layout" }));
 
     expect(screen.queryByRole("region", { name: "Your positions" })).not.toBeInTheDocument();
-    expect(JSON.parse(localStorage.getItem("lm-home:u1:w1") ?? "{}").sections).toContainEqual({ key: "positions", on: false });
+    expect(vi.mocked(homeApi.saveHomeLayout).mock.calls[0][0].tiles.map((tile) => tile.kind)).toEqual(["NEEDS", "TODAY", "CHART", "CHART", "CHART"]);
+    expect(await screen.findByRole("button", { name: /Customize/ })).toBeInTheDocument();
+  });
+
+  it("draws the person's saved Home: any library chart, at their place", async () => {
+    vi.mocked(authApi.me).mockResolvedValue(aUser({ id: "u1", workspace: aWorkspace({ roles: ["MEMBER"] }) }));
+    vi.mocked(projectsApi.projects).mockResolvedValue([position("p1", "Product Planning", [seat("u1", "RESEARCHER")])]);
+    vi.mocked(homeApi.getHomeLayout).mockResolvedValue({
+      tiles: [
+        { kind: "NEEDS", layout: { x: 0, y: 0, w: 12, h: 8 } },
+        { kind: "CHART", queryId: "positionsBy", chart: "bar", options: { group: "stage" }, title: "Where my positions stand", layout: { x: 0, y: 8, w: 6, h: 7 } },
+      ],
+      kinds: { NEEDS_REPLY: true, FOLLOW_UP: true, PREPARATION: true, ATTENTION: true },
+      landing: "home",
+    });
+
+    renderHome();
+
+    expect(await screen.findByRole("region", { name: "Where my positions stand" })).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Your positions" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Today" })).not.toBeInTheDocument();
   });
 
   it("shows a client the positions shared with them, and nothing of the staff's queue", async () => {
