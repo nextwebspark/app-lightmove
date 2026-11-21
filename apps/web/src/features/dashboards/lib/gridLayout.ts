@@ -56,10 +56,12 @@ export function compact(rects: WidgetLayout[], pinned: number | null = null): Wi
     .sort((a, b) => a.rect.y - b.rect.y || a.rect.x - b.rect.x);
   for (const { rect, index } of order) {
     const placed = settled.filter((other): other is WidgetLayout => other !== null);
-    let y = 0;
+    let y = rect.y;
     while (placed.some((other) => overlaps({ ...rect, y }, other))) {
       y = Math.max(...placed.filter((other) => overlaps({ ...rect, y }, other)).map((other) => other.y + other.h));
     }
+    // Rise one row at a time from where it sits: jumping from row 0 would lift it through a chart into a gap above.
+    while (y > 0 && !placed.some((other) => overlaps({ ...rect, y: y - 1 }, other))) y--;
     settled[index] = { ...rect, y };
   }
   return settled as WidgetLayout[];
@@ -69,6 +71,26 @@ export function compact(rects: WidgetLayout[], pinned: number | null = null): Wi
 export function place(rects: WidgetLayout[], index: number, rect: WidgetLayout): WidgetLayout[] {
   const next = rects.map((other, position) => (position === index ? rect : other));
   return compact(next, index);
+}
+
+/**
+ * One chart one row down. Gravity would slide a plain step straight back, so it trades places with the nearest chart
+ * below it in its columns instead; with nothing below, it stays.
+ */
+export function moveDown(rects: WidgetLayout[], index: number): WidgetLayout[] {
+  const rect = rects[index];
+  const below = rects
+    .map((other, position) => ({ other, position }))
+    .filter(({ other, position }) => position !== index && other.y >= rect.y + rect.h
+      && other.x < rect.x + rect.w && rect.x < other.x + other.w)
+    .sort((a, b) => a.other.y - b.other.y || a.other.x - b.other.x)[0];
+  if (!below) return rects;
+  const swapped = rects.map((other, position) => {
+    if (position === below.position) return { ...other, y: rect.y };
+    if (position === index) return { ...other, y: rect.y + below.other.h };
+    return other;
+  });
+  return compact(swapped);
 }
 
 /** Where a new chart goes: the first gap at the foot of the dashboard wide enough for it. */
@@ -86,7 +108,9 @@ export function nextSlot(rects: WidgetLayout[], w: number, h: number): WidgetLay
 const LEGACY_WIDTH: Record<string, number> = { S: 4, M: 6, L: 12 };
 
 /** Charts saved before the grid carry a size token and no layout: flow them left to right, row by row. */
-export function withLayouts<T extends { chart: ChartType; layout: WidgetLayout | null }>(widgets: T[]): T[] {
+export function withLayouts<T extends { chart: ChartType; layout: WidgetLayout | null; size?: string | null }>(
+  widgets: T[],
+): T[] {
   if (widgets.every((widget) => widget.layout)) return widgets;
   const rects: WidgetLayout[] = [];
   return widgets.map((widget) => {
@@ -94,13 +118,21 @@ export function withLayouts<T extends { chart: ChartType; layout: WidgetLayout |
       rects.push(widget.layout);
       return widget;
     }
-    const size = (widget as { size?: string }).size;
     const limits = LIMITS[widget.chart] ?? LIMITS.bar;
-    const w = Math.max(LEGACY_WIDTH[size ?? ""] ?? limits.w, limits.minW);
+    const w = Math.max(LEGACY_WIDTH[widget.size ?? ""] ?? limits.w, limits.minW);
     const layout = nextSlot(rects, w, limits.h);
     rects.push(layout);
-    return { ...widget, layout };
+    return { ...widget, layout, size: null };
   });
+}
+
+/** Every chart with a place, flowed in and settled: what the screen draws and what a save sends. */
+export function settledWidgets<T extends { chart: ChartType; layout: WidgetLayout | null; size?: string | null }>(
+  widgets: T[],
+): (T & { layout: WidgetLayout })[] {
+  const laid = withLayouts(widgets) as (T & { layout: WidgetLayout })[];
+  const settled = compact(laid.map((widget) => widget.layout));
+  return laid.map((widget, index) => ({ ...widget, layout: settled[index] }));
 }
 
 export function startingLayout(rects: WidgetLayout[], chart: ChartType): WidgetLayout {

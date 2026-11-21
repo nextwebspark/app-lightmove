@@ -20,6 +20,8 @@ export interface DashboardWidget {
   title: string | null;
   /** Null only on a chart saved before the grid; the screen flows it into place. */
   layout: WidgetLayout | null;
+  /** The S/M/L width a chart saved before the grid was given; null once it has a layout. */
+  size?: string | null;
 }
 
 export interface Dashboard {

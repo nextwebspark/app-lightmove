@@ -8,7 +8,7 @@ import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
 import { cn } from "../../../lib/cn";
 import * as dashboardsApi from "../api/dashboardsApi";
 import type { ChartQueryDef, Dashboard, DashboardScope, DashboardWidget, WidgetLayout } from "../api/types";
-import { clampSize, compact, limitsFor, place, startingLayout, withLayouts } from "../lib/gridLayout";
+import { clampSize, compact, limitsFor, place, settledWidgets, startingLayout } from "../lib/gridLayout";
 import { bodyOf, useDashboardWrites } from "../lib/useDashboardWrites";
 
 /** Figures stay live without a refetch on every focus: each answer is a server-side aggregate. */
@@ -28,11 +28,7 @@ interface DraftItem {
 let keySequence = 0;
 const keyed = (widget: DraftItem["widget"]): DraftItem => ({ key: `chart-${++keySequence}`, widget });
 
-function placed(widgets: DashboardWidget[]): DraftItem["widget"][] {
-  const laid = withLayouts(widgets) as DraftItem["widget"][];
-  const settled = compact(laid.map((widget) => widget.layout));
-  return laid.map((widget, index) => ({ ...widget, layout: settled[index] }));
-}
+const placed = (widgets: DashboardWidget[]): DraftItem["widget"][] => settledWidgets(widgets);
 
 function relaid(items: DraftItem[], layouts: WidgetLayout[]): DraftItem[] {
   return items.map((item, index) => ({ ...item, widget: { ...item.widget, layout: layouts[index] } }));

@@ -3,6 +3,7 @@ import { useToast } from "../../../components/ui";
 import { codeOf, messageFor } from "../../../lib/errorCodes";
 import * as dashboardsApi from "../api/dashboardsApi";
 import type { Dashboard, DashboardScope, SaveDashboard } from "../api/types";
+import { settledWidgets } from "./gridLayout";
 
 /** Create, save and delete a dashboard; each refreshes the list, and a refusal is a toast in the server's words. */
 export function useDashboardWrites(scope: DashboardScope) {
@@ -46,12 +47,12 @@ export function useDashboardWrites(scope: DashboardScope) {
   return { create, duplicate, save, remove };
 }
 
-/** A dashboard's body as saved, with whatever changed. */
+/** A dashboard's body as saved, with whatever changed; a chart saved before the grid goes back with a place. */
 export function bodyOf(dashboard: Dashboard, change: Partial<SaveDashboard> = {}): SaveDashboard {
   return {
     name: dashboard.name,
     shared: dashboard.shared,
-    widgets: dashboard.widgets,
+    widgets: settledWidgets(dashboard.widgets),
     version: dashboard.version,
     ...change,
   };

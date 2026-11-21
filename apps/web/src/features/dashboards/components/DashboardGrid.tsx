@@ -8,6 +8,7 @@ import {
   GRID_COLUMNS,
   GRID_GAP_PX,
   GRID_ROW_PX,
+  moveDown,
   place,
   type SizeLimits,
 } from "../lib/gridLayout";
@@ -142,6 +143,10 @@ export function DashboardGrid({
     const step = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[event.key];
     if (!step) return;
     event.preventDefault();
+    if (event.key === "ArrowDown" && !event.shiftKey) {
+      onChange(moveDown(layouts, index));
+      return;
+    }
     const origin = layouts[index];
     const rect = event.shiftKey
       ? { ...origin, w: Math.min(origin.w + step[0], GRID_COLUMNS - origin.x), h: origin.h + step[1] }
