@@ -113,6 +113,19 @@ class OutreachConversationIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("Home's queue gathers what waits on the caller across their positions, each row naming its position")
+    void homeQueueGathersEveryPosition() throws Exception {
+        String priya = executive("Priya Raman", "priya@" + domain);
+        task(priya, "Call Priya about the board", consultantId, monday.plus(Duration.ofDays(1)));
+
+        JsonNode home = body(as(consultant, get("/api/v1/me/outreach/needs")).andExpect(status().isOk()).andReturn());
+        assertThat(home.at("/total").asInt()).isEqualTo(1);
+        assertThat(home.at("/rows/0/projectId").asText()).isEqualTo(projectId);
+        assertThat(home.at("/rows/0/positionTitle").asText()).isEqualTo("Group CFO");
+        assertThat(home.at("/rows/0/row/candidateId").asText()).isEqualTo(priya);
+    }
+
+    @Test
     @DisplayName("a run a failed send stopped needs attention, acting on any open task, until an email goes again")
     void aFailedSendNeedsAttention() throws Exception {
         String priya = executive("Priya Raman", "priya@" + domain);

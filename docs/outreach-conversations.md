@@ -358,6 +358,11 @@ details pane and composer.
 `PersonTimelineService.DETAIL_KEYS` now passes `sequenceId`, `sequence`, `step`, `reason`, `startsAt` and
 `viaLink`, which the outreach lines always wrote and the drawer's Activity tab always expected.
 
+Home's Needs you reads the same queue across positions: `GET /api/v1/me/outreach/needs?who=mine|team` (staff only)
+runs `list(…, NEEDS, …)` for each live, active position the caller holds a seat on — Mine where they may work it
+(`WORK_EXECUTE`), Team where they lead it (`TEAM_MANAGE`) — at most 25 positions and 50 rows, each row naming its
+position.
+
 ## D. Live refresh
 
 `ProjectStreamKind` gains `OUTREACH` and `TASK`, both **staff-only**: the project stream is `WORK_VIEW`, so a client
