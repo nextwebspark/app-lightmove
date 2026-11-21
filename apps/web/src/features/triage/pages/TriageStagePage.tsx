@@ -28,7 +28,9 @@ import {
   CandidateDrawer,
   type CandidateCompanyContext,
 } from "../../candidates/components/CandidateDrawer";
+import { CandidateProfile } from "../../candidates/components/CandidateProfile";
 import type { RecordStepper } from "../../candidates/components/RecordCornerControls";
+import { CandidateRecordPage } from "../components/CandidateRecordPage";
 import { POSITION_STAFF_TABS } from "../../candidates/lib/drawerTabs";
 import { RemoveCandidateDialog } from "../../candidates/components/RemoveCandidateDialog";
 import { useChangeCandidateStatus } from "../../candidates/lib/useChangeCandidateStatus";
@@ -237,6 +239,7 @@ function TriageStage() {
         const params = new URLSearchParams(current);
         params.set("view", next);
         params.delete("candidate");
+        params.delete("record");
         params.delete("note");
         params.delete("section");
         params.delete("tab");
@@ -263,7 +266,10 @@ function TriageStage() {
       (current) => {
         const params = new URLSearchParams(current);
         if (candidateId) params.set("candidate", candidateId);
-        else params.delete("candidate");
+        else {
+          params.delete("candidate");
+          params.delete("record");
+        }
         params.delete("note");
         params.delete("section");
         params.delete("tab");
@@ -277,6 +283,22 @@ function TriageStage() {
       ? { candidate: openCandidate.data, company: null }
       : null);
   const profileCompany = profile?.company ?? null;
+  /**
+   * The record full page (`?record=page`): the grid's own read, so the list beside the record keeps the grid's
+   * stage, filters, sort and page. Going in is a step in history, so Back returns to the peek; coming out keeps
+   * whoever is open.
+   */
+  const recordPage = view === "table" && searchParams.get("record") === "page" && profile?.candidate != null;
+  const setRecordPage = (onPage: boolean) =>
+    setSearchParams(
+      (current) => {
+        const params = new URLSearchParams(current);
+        if (onPage) params.set("record", "page");
+        else params.delete("record");
+        return params;
+      },
+      { replace: !onPage },
+    );
   /** Opens the panel on an executive (into the URL) or on the add form, or closes it with null. */
   const setProfile = (next: OpenProfile | null) => {
     if (next?.candidate) {
@@ -540,8 +562,12 @@ function TriageStage() {
   visiblePeople.current = (lines.data?.lines ?? [])
     .map((line) => line.candidate)
     .filter((candidate): candidate is Candidate => candidate !== null);
-  const stepper = stepperAlong(view === "table" ? visiblePeople.current : [], profile?.candidate ?? null, (candidate) =>
-    setProfile({ candidate, company: null }),
+  const stepper = stepperAlong(
+    view === "table" ? visiblePeople.current : [],
+    profile?.candidate ?? null,
+    (candidate) => setProfile({ candidate, company: null }),
+    recordPage ? "page" : "peek",
+    () => setRecordPage(!recordPage),
   );
   const profileCompanyId = profile?.candidate?.triageCompanyId ?? null;
   const profileCompanyRow = profileCompanyId
@@ -976,6 +1002,7 @@ function TriageStage() {
        and a definite height (FULL_BLEED_TABS in ProjectLayout), so the height is inherited rather
        than guessed from a hard-coded amount of chrome that any topbar change would falsify. */
     <div className={cn("flex min-h-0 flex-1 flex-col", isFullscreen && FULLSCREEN_PANEL)}>
+      {!recordPage && (
       <TriageToolbar
         search={search}
         onSearch={setSearch}
@@ -1026,6 +1053,7 @@ function TriageStage() {
             : undefined
         }
       />
+      )}
 
       {findExecutivesOffered && (
         <FindExecutivesPanel
@@ -1058,7 +1086,37 @@ function TriageStage() {
         }}
       />
 
-      {view === "pipeline" ? (
+      {recordPage && profile?.candidate ? (
+        <CandidateRecordPage
+          projectId={project.id}
+          stageLabel={stage.label}
+          entries={rows.flatMap((row) =>
+            row.candidate ? [{ candidate: row.candidate, companyLogo: row.company?.logoUrl ?? null }] : [],
+          )}
+          openId={profile.candidate.id}
+          pageNote={lastPage > 0 ? `page ${page + 1} of ${lastPage + 1}` : undefined}
+          onOpen={(candidate) => setProfile({ candidate, company: null })}
+          onExit={() => setRecordPage(false)}
+        >
+          <CandidateProfile
+            key={profile.candidate.id}
+            projectId={project.id}
+            candidate={profile.candidate}
+            customColumns={candidateColumns}
+            canWrite={canWrite}
+            briefCurrency={briefCompensation.data?.currency}
+            onClose={() => setProfile(null)}
+            onSaved={(saved) => {
+              queryClient.setQueryData(candidatesApi.CANDIDATE_KEY(project.id, saved.id), saved);
+              refreshEverything();
+            }}
+            onRemove={canWrite && !declinedStage ? setPendingCandidateRemoval : undefined}
+            onOpenCompany={profileCompanyRow ? () => setOpenCompany({ company: profileCompanyRow }) : undefined}
+            focusTab={focusTab}
+            stepper={stepper}
+          />
+        </CandidateRecordPage>
+      ) : view === "pipeline" ? (
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           <PipelineView
             project={project}
@@ -1238,7 +1296,7 @@ function TriageStage() {
       />
 
       <CandidateDrawer
-        open={profile !== null}
+        open={profile !== null && !recordPage}
         projectId={project.id}
         candidate={profile?.candidate ?? null}
         company={profile?.company ?? null}
@@ -1321,13 +1379,16 @@ function stepperAlong(
   people: readonly Candidate[],
   open: Candidate | null,
   onStep: (candidate: Candidate) => void,
+  frame: RecordStepper["frame"],
+  onToggleFrame: () => void,
 ): RecordStepper | undefined {
   const at = open ? people.findIndex((candidate) => candidate.id === open.id) : -1;
   if (at < 0) return undefined;
   const previous = people[at - 1];
   const next = people[at + 1];
   return {
-    frame: "peek",
+    frame,
+    onToggleFrame,
     onPrevious: previous ? () => onStep(previous) : undefined,
     onNext: next ? () => onStep(next) : undefined,
   };

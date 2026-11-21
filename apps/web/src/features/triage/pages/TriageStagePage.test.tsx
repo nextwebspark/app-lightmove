@@ -1712,6 +1712,63 @@ describe("TriageStagePage", () => {
     expect(within(drawer).getByRole("button", { name: "Next executive" })).toBeDisabled();
   });
 
+  describe("the record full page", () => {
+    const omar: Candidate = { ...yasmin, id: "c2", fullName: "Omar Saleh", title: "CFO" };
+    beforeEach(() => {
+      vi.mocked(candidatesApi.getCandidates).mockImplementation(async (_project, scope) =>
+        peopleOf(scope.unmapped ? [] : [yasmin, omar]),
+      );
+      vi.mocked(candidatesApi.getCandidate).mockImplementation(async (_project, id) => (id === omar.id ? omar : yasmin));
+    });
+
+    it("opens from the peek as the grid's executives beside the record, and Exit returns to the peek on whoever is open", async () => {
+      renderStage();
+      await userEvent.click(
+        await screen.findByRole("button", {
+          name: (name) => /Yasmin El-Sayed/i.test(name) && !name.includes(":") && !name.startsWith("Remove"),
+        }),
+      );
+      const drawer = await screen.findByRole("dialog", { name: /Yasmin El-Sayed/i });
+      await userEvent.click(within(drawer).getByRole("button", { name: "Open full page" }));
+
+      const list = await screen.findByRole("navigation", { name: "In universe executives" });
+      expect(within(list).getByRole("button", { name: /Yasmin El-Sayed/ })).toHaveAttribute("aria-current", "true");
+      expect(within(list).getByText("CFO · ACWA Power")).toBeInTheDocument();
+      expect(screen.queryByRole("dialog", { name: /Yasmin El-Sayed/i })).not.toBeInTheDocument();
+      const record = screen.getByRole("region", { name: "Executive record" });
+      expect(within(record).queryByRole("button", { name: "Close" })).not.toBeInTheDocument();
+
+      await userEvent.click(within(list).getByRole("button", { name: /Omar Saleh/ }));
+      expect(await within(record).findByRole("heading", { name: "Omar Saleh" })).toBeInTheDocument();
+
+      await userEvent.click(within(record).getByRole("button", { name: "Exit full page" }));
+      expect(await screen.findByRole("dialog", { name: /Omar Saleh/i })).toBeInTheDocument();
+      expect(screen.queryByRole("navigation", { name: "In universe executives" })).not.toBeInTheDocument();
+    });
+
+    it("comes back from a refresh on the full page, and Esc leaves it for the peek", async () => {
+      render(stageTree("universe", project, `?candidate=${omar.id}&record=page`));
+
+      const record = await screen.findByRole("region", { name: "Executive record" });
+      expect(await within(record).findByRole("heading", { name: "Omar Saleh" })).toBeInTheDocument();
+      await userEvent.keyboard("k");
+      expect(await within(record).findByRole("heading", { name: "Yasmin El-Sayed" })).toBeInTheDocument();
+
+      await userEvent.keyboard("{Escape}");
+      expect(await screen.findByRole("dialog", { name: /Yasmin El-Sayed/i })).toBeInTheDocument();
+    });
+
+    it("narrows the list from its own search box", async () => {
+      render(stageTree("universe", project, `?candidate=${yasmin.id}&record=page`));
+
+      const list = await screen.findByRole("navigation", { name: "In universe executives" });
+      await within(list).findByRole("button", { name: /Omar Saleh/ });
+      await userEvent.type(within(list).getByRole("searchbox", { name: "Search executives" }), "omar");
+      expect(within(list).queryByRole("button", { name: /Yasmin El-Sayed/ })).not.toBeInTheDocument();
+      expect(within(list).getByRole("button", { name: /Omar Saleh/ })).toBeInTheDocument();
+    });
+  });
+
   it("opens an existing executive as a profile, and edits behind a second step", async () => {
     vi.mocked(candidatesApi.getCandidates).mockImplementation(async (_project, scope) =>
       peopleOf(scope.unmapped ? [] : [yasmin]),

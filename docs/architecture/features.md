@@ -358,7 +358,11 @@ executives) beside a Mapbox globe, with a pin per company and
 per executive and the same two drawers opened from a pin's popup or a panel row. The executive drawer over the
 grid or the map is held in the URL as `?candidate=` (and `?tab=` from a link), so a refresh, Back or a shared link
 reopens it; over the grid its header steps to the previous and next executive in the grid's order (↑ ↓, or K and J),
-held while an edit is open (`RecordCornerControls`). Nothing carries a
+held while an edit is open (`RecordCornerControls`). Its ⤢ opens the record **full page** (`?record=page`, `CandidateRecordPage`): the
+toolbar and grid give way to a list of the grid's executives — the grid's own read, so its stage, filters, sort and
+page — each a photo with a status dot, the name with the company's logo, and title · company under it, beside the same
+record capped at a reading width. Going in is a step in history, so Back returns to the peek; ⤡, Esc or the list's
+back link return to the grid with the peek open on whoever is open. Below `lg` the list waits behind a List button. Nothing carries a
 coordinate, so `geocoding` resolves each distinct city + country once through Mapbox and keeps it in
 `app_lm_geocoded_place`; `talentmap` composes the stage's companies, people and points into one
 unpaged, capped read (`GET /projects/{id}/talent-map`), with `…/talent-map/locations` answering the
