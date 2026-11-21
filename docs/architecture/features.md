@@ -588,10 +588,16 @@ generic fallback) lives in the database, matched against the mandate's role titl
 Role Brief's **Role title is a combobox**: free text — a mandate is titled "Group CFO – Energy Division" as
 often as it is titled "Chief Financial Officer" — that type-aheads the seventeen titles, and picking
 one takes that title and redrafts the brief from its template (`GET /position-templates` +
-`POST .../position/template`). Templates are edited in Settings (V57/V58; **Settings → Templates** for a
-firm's admin, **Settings → Template library** for a super admin): a LightMove **super admin** — a *platform* role granted only by
+`POST .../position/template`). Templates are edited in two places (V57/V58; **Settings → Templates** for a
+firm's admin, **Platform → Templates** for a super admin): a LightMove **super admin** — a *platform* role granted only by
 `ops/cloudsql/grant-platform-role.sh`, reading no tenant's data — edits the shared library, and a
-workspace admin customises, hides, adds, exports and imports the firm's own. A firm's copy **shadows**
+workspace admin customises, hides, adds, exports and imports the firm's own. The shared library is the first
+section of the **platform console** (#1312, `features/platform`): `/platform/*` in the same SPA, origin and session,
+with its own shell (`PlatformLayout`: the "Uncava platform" header with no workspace menu, credit chip or bell, a rail
+from `platformSections`, **Back to workspace**), reached from a **Platform** item in the avatar menu that only a
+holder of a platform action sees. The whole tree is one lazy chunk (`PlatformRoutes`), mounted behind
+`RequirePlatformStaff`, so nobody else downloads it; the guards are presentation and `@platformAuthorizer` is the
+boundary. `/settings/template-library` and a template's address under it redirect to `/platform/templates`. A firm's copy **shadows**
 the library template of the same `code`, so a library edit reaches every firm that never customised
 it; neither ever touches a brief already drafted. The file format is JSON with a published schema, so
 a template can be written outside the app, AI included, and previewed before anything is written.

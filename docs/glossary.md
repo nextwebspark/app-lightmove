@@ -81,6 +81,7 @@ changes. Copy no mockup draws — toasts, errors, banners, empty states — foll
 | **Not now** / **Done** / **N more to log** / **Fix number** | the log-it tray's words: a card set aside unlogged, one closed after Wrong number, the cards folded under the newest, and the way to Edit contact details after a wrong number | dismiss, skip, snooze, queue |
 | **Call logged** / **WhatsApp logged** | the toast once a log that says how it went is saved (from the tray or the composer); "Call logged · Wrong number" for that outcome | note saved, call saved |
 | **12d** | a trial's days left, where a phone has room for nothing longer (the topbar chip; its spoken name is "Trial · 12 days left") | — |
+| **Platform** | the area only Uncava's own staff reach, from the avatar menu: what every workspace shares. Its header reads **Uncava platform** · Staff only | admin console, back office, super admin |
 
 ## Never on screen
 
