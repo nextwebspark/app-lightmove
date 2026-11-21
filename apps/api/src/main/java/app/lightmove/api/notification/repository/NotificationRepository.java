@@ -58,14 +58,11 @@ public interface NotificationRepository extends JpaRepository<Notification, UUID
                                WHERE n.id = app_lm_notification.note_id AND n.deleted_at IS NOT NULL)
             """ + ON_LIVE_POSITION;
 
-    @Query(value = "SELECT count(*) FROM app_lm_notification\n" + DIGEST_MENTIONS, nativeQuery = true)
-    long countDigestMentions(UUID recipientUserId, UUID workspaceId, Instant now);
-
+    /** Newest first, all of them: whether the person still works each position is asked of the rows, not here. */
     @Query(value = "SELECT * FROM app_lm_notification\n" + DIGEST_MENTIONS + """
             ORDER BY latest_at DESC, id DESC
-            LIMIT :limit
             """, nativeQuery = true)
-    List<Notification> findDigestMentions(UUID recipientUserId, UUID workspaceId, Instant now, int limit);
+    List<Notification> findDigestMentions(UUID recipientUserId, UUID workspaceId, Instant now);
 
     /** The live row of a group, locked so two events folding into it queue. */
     @Query(value = """

@@ -330,6 +330,24 @@ class NotificationIntegrationTest extends PipelineFlowSupport {
     }
 
     @Test
+    @DisplayName("the digest leaves out a mention on a position the person no longer works")
+    void theDigestDropsMentionsOffTheirPositions() throws Exception {
+        write(admin, "POST", candidatesUrl(projectId) + "/" + layla + "/notes", """
+                {"kind":"call","body":"@[sara](user:%s) please call her back"}""".formatted(researcherId));
+        mvc.perform(delete("/api/v1/projects/" + projectId + "/members/" + memberIdOf(admin, researcherAddress))
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk());
+        ZoneId dubai = ZoneId.of("Asia/Dubai");
+        Instant morning = LocalDate.now(dubai).plusDays(1).with(TemporalAdjusters.next(DayOfWeek.WEDNESDAY))
+                .atTime(LocalTime.of(8, 5)).atZone(dubai).toInstant();
+
+        emails.digestAt(morning);
+
+        assertThat(email.sent()).filteredOn(message -> message.to().equalsIgnoreCase(researcherAddress))
+                .noneMatch(message -> message.subject().startsWith("Your Uncava day"));
+    }
+
+    @Test
     @DisplayName("a task falling due rings once, from the scheduled scan as from a direct one")
     void aTaskFallingDueRingsOnce() throws Exception {
         assign(researcherId, "Schedule a call", Instant.now().plus(30, ChronoUnit.MINUTES));

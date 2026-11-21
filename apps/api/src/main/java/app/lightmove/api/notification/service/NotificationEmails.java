@@ -239,19 +239,31 @@ public class NotificationEmails {
         }
         DigestBuckets buckets = DigestBuckets.of(
                 tasks.dueDigestOf(userId, workspaceId, DigestBuckets.horizonOf(now, zone)), zone, now);
-        long mentions = rows.countDigestMentions(userId, workspaceId, now);
-        if (!buckets.hasNews(mentions) || !claimDigest(userId, workspaceId, local.toLocalDate())) {
+        List<Notification> mentions = digestMentionsStillTheirs(userId, workspaceId, now);
+        if (!buckets.hasNews(mentions.size()) || !claimDigest(userId, workspaceId, local.toLocalDate())) {
             return false;
         }
-        List<DigestMention> named = mentions == 0 ? List.of() : digestMentionsOf(userId, workspaceId, now);
+        List<DigestMention> named = digestMentionsOf(workspaceId,
+                mentions.subList(0, Math.min(DIGEST_MENTION_ROWS, mentions.size())));
         emailSender.send(templates.buildNotificationDigestEmail(user.getEmail(), formats.date(now),
-                digestComposer.compose(buckets, formats, named, (int) mentions)));
+                digestComposer.compose(buckets, formats, named, mentions.size())));
         return true;
     }
 
+    /** The same rule {@link #stillTheirs} puts to a single mention email, asked once for every position named. */
+    private List<Notification> digestMentionsStillTheirs(UUID userId, UUID workspaceId, Instant now) {
+        List<Notification> unread = rows.findDigestMentions(userId, workspaceId, now);
+        Set<UUID> worked = projectAccess.projectsWithAction(userId, workspaceId,
+                idsOf(unread, Notification::getProjectId), ProjectAction.WORK_EXECUTE);
+        return unread.stream().filter(row -> row.getProjectId() == null || worked.contains(row.getProjectId()))
+                .toList();
+    }
+
     /** Names read in three batched reads, not one per row: this runs for every holder in every workspace. */
-    private List<DigestMention> digestMentionsOf(UUID userId, UUID workspaceId, Instant now) {
-        List<Notification> unread = rows.findDigestMentions(userId, workspaceId, now, DIGEST_MENTION_ROWS);
+    private List<DigestMention> digestMentionsOf(UUID workspaceId, List<Notification> unread) {
+        if (unread.isEmpty()) {
+            return List.of();
+        }
         Map<UUID, String> actors = new HashMap<>();
         users.findAllById(idsOf(unread, Notification::getActorUserId))
                 .forEach(actor -> actors.put(actor.getId(), actor.getFullName()));

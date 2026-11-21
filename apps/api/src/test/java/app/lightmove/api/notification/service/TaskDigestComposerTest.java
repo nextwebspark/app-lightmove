@@ -136,6 +136,52 @@ class TaskDigestComposerTest {
     }
 
     @Test
+    @DisplayName("on the Monday, a weekend task is due today, not late, and says which day it came from")
+    void carriesTheWeekendIntoMonday() {
+        Instant monday = LocalDate.of(2026, 11, 23).atTime(8, 5).atZone(DUBAI).toInstant();
+        DueDigest due = new DueDigest(List.of(
+                line("Reply", "Gary de Klerk", MERCHANDISING, "Merchandising Director",
+                        LocalDate.of(2026, 11, 21).atTime(9, 0)),
+                line("Debrief", "Rajiv Shankar", TECHNOLOGY, "Chief Technology Officer",
+                        LocalDate.of(2026, 11, 20).atTime(9, 0))));
+        EmailContent content = composer.compose(DigestBuckets.of(due, DUBAI, monday), FORMATS, List.of(), 0);
+
+        assertThat(content.heading()).isEqualTo("1 task due today, 1 overdue");
+        assertThat(cardsAfter(content, "Due today · 1").getFirst().rows().getFirst().leading()).isEqualTo("Sat");
+        assertThat(cardsAfter(content, "Overdue, by position").getFirst().rows().getFirst().badge())
+                .isEqualTo("3 days late");
+    }
+
+    @Test
+    @DisplayName("a weekend task still open on Tuesday is a day late, counted from Monday")
+    void countsLatenessInWorkingDays() {
+        Instant tuesday = LocalDate.of(2026, 11, 24).atTime(8, 5).atZone(DUBAI).toInstant();
+        DueDigestLine sunday = line("Reply", "Gary de Klerk", MERCHANDISING, "Merchandising Director",
+                LocalDate.of(2026, 11, 22).atTime(9, 0));
+
+        assertThat(DigestBuckets.of(new DueDigest(List.of(sunday)), DUBAI, tuesday).daysLate(sunday)).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("a position whose late work has all gone quiet keeps its card, after the ones with rows to act on")
+    void keepsPositionsGoneQuiet() {
+        List<DueDigestLine> lines = new ArrayList<>(lateMorning().lines());
+        for (int task = 0; task < 3; task++) {
+            lines.add(line("Debrief", "Omar Said", INVESTMENT, "Chief Investment Officer", at(1, 10)));
+        }
+        lines.add(line("Reply", "Hana Saleh", TECHNOLOGY, "Chief Technology Officer", at(18, 11)));
+        UUID quietPosition = UUID.randomUUID();
+        lines.add(line("Interview", "Lina Faris", quietPosition, "Chief Operating Officer", at(2, 10)));
+        List<EmailCard> positions = cardsAfter(compose(new DueDigest(lines), List.of(), 0), "Overdue, by position");
+
+        assertThat(positions).extracting(EmailCard::title).containsExactly("Merchandising Director",
+                "Chief Technology Officer", "Chief Investment Officer", "Chief Operating Officer");
+        assertThat(positions.getLast().rows()).isEmpty();
+        assertThat(positions.getLast().subtitle()).isEqualTo("1 overdue · 1 executive");
+        assertThat(positions.getLast().footnote()).isEqualTo("+1 under Gone quiet");
+    }
+
+    @Test
     @DisplayName("the read reaches the end of the second working day ahead, over the weekend")
     void reachesTwoWorkingDaysAhead() {
         assertThat(DigestBuckets.horizonOf(MORNING, DUBAI))

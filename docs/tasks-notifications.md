@@ -51,11 +51,13 @@ the drawer's Next actions, the card), `Notifications.dc.html` (the bell), `Works
 - **The digest's layout** (`TaskDigestComposer`, on `EmailRenderer`'s chips, section titles and cards, in the app's
   palette — overdue is `--u-signal`, today the accent): a one-line verdict and three counts; *Start here*, three
   picks by rule (today's first task, the candidate one conversation clears most for, then the longest waiting),
-  shown only when there are more than three rows below; *Due today* with times; *Mentions* (unread, not snoozed, on a note still there, opening on the note); *Overdue, by
+  shown only when there are more than three rows below; *Due today* with times; *Mentions* (unread, not snoozed, on a note still there, on a position the person still works, opening on the note); *Overdue, by
   position*, one card per position and one row per executive (their tasks on that position merged), oldest
-  first, five rows then "+N more"; *Gone quiet*, tasks 14+ days late, set apart and asking to be closed or
-  re-dated; *Coming up*, a count per day for the next two working days, a weekend-dated task counted on the Monday. Days are the person's own: a task is late
-  from the day after its due date, so one due earlier this morning is *Due today*. Only late, due-today or
+  first, five rows then "+N more", the positions with most rows first (one whose late work has all gone quiet
+  keeps an empty card with its count); *Gone quiet*, tasks 14+ days late, set apart and asking to be closed or
+  re-dated; *Coming up*, a count per day for the next two working days. Days are the person's own working days: a
+  weekend-dated task counts on the Monday (under Coming up on the Friday, *Due today* on the Monday, marked with its
+  day), and a task is late from the working day after that, so one due earlier this morning is *Due today*. Only late, due-today or
   mentioned work sends it; Coming up alone does not.
 - **An archived position goes quiet** (V137). Its tasks and bell rows are kept but left out of My tasks, the
   counts, the digest, the due scan and the bell until it is restored; an email due about it is claimed and never

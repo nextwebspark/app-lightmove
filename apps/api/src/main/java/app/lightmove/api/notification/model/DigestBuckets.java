@@ -10,9 +10,9 @@ import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 /**
- * A person's due tasks sorted into the digest's buckets, in their own days: a task is late from the day after its
- * due date, and late work {@value #STALE_AFTER_DAYS}+ days old is stale. Coming up runs to the end of the second
- * working day ahead; a task dated on a weekend counts on the Monday after.
+ * A person's due tasks sorted into the digest's buckets, in their own working days: a task dated on a weekend counts on
+ * the Monday after, it is late from the working day after that, and late work {@value #STALE_AFTER_DAYS}+ days old is
+ * stale. Coming up runs to the end of the second working day ahead.
  */
 public record DigestBuckets(LocalDate today, ZoneId zone, List<DueDigestLine> late, List<DueDigestLine> fresh,
                             List<DueDigestLine> stale, List<DueDigestLine> dueToday, List<DueDigestLine> comingUp) {
@@ -31,12 +31,13 @@ public record DigestBuckets(LocalDate today, ZoneId zone, List<DueDigestLine> la
     /** Lines in, soonest first; each bucket keeps that order. */
     public static DigestBuckets of(DueDigest due, ZoneId zone, Instant now) {
         LocalDate today = LocalDate.ofInstant(now, zone);
-        List<DueDigestLine> late = due.lines().stream().filter(line -> dayOf(line, zone).isBefore(today)).toList();
+        List<DueDigestLine> late = due.lines().stream()
+                .filter(line -> workingDayOf(line, zone).isBefore(today)).toList();
         return new DigestBuckets(today, zone, late,
                 late.stream().filter(line -> daysLate(line, zone, today) < STALE_AFTER_DAYS).toList(),
                 late.stream().filter(line -> daysLate(line, zone, today) >= STALE_AFTER_DAYS).toList(),
-                due.lines().stream().filter(line -> dayOf(line, zone).equals(today)).toList(),
-                due.lines().stream().filter(line -> dayOf(line, zone).isAfter(today)).toList());
+                due.lines().stream().filter(line -> workingDayOf(line, zone).equals(today)).toList(),
+                due.lines().stream().filter(line -> workingDayOf(line, zone).isAfter(today)).toList());
     }
 
     /** How far ahead the task read must reach: the end of the last working day Coming up covers. */
@@ -62,11 +63,28 @@ public record DigestBuckets(LocalDate today, ZoneId zone, List<DueDigestLine> la
     }
 
     public boolean isDueToday(DueDigestLine line) {
-        return dayOf(line, zone).equals(today);
+        return workingDayOf(line, zone).equals(today);
     }
 
-    /** The working day a Coming up task is counted on. */
+    /** A task counted today though it was dated on the weekend before: its time of day means nothing this morning. */
+    public boolean isCarriedFromWeekend(DueDigestLine line) {
+        return isDueToday(line) && !dayOf(line, zone).equals(today);
+    }
+
+    /** The working day a task is counted on. */
     public LocalDate workingDayOf(DueDigestLine line) {
+        return workingDayOf(line, zone);
+    }
+
+    public LocalDate dayOf(DueDigestLine line) {
+        return dayOf(line, zone);
+    }
+
+    private static LocalDate dayOf(DueDigestLine line, ZoneId zone) {
+        return LocalDate.ofInstant(line.dueAt(), zone);
+    }
+
+    private static LocalDate workingDayOf(DueDigestLine line, ZoneId zone) {
         LocalDate day = dayOf(line, zone);
         while (isWeekend(day)) {
             day = day.plusDays(1);
@@ -74,12 +92,8 @@ public record DigestBuckets(LocalDate today, ZoneId zone, List<DueDigestLine> la
         return day;
     }
 
-    private static LocalDate dayOf(DueDigestLine line, ZoneId zone) {
-        return LocalDate.ofInstant(line.dueAt(), zone);
-    }
-
     private static long daysLate(DueDigestLine line, ZoneId zone, LocalDate today) {
-        return ChronoUnit.DAYS.between(dayOf(line, zone), today);
+        return ChronoUnit.DAYS.between(workingDayOf(line, zone), today);
     }
 
     private static boolean isWeekend(LocalDate day) {

@@ -92,7 +92,7 @@ public class TaskDigestComposer {
                 blocks.add(new EmailSectionTitle("Due today · " + dueToday.size(), EmailTone.ACCENT, null));
                 blocks.add(new EmailCard(EmailCardStyle.PLAIN, null, null, null, dueToday.stream().limit(TODAY_ROWS)
                         .map(line -> EmailRow.of(nameOf(line), line.title() + " · " + positionOf(line), linkOf(line))
-                                .withLeading(formats.time(line.dueAt())))
+                                .withLeading(clockOf(line)))
                         .toList(), moreOf(dueToday.size() - TODAY_ROWS)));
             }
             if (unreadMentions > 0) {
@@ -137,8 +137,9 @@ public class TaskDigestComposer {
             List<String> sentences = new ArrayList<>();
             if (!dueToday.isEmpty()) {
                 DueDigestLine first = dueToday.getFirst();
-                sentences.add("First up: " + first.title() + " with " + nameOf(first) + " at "
-                        + formats.time(first.dueAt()) + ".");
+                sentences.add("First up: " + first.title() + " with " + nameOf(first)
+                        + (buckets.isCarriedFromWeekend(first) ? ", carried from " + weekdayOf(first)
+                                : " at " + formats.time(first.dueAt())) + ".");
             }
             if (positions.size() > 1 && positions.getFirst().late() * 2 > late.size()) {
                 sentences.add(positions.getFirst().late() + " of the " + late.size() + " sit on "
@@ -154,7 +155,10 @@ public class TaskDigestComposer {
             return String.join(" ", sentences);
         }
 
-        /** Positions with late work, most first; inside each, one row per executive, the longest waiting first. */
+        /**
+         * Every position with late work, the most rows to act on first; inside each, one row per executive, the longest
+         * waiting first. A position whose late work has all gone quiet keeps its card, empty but for the count.
+         */
         private List<PositionGroup> positionGroups() {
             Map<UUID, List<DueDigestLine>> lateByPosition = buckets.late().stream()
                     .collect(Collectors.groupingBy(DueDigestLine::projectId, LinkedHashMap::new, Collectors.toList()));
@@ -163,9 +167,6 @@ public class TaskDigestComposer {
                 List<DueDigestLine> fresh = buckets.fresh().stream()
                         .filter(line -> line.projectId().equals(projectId)).toList();
                 List<EmailRow> rows = conversationsOf(fresh).stream().map(this::lateRowOf).toList();
-                if (rows.isEmpty()) {
-                    return;
-                }
                 long executives = lines.stream().map(DueDigestLine::personId).distinct().count();
                 List<String> notes = new ArrayList<>();
                 if (rows.size() > ROWS_PER_POSITION) {
@@ -178,7 +179,9 @@ public class TaskDigestComposer {
                         lines.size() + " overdue · " + countOf((int) executives, "executive"), lines.size(), rows,
                         notes.isEmpty() ? null : String.join(" · ", notes)));
             });
-            groups.sort(Comparator.comparingInt(PositionGroup::late).reversed().thenComparing(PositionGroup::title));
+            groups.sort(Comparator.comparingInt((PositionGroup group) -> group.rows().size()).reversed()
+                    .thenComparing(Comparator.comparingInt(PositionGroup::late).reversed())
+                    .thenComparing(PositionGroup::title));
             return groups;
         }
 
@@ -207,7 +210,8 @@ public class TaskDigestComposer {
             if (!dueToday.isEmpty()) {
                 DueDigestLine first = dueToday.getFirst();
                 picks.add(EmailRow.of(first.title() + " · " + nameOf(first), positionOf(first), linkOf(first))
-                        .withDetail("Due at " + formats.time(first.dueAt()) + " today")
+                        .withDetail(buckets.isCarriedFromWeekend(first) ? "Carried from " + weekdayOf(first)
+                                : "Due at " + formats.time(first.dueAt()) + " today")
                         .withBadge("Today", EmailTone.ACCENT));
                 picked.add(conversationKeyOf(first));
             }
@@ -252,6 +256,14 @@ public class TaskDigestComposer {
                                     .map(DueDigestLine::projectId).distinct().count(), "position"),
                             links.myTasks()))
                     .toList();
+        }
+
+        private String clockOf(DueDigestLine line) {
+            return buckets.isCarriedFromWeekend(line) ? weekdayOf(line).substring(0, 3) : formats.time(line.dueAt());
+        }
+
+        private String weekdayOf(DueDigestLine line) {
+            return buckets.dayOf(line).getDayOfWeek().getDisplayName(TextStyle.FULL, Locale.ENGLISH);
         }
 
         private String linkOf(DueDigestLine line) {
