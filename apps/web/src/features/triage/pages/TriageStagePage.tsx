@@ -1,6 +1,6 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState, type ComponentProps } from "react";
-import { Navigate, useLocation, useOutletContext, useParams, useSearchParams } from "react-router-dom";
+import { Navigate, useLocation, useNavigate, useOutletContext, useParams, useSearchParams } from "react-router-dom";
 import type { ProjectOutletContext } from "../../../components/layout/ProjectLayout";
 import { ICONS } from "../../../components/layout/Icon";
 import { FullscreenButton } from "../../../components/ui";
@@ -28,7 +28,6 @@ import {
   CandidateDrawer,
   type CandidateCompanyContext,
 } from "../../candidates/components/CandidateDrawer";
-import { CandidateProfile } from "../../candidates/components/CandidateProfile";
 import type { RecordStepper } from "../../candidates/components/RecordCornerControls";
 import { CandidateRecordPage } from "../components/CandidateRecordPage";
 import { POSITION_STAFF_TABS } from "../../candidates/lib/drawerTabs";
@@ -133,6 +132,8 @@ export function TriageStagePage() {
 
 function TriageStage() {
   const { stage: stageSlug } = useParams();
+  const location = useLocation();
+  const navigate = useNavigate();
   const { project } = useOutletContext<ProjectOutletContext>();
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -275,7 +276,8 @@ function TriageStage() {
         params.delete("tab");
         return params;
       },
-      { replace: true },
+      // A save re-opens the same person and keeps how the page was entered; a step does not.
+      { replace: true, state: candidateId === openCandidateId ? location.state : undefined },
     );
   const profile: OpenProfile | null =
     adding ??
@@ -283,13 +285,15 @@ function TriageStage() {
       ? { candidate: openCandidate.data, company: null }
       : null);
   const profileCompany = profile?.company ?? null;
-  /**
-   * The record full page (`?record=page`): the grid's own read, so the list beside the record keeps the grid's
-   * stage, filters, sort and page. Going in is a step in history, so Back returns to the peek; coming out keeps
-   * whoever is open.
-   */
   const recordPage = view === "table" && searchParams.get("record") === "page" && profile?.candidate != null;
-  const setRecordPage = (onPage: boolean) =>
+  // Going in pushes, so Back returns to the peek. Coming out pops that entry while it still holds the person it was
+  // pushed for, rather than leaving the same peek twice in history; after a step, or on a loaded link, it replaces.
+  const enteredRecordFor = (location.state as RecordEntry | null)?.recordEnteredFor ?? null;
+  const setRecordPage = (onPage: boolean) => {
+    if (!onPage && enteredRecordFor !== null && enteredRecordFor === openCandidateId) {
+      navigate(-1);
+      return;
+    }
     setSearchParams(
       (current) => {
         const params = new URLSearchParams(current);
@@ -297,8 +301,9 @@ function TriageStage() {
         else params.delete("record");
         return params;
       },
-      { replace: !onPage },
+      onPage ? { state: { recordEnteredFor: openCandidateId } satisfies RecordEntry } : { replace: true },
     );
+  };
   /** Opens the panel on an executive (into the URL) or on the add form, or closes it with null. */
   const setProfile = (next: OpenProfile | null) => {
     if (next?.candidate) {
@@ -563,7 +568,8 @@ function TriageStage() {
     .map((line) => line.candidate)
     .filter((candidate): candidate is Candidate => candidate !== null);
   const stepper = stepperAlong(
-    view === "table" ? visiblePeople.current : [],
+    view === "table",
+    visiblePeople.current,
     profile?.candidate ?? null,
     (candidate) => setProfile({ candidate, company: null }),
     recordPage ? "page" : "peek",
@@ -997,6 +1003,39 @@ function TriageStage() {
       : {}),
   };
 
+  /** What the record shows and does in either frame; each frame says only where the company opens. */
+  const recordProps = {
+    projectId: project.id,
+    candidate: profile?.candidate ?? null,
+    company: profile?.company ?? null,
+    customColumns: candidateColumns,
+    canWrite,
+    defaultCurrency: briefCompensation.data?.currency,
+    focusTab,
+    stepper,
+    onClose: () => setProfile(null),
+    // The panel stays open on what the server answered: a corrected figure shows corrected
+    // before the grid has refetched, and an add moves straight on to the profile it made.
+    onSaved: (saved: Candidate) => {
+      setProfile({ candidate: saved, company: null });
+      refreshEverything();
+    },
+    onDelete: canWrite && !declinedStage ? setPendingCandidateRemoval : undefined,
+    // The add form's other conclusion: the research happened and nobody fit, so the panel closes
+    // on the flag rather than on a saved profile.
+    onMarkNoExecutiveFound:
+      canWrite && profileCompany
+        ? () => {
+            markBusy(profileCompany.triageCompanyId);
+            markNoExecutiveFound.mutate({
+              id: profileCompany.triageCompanyId,
+              companyName: profileCompany.companyName,
+            });
+            setProfile(null);
+          }
+        : undefined,
+  };
+
   return (
     /* No negative margins and no viewport arithmetic: the shell gives this tab the whole main area
        and a definite height (FULL_BLEED_TABS in ProjectLayout), so the height is inherited rather
@@ -1094,26 +1133,14 @@ function TriageStage() {
             row.candidate ? [{ candidate: row.candidate, companyLogo: row.company?.logoUrl ?? null }] : [],
           )}
           openId={profile.candidate.id}
-          pageNote={lastPage > 0 ? `page ${page + 1} of ${lastPage + 1}` : undefined}
           onOpen={(candidate) => setProfile({ candidate, company: null })}
           onExit={() => setRecordPage(false)}
         >
-          <CandidateProfile
-            key={profile.candidate.id}
-            projectId={project.id}
-            candidate={profile.candidate}
-            customColumns={candidateColumns}
-            canWrite={canWrite}
-            briefCurrency={briefCompensation.data?.currency}
-            onClose={() => setProfile(null)}
-            onSaved={(saved) => {
-              queryClient.setQueryData(candidatesApi.CANDIDATE_KEY(project.id, saved.id), saved);
-              refreshEverything();
-            }}
-            onRemove={canWrite && !declinedStage ? setPendingCandidateRemoval : undefined}
+          <CandidateDrawer
+            {...recordProps}
+            open
+            frame="page"
             onOpenCompany={profileCompanyRow ? () => setOpenCompany({ company: profileCompanyRow }) : undefined}
-            focusTab={focusTab}
-            stepper={stepper}
           />
         </CandidateRecordPage>
       ) : view === "pipeline" ? (
@@ -1296,42 +1323,13 @@ function TriageStage() {
       />
 
       <CandidateDrawer
+        {...recordProps}
         open={profile !== null && !recordPage}
-        projectId={project.id}
-        candidate={profile?.candidate ?? null}
-        company={profile?.company ?? null}
-        customColumns={candidateColumns}
-        canWrite={canWrite}
-        defaultCurrency={briefCompensation.data?.currency}
-        focusTab={focusTab}
-        stepper={stepper}
-        onClose={() => setProfile(null)}
-        // The panel stays open on what the server answered: a corrected figure shows corrected
-        // before the grid has refetched, and an add moves straight on to the profile it made.
-        onSaved={(saved) => {
-          setProfile({ candidate: saved, company: null });
-          refreshEverything();
-        }}
-        onDelete={canWrite && !declinedStage ? setPendingCandidateRemoval : undefined}
         onOpenCompany={
           profileCompanyRow
             ? () => {
                 setProfile(null);
                 setOpenCompany({ company: profileCompanyRow });
-              }
-            : undefined
-        }
-        // The add form's other conclusion: the research happened and nobody fit, so the panel closes
-        // on the flag rather than on a saved profile.
-        onMarkNoExecutiveFound={
-          canWrite && profileCompany
-            ? () => {
-                markBusy(profileCompany.triageCompanyId);
-                markNoExecutiveFound.mutate({
-                  id: profileCompany.triageCompanyId,
-                  companyName: profileCompany.companyName,
-                });
-                setProfile(null);
               }
             : undefined
         }
@@ -1374,18 +1372,20 @@ function TriageStage() {
   );
 }
 
-/** Previous and Next along the grid's people in the grid's order; none for someone the grid is not showing. */
+/** Previous and Next along the grid's people in the grid's order, and the switch between the peek and the page. */
 function stepperAlong(
+  offered: boolean,
   people: readonly Candidate[],
   open: Candidate | null,
   onStep: (candidate: Candidate) => void,
   frame: RecordStepper["frame"],
   onToggleFrame: () => void,
 ): RecordStepper | undefined {
-  const at = open ? people.findIndex((candidate) => candidate.id === open.id) : -1;
-  if (at < 0) return undefined;
-  const previous = people[at - 1];
-  const next = people[at + 1];
+  if (!offered || !open) return undefined;
+  const at = people.findIndex((candidate) => candidate.id === open.id);
+  // Someone the grid no longer shows — moved stage, another page — keeps the frame switch, with nowhere to step.
+  const previous = at < 0 ? undefined : people[at - 1];
+  const next = at < 0 ? undefined : people[at + 1];
   return {
     frame,
     onToggleFrame,
@@ -1447,6 +1447,11 @@ function withSavedFacts(held: TriageCompany, saved: TriageCompany): TriageCompan
     addedByName: held.addedByName,
     addedByAvatarUrl: held.addedByAvatarUrl,
   };
+}
+
+/** History state on the entry the record full page was pushed as. */
+interface RecordEntry {
+  recordEnteredFor: string | null;
 }
 
 interface OpenCompany {

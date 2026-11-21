@@ -14,17 +14,12 @@ export interface RecordListEntry {
   companyLogo: string | null;
 }
 
-/**
- * The executive record full page (`Position.dc.html`, `recordMode=page`): the grid gives way to a list of its
- * executives, in its order and under its filters, beside the record. Esc, the back link and Exit full page return to
- * the grid with the peek open on the same person; below `lg` the list waits behind a List button.
- */
+/** The executive record full page (`Position.dc.html`, `recordMode=page`): the grid's executives beside the record. */
 export function CandidateRecordPage({
   projectId,
   stageLabel,
   entries,
   openId,
-  pageNote,
   onOpen,
   onExit,
   children,
@@ -33,8 +28,6 @@ export function CandidateRecordPage({
   stageLabel: string;
   entries: readonly RecordListEntry[];
   openId: string;
-  /** "Page 2 of 4" where the grid is paged, since the list is the grid's page. */
-  pageNote?: string;
   onOpen: (candidate: Candidate) => void;
   onExit: () => void;
   /** The record itself: the peek's header, tabs, body and foot. */
@@ -42,8 +35,8 @@ export function CandidateRecordPage({
 }) {
   const [search, setSearch] = useState("");
   const [listOpen, setListOpen] = useState(false);
-  // Topmost only: a window the record opens over the page takes Esc first.
-  useEscapeKey(true, onExit);
+  // Topmost only, so a window the record opens over the page takes Esc first; then the list's overlay, then the page.
+  useEscapeKey(true, () => (listOpen ? setListOpen(false) : onExit()));
   const needle = search.trim().toLowerCase();
   const shown = needle
     ? entries.filter(({ candidate }) =>
@@ -66,13 +59,14 @@ export function CandidateRecordPage({
           <button
             type="button"
             onClick={onExit}
+            aria-label={`Back to ${stageLabel}`}
             className="flex items-center gap-1.5 rounded-md px-1 py-0.5 text-note font-medium text-u-text2 hover:text-u-text"
           >
             <Icon d={ICONS.back} size={14} />
             {stageLabel}
           </button>
           <p className="mt-2 px-1 text-meta text-u-text3">
-            {count} · same filters and sort as the grid{pageNote ? ` · ${pageNote}` : ""}
+            {count} · same filters and sort as the grid
           </p>
           <label className="mt-2 flex items-center gap-2 rounded-md border border-u-border bg-u-canvas px-2.5 py-1.5">
             <Icon d={ICONS.search} size={14} className="flex-none text-u-text3" />
@@ -80,6 +74,13 @@ export function CandidateRecordPage({
               type="search"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
+              // Esc clears the box, or leaves it once empty, and goes no further: the page's own Esc is leaving it.
+              onKeyDown={(event) => {
+                if (event.key !== "Escape") return;
+                event.stopPropagation();
+                if (search) setSearch("");
+                else event.currentTarget.blur();
+              }}
               placeholder="Search executives"
               aria-label="Search executives"
               className="min-w-0 flex-1 bg-transparent text-note text-u-text outline-none placeholder:text-u-text3"
@@ -160,7 +161,7 @@ function RecordListRow({
         <CandidateAvatar projectId={projectId} candidate={candidate} className="size-9 text-meta" />
         <span
           title={status.label}
-          aria-label={status.label}
+          aria-hidden="true"
           className={cn(
             "absolute -bottom-0.5 -end-0.5 size-2.5 rounded-full ring-2 ring-u-surface",
             pipelineSwatchClass(status.colour),
@@ -177,6 +178,7 @@ function RecordListRow({
           )}
         </span>
         {subline && <span className="block truncate text-meta text-u-text3">{subline}</span>}
+        <span className="sr-only">{status.label}</span>
       </span>
     </button>
   );
