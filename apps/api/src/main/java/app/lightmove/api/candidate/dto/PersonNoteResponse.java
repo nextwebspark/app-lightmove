@@ -32,4 +32,12 @@ public record PersonNoteResponse(
         UUID recordingId,
         /** A {@code NoteOutcome} wire token: how the call or message went, or null where nobody said. */
         String outcome
-) {}
+) {
+
+    /** The same note, its position no longer named: read by someone not on that position. */
+    public PersonNoteResponse withoutPositionTitle() {
+        return new PersonNoteResponse(id, kind, body, format, pinned, projectId, null, authorUserId, authorName,
+                authorAvatarUrl, createdAt, editedAt, editedByName, editable, occurredAt, title, meetingId, recordingId,
+                outcome);
+    }
+}

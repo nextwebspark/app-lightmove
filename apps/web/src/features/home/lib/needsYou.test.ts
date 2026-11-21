@@ -79,8 +79,34 @@ describe("needsYouOf", () => {
     expect(items.map((item) => item.key)).toEqual(["t:t1"]);
   });
 
-  it("keeps calls and meetings for Today, and done tasks out", () => {
-    const items = needsYouOf([], [task("call", { kind: "call" }), task("done", { status: "done" }), task("t1")], DEFAULT_HOME_LAYOUT.kinds);
+  it("keeps a call still ahead for Today, and done tasks out", () => {
+    const now = new Date("2026-10-14T08:00:00Z");
+    const items = needsYouOf(
+      [],
+      [task("call", { kind: "call", dueAt: "2026-10-14T11:00:00Z" }), task("done", { status: "done" }), task("t1")],
+      DEFAULT_HOME_LAYOUT.kinds,
+      now,
+    );
     expect(items.map((item) => item.key)).toEqual(["t:t1"]);
+  });
+
+  // An overdue call fell between Today (still ahead only) and the queue, and showed nowhere.
+  it("keeps a call whose time has passed in the queue", () => {
+    const now = new Date("2026-10-14T12:00:00Z");
+    const items = needsYouOf([], [task("missed", { kind: "call", dueAt: "2026-10-14T09:00:00Z" })], DEFAULT_HOME_LAYOUT.kinds, now);
+    expect(items.map((item) => item.key)).toEqual(["t:missed"]);
+  });
+
+  it("keeps each position's order: by group, then soonest due, then latest", () => {
+    const due = (candidateId: string, group: MyConversationRow["row"]["group"], dueAt: string | null) => {
+      const entry = conversation(candidateId, group, dueAt ? `task-${candidateId}` : undefined);
+      return { ...entry, row: { ...entry.row, action: entry.row.action && { ...entry.row.action, dueAt: dueAt ?? "" } } };
+    };
+    const items = needsYouOf(
+      [due("attention", "ATTENTION", null), due("later", "FOLLOW_UP", "2026-10-15T09:00:00Z"), due("sooner", "FOLLOW_UP", "2026-10-14T09:00:00Z")],
+      [],
+      DEFAULT_HOME_LAYOUT.kinds,
+    );
+    expect(items.map((item) => item.key)).toEqual(["c:p1:sooner", "c:p1:later", "c:p1:attention"]);
   });
 });

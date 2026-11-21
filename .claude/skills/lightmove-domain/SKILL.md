@@ -167,7 +167,9 @@ The project *list* rides any active membership (`@workspaceAuthorizer.member`), 
 by the people on them**: the service answers every position to a holder of workspace `PROJECT_BROWSE_ALL`
 (V232, ADMIN alone) and only the mandates the caller holds a seat on to anyone else, a pure client included
 (`ProjectService.visibilityOf`). The same rule narrows the Clients page's mandate counts and drawer, and a
-person's positions in the candidate pool are listed without the title of one the caller cannot work. Shared
+person's positions in the candidate pool are listed without the title of one the caller cannot work — the row's
+chips and last activity, the drawer's Positions and notes, the person's history and the activity feed alike
+(`PositionRedaction`); filtering the feed by such a position answers 404. Shared
 reference data (`CompanyReferenceController`, currencies, templates) still rides `PROJECT_BROWSE`, which
 MEMBER keeps: that is the market and the firm's vocabulary, not anyone's search.
 

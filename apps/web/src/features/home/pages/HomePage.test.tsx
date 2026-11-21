@@ -174,7 +174,7 @@ describe("HomePage", () => {
     expect(await within(needs).findByText("Lina Farouk")).toBeInTheDocument();
     expect(within(needs).getByRole("link", { name: "Reply" })).toHaveAttribute(
       "href",
-      "/projects/p1/outreach?candidate=c9&who=mine",
+      "/projects/p1/outreach?view=needs&who=mine&candidate=c9",
     );
     expect(await within(needs).findByText("Send profile to the hiring manager")).toBeInTheDocument();
     expect(within(needs).getByRole("radio", { name: "Team" })).toBeInTheDocument();

@@ -23,6 +23,9 @@ import app.lightmove.api.candidate.service.PersonNoteService;
 import app.lightmove.api.candidate.service.PersonRecordService;
 import app.lightmove.api.candidate.service.PersonResearchRefreshService;
 import app.lightmove.api.candidate.service.PersonTimelineService;
+import app.lightmove.api.candidate.service.PositionRedaction;
+import app.lightmove.api.core.error.model.ApiException;
+import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.security.model.AuthPrincipal;
 import app.lightmove.api.core.security.rbac.RequireWorkspacePermission;
 import app.lightmove.api.core.security.rbac.WorkspaceAction;
@@ -66,6 +69,7 @@ public class CandidatePoolController {
     private final PersonTimelineService timeline;
     private final CandidatePoolService pool;
     private final PersonResearchRefreshService researchRefreshes;
+    private final PositionRedaction positionRedaction;
 
     /** A page of the workspace's people; every filter is optional, as {@link PoolCriteria#read} reads them. */
     @GetMapping
@@ -89,7 +93,14 @@ public class CandidatePoolController {
                                            @RequestParam(required = false) Instant to,
                                            @RequestParam(required = false) Long before,
                                            @RequestParam(required = false) Integer limit) {
-        return timeline.feedOf(principal.requireWorkspaceId(), actor, position, group, from, to, before, limit);
+        UUID workspaceId = principal.requireWorkspaceId();
+        // Filtering by a position is reading its activity: only for those who may see it, and a stranger to it is
+        // told what a wrong id would tell them.
+        if (position != null && !positionRedaction.names(principal.userId(), workspaceId, position)) {
+            throw ApiException.of(ErrorCode.NOT_FOUND);
+        }
+        return positionRedaction.timelineFor(principal.userId(), workspaceId,
+                timeline.feedOf(workspaceId, actor, position, group, from, to, before, limit));
     }
 
     /** The workspace's people, counted — the nav's badge. */
@@ -256,6 +267,8 @@ public class CandidatePoolController {
                                            @RequestParam(required = false) String group,
                                            @RequestParam(required = false) Long before,
                                            @RequestParam(required = false) Integer limit) {
-        return timeline.workspaceTimelineOf(principal.requireWorkspaceId(), personId, group, before, limit);
+        UUID workspaceId = principal.requireWorkspaceId();
+        return positionRedaction.timelineFor(principal.userId(), workspaceId,
+                timeline.workspaceTimelineOf(workspaceId, personId, group, before, limit));
     }
 }

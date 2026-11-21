@@ -73,6 +73,7 @@ public class CandidatePoolService {
     private final PersonEmployerResolver employerResolver;
     private final CandidateService mandates;
     private final ProjectAccess projectAccess;
+    private final PositionRedaction positionRedaction;
     private final PersonTimelineService timeline;
     private final PersonActivityRecorder activity;
     private final AuditService audit;
@@ -279,7 +280,9 @@ public class CandidatePoolService {
         Map<UUID, Project> mandates = projectsOf(mapped);
         Set<UUID> named = mandates.isEmpty() ? Set.of()
                 : projectAccess.projectsWithAction(userId, workspaceId, mandates.keySet(), ProjectAction.WORK_EXECUTE);
-        Map<UUID, PersonTimelineEntryResponse> latest = timeline.latestOf(workspaceId, persons.values());
+        // A row's last activity may be another position's line: named only for those who may see that position.
+        Map<UUID, PersonTimelineEntryResponse> latest = positionRedaction.latestFor(userId, workspaceId,
+                timeline.latestOf(workspaceId, persons.values()));
         Map<UUID, PersonEmployer> employers = persons.values().stream().collect(Collectors.toMap(Person::getId,
                 person -> PersonEmployerResolver.employerOf(person, mapped.getOrDefault(person.getId(), List.of()))));
         Map<UUID, String> logos = employerResolver.logosOf(workspaceId, employers);

@@ -360,8 +360,9 @@ details pane and composer.
 
 Home's Needs you reads the same queue across positions: `GET /api/v1/me/outreach/needs?who=mine|team` (staff only)
 runs `list(…, NEEDS, …)` for each live, active position the caller holds a seat on — Mine where they may work it
-(`WORK_EXECUTE`), Team where they lead it (`TEAM_MANAGE`) — at most 25 positions and 50 rows, each row naming its
-position.
+(`WORK_EXECUTE`), Team where their own seat leads it (`TEAM_MANAGE` on the seat, never the admin bypass) — at most 25
+positions, chosen after that filter, and 50 rows, each naming its position. Rows keep each queue's order (group, soonest
+due, latest) across positions, and `truncated` says when a cap cut anything.
 
 ## D. Live refresh
 

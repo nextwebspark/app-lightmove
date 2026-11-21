@@ -123,6 +123,10 @@ class OutreachConversationIntegrationTest extends FlowTestSupport {
         assertThat(home.at("/rows/0/projectId").asText()).isEqualTo(projectId);
         assertThat(home.at("/rows/0/positionTitle").asText()).isEqualTo("Group CFO");
         assertThat(home.at("/rows/0/row/candidateId").asText()).isEqualTo(priya);
+        // The consultant leads the position by their own seat, so Team reads its whole queue.
+        JsonNode team = body(as(consultant, get("/api/v1/me/outreach/needs").param("who", "team"))
+                .andExpect(status().isOk()).andReturn());
+        assertThat(team.at("/rows/0/row/candidateId").asText()).isEqualTo(priya);
     }
 
     @Test

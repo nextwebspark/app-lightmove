@@ -36,7 +36,8 @@ const PRIMARY: Record<NeedsKind, string> = {
 /** Needs you: one ranked list of what is owed today — outreach waiting on the caller, then their tasks. */
 export function NeedsYou({
   items,
-  total,
+  more,
+  myUserId,
   pending,
   refused,
   scope,
@@ -44,7 +45,9 @@ export function NeedsYou({
   showScope,
 }: {
   items: NeedsItem[];
-  total: number;
+  /** More wait than the server sent: the count says so, and the foot points to where they are. */
+  more: boolean;
+  myUserId: string | undefined;
   pending: boolean;
   refused: boolean;
   scope: ConversationScope;
@@ -58,7 +61,7 @@ export function NeedsYou({
     <section aria-label="Needs you" className="min-w-0 overflow-hidden rounded-u-card border border-u-border-strong bg-u-surface">
       <div className="flex flex-wrap items-center gap-x-3.5 gap-y-2 border-b border-u-border px-4 py-3">
         <h2 className="text-body font-semibold">
-          Needs you <span className="font-mono text-note font-medium text-u-text3">· {total}</span>
+          Needs you <span className="font-mono text-note font-medium text-u-text3">· {items.length}{more ? "+" : ""}</span>
         </h2>
         {showScope && (
           <SegmentedControl
@@ -94,7 +97,11 @@ export function NeedsYou({
         <ul aria-label="Needs you">
           {shown.map((item, index) => (
             <li key={item.key} className={cn("px-4 py-3", index > 0 && "border-t border-u-border")}>
-              {item.kind === "conversation" ? <ConversationItem item={item} /> : <TaskItem item={item} />}
+              {item.kind === "conversation" ? (
+                <ConversationItem item={item} scope={scope} />
+              ) : (
+                <TaskItem item={item} mine={item.task.assignee.userId === myUserId} />
+              )}
             </li>
           ))}
         </ul>
@@ -102,6 +109,7 @@ export function NeedsYou({
 
       {!pending && !refused && items.length > 0 && (
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 border-t border-u-border px-4 py-2.5 text-note font-medium">
+          {more && <span className="text-u-text3">More wait on each position's Outreach page.</span>}
           {items.length > VISIBLE && (
             <button type="button" onClick={() => setExpanded(!expanded)} className="text-u-accent hover:underline">
               {expanded ? "Show fewer" : `Show ${items.length - VISIBLE} more`}
@@ -116,11 +124,18 @@ export function NeedsYou({
   );
 }
 
-function ConversationItem({ item }: { item: Extract<NeedsItem, { kind: "conversation" }> }) {
+function ConversationItem({
+  item,
+  scope,
+}: {
+  item: Extract<NeedsItem, { kind: "conversation" }>;
+  scope: ConversationScope;
+}) {
   const { entry, group } = item;
   const { row } = entry;
   const style = GROUP_STYLE[group];
-  const conversation = `/projects/${entry.projectId}/outreach?candidate=${row.candidateId}&who=mine`;
+  // The Outreach page opens on the same queue the row came from, so the person is in the list beside the pane.
+  const conversation = `/projects/${entry.projectId}/outreach?view=needs&who=${scope}&candidate=${row.candidateId}`;
   const detail = row.action?.title ?? row.latest?.preview ?? null;
   const why = row.action?.rule === "reply" ? "Filed when they replied" : row.action ? "Their next action" : null;
 
@@ -148,7 +163,8 @@ function ConversationItem({ item }: { item: Extract<NeedsItem, { kind: "conversa
   );
 }
 
-function TaskItem({ item }: { item: Extract<NeedsItem, { kind: "task" }> }) {
+/** One of the caller's own tasks can be ticked here; a teammate's, under Team, is theirs to tick and only opens. */
+function TaskItem({ item, mine }: { item: Extract<NeedsItem, { kind: "task" }>; mine: boolean }) {
   const { task } = item;
   const toast = useToast();
   const tasksChanged = useTasksChanged();
@@ -177,7 +193,7 @@ function TaskItem({ item }: { item: Extract<NeedsItem, { kind: "task" }> }) {
           <DuePill dueAt={task.dueAt} />
         </div>
         <div className="truncate text-meta text-u-text3">
-          {[task.personName, task.projectTitle].filter(Boolean).join(" · ")}
+          {[mine ? null : task.assignee.fullName, task.personName, task.projectTitle].filter(Boolean).join(" · ")}
         </div>
       </div>
       <div className="col-start-2 flex items-center gap-1.5 md:col-start-3 md:justify-end">
@@ -188,12 +204,14 @@ function TaskItem({ item }: { item: Extract<NeedsItem, { kind: "task" }> }) {
           </span>
         ) : (
           <>
-            <Link to={open} className={buttonClassName("secondary", ROW_ACTION)}>
+            <Link to={open} className={buttonClassName(mine ? "secondary" : "primary", ROW_ACTION)}>
               Open
             </Link>
-            <Button size="xs" onClick={() => complete.mutate()} disabled={complete.isPending}>
-              Done
-            </Button>
+            {mine && (
+              <Button size="xs" onClick={() => complete.mutate()} disabled={complete.isPending}>
+                Done
+              </Button>
+            )}
           </>
         )}
       </div>

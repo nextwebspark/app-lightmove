@@ -68,7 +68,7 @@ export function PositionsSection({ positions, myUserId }: { positions: Project[]
       title="Your positions"
       aside={
         <Link to="/positions" className="text-meta font-medium text-u-text3 hover:text-u-text">
-          All {mine.length} →
+          View all →
         </Link>
       }
     >

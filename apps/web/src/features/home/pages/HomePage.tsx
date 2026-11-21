@@ -6,7 +6,8 @@ import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Button, buttonClassName, CardsSkeleton, EmptyState } from "../../../components/ui";
 import { StagePill } from "../../../components/ui/Badge";
 import { cn } from "../../../lib/cn";
-import { formatShortDate, formatWeekdayDate } from "../../../lib/datetime/format";
+import { formatShortDate, formatWeekdayDate, todayKey } from "../../../lib/datetime/format";
+import { getDateTimePreferences } from "../../../lib/datetime/preferences";
 import { useAuth } from "../../auth/AuthProvider";
 import { isPureClient } from "../../auth/roles";
 import * as clientsApi from "../../clients/api/clientsApi";
@@ -91,20 +92,25 @@ function StaffHome({ projects, header }: { projects: Project[]; header: HeaderFn
   const shownScope: ConversationScope = leadsAny ? scope : "mine";
   const seated = projects.filter((project) => isActive(project) && project.team.some((seat) => seat.userId === user?.id));
 
+  // Each read runs every position's own queue on the server, so it is kept a minute rather than redone on every focus.
   const outreach = useQuery({
     queryKey: homeApi.MY_OUTREACH_NEEDS_KEY(shownScope),
     queryFn: ({ signal }) => homeApi.getMyOutreachNeeds(shownScope, signal),
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
   });
+  // Home's own keys, never under My tasks' `["tasks", "mine"]`: that card writes its ticks into every entry under its
+  // prefix as pages of an infinite list, and a plain answer there made each tick fail (#1414 review).
   const today = useQuery({
-    queryKey: [...tasksApi.MY_TASKS_KEY("today"), "home"],
+    queryKey: homeApi.HOME_TASKS_KEY("today"),
     queryFn: ({ signal }) => tasksApi.getMyTasks("today", { size: 50, signal }),
   });
   const overdue = useQuery({
-    queryKey: [...tasksApi.MY_TASKS_KEY("overdue"), "home"],
+    queryKey: homeApi.HOME_TASKS_KEY("overdue"),
     queryFn: ({ signal }) => tasksApi.getMyTasks("overdue", { size: 50, signal }),
   });
   const assigned = useQuery({
-    queryKey: [...tasksApi.MY_TASKS_KEY("assigned_by_me"), "home"],
+    queryKey: homeApi.HOME_TASKS_KEY("assigned_by_me"),
     queryFn: ({ signal }) => tasksApi.getMyTasks("assigned_by_me", { size: 50, signal }),
     enabled: shownScope === "team",
   });
@@ -114,14 +120,16 @@ function StaffHome({ projects, header }: { projects: Project[]; header: HeaderFn
     staleTime: 5 * 60_000,
   });
 
-  // Team reads what the caller handed out, and the whole queue of the positions they lead; Mine, their own.
-  const ownTasks = useMemo(
-    () =>
-      shownScope === "team"
-        ? (assigned.data?.tasks ?? []).filter((task) => task.status === "open")
-        : [...(overdue.data?.tasks ?? []), ...(today.data?.tasks ?? [])],
-    [shownScope, assigned.data, overdue.data, today.data],
-  );
+  // Team reads what the caller handed out that is due by the end of today, and the whole queue of the positions they
+  // lead; Mine, their own overdue and today's tasks.
+  const ownTasks = useMemo(() => {
+    if (shownScope !== "team") return [...(overdue.data?.tasks ?? []), ...(today.data?.tasks ?? [])];
+    const { timeZone } = getDateTimePreferences();
+    const endOfToday = todayKey(new Date(), timeZone);
+    return (assigned.data?.tasks ?? []).filter(
+      (task) => task.status === "open" && task.dueAt !== null && todayKey(new Date(task.dueAt), timeZone) <= endOfToday,
+    );
+  }, [shownScope, assigned.data, overdue.data, today.data]);
   const items = useMemo(
     () => needsYouOf(outreach.data?.rows ?? [], ownTasks, layout.kinds),
     [outreach.data, ownTasks, layout.kinds],
@@ -153,7 +161,8 @@ function StaffHome({ projects, header }: { projects: Project[]; header: HeaderFn
       <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1.7fr)_minmax(300px,1fr)]">
         <NeedsYou
           items={items}
-          total={items.length}
+          more={outreach.data?.truncated ?? false}
+          myUserId={user?.id}
           pending={outreach.isPending || tasksPending}
           refused={outreach.isError}
           scope={shownScope}

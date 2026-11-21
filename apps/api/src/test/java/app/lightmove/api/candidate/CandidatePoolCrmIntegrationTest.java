@@ -418,6 +418,21 @@ class CandidatePoolCrmIntegrationTest extends FlowTestSupport {
         assertThat(record.get("positions").get(0).get("positionTitle").isNull()).isTrue();
         assertThat(record.get("positions").get(0).get("workable").asBoolean()).isFalse();
         assertThat(record.get("positions").get(1).get("positionTitle").isNull()).isFalse();
+
+        // Nor is it named anywhere else the pool reads: the row's last activity, the person's history, the feed.
+        JsonNode saraPool = body(mvc.perform(get("/api/v1/candidates").header("Authorization", "Bearer " + sara))
+                .andExpect(status().isOk())
+                .andReturn());
+        assertThat(rowNamed(saraPool, "Fatima Al Mazrouei").at("/lastActivity/projectTitle").isNull()).isTrue();
+        JsonNode saraHistory = body(mvc.perform(get("/api/v1/candidates/" + fatima + "/timeline")
+                        .header("Authorization", "Bearer " + sara))
+                .andExpect(status().isOk())
+                .andReturn()).get("entries");
+        saraHistory.forEach(line -> assertThat(line.path("projectTitle").asText("")).isNotEqualTo("Head of Credit Risk"));
+        mvc.perform(get("/api/v1/candidates/activity").param("position", credit).header("Authorization", "Bearer " + sara))
+                .andExpect(status().isNotFound());
+        mvc.perform(get("/api/v1/candidates/activity").param("position", credit).header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk());
         assertThat(record.get("positions").get(1).get("workable").asBoolean()).isTrue();
     }
 
