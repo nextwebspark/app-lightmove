@@ -175,7 +175,7 @@ class DashboardIntegrationTest extends FlowTestSupport {
                 .containsExactly("C-Suite", "N-1", "N-2");
         assertThat(gender.get("suppressed").valueStream().map(JsonNode::asBoolean).toList())
                 .containsExactly(false, true, true);
-        assertThat(gender.get("series").get(0).get("name").asText()).isEqualTo("Female");
+        assertThat(gender.get("series").findValuesAsString("name")).containsExactly("Female", "Male", "Other");
         assertThat(gender.get("series").get(0).get("values").get(0).asDouble()).isEqualTo(3d);
         assertThat(gender.get("series").get(0).get("values").get(2).asDouble()).isZero();
         assertThat(gender.get("series").get(1).get("values").get(2).asDouble()).isZero();
@@ -260,6 +260,33 @@ class DashboardIntegrationTest extends FlowTestSupport {
         assertThat(answers.get(0).get("result").get("kpi").get("value").asText()).isEqualTo("1");
         assertThat(answers.get(1).get("code").asText()).isEqualTo("CHART_QUERY_NOT_FOUND");
         assertThat(answers.get(2).get("code").asText()).isEqualTo("CHART_OPTION_INVALID");
+    }
+
+    @Test
+    @DisplayName("a chart saved before the grid answers its old size, and two retired charts of one query stay apart")
+    void chartsSavedBeforeTheGridAndRetiredTwins() throws Exception {
+        firm("Dashboard Legacy Firm");
+        String url = projectUrl(mandate());
+        String id = body(save(admin, post(url), "Old pack", false, null,
+                widget("executivesIdentified", "kpi", "{}", 4))
+                .andExpect(status().isCreated()).andReturn()).get("id").asText();
+        db.update("""
+                UPDATE app_lm_dashboard SET widgets = '[
+                  {"queryId":"executivesIdentified","chart":"kpi","options":{},"size":"L"},
+                  {"queryId":"retiredQuery","chart":"bar","options":{"group":"level"}},
+                  {"queryId":"retiredQuery","chart":"pie","options":{"group":"country"}}]'::jsonb
+                WHERE id = ?::uuid""", id);
+        JsonNode legacy = list(admin, url).getFirst();
+        assertThat(legacy.get("widgets").get(0).get("size").asText()).isEqualTo("L");
+        assertThat(legacy.get("widgets").get(0).get("layout").isNull()).isTrue();
+
+        JsonNode saved = body(save(admin, put(url + "/" + id), "Old pack", false, legacy.get("version").asLong(),
+                widget("executivesIdentified", "kpi", "{}", 12), widget("retiredQuery", "bar", "{}", 0, 6),
+                widget("retiredQuery", "bar", "{}", 6, 6))
+                .andExpect(status().isOk()).andReturn());
+        assertThat(saved.get("widgets").get(0).get("size").isNull()).isTrue();
+        assertThat(saved.get("widgets").findValuesAsString("chart")).containsExactly("kpi", "bar", "pie");
+        assertThat(saved.get("widgets").get(2).get("options").get("group").asText()).isEqualTo("country");
     }
 
     // ── fixture ──────────────────────────────────────────────────────────────

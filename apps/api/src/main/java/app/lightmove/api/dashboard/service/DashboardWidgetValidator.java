@@ -9,11 +9,11 @@ import app.lightmove.api.dashboard.model.ChartQuery;
 import app.lightmove.api.dashboard.model.Dashboard;
 import app.lightmove.api.dashboard.model.DashboardWidget;
 import app.lightmove.api.dashboard.model.WidgetLayout;
-import java.util.LinkedHashMap;
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -33,8 +33,8 @@ class DashboardWidgetValidator {
         if (sent.size() > Dashboard.MAX_WIDGETS) {
             throw ApiException.of(ErrorCode.DASHBOARD_TOO_MANY_WIDGETS);
         }
-        Map<String, DashboardWidget> storedByQueryId = stored.stream().collect(Collectors.toMap(
-                DashboardWidget::queryId, Function.identity(), (first, later) -> first, LinkedHashMap::new));
+        Map<String, Deque<DashboardWidget>> storedByQueryId = stored.stream().collect(Collectors.groupingBy(
+                DashboardWidget::queryId, Collectors.toCollection(ArrayDeque::new)));
         return sent.stream().map(widget -> checked(scope, widget, storedByQueryId)).toList();
     }
 
@@ -44,14 +44,15 @@ class DashboardWidgetValidator {
     }
 
     private DashboardWidget checked(DashboardScope scope, DashboardWidgetDto widget,
-                                    Map<String, DashboardWidget> storedByQueryId) {
+                                    Map<String, Deque<DashboardWidget>> storedByQueryId) {
         WidgetLayout layout = widget.layout();
         if (layout == null || !layout.fitsTheGrid()) {
             throw new ApiException(ErrorCode.VALIDATION_FAILED, "Chart " + widget.queryId() + " is off the grid");
         }
         Optional<ChartQuery> found = library.find(scope, widget.queryId());
         if (found.isEmpty()) {
-            DashboardWidget retired = storedByQueryId.get(widget.queryId());
+            Deque<DashboardWidget> storedCharts = storedByQueryId.get(widget.queryId());
+            DashboardWidget retired = storedCharts == null ? null : storedCharts.poll();
             if (retired == null) {
                 throw new ApiException(ErrorCode.CHART_QUERY_NOT_FOUND, "No library query " + widget.queryId());
             }
@@ -66,6 +67,6 @@ class DashboardWidgetValidator {
         Map<String, String> options = widget.options() == null ? Map.of() : widget.options();
         ChartQueryService.requireValidOptions(query, options);
         String title = widget.title() == null || widget.title().isBlank() ? null : widget.title().strip();
-        return new DashboardWidget(query.id(), chart.value(), query.settle(options), title, layout);
+        return new DashboardWidget(query.id(), chart.value(), query.settle(options), title, layout, null);
     }
 }

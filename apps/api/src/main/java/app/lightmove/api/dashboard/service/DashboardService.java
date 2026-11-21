@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -53,7 +54,11 @@ public class DashboardService {
         }
         dashboard.record(request.name().strip(), request.shared(),
                 widgets.checked(scopeOf(projectId), request.widgets(), dashboard.getWidgets()));
-        return toResponse(dashboards.saveAndFlush(dashboard), userId);
+        try {
+            return toResponse(dashboards.saveAndFlush(dashboard), userId);
+        } catch (ObjectOptimisticLockingFailureException raced) {
+            throw ApiException.of(ErrorCode.DASHBOARD_STALE);
+        }
     }
 
     /**
@@ -98,7 +103,7 @@ public class DashboardService {
         return new DashboardResponse(dashboard.getId(), dashboard.getName(), dashboard.isShared(),
                 dashboard.isOwnedBy(userId),
                 dashboard.getWidgets().stream().map(widget -> new DashboardWidgetDto(widget.queryId(), widget.chart(),
-                        widget.options(), widget.title(), widget.layout())).toList(),
+                        widget.options(), widget.title(), widget.layout(), widget.size())).toList(),
                 dashboard.getVersion(), dashboard.getUpdatedAt());
     }
 }

@@ -7,12 +7,14 @@ import java.util.Map;
 
 /**
  * One chart on a dashboard: a library query, a {@code ChartType} token, its options, a title and its place on the
- * grid. A save must send a layout; a read may answer none for a chart saved before the grid.
+ * grid. A save must send a layout; a read may answer none for a chart saved before the grid, with the S/M/L
+ * {@code size} it was saved at so the screen can flow it in at its old width. A save's {@code size} is ignored.
  */
 public record DashboardWidgetDto(
         @NotBlank @Size(max = 64) String queryId,
         @NotBlank @Size(max = 16) String chart,
         @Size(max = 8) Map<String, String> options,
         @Size(max = 80) String title,
-        WidgetLayout layout
+        WidgetLayout layout,
+        @Size(max = 2) String size
 ) {}

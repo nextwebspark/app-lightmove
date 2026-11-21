@@ -10,13 +10,13 @@ import java.util.Map;
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record DashboardWidget(String queryId, String chart, Map<String, String> options, String title,
-                              WidgetLayout layout) {
+                              WidgetLayout layout, String size) {
 
     public DashboardWidget {
         options = options == null ? Map.of() : Map.copyOf(options);
     }
 
     public DashboardWidget placedAt(WidgetLayout newLayout) {
-        return new DashboardWidget(queryId, chart, options, title, newLayout);
+        return new DashboardWidget(queryId, chart, options, title, newLayout, null);
     }
 }

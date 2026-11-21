@@ -14,7 +14,8 @@ and across the workspace (**Dashboards** in the sidebar). The design is `uncava-
 - **Edit layout**: the canvas turns to graph paper (the twelve columns and rows a chart snaps to). Press anywhere on a
   chart and drag to move it; drag its right edge, bottom edge or corner to resize it, within its type's minimum
   (`gridLayout.ts` `LIMITS`) and the full width. A chart it lands on is pushed down; charts then slide straight up into
-  empty rows, never sideways or into another row. Arrow keys move a focused chart, Shift + arrows resize it. The pencil
+  empty rows from where they sit, never sideways and never through another chart. Arrow keys move a focused chart
+  (Down trades places with the chart below it), Shift + arrows resize it. The pencil
   changes it, the × removes it; nothing changes for anyone until **Save layout**. Below ~720px the charts stack in
   reading order and Edit layout is hidden.
 
@@ -26,7 +27,7 @@ someone wrote and reviewed it.
 ## How it is built
 
 - **Storage** — `app_lm_dashboard` (V231): workspace, project (null on the workspace's), owner, name, `shared`, and
-  `widgets` jsonb `[{queryId, chart, options, title, layout: {x, y, w, h}}]` (a row saved before the grid has `size` S/M/L and no layout; the SPA flows it into place). The choice only, never a figure. Forced RLS.
+  `widgets` jsonb `[{queryId, chart, options, title, layout: {x, y, w, h}}]` (a row saved before the grid has `size` S/M/L and no layout; the API answers that size, the SPA flows it into place and every save sends it back with a layout). The choice only, never a figure. Forced RLS.
 - **Library** — `dashboard/service/ProjectChartQueries` (15) and `WorkspaceChartQueries` (11), registered by
   `ChartQueryLibrary`. Each `ChartQuery` declares its shape (`KPI`, `CATEGORICAL`, `TIME_SERIES`, `MATRIX`, `RANKED`),
   whether its parts add up (`notAdditive`: a median never draws as a pie), and its options — built through the
@@ -70,7 +71,8 @@ Errors: `DASHBOARD_NOT_FOUND` (not visible), `DASHBOARD_READ_ONLY` (a teammate's
 - **Gender** (`genderByLevel`) counts only a value a researcher recorded or confirmed — one still in
   `aiInferredFields` is left out — and a level is held back and zeroed before it leaves the server when fewer than 3
   are recorded there or when any gender in it counts 1 or 2, so nobody can be singled out (two men and one woman
-  would otherwise name the woman). Aggregate only: no query lists people by gender.
+  would otherwise name the woman). Female, Male and Other are always all drawn, so an Other column that is empty on
+  every shown level cannot point at a hidden one. Aggregate only: no query lists people by gender.
 - **Nationality** has no library query until the Art. 9 decision (`gdpr/governance-decisions.md` C2).
 - A chart reads what its reader may read today; nothing is cached on the dashboard.
 
