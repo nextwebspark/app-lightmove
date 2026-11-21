@@ -6,6 +6,7 @@ import type { Candidate } from "../api/types";
 import type { DrawerSection, DrawerTab } from "../lib/drawerTabs";
 import { AddCandidateForm, type CandidateCompanyContext } from "./AddCandidateForm";
 import { CandidateProfile } from "./CandidateProfile";
+import type { RecordStepper } from "./RecordCornerControls";
 
 export type { CandidateCompanyContext } from "./AddCandidateForm";
 
@@ -29,6 +30,7 @@ export function CandidateDrawer({
   focusNoteId = null,
   focusSection = null,
   focusTab = null,
+  stepper,
 }: {
   open: boolean;
   projectId: string;
@@ -58,6 +60,8 @@ export function CandidateDrawer({
   focusSection?: DrawerSection | null;
   /** The tab to open on, from a link that says which; the viewer's remembered tab otherwise. */
   focusTab?: DrawerTab | null;
+  /** Previous and Next along the grid the panel was opened from. */
+  stepper?: RecordStepper;
 }) {
   const queryClient = useQueryClient();
   const live = useQuery({
@@ -90,6 +94,7 @@ export function CandidateDrawer({
           focusNoteId={focusNoteId}
           focusSection={focusSection}
           focusTab={focusTab}
+          stepper={stepper}
         />
       ) : (
         <AddCandidateForm

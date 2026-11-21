@@ -7,7 +7,6 @@ import { ActionMenu, MenuItem, MenuSeparator } from "../../../components/ui/Acti
 import { DrawerFooter } from "../../../components/ui/Drawer";
 import { CollapsibleSection } from "../../../components/ui/CollapsibleSection";
 import { DetailGrid, DetailPill, DetailTile } from "../../../components/ui/DetailList";
-import { PanelCloseButton } from "../../../components/ui/PanelCloseButton";
 import { tabPanelProps } from "../../../components/ui/tabPanelProps";
 import { cn } from "../../../lib/cn";
 import { messageFor } from "../../../lib/errorCodes";
@@ -101,6 +100,7 @@ import {
 } from "./PersonSections";
 import { ActivityTimeline } from "./activity/ActivityTimeline";
 import { PersonTagsSection } from "./PersonTagsSection";
+import { cornerButtonCount, RecordCornerControls, useRecordStepKeys, type RecordStepper } from "./RecordCornerControls";
 import { ProfileSectionForm, SectionEditButton, SectionEditor } from "./ProfileSectionForm";
 import { AiActionButton } from "./AiActionButton";
 import { AiInferredBadge } from "./AiInferredBadge";
@@ -140,6 +140,7 @@ export function CandidateProfile({
   focusNoteId = null,
   focusSection = null,
   focusTab = null,
+  stepper,
 }: {
   projectId: string;
   candidate: Candidate;
@@ -160,6 +161,8 @@ export function CandidateProfile({
   /** A part of the Outreach tab to open on — a bell row's reply, bounce or booked call: unfolded, scrolled to. */
   focusSection?: DrawerSection | null;
   focusTab?: DrawerTab | null;
+  /** Previous, Next and the frame switch, where the record was opened from a list. */
+  stepper?: RecordStepper;
 }) {
   const sections = useProfileSections();
   const outlet = useOutletContext<ProjectOutletContext | undefined>();
@@ -433,14 +436,23 @@ export function CandidateProfile({
       <CandidateAvatar projectId={projectId} candidate={candidate} size={size} className={className} />
     ),
   };
+  useRecordStepKeys(
+    stepper,
+    editing !== null || contactWindow !== null || log !== null || preview !== null || nextAction !== null,
+  );
   const panelProps = (value: DrawerTab) => ({ ...tabPanelProps(TAB_ID_PREFIX, value), hidden: tab !== value });
 
   return (
     <>
       {changeStatus.dialog}
       <div className="relative flex-none border-b border-u-border px-5 pt-4">
-        <PanelCloseButton onClose={onClose} />
+        <RecordCornerControls
+          stepper={stepper}
+          held={editing !== null ? "Save or cancel your edit first" : undefined}
+          onClose={onClose}
+        />
         <PersonHeaderLayout
+          cornerButtons={cornerButtonCount(stepper)}
           avatar={
             <CandidateAvatar
               projectId={projectId}

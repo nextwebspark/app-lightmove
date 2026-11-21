@@ -28,6 +28,8 @@ import {
   CandidateDrawer,
   type CandidateCompanyContext,
 } from "../../candidates/components/CandidateDrawer";
+import type { RecordStepper } from "../../candidates/components/RecordCornerControls";
+import { POSITION_STAFF_TABS } from "../../candidates/lib/drawerTabs";
 import { RemoveCandidateDialog } from "../../candidates/components/RemoveCandidateDialog";
 import { useChangeCandidateStatus } from "../../candidates/lib/useChangeCandidateStatus";
 import * as customColumnsApi from "../../customcolumns/api/customColumnsApi";
@@ -178,8 +180,8 @@ function TriageStage() {
   const [openCompany, setOpenCompany] = useState<OpenCompany | null>(null);
   const [pendingRemoval, setPendingRemoval] = useState<TriageCompany | null>(null);
   const [pendingDecline, setPendingDecline] = useState<PendingDecline | null>(null);
-  const [profile, setProfile] = useState<OpenProfile | null>(null);
-  const profileCompany = profile?.company ?? null;
+  /** The add form, open on a company or on none; an existing executive's panel is the URL's `?candidate=`. */
+  const [adding, setAdding] = useState<OpenProfile | null>(null);
   const [pendingCandidateRemoval, setPendingCandidateRemoval] = useState<Candidate | null>(null);
   const [importing, setImporting] = useState(false);
   const lineSelection = useLineSelection(TICKED_LINES_CAP);
@@ -200,7 +202,7 @@ function TriageStage() {
     if (!user) return;
     if (canWrite) {
       if (addRequest === "company") setOpenCompany({ company: null });
-      else setProfile({ candidate: null, company: null });
+      else setAdding({ candidate: null, company: null });
     }
     setSearchParams(
       (current) => {
@@ -243,6 +245,57 @@ function TriageStage() {
       { replace: true },
     );
   };
+
+  /**
+   * The executive the panel is open on lives in the URL, so a refresh, a shared link or Back reopens them. The board
+   * reads the same `?candidate=` for its own panel.
+   */
+  const openCandidateId = isBoard ? null : searchParams.get("candidate");
+  const requestedTab = searchParams.get("tab");
+  const focusTab = POSITION_STAFF_TABS.find((tab) => tab === requestedTab) ?? null;
+  const openCandidate = useQuery({
+    queryKey: candidatesApi.CANDIDATE_KEY(project.id, openCandidateId ?? ""),
+    queryFn: ({ signal }) => candidatesApi.getCandidate(project.id, openCandidateId!, signal),
+    enabled: openCandidateId !== null,
+  });
+  const setOpenCandidateParam = (candidateId: string | null) =>
+    setSearchParams(
+      (current) => {
+        const params = new URLSearchParams(current);
+        if (candidateId) params.set("candidate", candidateId);
+        else params.delete("candidate");
+        params.delete("note");
+        params.delete("section");
+        params.delete("tab");
+        return params;
+      },
+      { replace: true },
+    );
+  const profile: OpenProfile | null =
+    adding ??
+    (openCandidateId !== null && openCandidate.data?.id === openCandidateId
+      ? { candidate: openCandidate.data, company: null }
+      : null);
+  const profileCompany = profile?.company ?? null;
+  /** Opens the panel on an executive (into the URL) or on the add form, or closes it with null. */
+  const setProfile = (next: OpenProfile | null) => {
+    if (next?.candidate) {
+      queryClient.setQueryData(candidatesApi.CANDIDATE_KEY(project.id, next.candidate.id), next.candidate);
+      setAdding(null);
+      setOpenCandidateParam(next.candidate.id);
+      return;
+    }
+    setAdding(next);
+    if (openCandidateId !== null) setOpenCandidateParam(null);
+  };
+  // Someone removed since the link was made, or out of this reader's reach: say so and leave the grid as it is.
+  const openCandidateFailed = openCandidateId !== null && openCandidate.isError && openCandidate.data === undefined;
+  useEffect(() => {
+    if (!openCandidateFailed) return;
+    toast.error(messageFor(openCandidate.error));
+    setOpenCandidateParam(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openCandidateFailed]);
 
   /**
    * The mandate's currency, offered to a new executive's package so a consultant stops picking it on
@@ -487,6 +540,9 @@ function TriageStage() {
   visiblePeople.current = (lines.data?.lines ?? [])
     .map((line) => line.candidate)
     .filter((candidate): candidate is Candidate => candidate !== null);
+  const stepper = stepperAlong(view === "table" ? visiblePeople.current : [], profile?.candidate ?? null, (candidate) =>
+    setProfile({ candidate, company: null }),
+  );
   const profileCompanyId = profile?.candidate?.triageCompanyId ?? null;
   const profileCompanyRow = profileCompanyId
     ? (lines.data?.lines.find((line) => line.company?.id === profileCompanyId)?.company ?? null)
@@ -1189,6 +1245,8 @@ function TriageStage() {
         customColumns={candidateColumns}
         canWrite={canWrite}
         defaultCurrency={briefCompensation.data?.currency}
+        focusTab={focusTab}
+        stepper={stepper}
         onClose={() => setProfile(null)}
         // The panel stays open on what the server answered: a corrected figure shows corrected
         // before the grid has refetched, and an add moves straight on to the profile it made.
@@ -1256,6 +1314,23 @@ function TriageStage() {
       {changeCandidateStatus.dialog}
     </div>
   );
+}
+
+/** Previous and Next along the grid's people in the grid's order; none for someone the grid is not showing. */
+function stepperAlong(
+  people: readonly Candidate[],
+  open: Candidate | null,
+  onStep: (candidate: Candidate) => void,
+): RecordStepper | undefined {
+  const at = open ? people.findIndex((candidate) => candidate.id === open.id) : -1;
+  if (at < 0) return undefined;
+  const previous = people[at - 1];
+  const next = people[at + 1];
+  return {
+    frame: "peek",
+    onPrevious: previous ? () => onStep(previous) : undefined,
+    onNext: next ? () => onStep(next) : undefined,
+  };
 }
 
 function executivesOf(count: number): string {

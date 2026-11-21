@@ -43,6 +43,7 @@ vi.mock("../../candidates/api/candidatesApi", async (importOriginal) => ({
   // Keys are real; only the calls are mocked.
   ...(await importOriginal<typeof candidatesApi>()),
   getCandidates: vi.fn(),
+  getCandidate: vi.fn(),
   createCandidate: vi.fn(),
   updateCandidate: vi.fn(),
   deleteCandidate: vi.fn(),
@@ -1645,6 +1646,70 @@ describe("TriageStagePage", () => {
         expect.objectContaining({ fullName: "Yasmin El-Sayed", triageCompanyId: "u1" }),
       ),
     );
+  });
+
+  it("reopens the executive a link or a refresh names, from the URL alone", async () => {
+    vi.mocked(candidatesApi.getCandidate).mockResolvedValue(yasmin);
+    render(stageTree("universe", project, `?candidate=${yasmin.id}`));
+
+    const drawer = await screen.findByRole("dialog", { name: /Yasmin El-Sayed/i });
+    expect(within(drawer).getByRole("heading", { name: "Yasmin El-Sayed" })).toBeInTheDocument();
+    expect(candidatesApi.getCandidate).toHaveBeenCalledWith("p1", yasmin.id, expect.anything());
+  });
+
+  it("says so and stays on the grid when the executive a link names is gone", async () => {
+    vi.mocked(candidatesApi.getCandidate).mockRejectedValue(new Error("gone"));
+    render(stageTree("universe", project, "?candidate=missing"));
+
+    expect((await screen.findAllByText("ACWA Power")).length).toBeGreaterThan(0);
+    await waitFor(() => expect(candidatesApi.getCandidate).toHaveBeenCalled());
+    expect(screen.queryByRole("dialog", { name: /Yasmin El-Sayed/i })).not.toBeInTheDocument();
+  });
+
+  it("steps along the grid's executives with Previous and Next, and with J and K", async () => {
+    const omar: Candidate = { ...yasmin, id: "c2", fullName: "Omar Saleh" };
+    vi.mocked(candidatesApi.getCandidates).mockImplementation(async (_project, scope) =>
+      peopleOf(scope.unmapped ? [] : [yasmin, omar]),
+    );
+    vi.mocked(candidatesApi.getCandidate).mockImplementation(async (_project, id) => (id === omar.id ? omar : yasmin));
+    renderStage();
+
+    await userEvent.click(
+      await screen.findByRole("button", {
+        name: (name) => /Yasmin El-Sayed/i.test(name) && !name.includes(":") && !name.startsWith("Remove"),
+      }),
+    );
+    let drawer = await screen.findByRole("dialog", { name: /Yasmin El-Sayed/i });
+    expect(within(drawer).getByRole("button", { name: "Previous executive" })).toBeDisabled();
+
+    await userEvent.click(within(drawer).getByRole("button", { name: "Next executive" }));
+    drawer = await screen.findByRole("dialog", { name: /Omar Saleh/i });
+    expect(within(drawer).getByRole("heading", { name: "Omar Saleh" })).toBeInTheDocument();
+    expect(within(drawer).getByRole("button", { name: "Next executive" })).toBeDisabled();
+
+    await userEvent.keyboard("k");
+    expect(await screen.findByRole("dialog", { name: /Yasmin El-Sayed/i })).toBeInTheDocument();
+    await userEvent.keyboard("j");
+    expect(await screen.findByRole("dialog", { name: /Omar Saleh/i })).toBeInTheDocument();
+  });
+
+  it("holds Previous and Next while an edit is open, which a step would drop", async () => {
+    const omar: Candidate = { ...yasmin, id: "c2", fullName: "Omar Saleh" };
+    vi.mocked(candidatesApi.getCandidates).mockImplementation(async (_project, scope) =>
+      peopleOf(scope.unmapped ? [] : [yasmin, omar]),
+    );
+    vi.mocked(candidatesApi.getCandidate).mockResolvedValue(yasmin);
+    renderStage();
+
+    await userEvent.click(
+      await screen.findByRole("button", {
+        name: (name) => /Yasmin El-Sayed/i.test(name) && !name.includes(":") && !name.startsWith("Remove"),
+      }),
+    );
+    const drawer = await screen.findByRole("dialog", { name: /Yasmin El-Sayed/i });
+    await userEvent.click(within(drawer).getByRole("button", { name: /Edit details/i }));
+
+    expect(within(drawer).getByRole("button", { name: "Next executive" })).toBeDisabled();
   });
 
   it("opens an existing executive as a profile, and edits behind a second step", async () => {
