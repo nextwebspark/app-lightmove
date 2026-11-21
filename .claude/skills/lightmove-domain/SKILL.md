@@ -204,6 +204,17 @@ deliberate:
   next request and a grant needs no new token; `/me` carries `platformActions` for the SPA to show the
   Platform tab, and nothing trusts it for a decision.
 - **A miss is a 404**, not a 403 — the platform surface is not advertised to anyone who cannot use it.
+- **Where the deployment says so, the role is not enough** (#1313, `lightmove.platform.require-two-factor`, off
+  until every super admin there has enrolled). `PlatformTwoFactor` then asks two more things, after the action and
+  never before it, so the 404 above still answers everyone else: an enabled factor on every platform route
+  (`PLATFORM_TWO_FACTOR_REQUIRED`, 403), and on a high-impact one (`@RequireRecentTwoFactor`: a credit grant, an
+  invoiced subscription) a code entered within `step-up-window` (`PLATFORM_STEP_UP_REQUIRED`, 403), given at
+  `POST /api/v1/platform/step-up`. When the code was entered is a row (`app_lm_platform_step_up`, V233), never a
+  claim: a token cannot say it, and a second instance must agree. It is the person's, not the session's — the
+  access token names no session and the refresh cookie never reaches `/api/v1/platform` — and a code older than
+  the factor it was entered for does not count, so turning two-factor off and on carries no window across. A new
+  platform route takes `@RequirePlatformPermission` or `@RequireRecentTwoFactor`, one or the other: a route with
+  neither skips the factor, and `PlatformTwoFactorIntegrationTest` names it.
 
 A workspace's own template edits are a separate, ordinary workspace action (`POSITION_TEMPLATE_MANAGE`,
 ADMIN), and they write the firm's own rows only: a firm's copy shadows the library template of the same
