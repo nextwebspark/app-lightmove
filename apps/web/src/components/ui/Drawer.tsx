@@ -1,6 +1,6 @@
 import { useRef, type ReactNode } from "react";
 import { cn } from "../../lib/cn";
-import { useEscapeKey } from "../../lib/useEscapeKey";
+import { EscapeLayerContext, useEscapeKey } from "../../lib/useEscapeKey";
 import { useFocusTrap } from "../../lib/useFocusTrap";
 
 /** The mockups' right slide-over: floating rounded panel, overlay and Escape to dismiss. */
@@ -23,7 +23,7 @@ export function Drawer({
   wide?: boolean;
   children: ReactNode;
 }) {
-  useEscapeKey(open, onClose);
+  const isTopLayer = useEscapeKey(open, onClose);
   const panelRef = useRef<HTMLElement>(null);
   useFocusTrap(panelRef, open, { startAt: "panel" });
 
@@ -47,7 +47,7 @@ export function Drawer({
           wide ? "sm:w-[560px]" : "sm:w-[420px]",
         )}
       >
-        {children}
+        <EscapeLayerContext.Provider value={isTopLayer}>{children}</EscapeLayerContext.Provider>
       </aside>
     </>
   );

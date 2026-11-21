@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { act, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Outlet, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -43,6 +43,7 @@ vi.mock("../../candidates/api/candidatesApi", async (importOriginal) => ({
   // Keys are real; only the calls are mocked.
   ...(await importOriginal<typeof candidatesApi>()),
   getCandidates: vi.fn(),
+  getCandidate: vi.fn(),
   createCandidate: vi.fn(),
   updateCandidate: vi.fn(),
   deleteCandidate: vi.fn(),
@@ -1645,6 +1646,208 @@ describe("TriageStagePage", () => {
         expect.objectContaining({ fullName: "Yasmin El-Sayed", triageCompanyId: "u1" }),
       ),
     );
+  });
+
+  it("reopens the executive a link or a refresh names, from the URL alone", async () => {
+    vi.mocked(candidatesApi.getCandidate).mockResolvedValue(yasmin);
+    render(stageTree("universe", project, `?candidate=${yasmin.id}`));
+
+    const drawer = await screen.findByRole("dialog", { name: /Yasmin El-Sayed/i });
+    expect(within(drawer).getByRole("heading", { name: "Yasmin El-Sayed" })).toBeInTheDocument();
+    expect(candidatesApi.getCandidate).toHaveBeenCalledWith("p1", yasmin.id, expect.anything());
+  });
+
+  it("says so and stays on the grid when the executive a link names is gone", async () => {
+    vi.mocked(candidatesApi.getCandidate).mockRejectedValue(new Error("gone"));
+    render(stageTree("universe", project, "?candidate=missing"));
+
+    expect((await screen.findAllByText("ACWA Power")).length).toBeGreaterThan(0);
+    await waitFor(() => expect(candidatesApi.getCandidate).toHaveBeenCalled());
+    expect(screen.queryByRole("dialog", { name: /Yasmin El-Sayed/i })).not.toBeInTheDocument();
+  });
+
+  it("steps along the grid's executives with Previous and Next, and with J and K", async () => {
+    const omar: Candidate = { ...yasmin, id: "c2", fullName: "Omar Saleh" };
+    vi.mocked(candidatesApi.getCandidates).mockImplementation(async (_project, scope) =>
+      peopleOf(scope.unmapped ? [] : [yasmin, omar]),
+    );
+    vi.mocked(candidatesApi.getCandidate).mockImplementation(async (_project, id) => (id === omar.id ? omar : yasmin));
+    renderStage();
+
+    await userEvent.click(
+      await screen.findByRole("button", {
+        name: (name) => /Yasmin El-Sayed/i.test(name) && !name.includes(":") && !name.startsWith("Remove"),
+      }),
+    );
+    let drawer = await screen.findByRole("dialog", { name: /Yasmin El-Sayed/i });
+    expect(within(drawer).getByRole("button", { name: "Previous executive" })).toBeDisabled();
+
+    await userEvent.click(within(drawer).getByRole("button", { name: "Next executive" }));
+    drawer = await screen.findByRole("dialog", { name: /Omar Saleh/i });
+    expect(within(drawer).getByRole("heading", { name: "Omar Saleh" })).toBeInTheDocument();
+    expect(within(drawer).getByRole("button", { name: "Next executive" })).toBeDisabled();
+
+    await userEvent.keyboard("k");
+    expect(await screen.findByRole("dialog", { name: /Yasmin El-Sayed/i })).toBeInTheDocument();
+    await userEvent.keyboard("j");
+    expect(await screen.findByRole("dialog", { name: /Omar Saleh/i })).toBeInTheDocument();
+  });
+
+  it("holds J and K while a window is open over the record, as Escape would close that window first", async () => {
+    const omar: Candidate = { ...yasmin, id: "c2", fullName: "Omar Saleh" };
+    vi.mocked(candidatesApi.getCandidates).mockImplementation(async (_project, scope) =>
+      peopleOf(scope.unmapped ? [] : [yasmin, omar]),
+    );
+    vi.mocked(candidatesApi.getCandidate).mockImplementation(async (_project, id) => (id === omar.id ? omar : yasmin));
+    render(stageTree("universe", project, `?candidate=${yasmin.id}`));
+
+    const drawer = await screen.findByRole("dialog", { name: /Yasmin El-Sayed/i });
+    await within(drawer).findByRole("button", { name: "Next executive" });
+    await userEvent.click(within(drawer).getByRole("button", { name: /^Status: / }));
+    await screen.findByRole("listbox");
+
+    fireEvent.keyDown(document.body, { key: "j" });
+    expect(screen.getByRole("dialog", { name: /Yasmin El-Sayed/i })).toBeInTheDocument();
+    expect(screen.queryByRole("dialog", { name: /Omar Saleh/i })).not.toBeInTheDocument();
+
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("listbox")).not.toBeInTheDocument());
+    fireEvent.keyDown(document.body, { key: "j" });
+    expect(await screen.findByRole("dialog", { name: /Omar Saleh/i })).toBeInTheDocument();
+  });
+
+  it("holds Previous and Next while an edit is open, which a step would drop", async () => {
+    const omar: Candidate = { ...yasmin, id: "c2", fullName: "Omar Saleh" };
+    vi.mocked(candidatesApi.getCandidates).mockImplementation(async (_project, scope) =>
+      peopleOf(scope.unmapped ? [] : [yasmin, omar]),
+    );
+    vi.mocked(candidatesApi.getCandidate).mockResolvedValue(yasmin);
+    renderStage();
+
+    await userEvent.click(
+      await screen.findByRole("button", {
+        name: (name) => /Yasmin El-Sayed/i.test(name) && !name.includes(":") && !name.startsWith("Remove"),
+      }),
+    );
+    const drawer = await screen.findByRole("dialog", { name: /Yasmin El-Sayed/i });
+    await userEvent.click(within(drawer).getByRole("button", { name: /Edit details/i }));
+
+    expect(within(drawer).getByRole("button", { name: "Next executive" })).toBeDisabled();
+  });
+
+  describe("the record full page", () => {
+    const omar: Candidate = { ...yasmin, id: "c2", fullName: "Omar Saleh", title: "CFO" };
+    beforeEach(() => {
+      vi.mocked(candidatesApi.getCandidates).mockImplementation(async (_project, scope) =>
+        peopleOf(scope.unmapped ? [] : [yasmin, omar]),
+      );
+      vi.mocked(candidatesApi.getCandidate).mockImplementation(async (_project, id) => (id === omar.id ? omar : yasmin));
+    });
+
+    it("opens from the peek as the grid's executives beside the record, and Exit returns to the peek on whoever is open", async () => {
+      renderStage();
+      await userEvent.click(
+        await screen.findByRole("button", {
+          name: (name) => /Yasmin El-Sayed/i.test(name) && !name.includes(":") && !name.startsWith("Remove"),
+        }),
+      );
+      const drawer = await screen.findByRole("dialog", { name: /Yasmin El-Sayed/i });
+      await userEvent.click(within(drawer).getByRole("button", { name: "Open full page" }));
+
+      const list = await screen.findByRole("navigation", { name: "In universe executives" });
+      expect(within(list).getByRole("button", { name: /Yasmin El-Sayed/ })).toHaveAttribute("aria-current", "true");
+      expect(within(list).getByText("CFO · ACWA Power")).toBeInTheDocument();
+      expect(screen.queryByRole("dialog", { name: /Yasmin El-Sayed/i })).not.toBeInTheDocument();
+      const record = screen.getByRole("region", { name: "Executive record" });
+      expect(within(record).queryByRole("button", { name: "Close" })).not.toBeInTheDocument();
+
+      await userEvent.click(within(list).getByRole("button", { name: /Omar Saleh/ }));
+      expect(await within(record).findByRole("heading", { name: "Omar Saleh" })).toBeInTheDocument();
+
+      await userEvent.click(within(record).getByRole("button", { name: "Exit full page" }));
+      expect(await screen.findByRole("dialog", { name: /Omar Saleh/i })).toBeInTheDocument();
+      expect(screen.queryByRole("navigation", { name: "In universe executives" })).not.toBeInTheDocument();
+    });
+
+    it("comes back from a refresh on the full page, and Esc leaves it for the peek", async () => {
+      render(stageTree("universe", project, `?candidate=${omar.id}&record=page`));
+
+      const record = await screen.findByRole("region", { name: "Executive record" });
+      expect(await within(record).findByRole("heading", { name: "Omar Saleh" })).toBeInTheDocument();
+      await userEvent.keyboard("k");
+      expect(await within(record).findByRole("heading", { name: "Yasmin El-Sayed" })).toBeInTheDocument();
+
+      await userEvent.keyboard("{Escape}");
+      expect(await screen.findByRole("dialog", { name: /Yasmin El-Sayed/i })).toBeInTheDocument();
+    });
+
+    it("clears the list's search with Esc and stays on the page, then leaves it on the next Esc", async () => {
+      render(stageTree("universe", project, `?candidate=${yasmin.id}&record=page`));
+
+      const list = await screen.findByRole("navigation", { name: "In universe executives" });
+      const box = within(list).getByRole("searchbox", { name: "Search executives" });
+      await userEvent.type(box, "omar");
+      await userEvent.keyboard("{Escape}");
+      expect(box).toHaveValue("");
+      expect(screen.getByRole("navigation", { name: "In universe executives" })).toBeInTheDocument();
+
+      await userEvent.keyboard("{Escape}");
+      expect(box).not.toHaveFocus();
+      expect(screen.getByRole("navigation", { name: "In universe executives" })).toBeInTheDocument();
+
+      await userEvent.keyboard("{Escape}");
+      expect(await screen.findByRole("dialog", { name: /Yasmin El-Sayed/i })).toBeInTheDocument();
+    });
+
+    it("closes the narrow screen's list overlay with Esc before leaving the page", async () => {
+      render(stageTree("universe", project, `?candidate=${yasmin.id}&record=page`));
+
+      const listButton = await screen.findByRole("button", { name: "List" });
+      await userEvent.click(listButton);
+      expect(listButton).toHaveAttribute("aria-expanded", "true");
+
+      await userEvent.keyboard("{Escape}");
+      expect(listButton).toHaveAttribute("aria-expanded", "false");
+      expect(screen.getByRole("navigation", { name: "In universe executives" })).toBeInTheDocument();
+    });
+
+    it("keeps Exit full page for someone who has left the grid, here by a status change", async () => {
+      vi.mocked(candidatesApi.changeCandidateStatus).mockImplementation(async () => {
+        vi.mocked(candidatesApi.getCandidates).mockImplementation(async (_project, scope) =>
+          peopleOf(scope.unmapped ? [] : [omar]),
+        );
+        return { ...yasmin, status: "interested" };
+      });
+      render(stageTree("universe", project, `?candidate=${yasmin.id}&record=page`));
+
+      const list = await screen.findByRole("navigation", { name: "In universe executives" });
+      await within(list).findByRole("button", { name: /Yasmin El-Sayed/ });
+      await pickStatus(/^Status: /, "Interested");
+
+      await waitFor(() => expect(within(list).queryByRole("button", { name: /Yasmin El-Sayed/ })).not.toBeInTheDocument());
+      const record = screen.getByRole("region", { name: "Executive record" });
+      expect(within(record).getByRole("button", { name: "Exit full page" })).toBeInTheDocument();
+      expect(within(record).getByRole("button", { name: "Next executive" })).toBeDisabled();
+      expect(within(record).queryByRole("button", { name: "Close" })).not.toBeInTheDocument();
+    });
+
+    it("names the status beside each row's dot for a screen reader", async () => {
+      render(stageTree("universe", project, `?candidate=${yasmin.id}&record=page`));
+
+      const list = await screen.findByRole("navigation", { name: "In universe executives" });
+      const row = await within(list).findByRole("button", { name: /Omar Saleh/ });
+      expect(row).toHaveAccessibleName(expect.stringMatching(/Omar Saleh.*CFO · ACWA Power.+/));
+    });
+
+    it("narrows the list from its own search box", async () => {
+      render(stageTree("universe", project, `?candidate=${yasmin.id}&record=page`));
+
+      const list = await screen.findByRole("navigation", { name: "In universe executives" });
+      await within(list).findByRole("button", { name: /Omar Saleh/ });
+      await userEvent.type(within(list).getByRole("searchbox", { name: "Search executives" }), "omar");
+      expect(within(list).queryByRole("button", { name: /Yasmin El-Sayed/ })).not.toBeInTheDocument();
+      expect(within(list).getByRole("button", { name: /Omar Saleh/ })).toBeInTheDocument();
+    });
   });
 
   it("opens an existing executive as a profile, and edits behind a second step", async () => {

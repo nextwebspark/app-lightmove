@@ -24,10 +24,9 @@ import { useConsentMode } from "../../candidates/lib/useConsentMode";
 import { useWorkspaceVocabulary } from "../../workspace/lib/vocabulary";
 import { useExecutivesAtCompany } from "../../candidates/lib/useExecutivesAtCompany";
 import type { Candidate, CandidatesPage } from "../../candidates/api/types";
-import {
-  CandidateDrawer,
-  type CandidateCompanyContext,
-} from "../../candidates/components/CandidateDrawer";
+import { CandidateDrawer } from "../../candidates/components/CandidateDrawer";
+import type { RecordStepper } from "../../candidates/components/RecordCornerControls";
+import { CandidateRecordPage } from "../components/CandidateRecordPage";
 import { RemoveCandidateDialog } from "../../candidates/components/RemoveCandidateDialog";
 import { useChangeCandidateStatus } from "../../candidates/lib/useChangeCandidateStatus";
 import * as customColumnsApi from "../../customcolumns/api/customColumnsApi";
@@ -73,6 +72,8 @@ import { awaitingResearch, type TriageCompanyRow } from "../lib/triageRows";
 import { OFFERED_TRIAGE_STAGES, offeredStageBySlug } from "../lib/triageStages";
 import { resolveCompaniesView, useCompaniesViews } from "../lib/useCompaniesViews";
 import { useLineSelection } from "../lib/useLineSelection";
+import { useOpenRecord } from "../lib/useOpenRecord";
+import { executivesOf } from "../lib/triageVocabulary";
 import { useProjectStream, type ProjectStreamKind } from "../../../lib/useProjectStream";
 
 /**
@@ -178,8 +179,6 @@ function TriageStage() {
   const [openCompany, setOpenCompany] = useState<OpenCompany | null>(null);
   const [pendingRemoval, setPendingRemoval] = useState<TriageCompany | null>(null);
   const [pendingDecline, setPendingDecline] = useState<PendingDecline | null>(null);
-  const [profile, setProfile] = useState<OpenProfile | null>(null);
-  const profileCompany = profile?.company ?? null;
   const [pendingCandidateRemoval, setPendingCandidateRemoval] = useState<Candidate | null>(null);
   const [importing, setImporting] = useState(false);
   const lineSelection = useLineSelection(TICKED_LINES_CAP);
@@ -235,6 +234,7 @@ function TriageStage() {
         const params = new URLSearchParams(current);
         params.set("view", next);
         params.delete("candidate");
+        params.delete("record");
         params.delete("note");
         params.delete("section");
         params.delete("tab");
@@ -243,6 +243,9 @@ function TriageStage() {
       { replace: true },
     );
   };
+
+  const { profile, setProfile, focusTab, recordPage, setRecordPage } = useOpenRecord(project.id, !isBoard, view === "table");
+  const profileCompany = profile?.company ?? null;
 
   /**
    * The mandate's currency, offered to a new executive's package so a consultant stops picking it on
@@ -487,6 +490,14 @@ function TriageStage() {
   visiblePeople.current = (lines.data?.lines ?? [])
     .map((line) => line.candidate)
     .filter((candidate): candidate is Candidate => candidate !== null);
+  const stepper = stepperAlong(
+    view === "table",
+    visiblePeople.current,
+    profile?.candidate ?? null,
+    (candidate) => setProfile({ candidate, company: null }),
+    recordPage ? "page" : "peek",
+    () => setRecordPage(!recordPage),
+  );
   const profileCompanyId = profile?.candidate?.triageCompanyId ?? null;
   const profileCompanyRow = profileCompanyId
     ? (lines.data?.lines.find((line) => line.company?.id === profileCompanyId)?.company ?? null)
@@ -556,6 +567,10 @@ function TriageStage() {
       return line.candidate ? [{ company: null, candidate: line.candidate, candidateAddedBy }] : [];
     });
   }, [lines.data]);
+  const recordEntries = useMemo(
+    () => rows.flatMap((row) => (row.candidate ? [{ candidate: row.candidate, companyLogo: row.company?.logoUrl ?? null }] : [])),
+    [rows],
+  );
 
   /**
    * A company's move carries the people still where it stood, and someone moved on their own stays put (#903). The
@@ -711,6 +726,8 @@ function TriageStage() {
       refreshEverything();
       setPendingCandidateRemoval(null);
       setProfile(null);
+      // Their cached read would otherwise come back on Back, showing someone the server no longer holds.
+      queryClient.removeQueries({ queryKey: candidatesApi.CANDIDATE_KEY(project.id, candidate.id), exact: true });
       toast(
         withCompany
           ? `${candidate.fullName} and ${candidate.companyName} removed from this mandate`
@@ -915,61 +932,96 @@ function TriageStage() {
       : {}),
   };
 
+  /** What the record shows and does in either frame; each frame says only where the company opens. */
+  const recordProps = {
+    projectId: project.id,
+    candidate: profile?.candidate ?? null,
+    company: profile?.company ?? null,
+    customColumns: candidateColumns,
+    canWrite,
+    defaultCurrency: briefCompensation.data?.currency,
+    focusTab,
+    stepper,
+    onClose: () => setProfile(null),
+    // The panel stays open on what the server answered: a corrected figure shows corrected
+    // before the grid has refetched, and an add moves straight on to the profile it made.
+    onSaved: (saved: Candidate) => {
+      setProfile({ candidate: saved, company: null });
+      refreshEverything();
+    },
+    onDelete: canWrite && !declinedStage ? setPendingCandidateRemoval : undefined,
+    // The add form's other conclusion: the research happened and nobody fit, so the panel closes
+    // on the flag rather than on a saved profile.
+    onMarkNoExecutiveFound:
+      canWrite && profileCompany
+        ? () => {
+            markBusy(profileCompany.triageCompanyId);
+            markNoExecutiveFound.mutate({
+              id: profileCompany.triageCompanyId,
+              companyName: profileCompany.companyName,
+            });
+            setProfile(null);
+          }
+        : undefined,
+  };
+
   return (
     /* No negative margins and no viewport arithmetic: the shell gives this tab the whole main area
        and a definite height (FULL_BLEED_TABS in ProjectLayout), so the height is inherited rather
        than guessed from a hard-coded amount of chrome that any topbar change would falsify. */
     <div className={cn("flex min-h-0 flex-1 flex-col", isFullscreen && FULLSCREEN_PANEL)}>
-      <TriageToolbar
-        search={search}
-        onSearch={setSearch}
-        searchPlaceholder={!canWrite ? "Search companies and executives…" : "Search companies, executives, notes…"}
-        filter={
-          view === "table" ? (
-            <GridFilterButton
-              filters={columnFilters}
-              resultLabel={totalCount === undefined ? undefined : `${totalCount} ${totalCount === 1 ? "result" : "results"}`}
-            />
-          ) : undefined
-        }
-        views={views}
-        view={view}
-        onViewChange={handleViewChange}
-        addToSequence={
-          addToSequenceOffered
-            ? {
-                onPress: enrolTicked,
-                unavailable: toolbarEnrolUnavailable(),
-                count: view === "pipeline" ? pipelineSelection.size : lineSelection.candidateIds.length,
-              }
-            : undefined
-        }
-        create={
-          canWrite && !isBoard && !declinedStage
-            ? {
-                onAddExecutive: () => setProfile({ candidate: null, company: null }),
-                onAddCompany: () => setOpenCompany({ company: null }),
-              }
-            : undefined
-        }
-        findExecutives={
-          findExecutivesOffered && !isBoard
-            ? {
-                onPress: handleFindExecutives,
-                state: sourcing.button,
-                unavailable: findExecutivesUnavailable(),
-                companies: tickedCompanies.length,
-                last: sourcing.run ? { summary: lastSearchSummary(sourcing.run), onOpen: () => setFindingAt({ scope: [], search: false }) } : undefined,
-              }
-            : undefined
-        }
-        advanced={isBoard ? undefined : advancedSections()}
-        advancedDot={
-          view === "table" && hiddenColumnCount > 0
-            ? `${hiddenColumnCount} column${hiddenColumnCount === 1 ? "" : "s"} hidden`
-            : undefined
-        }
-      />
+      {!recordPage && (
+        <TriageToolbar
+          search={search}
+          onSearch={setSearch}
+          searchPlaceholder={!canWrite ? "Search companies and executives…" : "Search companies, executives, notes…"}
+          filter={
+            view === "table" ? (
+              <GridFilterButton
+                filters={columnFilters}
+                resultLabel={totalCount === undefined ? undefined : `${totalCount} ${totalCount === 1 ? "result" : "results"}`}
+              />
+            ) : undefined
+          }
+          views={views}
+          view={view}
+          onViewChange={handleViewChange}
+          addToSequence={
+            addToSequenceOffered
+              ? {
+                  onPress: enrolTicked,
+                  unavailable: toolbarEnrolUnavailable(),
+                  count: view === "pipeline" ? pipelineSelection.size : lineSelection.candidateIds.length,
+                }
+              : undefined
+          }
+          create={
+            canWrite && !isBoard && !declinedStage
+              ? {
+                  onAddExecutive: () => setProfile({ candidate: null, company: null }),
+                  onAddCompany: () => setOpenCompany({ company: null }),
+                }
+              : undefined
+          }
+          findExecutives={
+            findExecutivesOffered && !isBoard
+              ? {
+                  onPress: handleFindExecutives,
+                  state: sourcing.button,
+                  unavailable: findExecutivesUnavailable(),
+                  companies: tickedCompanies.length,
+                  last: sourcing.run ? { summary: lastSearchSummary(sourcing.run), onOpen: () => setFindingAt({ scope: [], search: false }) } : undefined,
+                }
+              : undefined
+          }
+          advanced={isBoard ? undefined : advancedSections()}
+          advancedDot={
+            view === "table" && hiddenColumnCount > 0
+              ? `${hiddenColumnCount} column${hiddenColumnCount === 1 ? "" : "s"} hidden`
+              : undefined
+          }
+        />
+      )}
 
       {findExecutivesOffered && (
         <FindExecutivesPanel
@@ -1002,7 +1054,23 @@ function TriageStage() {
         }}
       />
 
-      {view === "pipeline" ? (
+      {recordPage && profile?.candidate ? (
+        <CandidateRecordPage
+          projectId={project.id}
+          stageLabel={stage.label}
+          entries={recordEntries}
+          openId={profile.candidate.id}
+          onOpen={(candidate) => setProfile({ candidate, company: null })}
+          onExit={() => setRecordPage(false)}
+        >
+          <CandidateDrawer
+            {...recordProps}
+            open
+            frame="page"
+            onOpenCompany={profileCompanyRow ? () => setOpenCompany({ company: profileCompanyRow }) : undefined}
+          />
+        </CandidateRecordPage>
+      ) : view === "pipeline" ? (
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           <PipelineView
             project={project}
@@ -1182,40 +1250,13 @@ function TriageStage() {
       />
 
       <CandidateDrawer
-        open={profile !== null}
-        projectId={project.id}
-        candidate={profile?.candidate ?? null}
-        company={profile?.company ?? null}
-        customColumns={candidateColumns}
-        canWrite={canWrite}
-        defaultCurrency={briefCompensation.data?.currency}
-        onClose={() => setProfile(null)}
-        // The panel stays open on what the server answered: a corrected figure shows corrected
-        // before the grid has refetched, and an add moves straight on to the profile it made.
-        onSaved={(saved) => {
-          setProfile({ candidate: saved, company: null });
-          refreshEverything();
-        }}
-        onDelete={canWrite && !declinedStage ? setPendingCandidateRemoval : undefined}
+        {...recordProps}
+        open={profile !== null && !recordPage}
         onOpenCompany={
           profileCompanyRow
             ? () => {
                 setProfile(null);
                 setOpenCompany({ company: profileCompanyRow });
-              }
-            : undefined
-        }
-        // The add form's other conclusion: the research happened and nobody fit, so the panel closes
-        // on the flag rather than on a saved profile.
-        onMarkNoExecutiveFound={
-          canWrite && profileCompany
-            ? () => {
-                markBusy(profileCompany.triageCompanyId);
-                markNoExecutiveFound.mutate({
-                  id: profileCompany.triageCompanyId,
-                  companyName: profileCompany.companyName,
-                });
-                setProfile(null);
               }
             : undefined
         }
@@ -1258,8 +1299,26 @@ function TriageStage() {
   );
 }
 
-function executivesOf(count: number): string {
-  return count === 1 ? "1 executive" : `${count} executives`;
+/** Previous and Next along the grid's people in the grid's order, and the switch between the peek and the page. */
+function stepperAlong(
+  offered: boolean,
+  people: readonly Candidate[],
+  open: Candidate | null,
+  onStep: (candidate: Candidate) => void,
+  frame: RecordStepper["frame"],
+  onToggleFrame: () => void,
+): RecordStepper | undefined {
+  if (!offered || !open) return undefined;
+  const at = people.findIndex((candidate) => candidate.id === open.id);
+  // Someone the grid no longer shows — moved stage, another page — keeps the frame switch, with nowhere to step.
+  const previous = at < 0 ? undefined : people[at - 1];
+  const next = at < 0 ? undefined : people[at + 1];
+  return {
+    frame,
+    onToggleFrame,
+    onPrevious: previous ? () => onStep(previous) : undefined,
+    onNext: next ? () => onStep(next) : undefined,
+  };
 }
 
 /** Who Add to sequence was asked for: the ticked companies' executives, or the ticked executives. */
@@ -1281,15 +1340,6 @@ interface CompanyMove {
   /** Who moves with it; read from the company's old stage when not named. */
   executiveIds?: string[];
   isUndo?: boolean;
-}
-
-/**
- * What the profile drawer is open on: an existing executive, or a blank one at a known company. Both
- * null is the toolbar's "Add executive", which maps someone with no company at all.
- */
-interface OpenProfile {
-  candidate: Candidate | null;
-  company: CandidateCompanyContext | null;
 }
 
 /**

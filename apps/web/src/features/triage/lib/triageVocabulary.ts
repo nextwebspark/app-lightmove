@@ -76,3 +76,7 @@ export function removeTooltip(name: string): string {
     ? `Remove ${name} from this mandate — not remembered; use Decline to keep it ruled out`
     : `Remove ${name} from this mandate`;
 }
+
+export function executivesOf(count: number): string {
+  return count === 1 ? "1 executive" : `${count} executives`;
+}

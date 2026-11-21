@@ -1,4 +1,4 @@
-import { useEffect, useRef, type RefObject } from "react";
+import { createContext, useCallback, useEffect, useRef, type RefObject } from "react";
 
 /**
  * Dismisses only the topmost open panel on Escape: the docked assistant panel made one Escape closing two layers the
@@ -14,7 +14,11 @@ function handleKey(event: KeyboardEvent) {
   handlers.at(-1)?.current();
 }
 
-export function useEscapeKey(active: boolean, onEscape: () => void) {
+/** Whether the layer drawn around a component is the topmost; outside any layer, it is. */
+export const EscapeLayerContext = createContext<() => boolean>(() => true);
+
+/** Returns whether this layer is the topmost just now, for keys other than Escape that should follow the same rule. */
+export function useEscapeKey(active: boolean, onEscape: () => void): () => boolean {
   const handler = useRef(onEscape);
   useEffect(() => {
     handler.current = onEscape;
@@ -38,4 +42,6 @@ export function useEscapeKey(active: boolean, onEscape: () => void) {
       }
     };
   }, [active]);
+
+  return useCallback(() => handlers.at(-1) === handler, []);
 }
