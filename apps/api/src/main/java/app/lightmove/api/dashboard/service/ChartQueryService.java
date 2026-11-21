@@ -17,16 +17,25 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /** Lists the library and answers one of its queries. Options are checked against the query's own declaration. */
+@Slf4j
 @Service
-@RequiredArgsConstructor
 public class ChartQueryService {
 
     private final ChartQueryLibrary library;
+    private final TransactionTemplate oneChart;
+
+    public ChartQueryService(ChartQueryLibrary library, PlatformTransactionManager transactions) {
+        this.library = library;
+        this.oneChart = new TransactionTemplate(transactions);
+        this.oneChart.setReadOnly(true);
+    }
 
     public List<ChartQueryResponse> library(DashboardScope scope) {
         return library.of(scope).stream().map(ChartQueryService::toResponse).toList();
@@ -39,10 +48,11 @@ public class ChartQueryService {
     }
 
     /**
-     * Every chart of a dashboard in one request and one transaction, so the reads they share — the report, the
-     * executives, the positions — are made once ({@code ChartQueryContext.sharedRead}) rather than once a chart.
+     * Every chart of a dashboard in one request, so the reads they share — the report, the executives, the positions —
+     * are made once ({@code ChartQueryContext.sharedRead}) rather than once a chart. Each chart runs in a transaction
+     * of its own: in one shared transaction a single statement past its time limit aborted it, and every chart after
+     * it — the whole dashboard, and Home — failed with it.
      */
-    @Transactional(readOnly = true)
     public List<ChartAnswerDto> answers(ChartQueryContext context, DashboardScope scope,
                                         List<ChartQuestionDto> questions) {
         List<ChartAnswerDto> answers = new ArrayList<>();
@@ -54,10 +64,21 @@ public class ChartQueryService {
             } else if (!hasValidOptions(query.get(), asked)) {
                 answers.add(new ChartAnswerDto(question.queryId(), null, ErrorCode.CHART_OPTION_INVALID.name()));
             } else {
-                answers.add(new ChartAnswerDto(question.queryId(), answer(context, query.get(), asked), null));
+                answers.add(answerAlone(context, query.get(), asked));
             }
         }
         return answers;
+    }
+
+    private ChartAnswerDto answerAlone(ChartQueryContext context, ChartQuery query, Map<String, String> asked) {
+        try {
+            return new ChartAnswerDto(query.id(), oneChart.execute(status -> answer(context, query, asked)), null);
+        } catch (ApiException refused) {
+            throw refused;
+        } catch (RuntimeException failed) {
+            log.warn("Chart query {} could not be answered", query.id(), failed);
+            return new ChartAnswerDto(query.id(), null, ErrorCode.CHART_UNAVAILABLE.name());
+        }
     }
 
     private ChartResultResponse answer(ChartQueryContext context, ChartQuery query, Map<String, String> requested) {

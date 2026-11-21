@@ -78,10 +78,26 @@ public class HomeLayoutService {
         }
     }
 
-    /** Back to the default everyone starts from, which keeps following the default as it changes. */
+    /**
+     * Back to the default everyone starts from, which keeps following the default as it changes. Like a save, only
+     * over the layout the request was opened at: a window opened on the default, or on an older save, sending the
+     * default back would otherwise delete a layout another window saved since.
+     */
     @Transactional
-    public void reset(UUID userId, UUID workspaceId) {
-        layouts.findByWorkspaceIdAndUserId(workspaceId, userId).ifPresent(layouts::delete);
+    public void reset(UUID userId, UUID workspaceId, Long openedVersion) {
+        Optional<HomeLayout> stored = layouts.findByWorkspaceIdAndUserId(workspaceId, userId);
+        if (stored.isEmpty()) {
+            return;
+        }
+        if (!Objects.equals(stored.get().getVersion(), openedVersion)) {
+            throw ApiException.of(ErrorCode.HOME_LAYOUT_STALE);
+        }
+        try {
+            layouts.delete(stored.get());
+            layouts.flush();
+        } catch (ObjectOptimisticLockingFailureException raced) {
+            throw ApiException.of(ErrorCode.HOME_LAYOUT_STALE);
+        }
     }
 
     private List<HomeTile> tilesOf(List<HomeTileDto> sent, List<DashboardWidget> storedCharts) {

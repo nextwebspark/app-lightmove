@@ -44,6 +44,15 @@ class ChartShapingTest {
     }
 
     @Test
+    void anAnswerThatAlreadyFoldedItsTailDrawsOneOther() {
+        ChartResult raw = ChartResult.categorical("Sector", "Companies", "", List.of("A", "B", "C", "D", "Other"),
+                List.of(6d, 5d, 3d, 2d, 9d));
+        ChartResult top = ChartShaping.shape(breakdown(false), raw, Map.of("top", "3"));
+        assertThat(top.labels()).containsExactly("A", "B", "C", "Other");
+        assertThat(top.values()).containsExactly(6d, 5d, 3d, 11d);
+    }
+
+    @Test
     void aBreakdownIsHeldToTwentyLabels() {
         List<String> labels = IntStream.range(0, 30).mapToObj(index -> "L" + index).toList();
         List<Double> values = IntStream.range(0, 30).mapToObj(index -> (double) index).toList();

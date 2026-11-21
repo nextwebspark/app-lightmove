@@ -89,6 +89,14 @@ export function DashboardGrid({
       .sort((a, b) => a.item.layout.y - b.item.layout.y || a.item.layout.x - b.item.layout.x);
     return (
       <div ref={containerRef} className="mt-5">
+        {/* The edit button follows the window's width and this stack the canvas's, which a rail or the assistant
+            narrows: in edit mode here a chart could be removed but never moved, with nothing saying why. */}
+        {editing && stacked && (
+          <p className="mb-3.5 rounded-u-chip bg-u-raised px-3.5 py-2.5 text-note text-u-text2">
+            There isn't room here to move or resize charts. Widen the window to arrange them; you can still add, change
+            and remove charts.
+          </p>
+        )}
         <div className="flex flex-col gap-3.5">
           {order.map(({ item, index }) => (
             <div key={item.key} className="min-w-0">{children(index)}</div>
@@ -128,11 +136,12 @@ export function DashboardGrid({
             h: kind === "e" ? origin.h : origin.h + rows,
           }, limits);
     if (kind === "move") setPointerOffset({ x: dx, y: dy });
-    setPreview(place(layouts, index, rect));
+    // Settled as the drop will settle it, so the outline shows where the chart lands, not where it is held.
+    setPreview(compact(place(layouts, index, rect)));
   };
 
   const finish = () => {
-    if (gesture?.started && preview) onChange(compact(preview));
+    if (gesture?.started && preview) onChange(preview);
     setGesture(null);
     setPreview(null);
     setPointerOffset({ x: 0, y: 0 });

@@ -108,7 +108,10 @@ export async function saveHomeLayout(layout: HomeLayout, version: number | null)
   return toSavedHome(saved.layout);
 }
 
-/** Forget the saved Home: the person draws the default again, and follows it as it changes. */
-export async function resetHomeLayout(): Promise<void> {
-  await request<void>("/me/home", { method: "DELETE" });
+/**
+ * Forget the saved Home: the person draws the default again, and follows it as it changes. Over the version it was
+ * opened at, as a save is; a layout saved elsewhere since answers HOME_LAYOUT_STALE rather than being deleted.
+ */
+export async function resetHomeLayout(version: number | null): Promise<void> {
+  await request<void>(version === null ? "/me/home" : `/me/home?version=${version}`, { method: "DELETE" });
 }

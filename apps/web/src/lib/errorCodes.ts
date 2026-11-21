@@ -87,6 +87,7 @@ export type ApiErrorCode =
   | "CHART_QUERY_NOT_FOUND"
   | "CHART_TYPE_NOT_ALLOWED"
   | "CHART_OPTION_INVALID"
+  | "CHART_UNAVAILABLE"
   | "RANKING_BRIEF_CHANGED"
   | "AI_UNAVAILABLE"
   | "PIPELINE_STAGE_NOT_EMPTY"
@@ -340,6 +341,7 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   CHART_QUERY_NOT_FOUND: "That chart is no longer available. Remove it, or pick a replacement from the library.",
   CHART_TYPE_NOT_ALLOWED: "That chart type doesn't fit this data. Pick another way to show it.",
   CHART_OPTION_INVALID: "That option isn't available for this chart.",
+  CHART_UNAVAILABLE: "That chart couldn't be answered just now. Try again in a moment.",
   CANDIDATE_ASSESSMENT_NO_CRITERIA:
     "The brief has no competencies to assess against yet. Add them in the position's Assessment Criteria step.",
   CANDIDATE_ASSESSMENT_NOTHING_OPEN:

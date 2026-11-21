@@ -171,7 +171,11 @@ class ProjectChartQueries {
             case "source" -> countBy("Source", found.candidates(), executive -> sourceLabel(executive.source()), null);
             default -> countBy("Stage", found.candidates(), ProjectChartQueries::stageLabel, stageOrder(found));
         };
-        return result.withLabelsAndValues(result.labels(), result.values(), found.totalCount() > EXECUTIVE_CAP);
+        // Past the cap the counts cover a sample, which is no top-N cut: the chart says so in words of its own.
+        return found.totalCount() > EXECUTIVE_CAP
+                ? result.withNote("Counted over the first " + String.format(Locale.UK, "%,d", EXECUTIVE_CAP)
+                        + " executives of " + String.format(Locale.UK, "%,d", found.totalCount()) + ".")
+                : result;
     }
 
     private ChartResult stageByLevel(ChartQueryContext context, Map<String, String> options) {
@@ -201,9 +205,18 @@ class ProjectChartQueries {
 
     private ChartResult talentHubs(ChartQueryContext context, Map<String, String> options) {
         MarketShapeDto market = report(context).market();
-        return ChartResult.categorical("Country", "Executives", "",
-                market.hubs().stream().map(hub -> hub.country()).toList(),
-                market.hubs().stream().map(hub -> (double) hub.count()).toList());
+        List<String> labels = new ArrayList<>(market.hubs().stream().map(hub -> hub.country()).toList());
+        List<Double> values = new ArrayList<>(market.hubs().stream().map(hub -> (double) hub.count()).toList());
+        // The report names only its leading hubs; without the rest a pie's shares read as the whole mapped talent.
+        if (market.elsewhere() > 0) {
+            labels.add(ChartShaping.OTHER);
+            values.add((double) market.elsewhere());
+        }
+        if (market.unlocated() > 0) {
+            labels.add(ChartLabels.NOT_RECORDED);
+            values.add((double) market.unlocated());
+        }
+        return ChartResult.categorical("Country", "Executives", "", labels, values);
     }
 
     private ChartResult sectorByLevel(ChartQueryContext context, Map<String, String> options) {

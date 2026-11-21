@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { Icon, ICONS } from "../../../components/layout/Icon";
+import { LeaveGuard } from "../../../components/layout/LeaveGuard";
 import { Button, useToast } from "../../../components/ui";
 import { ActionMenu, MenuItem, MenuSeparator } from "../../../components/ui/ActionMenu";
 import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
@@ -295,6 +296,9 @@ export function DashboardView({
         )}
       </div>
 
+      {/* Opening another dashboard remounts this one, so an unsaved layout was dropped without a word. */}
+      <LeaveGuard hasUnsavedChanges={editing} flush={keepUnsavedLayout} guardSearch />
+
       {/* Portalled: this section's fade-up keeps a transform, which would pin a fixed drawer or dialog inside it. */}
       {createPortal(
         <>
@@ -374,4 +378,9 @@ function IconButton({
       <Icon d={icon} size={13} />
     </button>
   );
+}
+
+/** An unsaved layout is never saved on the way out: leaving asks first. */
+function keepUnsavedLayout(): Promise<void> {
+  return Promise.reject(new Error("unsaved layout"));
 }

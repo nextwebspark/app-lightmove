@@ -39,6 +39,8 @@ someone wrote and reviewed it.
   mandate they may browse: project content is `WORK_VIEW`/`WORK_EXECUTE`, not `PROJECT_BROWSE`.
 - **One read per dashboard** — the SPA asks for every chart at once (`POST …/answers`); the charts share the report,
   the executives and the positions through `ChartQueryContext.sharedRead`, and the SPA keeps an answer for a minute.
+  Each chart runs in a transaction of its own, so one that fails (a statement past its time limit) answers
+  `CHART_UNAVAILABLE` and the rest still draw.
 - **Chart rules** — `ChartRules` (server) and `chartRules.ts` (SPA) agree: a pie or donut only for parts of one whole
   of at most eight slices; a series as line, area, column or table; a two-way breakdown as stacked bar or table. A
   save naming a chart type its query cannot take is `CHART_TYPE_NOT_ALLOWED`; a run answers `allowedCharts` for that
@@ -63,7 +65,7 @@ someone wrote and reviewed it.
 
 Errors: `DASHBOARD_NOT_FOUND` (not visible), `DASHBOARD_READ_ONLY` (a teammate's shared one), `DASHBOARD_STALE`
 (optimistic `version`), `DASHBOARD_TOO_MANY_WIDGETS` (30), `CHART_QUERY_NOT_FOUND`, `CHART_TYPE_NOT_ALLOWED`,
-`CHART_OPTION_INVALID`.
+`CHART_OPTION_INVALID`, and in an answers batch `CHART_UNAVAILABLE` (that one chart failed).
 
 ## Personal data
 
@@ -88,7 +90,8 @@ workspace library, and **Customize** is Edit layout on Home (`DashboardGrid`, `C
   Needs you groups shown) and `landing`. Saving the default deletes the row, so the person keeps following the default.
 - **Endpoints** — `GET /api/v1/me/home` (`{layout}` with its `version`, null without a row), `PUT` (the whole layout
   and the `version` it was opened at, null when it opened the default; any other → `HOME_LAYOUT_STALE`, so a stale
-  window never overwrites a newer save or a reset), `DELETE` (reset). `@workspaceAuthorizer.staffOnly`: a pure client's Home
+  window never overwrites a newer save or a reset), `DELETE ?version=` (reset, over the version it was opened at —
+  none when it opened the default — so a stale window saving the default never deletes a newer layout). `@workspaceAuthorizer.staffOnly`: a pure client's Home
   has nothing to arrange.
 - **Checks** (`HomeLayoutService`) — exactly one `NEEDS`, at most one `TODAY` and `POSITIONS`, every tile on the
   grid and a section at least its minimum (`HomeTileKind`), at most 12 charts, each one a workspace library chart checked by `DashboardWidgetValidator` (a retired query

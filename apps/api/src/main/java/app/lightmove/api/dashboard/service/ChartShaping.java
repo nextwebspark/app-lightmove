@@ -52,13 +52,19 @@ final class ChartShaping {
             return raw;
         }
         List<Integer> order = new ArrayList<>();
+        double rest = 0;
         for (int index = 0; index < raw.labels().size(); index++) {
-            order.add(index);
+            // An answer that already folded its own tail (the report's sectors) keeps it in the rest: ranked as a
+            // group of its own, it drew a second Other beside the one folded here.
+            if (foldRest && OTHER.equals(raw.labels().get(index))) {
+                rest += raw.values().get(index);
+            } else {
+                order.add(index);
+            }
         }
         order.sort(Comparator.comparing((Integer index) -> raw.values().get(index)).reversed());
         List<String> labels = new ArrayList<>();
         List<Double> values = new ArrayList<>();
-        double rest = 0;
         for (int rank = 0; rank < order.size(); rank++) {
             int index = order.get(rank);
             if (rank < keep) {

@@ -9,13 +9,17 @@ import { Button, Modal } from "../ui";
 export function LeaveGuard({
   hasUnsavedChanges,
   flush,
+  guardSearch = false,
 }: {
   hasUnsavedChanges: boolean;
   /** Saves what is held; rejects when the save is refused. */
   flush: () => Promise<void>;
+  /** A link that changes only the query string leaves too: it opens another dashboard in place of this one. */
+  guardSearch?: boolean;
 }) {
   const navigate = useNavigate();
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
+  const current = guardSearch ? `${pathname}${search}` : pathname;
   const [refusedTarget, setRefusedTarget] = useState<string | null>(null);
   const leaving = useRef(false);
   const flushRef = useRef(flush);
@@ -35,7 +39,7 @@ export function LeaveGuard({
   useEffect(() => {
     if (!hasUnsavedChanges) return;
     const handleClick = (event: MouseEvent) => {
-      const target = leavingLinkTarget(event, pathname);
+      const target = leavingLinkTarget(event, current, guardSearch);
       if (target === null) return;
       event.preventDefault();
       event.stopPropagation();
@@ -51,7 +55,7 @@ export function LeaveGuard({
     };
     document.addEventListener("click", handleClick, true);
     return () => document.removeEventListener("click", handleClick, true);
-  }, [hasUnsavedChanges, navigate, pathname]);
+  }, [hasUnsavedChanges, navigate, current, guardSearch]);
 
   const handleStay = () => setRefusedTarget(null);
   const handleLeave = () => {
@@ -82,7 +86,7 @@ export function LeaveGuard({
 }
 
 /** The in-app path a plain left click on a link would take the user to, or null when it stays put. */
-function leavingLinkTarget(event: MouseEvent, currentPathname: string): string | null {
+function leavingLinkTarget(event: MouseEvent, currentPlace: string, includeSearch: boolean): string | null {
   if (event.defaultPrevented || event.button !== 0) return null;
   if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return null;
   if (!(event.target instanceof Element)) return null;
@@ -92,6 +96,6 @@ function leavingLinkTarget(event: MouseEvent, currentPathname: string): string |
   if (anchor.target && anchor.target !== "_self") return null;
   const url = new URL(anchor.href, window.location.href);
   if (url.origin !== window.location.origin) return null;
-  if (url.pathname === currentPathname) return null;
+  if ((includeSearch ? `${url.pathname}${url.search}` : url.pathname) === currentPlace) return null;
   return `${url.pathname}${url.search}${url.hash}`;
 }

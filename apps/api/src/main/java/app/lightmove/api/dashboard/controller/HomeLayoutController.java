@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -37,9 +38,11 @@ public class HomeLayoutController {
         return homes.save(principal.userId(), principal.requireWorkspaceId(), request);
     }
 
+    /** {@code version} is the one the layout was opened at; none when it opened the default. */
     @DeleteMapping
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void reset(@AuthenticationPrincipal AuthPrincipal principal) {
-        homes.reset(principal.userId(), principal.requireWorkspaceId());
+    public void reset(@AuthenticationPrincipal AuthPrincipal principal,
+                      @RequestParam(required = false) Long version) {
+        homes.reset(principal.userId(), principal.requireWorkspaceId(), version);
     }
 }

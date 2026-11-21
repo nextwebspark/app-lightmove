@@ -66,6 +66,11 @@ public record ChartResult(
                 columns, rows, note, percent, truncated || cut);
     }
 
+    public ChartResult withNote(String newNote) {
+        return new ChartResult(shape, dimension, measure, unit, labels, values, series, suppressed, kpi, columns, rows,
+                newNote, percent, truncated);
+    }
+
     public ChartResult withMatrix(List<String> newLabels, List<ChartSeries> newSeries, List<Boolean> newSuppressed) {
         return new ChartResult(shape, dimension, measure, unit, newLabels, values, newSeries, newSuppressed, kpi,
                 columns, rows, note, percent, truncated);

@@ -67,9 +67,23 @@ export function compact(rects: WidgetLayout[], pinned: number | null = null): Wi
   return settled as WidgetLayout[];
 }
 
-/** One chart moved or resized to `rect`; anything it lands on is pushed down below it, then everything settles. */
+/**
+ * One chart moved or resized to `rect`; anything it lands on is pushed down below it, then everything settles. A chart
+ * moved down onto one that was below it trades places with it instead: pushed down, that chart would leave the moved
+ * one an empty row to rise back into, and the drop would snap back to where it started.
+ */
 export function place(rects: WidgetLayout[], index: number, rect: WidgetLayout): WidgetLayout[] {
+  const origin = rects[index];
   const next = rects.map((other, position) => (position === index ? rect : other));
+  if (rect.y > origin.y) {
+    next.forEach((other, position) => {
+      if (position === index || other.y <= origin.y || !overlaps(rect, other)) return;
+      const above = { ...other, y: rect.y - other.h };
+      const blocked = above.y < 0
+        || next.some((third, at) => at !== index && at !== position && overlaps(above, third));
+      if (!blocked) next[position] = above;
+    });
+  }
   return compact(next, index);
 }
 

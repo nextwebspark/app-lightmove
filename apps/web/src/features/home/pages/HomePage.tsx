@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { LeaveGuard } from "../../../components/layout/LeaveGuard";
 import { PageHeader } from "../../../components/layout/PageHeader";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Button, buttonClassName, CardsSkeleton, EmptyState, useToast } from "../../../components/ui";
@@ -217,7 +218,7 @@ function StaffHome({ projects, header }: { projects: Project[]; header: HeaderFn
         query={library.isPending ? undefined : queryOf(tile.queryId)}
         answer={answers.data?.[chartIndex]}
         isPending={answers.isPending || library.isPending}
-        isError={answers.isError}
+        isError={answers.isError || library.isError}
         className="border-u-border-strong"
       />
     );
@@ -273,6 +274,7 @@ function StaffHome({ projects, header }: { projects: Project[]; header: HeaderFn
         />
       )}
 
+      <LeaveGuard hasUnsavedChanges={editing} flush={keepUnsavedHome} />
       {editing && (
         <HomeOptions open={optionsOpen} onClose={() => setOptionsOpen(false)} layout={layout} onChange={editor.update} />
       )}
@@ -289,6 +291,11 @@ function StaffHome({ projects, header }: { projects: Project[]; header: HeaderFn
       )}
     </>
   );
+}
+
+/** Customize is never saved on the way out: leaving asks first. */
+function keepUnsavedHome(): Promise<void> {
+  return Promise.reject(new Error("unsaved Home"));
 }
 
 const SECTION_LABELS = { NEEDS: "Needs you", TODAY: "Today", POSITIONS: "Your positions" } as const;
