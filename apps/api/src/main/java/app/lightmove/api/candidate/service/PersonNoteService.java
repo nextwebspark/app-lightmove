@@ -70,6 +70,7 @@ public class PersonNoteService {
     private final NoteMentions mentions;
     private final AuditService audit;
     private final LoggedNoteRules loggedNotes;
+    private final PositionRedaction positionRedaction;
     private final Clock clock;
 
     @Transactional(readOnly = true)
@@ -78,7 +79,9 @@ public class PersonNoteService {
         List<PersonNote> found = notes.findReadablePinnedFirst(workspaceId, personId, viewpoint);
         boolean mayEditAny = mayEditAny(userId, workspaceId);
         Map<UUID, User> authors = usersOf(found);
-        return found.stream().map(note -> toDto(note, authors, mayEditAny || note.isWrittenBy(userId))).toList();
+        List<PersonNoteResponse> listed = found.stream()
+                .map(note -> toDto(note, authors, mayEditAny || note.isWrittenBy(userId))).toList();
+        return viewpoint.isWorkspace() ? positionRedaction.notesFor(userId, workspaceId, listed) : listed;
     }
 
     /**

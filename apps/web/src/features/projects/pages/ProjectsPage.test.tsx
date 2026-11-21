@@ -111,7 +111,7 @@ describe("ProjectsPage — pure client", () => {
         <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
           <AuthProvider>
             <ToastProvider>
-              <ProjectsPage view="my" />
+              <ProjectsPage />
             </ToastProvider>
           </AuthProvider>
         </QueryClientProvider>
@@ -175,7 +175,7 @@ describe("ProjectsPage — pure client", () => {
   });
 });
 
-describe("ProjectsPage — staff, an empty workspace and My tasks", () => {
+describe("ProjectsPage — staff, an empty workspace and no tasks card", () => {
   const admin = {
     id: "u1",
     email: "ada@firm.example",
@@ -232,13 +232,13 @@ describe("ProjectsPage — staff, an empty workspace and My tasks", () => {
     archivedByName: null,
   };
 
-  const renderPage = (view: "my" | "all") =>
+  const renderPage = () =>
     render(
       <MemoryRouter>
         <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
           <AuthProvider>
             <ToastProvider>
-              <ProjectsPage view={view} />
+              <ProjectsPage />
             </ToastProvider>
           </AuthProvider>
         </QueryClientProvider>
@@ -256,23 +256,19 @@ describe("ProjectsPage — staff, an empty workspace and My tasks", () => {
   it("leads an empty workspace with the header and the empty state, keeping New position", async () => {
     vi.mocked(projectsApi.projects).mockResolvedValue([]);
 
-    renderPage("my");
+    renderPage();
 
     expect(await screen.findByText("Start your first search")).toBeInTheDocument();
-    expect(screen.getByText("My positions")).toBeInTheDocument();
+    expect(screen.getByText("Positions")).toBeInTheDocument();
     expect(screen.getByText(/A position is one role you're filling/)).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: /new position/i })).toHaveLength(1);
   });
 
-  it("shows My tasks on My positions but not on All positions", async () => {
+  it("lists every position the server answered, with no tasks card: tasks live on Home", async () => {
     vi.mocked(projectsApi.projects).mockResolvedValue([aMandate]);
 
-    const { unmount } = renderPage("my");
-    expect(await screen.findByRole("region", { name: "My tasks" })).toBeInTheDocument();
-    expect(await screen.findByText("Nothing due today.")).toBeInTheDocument();
-    unmount();
+    renderPage();
 
-    renderPage("all");
     expect(await screen.findAllByText("CFO Search")).not.toHaveLength(0);
     expect(screen.queryByRole("region", { name: "My tasks" })).not.toBeInTheDocument();
   });
@@ -344,13 +340,13 @@ describe("ProjectsPage — first use, no results, and a client with nothing shar
   });
   const me = { memberId: "m-me", userId: "u1", fullName: "Mona Member", email: "mona@firm.example", avatarUrl: null, roles: ["MEMBER"], joinedAt: null };
 
-  const renderPage = (view: "my" | "all" = "my", entry = view === "my" ? "/" : "/all") =>
+  const renderPage = (entry = "/positions") =>
     render(
       <MemoryRouter initialEntries={[entry]}>
         <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
           <AuthProvider>
             <ToastProvider>
-              <ProjectsPage view={view} />
+              <ProjectsPage />
             </ToastProvider>
           </AuthProvider>
         </QueryClientProvider>
@@ -363,21 +359,16 @@ describe("ProjectsPage — first use, no results, and a client with nothing shar
     vi.mocked(clientsApi.clients).mockResolvedValue([]);
   });
 
-  it("greets a colleague on no position with the ones that exist, not 'No positions match'", async () => {
+  it("tells a member on no position that a lead will add them, not that the workspace has none", async () => {
     vi.mocked(authApi.me).mockResolvedValue(staff());
-    vi.mocked(workspaceApi.members).mockResolvedValue([me] as never);
-    vi.mocked(projectsApi.projects).mockResolvedValue([
-      position("p1", "CFO Search", [seatOf("m-lead", "u9")]),
-      position("p2", "COO Search", [seatOf("m-lead", "u9")]),
-      position("p3", "Old Search", [seatOf("m-lead", "u9")], "CLOSED"),
-    ]);
+    vi.mocked(projectsApi.projects).mockResolvedValue([]);
 
     renderPage();
 
     expect(await screen.findByText("You're not on any position yet")).toBeInTheDocument();
-    expect(screen.getByText("Your team has 2 open positions. Ask a lead to add you, or browse them.")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Browse open positions (2)" })).toHaveAttribute("href", "/all");
-    expect(screen.queryByText(/No positions match/)).not.toBeInTheDocument();
+    expect(screen.getByText(/When a lead adds you to a position, it appears here/)).toBeInTheDocument();
+    expect(screen.queryByText("Start your first search")).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /Browse/ })).not.toBeInTheDocument();
   });
 
   it("says no match only under a search, and Clear filters brings the list back", async () => {
@@ -413,7 +404,7 @@ describe("ProjectsPage — first use, no results, and a client with nothing shar
     ]);
     const user = userEvent.setup();
 
-    renderPage("all");
+    renderPage();
     await screen.findAllByText("CFO Search");
     expect(screen.queryByText("Old Search")).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "All stages" }));
@@ -433,7 +424,7 @@ describe("ProjectsPage — first use, no results, and a client with nothing shar
       position("p2", "COO Search", [seatOf("m-me", "u1")], "DELIVERED"),
     ]);
 
-    renderPage("all", "/all?stage=DELIVERED&q=coo");
+    renderPage("/positions?stage=DELIVERED&q=coo");
 
     expect(await screen.findAllByText("COO Search")).not.toHaveLength(0);
     expect(screen.queryByText("CFO Search")).not.toBeInTheDocument();
@@ -450,11 +441,11 @@ describe("ProjectsPage — first use, no results, and a client with nothing shar
     const user = userEvent.setup();
 
     render(
-      <MemoryRouter initialEntries={["/all"]}>
+      <MemoryRouter initialEntries={["/positions"]}>
         <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
           <AuthProvider>
             <ToastProvider>
-              <ProjectsPage view="all" />
+              <ProjectsPage />
               <Address />
             </ToastProvider>
           </AuthProvider>
@@ -471,18 +462,6 @@ describe("ProjectsPage — first use, no results, and a client with nothing shar
     await waitFor(() => expect(screen.getByTestId("address")).toHaveTextContent("?q=coo&stage=DELIVERED"));
   });
 
-  it("never says there are none when the roster could not be read", async () => {
-    vi.mocked(authApi.me).mockResolvedValue(staff());
-    vi.mocked(workspaceApi.members).mockRejectedValue(new Error("403"));
-    vi.mocked(projectsApi.projects).mockResolvedValue([position("p1", "CFO Search", [seatOf("m-me", "u1")])]);
-
-    renderPage();
-
-    expect(await screen.findByText("Couldn't tell which positions are yours")).toBeInTheDocument();
-    expect(screen.queryByText("No active positions")).not.toBeInTheDocument();
-    expect(screen.queryByText("You're not on any position yet")).not.toBeInTheDocument();
-  });
-
   it("says when everything of theirs is delivered or closed, and offers every stage", async () => {
     vi.mocked(authApi.me).mockResolvedValue(staff());
     vi.mocked(workspaceApi.members).mockResolvedValue([me] as never);
@@ -496,17 +475,6 @@ describe("ProjectsPage — first use, no results, and a client with nothing shar
     expect(await screen.findAllByText("Old Search")).not.toHaveLength(0);
   });
 
-  it("offers nothing to browse when the team has no open position", async () => {
-    vi.mocked(authApi.me).mockResolvedValue(staff());
-    vi.mocked(workspaceApi.members).mockResolvedValue([me] as never);
-    vi.mocked(projectsApi.projects).mockResolvedValue([position("p1", "Old Search", [seatOf("m-lead", "u9")], "CLOSED")]);
-
-    renderPage();
-
-    expect(await screen.findByText(/Your team has no open positions right now/)).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: /Browse open positions/ })).not.toBeInTheDocument();
-  });
-
   it("names the agency to a client contact with nothing shared yet, and keeps the page header", async () => {
     vi.mocked(authApi.me).mockResolvedValue(staff("AGENCY", ["CLIENT"]));
     vi.mocked(projectsApi.projects).mockResolvedValue([]);
@@ -516,7 +484,7 @@ describe("ProjectsPage — first use, no results, and a client with nothing shar
     expect(
       await screen.findByText("When Meridian Search shares a position with you, it'll appear here."),
     ).toBeInTheDocument();
-    expect(screen.getByText("My positions")).toBeInTheDocument();
+    expect(screen.getByText("Positions")).toBeInTheDocument();
   });
 
   it("says your talent team to an in-house client contact", async () => {

@@ -203,7 +203,10 @@ class NotificationIntegrationTest extends PipelineFlowSupport {
 
         assertThat(email.subjectsFor(researcherAddress)).filteredOn(subject -> subject.contains("mentioned you"))
                 .hasSize(1);
-        assertThat(email.sent()).filteredOn(sent -> sent.subject().contains("mentioned you"))
+        // Scoped to this test's recipient: emailEveryUnread sends every workspace's due rows, so another test's
+        // unread mention can be emailed (to its own address) during this one.
+        assertThat(email.sent()).filteredOn(sent -> sent.to().equalsIgnoreCase(researcherAddress))
+                .filteredOn(sent -> sent.subject().contains("mentioned you"))
                 .allSatisfy(sent -> assertThat(sent.textBody()).contains("note=" + noteId));
     }
 
@@ -292,6 +295,56 @@ class NotificationIntegrationTest extends PipelineFlowSupport {
                 .toList();
         assertThat(digests).hasSize(1);
         assertThat(digests.getFirst().textBody()).contains("Call to qualify interest");
+    }
+
+    @Test
+    @DisplayName("the digest names a mention only while its note is there, and opens it on the note")
+    void theDigestNamesOnlyLiveMentions() throws Exception {
+        String omar = add(projectId, """
+                {"fullName":"Omar Said","status":"contacted"}""").get("id").asText();
+        String kept = body(write(admin, "POST", candidatesUrl(projectId) + "/" + layla + "/notes", """
+                {"kind":"call","body":"@[sara](user:%s) please call her back"}""".formatted(researcherId)))
+                .get("id").asText();
+        String goneNotes = candidatesUrl(projectId) + "/" + omar + "/notes";
+        String gone = body(write(admin, "POST", goneNotes, """
+                {"kind":"call","body":"@[sara](user:%s) and him too"}""".formatted(researcherId)))
+                .get("id").asText();
+        mvc.perform(delete(goneNotes + "/" + gone).header("Authorization", "Bearer " + admin))
+                .andExpect(status().isNoContent());
+        ZoneId dubai = ZoneId.of("Asia/Dubai");
+        Instant morning = LocalDate.now(dubai).plusDays(1).with(TemporalAdjusters.next(DayOfWeek.WEDNESDAY))
+                .atTime(LocalTime.of(8, 5)).atZone(dubai).toInstant();
+
+        emails.digestAt(morning);
+
+        EmailMessage digest = email.sent().stream()
+                .filter(message -> message.to().equalsIgnoreCase(researcherAddress))
+                .filter(message -> message.subject().startsWith("Your Uncava day"))
+                .findFirst().orElseThrow();
+        assertThat(digest.textBody())
+                .contains("MENTIONS · 1")
+                .contains("On Layla Haddad")
+                .contains("note=" + kept)
+                .doesNotContain("Omar Said")
+                .doesNotContain(gone);
+    }
+
+    @Test
+    @DisplayName("the digest leaves out a mention on a position the person no longer works")
+    void theDigestDropsMentionsOffTheirPositions() throws Exception {
+        write(admin, "POST", candidatesUrl(projectId) + "/" + layla + "/notes", """
+                {"kind":"call","body":"@[sara](user:%s) please call her back"}""".formatted(researcherId));
+        mvc.perform(delete("/api/v1/projects/" + projectId + "/members/" + memberIdOf(admin, researcherAddress))
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk());
+        ZoneId dubai = ZoneId.of("Asia/Dubai");
+        Instant morning = LocalDate.now(dubai).plusDays(1).with(TemporalAdjusters.next(DayOfWeek.WEDNESDAY))
+                .atTime(LocalTime.of(8, 5)).atZone(dubai).toInstant();
+
+        emails.digestAt(morning);
+
+        assertThat(email.sent()).filteredOn(message -> message.to().equalsIgnoreCase(researcherAddress))
+                .noneMatch(message -> message.subject().startsWith("Your Uncava day"));
     }
 
     @Test

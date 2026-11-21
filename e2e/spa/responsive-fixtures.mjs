@@ -832,9 +832,10 @@ export function payloadFor(pathname, search = "") {
   if (/\/projects\/[^/]+\/outreach\/conversations$/.test(pathname)) return CONVERSATION_LIST;
   if (/\/projects\/[^/]+\/outreach\/people$/.test(pathname)) return OUTREACH_PEOPLE;
   if (pathname.endsWith("/outreach/mailbox")) return MAILBOX;
-  // In universe's Pipeline view and My positions' tasks card read these.
+  // In universe's Pipeline view and Home's Needs you read these.
   if (/\/projects\/[^/]+\/pipeline$/.test(pathname)) return { rows: [], stageCounts: [], total: 0 };
   if (pathname.endsWith("/workspace/pipeline")) return { stages: [] };
+  if (pathname.endsWith("/me/outreach/needs")) return { rows: [], total: 0, truncated: false };
   if (pathname.endsWith("/me/tasks")) {
     return { tasks: [], counts: { today: 0, overdue: 0, upcoming: 0, assignedByMe: 0 }, hasMore: false };
   }

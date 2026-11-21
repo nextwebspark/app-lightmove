@@ -163,9 +163,17 @@ A project's **content** reads (its strategy, position brief, and future tables) 
 project action `WORK_VIEW` (held by every seated role including CLIENT; workspace-admin bypasses),
 **not** workspace `PROJECT_BROWSE` — a mandate's scope and brief are team-only. `WORK_EXECUTE` is the
 write half, held by the staff roles and never CLIENT, so read and write access can be granted apart.
-The project *list* rides any active membership (`@workspaceAuthorizer.member`; the service scopes a
-pure client to the mandates they're seated on), and shared reference data
-(`CompanyReferenceController`) rides `PROJECT_BROWSE`: existence isn't secret, content is.
+The project *list* rides any active membership (`@workspaceAuthorizer.member`), and **positions are seen
+by the people on them**: the service answers every position to a holder of workspace `PROJECT_BROWSE_ALL`
+(V232, ADMIN alone) and only the mandates the caller holds a seat on to anyone else, a pure client included
+(`ProjectService.visibilityOf`). The same rule narrows the Clients page's mandate counts and drawer, and a
+person's positions in the candidate pool are listed without the title of one the caller cannot work — the row's
+chips and last activity, the drawer's Positions and notes, the person's history and the activity feed alike
+(`PositionRedaction`), documents too; filtering the feed by such a position answers 404. One thing still shows through,
+on purpose: the Clients page's Retained or Prospect reads every mandate a record has, so a member can tell a record has
+work they are not on — that it exists, never what it is. Shared
+reference data (`CompanyReferenceController`, currencies, templates) still rides `PROJECT_BROWSE`, which
+MEMBER keeps: that is the market and the firm's vocabulary, not anyone's search.
 
 **The workspace's people are staff-only, and a note is never content a client reads.** A person's notes
 and history (V96) are what the firm thinks of an executive across every mandate — another client's

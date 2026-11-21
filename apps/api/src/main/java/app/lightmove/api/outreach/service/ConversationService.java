@@ -123,6 +123,15 @@ public class ConversationService {
     private static final Comparator<Instant> LATEST_FIRST = Comparator.nullsLast(Comparator.reverseOrder());
     private static final Comparator<Instant> SOONEST_FIRST = Comparator.nullsLast(Comparator.naturalOrder());
 
+    /**
+     * The To do queue's order, the Outreach page's and Home's alike: by group in {@link ConversationGroup}'s declared
+     * order (a reply first), then the soonest next action, then the latest activity.
+     */
+    public static final Comparator<ConversationRowResponse> NEEDS_ORDER = Comparator
+            .comparing(ConversationRowResponse::group, Comparator.nullsLast(Comparator.naturalOrder()))
+            .thenComparing(row -> row.action() == null ? null : row.action().dueAt(), SOONEST_FIRST)
+            .thenComparing(ConversationRowResponse::lastActivityAt, LATEST_FIRST);
+
     private final PositionPipelineService pipeline;
     private final CandidateOutreachService people;
     private final OutreachMessageService ownMessages;
@@ -175,11 +184,12 @@ public class ConversationService {
                     case SCHEDULED -> entry.scheduledAt() != null && (!mine || touchedMine.test(entry));
                     case SENT -> entry.lastSentAt() != null && (!mine || touchedMine.test(entry));
                 })
-                .sorted(orderOf(view))
                 .toList();
         boolean truncated = shown.size() > MAX_ROWS;
-        return new ConversationListResponse(counts, nextScheduledAt,
-                shown.stream().limit(MAX_ROWS).map(ConversationService::rowOf).toList(), truncated);
+        List<ConversationRowResponse> rows = view == ConversationView.NEEDS
+                ? shown.stream().map(ConversationService::rowOf).sorted(NEEDS_ORDER).toList()
+                : shown.stream().sorted(orderOf(view)).map(ConversationService::rowOf).toList();
+        return new ConversationListResponse(counts, nextScheduledAt, rows.stream().limit(MAX_ROWS).toList(), truncated);
     }
 
     @Transactional(readOnly = true)
@@ -352,10 +362,7 @@ public class ConversationService {
     private static Comparator<QueueEntry> orderOf(ConversationView view) {
         Comparator<QueueEntry> latestFirst = Comparator.comparing(QueueEntry::lastActivityAt, LATEST_FIRST);
         return switch (view) {
-            case NEEDS -> Comparator.comparing(QueueEntry::group)
-                    .thenComparing(QueueEntry::dueAt, SOONEST_FIRST)
-                    .thenComparing(latestFirst);
-            case ALL -> latestFirst;
+            case NEEDS, ALL -> latestFirst;
             case SCHEDULED -> Comparator.comparing(QueueEntry::scheduledAt, SOONEST_FIRST);
             case SENT -> Comparator.comparing(QueueEntry::lastSentAt, LATEST_FIRST);
         };
@@ -463,9 +470,6 @@ public class ConversationService {
                     && userId.equals(action.assignee().userId()));
         }
 
-        Instant dueAt() {
-            return action == null ? null : action.dueAt();
-        }
 
         private static CandidateOpenTaskDto firstWithRule(Collection<CandidateOpenTaskDto> tasks, String rule) {
             return tasks.stream().filter(task -> rule.equals(task.rule())).findFirst().orElse(null);

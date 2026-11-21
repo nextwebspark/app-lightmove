@@ -16,7 +16,7 @@ interface OriginState {
   positionsOrigin: string | null;
 }
 
-const HOME = "/";
+const POSITIONS = "/positions";
 
 const storageKey = (projectId: string) => `lightmove.positionsOrigin.${projectId}`;
 
@@ -62,19 +62,18 @@ export function usePositionsOrigin(projectId: string | undefined): PositionsOrig
       // Unreadable is the same as never opened from a list.
     }
   }
-  path ??= HOME;
+  path ??= POSITIONS;
   return { path, label: labelOf(path, units) };
 }
 
 function listPathOf(pathname: string): boolean {
-  return pathname === "/" || pathname === "/all" || pathname === "/clients";
+  return pathname === POSITIONS || pathname === "/clients";
 }
 
 function labelOf(path: string, units: string): string {
   const pathname = path.split(/[?#]/)[0];
-  if (pathname === "/all") return "All positions";
   if (pathname === "/clients") return units;
-  return "My positions";
+  return "Positions";
 }
 
 function isInApp(path: unknown): path is string {

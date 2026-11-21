@@ -10,10 +10,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
+import java.util.ArrayList;
+import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MvcResult;
+import tools.jackson.databind.JsonNode;
 
 /**
  * The action matrix, exercised over HTTP through {@code @PreAuthorize}: who may edit a mandate, who
@@ -80,10 +83,12 @@ class ProjectAuthorizationIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("an unseated member reads the list but touches nothing")
+    @DisplayName("an unseated member neither sees the position nor touches it")
     void unseatedMemberIsReadOnly() throws Exception {
         Fixture f = fixture("Unseated Matrix Firm");
         String sara = login(f.saraEmail);
+
+        assertThat(listedIds(sara)).doesNotContain(f.projectId);
 
         mvc.perform(patch("/api/v1/projects/" + f.projectId)
                         .header("Authorization", "Bearer " + sara)
@@ -104,13 +109,39 @@ class ProjectAuthorizationIntegrationTest extends FlowTestSupport {
     @DisplayName("the list says whose positions the caller can work, which the plugin files into alone")
     void theListSaysWhichPositionsTheCallerWorks() throws Exception {
         Fixture f = fixture("Workable Matrix Firm");
-        String sara = login(f.saraEmail);
         String omar = login(omarEmailOf(f));
         seat(f.admin, f.projectId, f.omarId, "RESEARCHER");
 
-        assertThat(viewerCanWork(sara, f.projectId)).isFalse();
         assertThat(viewerCanWork(omar, f.projectId)).isTrue();
         assertThat(viewerCanWork(f.admin, f.projectId)).isTrue();
+    }
+
+    @Test
+    @DisplayName("an admin lists every position; a member lists only the ones they hold a seat on")
+    void theListHoldsOnlyTheMembersOwnPositions() throws Exception {
+        Fixture f = fixture("Seated List Matrix Firm");
+        String sara = login(f.saraEmail);
+
+        assertThat(listedIds(f.admin)).contains(f.projectId);
+        assertThat(listedIds(sara)).doesNotContain(f.projectId);
+
+        seat(f.admin, f.projectId, f.saraId, "RESEARCHER");
+        assertThat(listedIds(sara)).contains(f.projectId);
+    }
+
+    @Test
+    @DisplayName("the Clients page counts and lists only the positions the caller may see")
+    void theClientsPageNamesOnlyTheCallersPositions() throws Exception {
+        Fixture f = fixture("Client Count Matrix Firm");
+        String sara = login(f.saraEmail);
+
+        assertThat(clientRow(f.admin, f.clientId).get("activeMandates").asLong()).isEqualTo(1);
+        assertThat(clientRow(sara, f.clientId).get("activeMandates").asLong()).isZero();
+        assertThat(clientDetail(sara, f.clientId).get("mandates")).isEmpty();
+
+        seat(f.admin, f.projectId, f.saraId, "RESEARCHER");
+        assertThat(clientRow(sara, f.clientId).get("activeMandates").asLong()).isEqualTo(1);
+        assertThat(clientDetail(sara, f.clientId).at("/mandates/0/id").asText()).isEqualTo(f.projectId);
     }
 
     @Test
@@ -249,6 +280,33 @@ class ProjectAuthorizationIntegrationTest extends FlowTestSupport {
 
         return new Fixture(admin, clientId, projectId, sara, memberIdOf(admin, sara),
                 memberIdOf(admin, omar));
+    }
+
+    private JsonNode clientRow(String token, String clientId) throws Exception {
+        for (var row : body(mvc.perform(get("/api/v1/clients").header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andReturn())) {
+            if (row.get("id").asText().equals(clientId)) {
+                return row;
+            }
+        }
+        throw new AssertionError("client not listed");
+    }
+
+    private JsonNode clientDetail(String token, String clientId) throws Exception {
+        return body(mvc.perform(get("/api/v1/clients/" + clientId).header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andReturn());
+    }
+
+    private List<String> listedIds(String token) throws Exception {
+        List<String> ids = new ArrayList<>();
+        for (var listed : body(mvc.perform(get("/api/v1/projects").header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andReturn())) {
+            ids.add(listed.get("id").asText());
+        }
+        return ids;
     }
 
     private boolean viewerCanWork(String token, String projectId) throws Exception {

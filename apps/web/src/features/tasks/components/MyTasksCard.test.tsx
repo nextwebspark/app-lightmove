@@ -7,6 +7,7 @@ import { ToastProvider } from "../../../components/ui";
 import * as projectsApi from "../../projects/api/projectsApi";
 import * as tasksApi from "../api/tasksApi";
 import type { MyTasksResponse, MyTasksView, TaskResponse } from "../api/types";
+import { HOME_TASKS_KEY } from "../../home/api/homeApi";
 import { MyTasksCard } from "./MyTasksCard";
 
 const viewer = { id: "u1", fullName: "Yara Haddad", avatarUrl: null, workspace: { roles: ["ADMIN"], mode: "COMPANY" } };
@@ -290,6 +291,29 @@ describe("MyTasksCard", () => {
     expect(await within(list).findByText("Upcoming task 25")).toBeInTheDocument();
     expect(tasksApi.getMyTasks).toHaveBeenLastCalledWith("upcoming", expect.objectContaining({ offset: 20 }));
     vi.unstubAllGlobals();
+  });
+
+  // Home's answers once sat under My tasks' key prefix, and a tick here wrote into them as pages: it failed with
+  // "Something went wrong" whenever Home had been opened first.
+  it("ticks a task though Home's task reads are already cached", async () => {
+    vi.mocked(tasksApi.updateTask).mockResolvedValue({ ...BY_VIEW.today[0], status: "done" });
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    client.setQueryData(HOME_TASKS_KEY("today"), { tasks: BY_VIEW.today, counts: COUNTS, hasMore: false });
+    render(
+      <MemoryRouter>
+        <QueryClientProvider client={client}>
+          <ToastProvider>
+            <MyTasksCard />
+          </ToastProvider>
+        </QueryClientProvider>
+      </MemoryRouter>,
+    );
+    await screen.findByRole("list", { name: "Today tasks" });
+
+    await userEvent.click(screen.getByRole("checkbox", { name: "Complete Reply to Rania Khoury" }));
+
+    expect(await screen.findByRole("checkbox", { name: "Reopen Reply to Rania Khoury" })).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
   it("counts a tick against the tab it was made on, though the reader has moved on", async () => {

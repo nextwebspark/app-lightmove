@@ -27,8 +27,8 @@ const ROUTES = [
   { path: "/login", name: "login", anonymous: true },
   { path: "/signup", name: "signup", anonymous: true },
   { path: "/forgot-password", name: "forgot-password", anonymous: true },
-  { path: "/", name: "projects-my" },
-  { path: "/all", name: "projects-all" },
+  { path: "/", name: "home" },
+  { path: "/positions", name: "positions" },
   { path: "/clients", name: "clients" },
   { path: "/team", name: "team" },
   { path: "/settings/profile", name: "settings-profile" },
@@ -208,7 +208,7 @@ try {
     const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
     await stubApi(context);
     const page = await context.newPage();
-    await page.goto(`${WEB}/`, { waitUntil: "networkidle" });
+    await page.goto(`${WEB}/positions`, { waitUntil: "networkidle" });
     await page.waitForTimeout(350);
     // The list is grouped by business unit, so the rows under the header open with a group band; a
     // position row is the one carrying its "Lead ·" line. Clicked at its title, clear of the Open button.

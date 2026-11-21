@@ -453,6 +453,21 @@ drawn as one of the chart types its answer fits. Private, or shared read-only wi
 `dashboard` reads `report` (`ReportService`), `candidate` and `project` through their public services; nothing
 depends back.
 
+**Home** (`/`, `features/home`, `uncava-design` `Workspace.dc.html?view=home`) is the page after sign-in, and
+**Positions** (`/positions`) the one list beside it — `/all` redirects there, and the old My/All split and the tasks
+card on the list are gone. The list is the server's answer: every position for a holder of `PROJECT_BROWSE_ALL`
+(V232, ADMIN), only the ones the caller holds a seat on for anyone else. A staff member's Home is **Needs you** —
+their outreach To do across the positions they work (`GET /me/outreach/needs`, `MyOutreachQueueService`, each
+position's own `ConversationService.list`; **Team** for a lead reads the whole queue of the positions they lead) and
+their overdue and today's tasks, a task a row already carries never drawn twice — beside **Today** (today's calls
+and meetings), **Your positions** and up to four pinned headline charts from the workspace dashboard library.
+**Customize** shows, hides and reorders the sections, chooses which To do groups Needs you carries, and where Uncava
+opens (Home or Positions, read by `homeFor` at sign-in); nothing is locked and **Reset to the default** puts back
+the layout everyone starts from. The layout is the person's own browser preference, per workspace (`lm-home:{userId}:{workspaceId}`). A pure client's Home
+is the positions shared with them, with no queue and nothing staff-only; an admin of a workspace with no position
+sees the four set-up steps. The AI cards the mockup draws (Since you were last here, drafted replies, meeting prep
+and recaps, positions at risk) are the next steps, not built.
+
 The **Reports**
 tab — **Dashboard** in the rail and the phone's bar, while the route and code keep `reports` — is the mandate's talent
 mapping report (`GET /projects/{id}/report`): four chapters — mapping
