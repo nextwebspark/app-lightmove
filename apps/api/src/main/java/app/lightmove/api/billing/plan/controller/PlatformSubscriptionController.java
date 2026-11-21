@@ -5,7 +5,7 @@ import app.lightmove.api.billing.plan.dto.SubscriptionResponse;
 import app.lightmove.api.billing.plan.service.InvoicedSubscriptionService;
 import app.lightmove.api.core.security.model.AuthPrincipal;
 import app.lightmove.api.core.security.rbac.PlatformAction;
-import app.lightmove.api.core.security.rbac.RequirePlatformPermission;
+import app.lightmove.api.core.security.rbac.RequireRecentTwoFactor;
 import app.lightmove.api.core.tenant.WorkspaceScope;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -25,7 +25,7 @@ public class PlatformSubscriptionController {
     private final InvoicedSubscriptionService subscriptions;
 
     @PutMapping("/api/v1/platform/workspaces/{workspaceId}/subscription")
-    @RequirePlatformPermission(PlatformAction.SUBSCRIPTION_MANAGE)
+    @RequireRecentTwoFactor(PlatformAction.SUBSCRIPTION_MANAGE)
     public SubscriptionResponse set(@AuthenticationPrincipal AuthPrincipal principal,
                                     @PathVariable UUID workspaceId,
                                     @Valid @RequestBody InvoicedSubscriptionRequest request,
