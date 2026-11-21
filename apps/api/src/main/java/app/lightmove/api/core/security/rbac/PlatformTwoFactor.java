@@ -13,6 +13,7 @@ import app.lightmove.api.core.security.mfa.MfaFactor;
 import app.lightmove.api.core.security.mfa.MfaFactorRepository;
 import app.lightmove.api.core.security.mfa.MfaRecoveryCodeRepository;
 import jakarta.servlet.http.HttpServletRequest;
+import java.time.Clock;
 import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
@@ -33,16 +34,18 @@ public class PlatformTwoFactor {
     private final PlatformStepUpStore stepUps;
     private final AuditService audit;
     private final PlatformSecuritySettings config;
+    private final Clock clock;
 
     public PlatformTwoFactor(MfaFactorRepository factors, MfaCodeVerifier codes,
                              MfaRecoveryCodeRepository recoveryCodes, PlatformStepUpStore stepUps,
-                             AuditService audit, LightMoveProperties properties) {
+                             AuditService audit, LightMoveProperties properties, Clock clock) {
         this.factors = factors;
         this.codes = codes;
         this.recoveryCodes = recoveryCodes;
         this.stepUps = stepUps;
         this.audit = audit;
         this.config = properties.platform();
+        this.clock = clock;
     }
 
     public void requireEnrolled(UUID userId) {
@@ -52,8 +55,8 @@ public class PlatformTwoFactor {
     }
 
     /**
-     * A code older than the factor it was entered for does not count: turning two-factor off and on again must not
-     * carry an earlier code's window across.
+     * The factor and a fresh code, in one read of the factor. A code older than the factor it was entered for does
+     * not count: turning two-factor off and on again must not carry an earlier code's window across.
      */
     public void requireRecentCode(UUID userId) {
         if (!config.requireTwoFactor()) {
@@ -61,7 +64,7 @@ public class PlatformTwoFactor {
         }
         MfaFactor factor = enabledFactorOf(userId)
                 .orElseThrow(() -> ApiException.of(ErrorCode.PLATFORM_TWO_FACTOR_REQUIRED));
-        Instant earliest = Instant.now().minus(config.stepUpWindow());
+        Instant earliest = clock.instant().minus(config.stepUpWindow());
         boolean recent = stepUps.verifiedAt(userId)
                 .filter(verifiedAt -> !verifiedAt.isBefore(earliest) && !verifiedAt.isBefore(factor.getEnabledAt()))
                 .isPresent();
@@ -77,7 +80,7 @@ public class PlatformTwoFactor {
                 .filter(MfaFactor::isEnabled)
                 .orElseThrow(() -> ApiException.of(ErrorCode.MFA_NOT_ENABLED));
 
-        Instant now = Instant.now();
+        Instant now = clock.instant();
         Optional<MfaCodeKind> passed = codes.verify(factor, code, now);
         if (passed.isEmpty()) {
             audit.event(PlatformEventType.PLATFORM_STEP_UP_FAILED).failed().actor(userId).from(request)

@@ -826,7 +826,8 @@ lightmove:
 
   # What /api/v1/platform/** asks of a super admin beyond the role (#1313). require-two-factor ships off: turn it on
   # in an environment only once every super admin there has enrolled, or they are refused every platform route. It
-  # needs lightmove.auth.mfa.enabled and a keyset, since nobody can enrol without them.
+  # needs lightmove.auth.mfa.enabled and a keyset, since nobody can enrol without them, and lightmove.auth.rate-limit
+  # on: a wrong step-up code is braked by that budget alone (docs/security/platform-two-factor.md).
   platform:
     require-two-factor: ${PLATFORM_REQUIRE_TWO_FACTOR:false}
     step-up-window: ${PLATFORM_STEP_UP_WINDOW:10m}

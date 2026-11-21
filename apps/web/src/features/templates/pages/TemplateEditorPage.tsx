@@ -8,7 +8,6 @@ import { CurrencySelect } from "../../../components/ui/CurrencySelect";
 import { ApiRequestError } from "../../../lib/apiClient";
 import { cn } from "../../../lib/cn";
 import { codeOf, messageFor } from "../../../lib/errorCodes";
-import { PlatformTwoFactorRequired } from "../../platform/components/PlatformTwoFactorRequired";
 import { formatInstantDate } from "../../../lib/format";
 import {
   noticePairLabel,
@@ -17,6 +16,7 @@ import {
   pairOfNoticePeriod,
 } from "../../../lib/noticePeriod";
 import { SENIORITY_LABELS, SENIORITY_TIERS } from "../../../lib/seniority";
+import { PlatformTwoFactorRequired } from "../../platform/components/PlatformTwoFactorRequired";
 import { POSITION_TEMPLATES_KEY } from "../../position/api/positionApi";
 import { useWorkspaceCurrency } from "../../workspace/lib/useWorkspaceCurrency";
 import type {

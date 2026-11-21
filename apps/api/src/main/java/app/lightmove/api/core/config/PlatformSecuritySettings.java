@@ -2,6 +2,7 @@ package app.lightmove.api.core.config;
 
 import java.time.Duration;
 import org.springframework.boot.context.properties.bind.DefaultValue;
+import org.springframework.boot.convert.DurationStyle;
 
 /** What the platform routes ask of a super admin beyond the role — {@code lightmove.platform.*}. */
 public record PlatformSecuritySettings(
@@ -9,10 +10,12 @@ public record PlatformSecuritySettings(
         @DefaultValue("false") boolean requireTwoFactor,
 
         /** How long a right code lets high-impact actions through before the next one is asked for. */
-        @DefaultValue("10m") Duration stepUpWindow
+        @DefaultValue(PlatformSecuritySettings.DEFAULT_STEP_UP_WINDOW) Duration stepUpWindow
 ) {
 
+    static final String DEFAULT_STEP_UP_WINDOW = "10m";
+
     public static PlatformSecuritySettings defaults() {
-        return new PlatformSecuritySettings(false, Duration.ofMinutes(10));
+        return new PlatformSecuritySettings(false, DurationStyle.detectAndParse(DEFAULT_STEP_UP_WINDOW));
     }
 }

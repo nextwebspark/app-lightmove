@@ -59,7 +59,7 @@ export default function PlatformStepUpDialog({ onConfirmed, onClose }: { onConfi
     >
       <p className="mb-4 text-body text-u-text2">
         This change reaches every workspace. Enter the 6-digit code from your authenticator app to go on. You won't be
-        asked again for 10 minutes.
+        asked again for a short while.
       </p>
       <FormError message={formError} />
       <Field label="Code" error={errors.code?.message} hint="Lost your phone? Enter a recovery code instead.">

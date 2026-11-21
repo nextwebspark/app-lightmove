@@ -28,7 +28,7 @@ public class PlatformAuthorizer {
 
     /** A high-impact action: the action, the factor, and a code entered within the step-up window. */
     public boolean canWithRecentTwoFactor(AuthPrincipal principal, String action) {
-        can(principal, action);
+        access.requireAction(principal.userId(), PlatformAction.valueOf(action));
         twoFactor.requireRecentCode(principal.userId());
         return true;
     }

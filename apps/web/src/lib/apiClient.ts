@@ -307,24 +307,27 @@ async function sendWithAuth(path: string, options: RequestOptions): Promise<Resp
   const send = (token: string | null): Promise<Response> =>
     withCsrf ? sendWithCsrf((csrf) => dispatch(token, csrf)) : dispatch(token, null);
 
-  let response = await send(anonymous ? null : accessToken);
-
   // One retry, and only for an expired token. A 401 on an anonymous request means bad credentials,
   // not a stale session, and refreshing would be nonsense.
-  if (response.status === 401 && !anonymous) {
+  const sendRefreshingOnce = async (): Promise<Response> => {
+    const first = await send(anonymous ? null : accessToken);
+    if (first.status !== 401 || anonymous) return first;
     try {
-      const fresh = await refreshAccessToken();
-      response = await send(fresh);
+      return await send(await refreshAccessToken());
     } catch {
-      // The refresh failed: the session is genuinely over. Fall through and report the original 401
-      // rather than the refresh's error, because the caller asked about *their* request.
+      // The refresh failed: the session is genuinely over. Report the original 401 rather than the
+      // refresh's error, because the caller asked about *their* request.
+      return first;
     }
-  }
+  };
+
+  let response = await sendRefreshingOnce();
 
   if (!response.ok) {
     let problem = await problemFrom(response);
     if (problem.code === "PLATFORM_STEP_UP_REQUIRED" && !anonymous && (await stepUpConfirmed())) {
-      response = await send(accessToken);
+      // The dialog may have stayed open long enough for the access token to expire.
+      response = await sendRefreshingOnce();
       if (response.ok) return response;
       problem = await problemFrom(response);
     }

@@ -20,7 +20,7 @@ workspace (V84 `mode`) says Client / Client contact — every such label via `us
 `docs/candidate-crm.md`, `candidate-documents.md`, `outreach-conversations.md`, `notetaker.md`,
 `tasks-notifications.md`, `email-signatures.md`, `spreadsheet-import.md`, `position-extraction.md`,
 `workspace-modes.md`, `custom-dashboards.md`, `assistant-tools.md`, `public-api.md`, `mcp.md`, `llm-guardrails.md`,
-`security/row-level-security.md`, `gdpr/*`, `integrations/*`, `glossary.md` (on-screen words),
+`security/row-level-security.md`, `security/platform-two-factor.md`, `gdpr/*`, `integrations/*`, `glossary.md` (on-screen words),
 `validation-matrix.md` (every form field's rules).
 
 **UI mockups are the source of truth** and live in the separate private repo

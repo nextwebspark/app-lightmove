@@ -226,6 +226,24 @@ describe("apiClient", () => {
     stopListening();
   });
 
+  it("refreshes a token that expired while the code was being entered, and still sends the request again", async () => {
+    setAccessToken("expired");
+    fetchMock
+      .mockResolvedValueOnce(json(403, { code: "PLATFORM_STEP_UP_REQUIRED", detail: "code", status: 403 }))
+      .mockResolvedValueOnce(json(401, { code: "UNAUTHORIZED", detail: "expired" })) // the resend
+      .mockResolvedValueOnce(json(200, { accessToken: "fresh" })) // refresh
+      .mockResolvedValueOnce(json(200, { granted: true }));
+    const stopAsking = onStepUpRequired(() => Promise.resolve());
+
+    await expect(
+      request("/platform/workspaces/w1/credit-grants", { method: "POST", body: { credits: 5 } }),
+    ).resolves.toEqual({ granted: true });
+
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+    expect(fetchMock.mock.calls[3][1].headers.Authorization).toBe("Bearer fresh");
+    stopAsking();
+  });
+
   it("tells the caller of the refusal when the code is not entered, and does not send again", async () => {
     fetchMock.mockResolvedValue(json(403, { code: "PLATFORM_STEP_UP_REQUIRED", detail: "code", status: 403 }));
     const stopAsking = onStepUpRequired(() => Promise.reject(new Error("dismissed")));
