@@ -25,7 +25,6 @@ export function useAccountActions(): AccountAction[] {
     { key: "security", label: "Security", icon: ICONS.lock, to: "/settings/security" },
     { key: "theme", label: "Dark mode", icon: ICONS.moon, onSelect: toggle, checked: theme === "dark" },
     { key: "help", label: "Help & shortcuts", icon: ICONS.help, onSelect: () => openHelp() },
-    // Uncava staff only: the console belongs to no workspace, so its way in is the person's menu, not the workspace's.
     ...(isPlatformStaff(user)
       ? [{ key: "platform", label: "Platform", icon: ICONS.shield, to: PLATFORM_HOME } satisfies AccountAction]
       : []),

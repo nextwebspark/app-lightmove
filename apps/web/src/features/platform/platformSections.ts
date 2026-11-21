@@ -1,5 +1,6 @@
 import { ICONS } from "../../components/layout/Icon";
 import type { PlatformAction, User } from "../auth/api/types";
+import { TEMPLATE_LIBRARY_PATH } from "../templates/lib/labels";
 
 export const PLATFORM_HOME = "/platform";
 
@@ -17,10 +18,8 @@ export interface PlatformSection {
   grid?: boolean;
 }
 
-export const PLATFORM_TEMPLATES = "/platform/templates";
-
 export const PLATFORM_SECTIONS: readonly PlatformSection[] = [
-  { to: PLATFORM_TEMPLATES, label: "Templates", icon: ICONS.position, action: "TEMPLATE_LIBRARY_MANAGE", grid: true },
+  { to: TEMPLATE_LIBRARY_PATH, label: "Templates", icon: ICONS.position, action: "TEMPLATE_LIBRARY_MANAGE", grid: true },
 ];
 
 /** Whether the person holds any platform action: what shows the Platform item and opens `/platform` at all. */

@@ -8,10 +8,7 @@ import { TemplateListPage } from "../templates/pages/TemplateListPage";
 import { PlatformLayout } from "./PlatformLayout";
 import { PLATFORM_HOME, visiblePlatformSections } from "./platformSections";
 
-/**
- * Everything under `/platform`, loaded as one chunk the first time a holder of a platform action opens it, so
- * nobody else downloads the console. The route that mounts it has already turned everyone else away.
- */
+/** Everything under `/platform`, as one chunk nobody but its holders downloads. */
 export default function PlatformRoutes() {
   return (
     <Routes>
@@ -35,7 +32,6 @@ function PlatformLanding() {
   return <Navigate to={first?.to ?? "/"} replace />;
 }
 
-/** One section's routes. UX only — every platform endpoint re-reads the grant. */
 function RequirePlatformAction({ action, children }: { action: PlatformAction; children: ReactNode }) {
   const { user } = useAuth();
   if (!user?.platformActions.includes(action)) return <Navigate to={PLATFORM_HOME} replace />;

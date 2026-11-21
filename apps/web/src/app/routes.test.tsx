@@ -375,6 +375,7 @@ describe("routes — the platform gate", () => {
 
       await waitFor(() => expect(screen.getByTestId("pathname").textContent).toBe("/"));
       expect(templateAdminApi.listTemplates).not.toHaveBeenCalled();
+      expect(templateAdminApi.getTemplate).not.toHaveBeenCalled();
     },
   );
 
@@ -393,7 +394,7 @@ describe("routes — the platform gate", () => {
     expect(screen.queryByRole("button", { name: /^Workspace:/ })).not.toBeInTheDocument();
   });
 
-  it("redirects the library's old address, and a template's, to the console", async () => {
+  it("redirects the library's old address to the console", async () => {
     vi.mocked(authApi.me).mockResolvedValue(superAdmin());
 
     renderAt("/settings/template-library");
@@ -412,7 +413,7 @@ describe("routes — the platform gate", () => {
   });
 
   it("no longer lists the library in a super admin's Settings", async () => {
-    vi.mocked(authApi.me).mockResolvedValue({ ...superAdmin(), ...userWith(["ADMIN"]), platformActions: ["TEMPLATE_LIBRARY_MANAGE" as const] });
+    vi.mocked(authApi.me).mockResolvedValue({ ...superAdmin(), workspace: userWith(["ADMIN"]).workspace });
     vi.mocked(authApi.listSessions).mockResolvedValue([]);
 
     renderAt("/settings/security");

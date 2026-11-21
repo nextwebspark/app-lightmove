@@ -596,7 +596,8 @@ section of the **platform console** (#1312, `features/platform`): `/platform/*` 
 with its own shell (`PlatformLayout`: the "Uncava platform" header with no workspace menu, credit chip or bell, a rail
 from `platformSections`, **Back to workspace**), reached from a **Platform** item in the avatar menu that only a
 holder of a platform action sees. The whole tree is one lazy chunk (`PlatformRoutes`), mounted behind
-`RequirePlatformStaff`, so nobody else downloads it; the guards are presentation and `@platformAuthorizer` is the
+`RequirePlatformStaff`, so nobody else downloads it, and a chunk that will not load (a tab left open across a deploy) draws
+`PlatformUnavailable` in its place rather than blanking the app; the guards are presentation and `@platformAuthorizer` is the
 boundary. `/settings/template-library` and a template's address under it redirect to `/platform/templates`. A firm's copy **shadows**
 the library template of the same `code`, so a library edit reaches every firm that never customised
 it; neither ever touches a brief already drafted. The file format is JSON with a published schema, so
