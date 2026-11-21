@@ -264,10 +264,9 @@ class ProjectChartQueries {
                         || !executive.aiInferredFields().contains("gender"))
                 .toList();
         List<String> levels = presentLevels(recorded);
-        List<Gender> genders = new ArrayList<>(List.of(Gender.FEMALE, Gender.MALE));
-        if (recorded.stream().anyMatch(executive -> Gender.fromValue(executive.gender()) == Gender.OTHER)) {
-            genders.add(Gender.OTHER);
-        }
+        // Always all three columns: an Other column that appeared only when someone is Other, zero on every shown
+        // level, would point at the hidden level and single that person out.
+        List<Gender> genders = List.of(Gender.FEMALE, Gender.MALE, Gender.OTHER);
         List<List<Long>> counts = levels.stream().map(level -> genders.stream().map(gender -> recorded.stream()
                 .filter(executive -> level.equals(ChartLabels.orNotRecorded(executive.seniority()))
                         && Gender.fromValue(executive.gender()) == gender)
