@@ -4,7 +4,10 @@ import static app.lightmove.api.core.email.render.EmailPhrase.plain;
 import static app.lightmove.api.core.email.render.EmailPhrase.strong;
 import static org.assertj.core.api.Assertions.assertThat;
 
+import app.lightmove.api.core.email.constant.EmailCardStyle;
+import app.lightmove.api.core.email.constant.EmailTone;
 import app.lightmove.api.core.email.model.EmailMessage;
+import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -98,6 +101,67 @@ class EmailRendererTest {
                     .doesNotContain("<")
                     .contains("Welcome")
                     .contains("This link expires in 24 hours.");
+        }
+    }
+
+    @Nested
+    @DisplayName("a card of rows")
+    class Cards {
+
+        private final EmailCard card = new EmailCard(EmailCardStyle.PLAIN, "<b>Merchandising</b> Director",
+                "7 overdue", new EmailAction("Open position", BASE_URL + "/projects/7/pipeline"),
+                List.of(EmailRow.of("Amit <i>Tandon</i>", "Call · Debrief", BASE_URL + "/projects/7/pipeline?candidate=3")
+                        .withBadge("11 days late", EmailTone.SIGNAL)),
+                "+1 under Gone quiet");
+
+        @Test
+        @DisplayName("escapes every name it is handed in the HTML half")
+        void escapesNames() {
+            EmailMessage message = render(card, new EmailSectionTitle("Overdue <now>", EmailTone.SIGNAL, null));
+
+            assertThat(message.htmlBody())
+                    .contains("&lt;b&gt;Merchandising&lt;/b&gt; Director")
+                    .contains("Amit &lt;i&gt;Tandon&lt;/i&gt;")
+                    .contains("Overdue &lt;now&gt;")
+                    .doesNotContain("<i>Tandon</i>");
+        }
+
+        @Test
+        @DisplayName("draws late work in the app's signal colour and links each row")
+        void drawsInTheAppsPalette() {
+            EmailMessage message = render(new EmailChips(List.of(new EmailChip(9, "overdue", EmailTone.SIGNAL,
+                    BASE_URL + "/tasks"))), card);
+
+            assertThat(message.htmlBody())
+                    .contains("background:#F6EFEA")
+                    .contains("color:#A05B2D")
+                    .contains("href=\"https://beta.uncava.com/projects/7/pipeline?candidate=3\"");
+        }
+
+        @Test
+        @DisplayName("reads as plain lines with their links in the text half")
+        void readsAsLinesInText() {
+            EmailMessage message = render(new EmailChips(List.of(new EmailChip(9, "overdue", EmailTone.SIGNAL,
+                    BASE_URL + "/tasks"))), card);
+
+            assertThat(message.textBody())
+                    .contains("9 overdue")
+                    .contains("- Amit <i>Tandon</i> — Call · Debrief (11 days late)")
+                    .contains("https://beta.uncava.com/projects/7/pipeline?candidate=3")
+                    .contains("+1 under Gone quiet")
+                    .contains("Open position: https://beta.uncava.com/projects/7/pipeline");
+        }
+
+        @Test
+        @DisplayName("numbers the rows of the one card to start from")
+        void numbersTheHighlight() {
+            EmailCard start = new EmailCard(EmailCardStyle.HIGHLIGHT, "Start here", null, null, List.of(
+                    EmailRow.of("Amit Tandon", null, "#a").withDetail("One conversation closes 2 tasks"),
+                    EmailRow.of("Rajiv Shankar", null, "#b")), null);
+            EmailMessage message = render(start);
+
+            assertThat(message.htmlBody()).contains("background:#EFF0FB").contains(">2</span>");
+            assertThat(message.textBody()).contains("START HERE\n1. Amit Tandon").contains("2. Rajiv Shankar");
         }
     }
 

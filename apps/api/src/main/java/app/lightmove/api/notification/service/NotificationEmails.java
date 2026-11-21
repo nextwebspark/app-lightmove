@@ -17,14 +17,14 @@ import app.lightmove.api.core.tenant.EveryWorkspace;
 import app.lightmove.api.core.tenant.TenantResolvers;
 import app.lightmove.api.core.tenant.WorkspaceScope;
 import app.lightmove.api.notification.constant.NotificationKind;
+import app.lightmove.api.notification.model.DigestBuckets;
+import app.lightmove.api.notification.model.DigestMention;
 import app.lightmove.api.notification.model.Notification;
 import app.lightmove.api.notification.repository.NotificationRecipientRow;
 import app.lightmove.api.notification.repository.NotificationRepository;
 import app.lightmove.api.project.model.Project;
 import app.lightmove.api.project.repository.ProjectRepository;
 import app.lightmove.api.task.dto.TaskResponse;
-import app.lightmove.api.task.model.DueDigest;
-import app.lightmove.api.task.model.DueDigestLine;
 import app.lightmove.api.task.model.TaskHolder;
 import app.lightmove.api.task.service.TaskService;
 import app.lightmove.api.workspace.service.DateTimePreferenceService;
@@ -40,6 +40,7 @@ import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -63,7 +64,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 public class NotificationEmails {
 
     private static final int BATCH = 200;
-    private static final int DIGEST_LINES = 8;
+    private static final int DIGEST_MENTION_ROWS = 3;
     private static final Duration DIGEST_HORIZON = Duration.ofHours(36);
 
     private static final String CLAIM_EMAILS = """
@@ -95,6 +96,8 @@ public class NotificationEmails {
     private final LightMoveProperties properties;
     private final Clock clock;
     private final DateTimePreferenceService dateTimePreferences;
+    private final TaskDigestComposer digestComposer;
+    private final NotificationLinks links;
 
     @Scheduled(cron = "${lightmove.notifications.email-scan}", zone = "UTC")
     public void scheduledEmails() {
@@ -155,7 +158,7 @@ public class NotificationEmails {
         UUID liveNoteId = row.getNoteId() != null
                 && people.linkedNotesOf(row.getWorkspaceId(), List.of(row.getNoteId())).containsKey(row.getNoteId())
                 ? row.getNoteId() : null;
-        String link = linkOf(row.getProjectId(), row.getCandidateId(), row.getPersonId(), liveNoteId);
+        String link = links.of(row.getProjectId(), row.getCandidateId(), row.getPersonId(), liveNoteId);
         User to = recipient.get();
         PrivacyRequestEmailKind privacyRequest = switch (row.getKind()) {
             case COPY_REQUESTED -> PrivacyRequestEmailKind.COPY;
@@ -234,16 +237,55 @@ public class NotificationEmails {
                 || !workspaceAccess.isStaff(userId, workspaceId) || !preferences.digest(userId, workspaceId)) {
             return false;
         }
-        DueDigest due = tasks.dueDigestOf(userId, workspaceId, zone, now, DIGEST_LINES);
-        long mentions = rows.countUnreadOfKind(userId, workspaceId, NotificationKind.MENTIONED.name());
-        if ((due.isEmpty() && mentions == 0) || !claimDigest(userId, workspaceId, local.toLocalDate())) {
+        DigestBuckets buckets = DigestBuckets.of(
+                tasks.dueDigestOf(userId, workspaceId, DigestBuckets.horizonOf(now, zone)), zone, now);
+        List<Notification> mentions = digestMentionsStillTheirs(userId, workspaceId, now);
+        if (!buckets.hasNews(mentions.size()) || !claimDigest(userId, workspaceId, local.toLocalDate())) {
             return false;
         }
-        List<String> lines = due.lines().stream().map(line -> lineOf(line, formats)).toList();
-        emailSender.send(templates.buildNotificationDigestEmail(user.getEmail(), user.getFullName(),
-                formats.date(now), due.dueToday(), due.overdue(), (int) mentions, lines,
-                properties.web().baseUrl() + "/"));
+        List<DigestMention> named = digestMentionsOf(workspaceId,
+                mentions.subList(0, Math.min(DIGEST_MENTION_ROWS, mentions.size())));
+        emailSender.send(templates.buildNotificationDigestEmail(user.getEmail(), formats.date(now),
+                digestComposer.compose(buckets, formats, named, mentions.size())));
         return true;
+    }
+
+    /** The same rule {@link #stillTheirs} puts to a single mention email, asked once for every position named. */
+    private List<Notification> digestMentionsStillTheirs(UUID userId, UUID workspaceId, Instant now) {
+        List<Notification> unread = rows.findDigestMentions(userId, workspaceId, now);
+        Set<UUID> worked = projectAccess.projectsWithAction(userId, workspaceId,
+                idsOf(unread, Notification::getProjectId), ProjectAction.WORK_EXECUTE);
+        return unread.stream().filter(row -> row.getProjectId() == null || worked.contains(row.getProjectId()))
+                .toList();
+    }
+
+    /** Names read in three batched reads, not one per row: this runs for every holder in every workspace. */
+    private List<DigestMention> digestMentionsOf(UUID workspaceId, List<Notification> unread) {
+        if (unread.isEmpty()) {
+            return List.of();
+        }
+        Map<UUID, String> actors = new HashMap<>();
+        users.findAllById(idsOf(unread, Notification::getActorUserId))
+                .forEach(actor -> actors.put(actor.getId(), actor.getFullName()));
+        Map<UUID, String> positions = new HashMap<>();
+        projects.findAllById(idsOf(unread, Notification::getProjectId))
+                .forEach(project -> positions.put(project.getId(), project.getPositionTitle()));
+        Map<UUID, String> executives = people.personNamesOf(workspaceId, idsOf(unread, Notification::getPersonId));
+        return unread.stream().map(row -> new DigestMention(
+                nameOrElse(actors, row.getActorUserId(), "A colleague"),
+                nameOrElse(executives, row.getPersonId(), "an executive"),
+                nameOrElse(positions, row.getProjectId(), "a position"),
+                links.of(row.getProjectId(), row.getCandidateId(), row.getPersonId(), row.getNoteId()))).toList();
+    }
+
+    private static List<UUID> idsOf(List<Notification> rows, Function<Notification, UUID> id) {
+        return rows.stream().map(id).filter(Objects::nonNull).distinct().toList();
+    }
+
+    /** A null key is answered here: an immutable map throws on a null lookup rather than missing. */
+    private static String nameOrElse(Map<UUID, String> names, UUID id, String fallback) {
+        String name = id == null ? null : names.get(id);
+        return name == null ? fallback : name;
     }
 
     private boolean claimDigest(UUID userId, UUID workspaceId, LocalDate day) {
@@ -257,31 +299,7 @@ public class NotificationEmails {
         return day == DayOfWeek.SATURDAY || day == DayOfWeek.SUNDAY;
     }
 
-    private static String lineOf(DueDigestLine line, DateTimeFormats formats) {
-        String due = formats.dateTime(line.dueAt());
-        String who = line.executiveName() == null ? "" : " — " + line.executiveName();
-        String where = line.positionTitle() == null ? "" : ", " + line.positionTitle();
-        return (line.overdue() ? "Overdue · " : "") + line.title() + who + where + " · due " + due;
-    }
-
     private static String dueOf(TaskResponse task, DateTimeFormats formats) {
         return task.dueAt() == null ? "with no date" : formats.dateTime(task.dueAt());
-    }
-
-    /** The bell's own destination (the SPA's `notificationHref`), so an email and its bell row open the same place. */
-    private String linkOf(UUID projectId, UUID candidateId, UUID personId, UUID noteId) {
-        String base = properties.web().baseUrl();
-        if (projectId == null) {
-            return base + "/";
-        }
-        if (candidateId != null) {
-            String candidate = "%s/projects/%s/pipeline?candidate=%s".formatted(base, projectId, candidateId);
-            return noteId == null ? candidate : candidate + "&note=" + noteId;
-        }
-        if (personId != null) {
-            String person = "%s/candidates?person=%s".formatted(base, personId);
-            return noteId == null ? person : person + "&tab=notes";
-        }
-        return "%s/projects/%s/pipeline".formatted(base, projectId);
     }
 }
