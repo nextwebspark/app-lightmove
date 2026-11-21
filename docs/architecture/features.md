@@ -591,14 +591,7 @@ one takes that title and redrafts the brief from its template (`GET /position-te
 `POST .../position/template`). Templates are edited in two places (V57/V58; **Settings → Templates** for a
 firm's admin, **Platform → Templates** for a super admin): a LightMove **super admin** — a *platform* role granted only by
 `ops/cloudsql/grant-platform-role.sh`, reading no tenant's data — edits the shared library, and a
-workspace admin customises, hides, adds, exports and imports the firm's own. The shared library is the first
-section of the **platform console** (#1312, `features/platform`): `/platform/*` in the same SPA, origin and session,
-with its own shell (`PlatformLayout`: the "Uncava platform" header with no workspace menu, credit chip or bell, a rail
-from `platformSections`, **Back to workspace**), reached from a **Platform** item in the avatar menu that only a
-holder of a platform action sees. The whole tree is one lazy chunk (`PlatformRoutes`), mounted behind
-`RequirePlatformStaff`, so nobody else downloads it, and a chunk that will not load (a tab left open across a deploy) draws
-`PlatformUnavailable` in its place rather than blanking the app; the guards are presentation and `@platformAuthorizer` is the
-boundary. `/settings/template-library` and a template's address under it redirect to `/platform/templates`. A firm's copy **shadows**
+workspace admin customises, hides, adds, exports and imports the firm's own. A firm's copy **shadows**
 the library template of the same `code`, so a library edit reaches every firm that never customised
 it; neither ever touches a brief already drafted. The file format is JSON with a published schema, so
 a template can be written outside the app, AI included, and previewed before anything is written.
@@ -661,6 +654,15 @@ draws a card from the Open Graph tags in `apps/web/index.html` over `public/og-i
 because no crawler runs the bundle (README, "Link previews"). Publishing stamps who
 called the brief ready and **freezes nothing** (V38 retired the lock deliberately). Don't build ahead of
 the mockups: if a screen isn't being built this session, its tables and entities don't exist yet.
+
+The shared library is the first
+section of the **platform console** (#1312, `features/platform`): `/platform/*` in the same SPA, origin and session,
+with its own shell (`PlatformLayout`: the "Uncava platform" header with no workspace menu, credit chip or bell, a rail
+from `platformSections`, **Back to workspace**), reached from a **Platform** item in the avatar menu that only a
+holder of a platform action sees. The whole tree is one lazy chunk (`PlatformRoutes`), mounted behind
+`RequirePlatformStaff`, so nobody else downloads it, and a chunk that will not load (a tab left open across a deploy) draws
+`PlatformUnavailable` in its place rather than blanking the app; the guards are presentation and `@platformAuthorizer` is the
+boundary. `/settings/template-library` and a template's address under it redirect to `/platform/templates`.
 
 
 ## Layout
