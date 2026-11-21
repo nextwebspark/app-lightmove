@@ -30,8 +30,10 @@ export function DrawerSection({
 }
 
 /** A two-column grid of {@link DetailTile}s, which is how both mockup panels lay out their figures. */
-export function DetailGrid({ children }: { children: ReactNode }) {
-  return <div className="grid grid-cols-2 gap-x-3 gap-y-2.5">{children}</div>;
+export function DetailGrid({ wide = false, children }: { wide?: boolean; children: ReactNode }) {
+  const grid = <div className={cn("grid grid-cols-2 gap-x-3 gap-y-2.5", wide && "@xl:grid-cols-4")}>{children}</div>;
+  // Wide: four across once the grid's own box has the room, as on the record full page.
+  return wide ? <div className="@container">{grid}</div> : grid;
 }
 
 /**
@@ -81,5 +83,28 @@ export function DetailPill({ label, className }: { label: string; className?: st
     >
       {label}
     </span>
+  );
+}
+
+/** A titled block of a details rail, under a hairline: Outreach's Candidate details, the record page's Details. */
+export function DetailBlock({ title, aside, children }: { title: string; aside?: ReactNode; children: ReactNode }) {
+  return (
+    <section aria-label={title} className="flex flex-col gap-2 border-t border-u-border pt-4">
+      <div className="flex items-center">
+        <h3 className="type-micro-label text-u-text3">{title}</h3>
+        {aside && <span className="ms-auto">{aside}</span>}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+/** One label and its value in a {@link DetailBlock}. */
+export function DetailRow({ label, mono = false, children }: { label: string; mono?: boolean; children: ReactNode }) {
+  return (
+    <div className="flex gap-3 text-note">
+      <span className="w-24 flex-none text-u-text3">{label}</span>
+      <div className={cn("min-w-0 flex-1 text-u-text2", mono && "font-mono")}>{children}</div>
+    </div>
   );
 }

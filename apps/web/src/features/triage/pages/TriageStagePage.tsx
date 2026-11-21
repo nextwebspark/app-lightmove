@@ -1318,6 +1318,7 @@ function stepperAlong(
     onToggleFrame,
     onPrevious: previous ? () => onStep(previous) : undefined,
     onNext: next ? () => onStep(next) : undefined,
+    position: at < 0 ? undefined : { index: at, total: people.length },
   };
 }
 

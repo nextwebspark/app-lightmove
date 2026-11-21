@@ -1839,6 +1839,83 @@ describe("TriageStagePage", () => {
       expect(row).toHaveAccessibleName(expect.stringMatching(/Omar Saleh.*CFO · ACWA Power.+/));
     });
 
+    it("lays the record beside its Details rail, with the actions under the header and where it sits in the list", async () => {
+      vi.mocked(mailboxApi.getMailbox).mockResolvedValue(CONNECTED_MAILBOX);
+      render(stageTree("universe", project, `?candidate=${yasmin.id}&record=page`));
+
+      const record = await screen.findByRole("region", { name: "Executive record" });
+      // The bar is the record's own, so each step draws a new one.
+      const bar = () => within(record).getByRole("toolbar", { name: "Executive record" });
+      await waitFor(() => expect(bar()).toHaveTextContent("1 of 2"));
+      await userEvent.keyboard("j");
+      await waitFor(() => expect(bar()).toHaveTextContent("2 of 2"));
+      await userEvent.keyboard("k");
+      await waitFor(() => expect(bar()).toHaveTextContent("1 of 2"));
+
+      const details = within(record).getByRole("complementary", { name: "Details" });
+      for (const block of ["Next action", "Contact", "Process", "Record"]) {
+        expect(within(details).getByRole("region", { name: block })).toBeInTheDocument();
+      }
+      expect(within(details).getByRole("switch", { name: "Client visible" })).toBeInTheDocument();
+
+      const actions = within(record).getByRole("group", { name: "Actions" });
+      // Yasmin has no address on record, so Write email is held and says why.
+      expect(within(actions).getByRole("button", { name: "Write email" })).toBeDisabled();
+      expect(within(actions).getByRole("button", { name: "Write email" }).parentElement).toHaveAttribute(
+        "title",
+        "No email address yet",
+      );
+      expect(within(actions).getByRole("button", { name: "Add note" })).toBeEnabled();
+      expect(within(actions).getByRole("button", { name: "Log" })).toBeInTheDocument();
+      // The ⋯ moved up from the footer: one More actions on the page, under the header.
+      expect(within(record).getAllByRole("button", { name: "More actions" })).toHaveLength(1);
+
+      await userEvent.click(within(actions).getByRole("button", { name: "Log" }));
+      expect(await screen.findByRole("menuitem", { name: "Log call" })).toBeInTheDocument();
+    });
+
+    it("gives a client seat the rail's contacts and record, and none of the writes or other positions", async () => {
+      const authApi = await import("../../auth/api/authApi");
+      vi.mocked(authApi.me).mockResolvedValue(representative);
+      render(stageTree("universe", project, `?candidate=${yasmin.id}&record=page`));
+
+      const record = await screen.findByRole("region", { name: "Executive record" });
+      const details = await within(record).findByRole("complementary", { name: "Details" });
+      expect(within(details).getByRole("region", { name: "Contact" })).toBeInTheDocument();
+      expect(within(details).getByRole("region", { name: "Record" })).toBeInTheDocument();
+      expect(within(details).queryByRole("region", { name: "Next action" })).not.toBeInTheDocument();
+      expect(within(details).queryByRole("region", { name: "Process" })).not.toBeInTheDocument();
+      expect(within(record).queryByRole("group", { name: "Actions" })).not.toBeInTheDocument();
+      expect(within(record).queryByRole("button", { name: "Close" })).not.toBeInTheDocument();
+    });
+
+    it("searches the list on /, and hides the list until it is asked back", async () => {
+      render(stageTree("universe", project, `?candidate=${yasmin.id}&record=page`));
+
+      const list = await screen.findByRole("navigation", { name: "In universe executives" });
+      await userEvent.keyboard("/");
+      await waitFor(() => expect(within(list).getByRole("searchbox", { name: "Search executives" })).toHaveFocus());
+      await userEvent.keyboard("{Escape}");
+
+      await userEvent.click(within(list).getByRole("button", { name: "Hide list" }));
+      expect(screen.getByRole("navigation", { name: "In universe executives" })).not.toHaveClass("lg:flex");
+      expect(localStorage.getItem("uncava.recordListHidden")).toBe("1");
+
+      await userEvent.click(screen.getByRole("button", { name: "List" }));
+      expect(screen.getByRole("navigation", { name: "In universe executives" })).toHaveClass("lg:flex");
+      expect(localStorage.getItem("uncava.recordListHidden")).toBe("0");
+    });
+
+    it("never lets the page's own panes reach past it, so the page itself does not scroll", async () => {
+      render(stageTree("universe", project, `?candidate=${yasmin.id}&record=page`));
+
+      const list = await screen.findByRole("navigation", { name: "In universe executives" });
+      // Each row's status label is positioned out of sight: the list scroller must be what holds it, and the page
+      // must clip whatever else is positioned, or the shell's own scroller grows past the screen.
+      expect(within(list).getByRole("list")).toHaveClass("relative", "overflow-y-auto");
+      expect(list.parentElement).toHaveClass("overflow-hidden");
+    });
+
     it("narrows the list from its own search box", async () => {
       render(stageTree("universe", project, `?candidate=${yasmin.id}&record=page`));
 
