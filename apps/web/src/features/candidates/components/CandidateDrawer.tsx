@@ -13,6 +13,7 @@ export type { CandidateCompanyContext } from "./AddCandidateForm";
 /**
  * The right-hand panel over the Companies grid: one executive's profile, or the add form. It stays open on a save and
  * shows what the server answered; the person is read through their own query, so a background enrichment shows unasked.
+ * With `frame="page"` the same profile is drawn in place, for the record full page.
  */
 export function CandidateDrawer({
   open,
@@ -31,6 +32,7 @@ export function CandidateDrawer({
   focusSection = null,
   focusTab = null,
   stepper,
+  frame = "peek",
 }: {
   open: boolean;
   projectId: string;
@@ -62,6 +64,7 @@ export function CandidateDrawer({
   focusTab?: DrawerTab | null;
   /** Previous and Next along the grid the panel was opened from. */
   stepper?: RecordStepper;
+  frame?: "peek" | "page";
 }) {
   const queryClient = useQueryClient();
   const live = useQuery({
@@ -75,6 +78,28 @@ export function CandidateDrawer({
     queryClient.setQueryData(CANDIDATE_KEY(projectId, saved.id), saved);
     onSaved(saved);
   };
+
+  if (frame === "page") {
+    if (!open || !shown) return null;
+    return (
+      <CandidateProfile
+        key={shown.id}
+        projectId={projectId}
+        candidate={shown}
+        customColumns={customColumns}
+        canWrite={canWrite}
+        briefCurrency={defaultCurrency}
+        onClose={onClose}
+        onSaved={handleSaved}
+        onRemove={canWrite ? onDelete : undefined}
+        onOpenCompany={onOpenCompany}
+        focusNoteId={focusNoteId}
+        focusSection={focusSection}
+        focusTab={focusTab}
+        stepper={stepper}
+      />
+    );
+  }
 
   return (
     <Drawer open={open} onClose={onClose} wide label={shown ? shown.fullName : "Add executive"}>
