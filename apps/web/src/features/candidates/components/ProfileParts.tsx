@@ -58,7 +58,8 @@ export function PersonHeaderLayout({
   employer,
   location,
   children,
-  hasCornerMenu = false,
+  cornerButtons = 1,
+  contactsClassName,
 }: {
   avatar: ReactNode;
   fullName: string;
@@ -83,14 +84,16 @@ export function PersonHeaderLayout({
   employer: HeaderEmployer;
   location: string;
   children: ReactNode;
-  /** A ⋯ beside the close button, whose room the name keeps clear of. */
-  hasCornerMenu?: boolean;
+  /** How many buttons sit in the header's corner (Close, a ⋯, Previous and Next…), whose room the name keeps clear of. */
+  cornerButtons?: number;
+  /** Hides the contacts where a rail beside the record lists them instead. */
+  contactsClassName?: string;
 }) {
   return (
     <div className="group flex items-start gap-3">
       <div className="flex flex-none">{avatar}</div>
       <div className="min-w-0 flex-1">
-        <div className={hasCornerMenu ? "pe-20" : "pe-8"}>
+        <div className={CORNER_RESERVE[Math.min(cornerButtons, 4)]}>
           <span className="flex min-w-0 items-center gap-1.5">
             <h2 className="truncate font-sans text-base font-semibold text-u-text">{fullName}</h2>
             <HeaderProfileLink linkedinUrl={linkedinUrl} />
@@ -103,14 +106,16 @@ export function PersonHeaderLayout({
           {processLine !== undefined && (
             <div className="mt-2.5 flex h-7 min-w-0 items-center gap-2">{processLine}</div>
           )}
-          <HeaderContacts
-            contacts={contacts}
-            onEditContacts={onEditContacts}
-            onShowContacts={onShowContacts}
-            onWriteEmail={onWriteEmail}
-            emailNote={emailNote}
-            phoneActions={phoneActions}
-          />
+          <div className={contactsClassName}>
+            <HeaderContacts
+              contacts={contacts}
+              onEditContacts={onEditContacts}
+              onShowContacts={onShowContacts}
+              onWriteEmail={onWriteEmail}
+              emailNote={emailNote}
+              phoneActions={phoneActions}
+            />
+          </div>
         </div>
         {children}
       </div>
@@ -397,3 +402,5 @@ export function ClampedText({ text, className }: { text: string; className?: str
     </div>
   );
 }
+
+const CORNER_RESERVE: Readonly<Record<number, string>> = { 0: "pe-0", 1: "pe-8", 2: "pe-20", 3: "pe-28", 4: "pe-36" };

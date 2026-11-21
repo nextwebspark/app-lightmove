@@ -312,7 +312,7 @@ function PersonDrawerBody({
           onShowContacts={() => setShowingContacts(true)}
           employer={{ name: person.companyName, logoUrl: person.companyLogoUrl }}
           location={[person.locationCity, person.locationCountry].filter(Boolean).join(" · ")}
-          hasCornerMenu={hasMenu}
+          cornerButtons={hasMenu ? 2 : 1}
         >
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <label className="flex items-center gap-1.5">

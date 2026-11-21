@@ -22,7 +22,7 @@ import { SettingsBreadcrumb } from "./Topbar";
  * height, as Strategy and the Companies stages do in ProjectLayout, so the rows scroll under a fixed
  * toolbar and pager instead of the page scrolling past them.
  */
-const GRID_PAGES = new Set(["/settings/templates", "/settings/template-library"]);
+const GRID_PAGES = new Set(["/settings/templates"]);
 
 /** The settings shell: breadcrumb topbar, the section rail, and a narrower content column than the workspace screens. */
 export function SettingsLayout() {
@@ -66,7 +66,7 @@ export function SettingsLayout() {
 /** Pages that draw a form beside its preview, which the narrow column would stack. */
 const WIDE_PAGES = new Set(["/settings/signature"]);
 
-const GROUP_ORDER: SettingsGroupLabel[] = ["Your account", "Workspace", "Platform"];
+const GROUP_ORDER: SettingsGroupLabel[] = ["Your account", "Workspace"];
 
 /** `/settings` itself: the section this person last had open, or the one their role most likely came for. */
 export function SettingsLanding() {

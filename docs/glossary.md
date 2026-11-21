@@ -37,10 +37,10 @@ changes. Copy no mockup draws — toasts, errors, banners, empty states — foll
 | **Email signature** | what closes an email a consultant sends from Uncava, one of their own kept in Settings → Email signature, the default ticked in the composer | footer, sign-off |
 | **Email template** | a saved email or reply a consultant applies in the composer, kept in Settings → Email templates, personal or shared with the workspace — never Settings → Templates, which is the position brief library | snippet, canned reply, saved reply, role template |
 | **Variable** | a `{{firstName}}` in a sequence step or an email template, filled in for each executive when the email is written, inserted from the same Insert bar in both; in an email to one person it reads as their value, in a chip | token, merge field, placeholder |
-| **Home** | the page after sign-in: Needs you, Today, Your positions and pinned charts, each person's own layout; a client's Home is the positions shared with them | dashboard, landing page, My work |
+| **Home** | the page after sign-in: Needs you, Today, Your positions and charts, each a tile in the person's own layout; a client's Home is the positions shared with them | dashboard, landing page, My work |
 | **Needs you** | Home's one list of what is owed today: executives waiting in outreach and the person's own tasks; Mine or, for a lead, Team | inbox, action queue, feed |
 | **Positions** | the one list of positions: every one for an admin, the ones a person is on for anyone else | My positions, All positions, projects |
-| **Customize** / **Reset to the default** | Home's panel where a person shows, hides and reorders its sections, and puts them back as everyone starts | personalize, configure, edit layout |
+| **Customize** / **Save layout** / **Reset to the default** | Home's edit mode, as a dashboard's Edit layout: drag and resize tiles, Add chart, × to take a tile off, Options for sections, Needs you and landing; kept on Save layout, and Reset puts back the layout everyone starts from | personalize, configure, pin |
 | **Fallback** | what a variable says for an executive with no value, written after a bar: `{{firstName\|there}}` | default value |
 | **Daily email limit** | the most one mailbox sends through Uncava in a day | quota |
 | **Synced email** | a reply read back from the consultant's own mailbox, as the history tags it | imported, fetched |
@@ -81,6 +81,7 @@ changes. Copy no mockup draws — toasts, errors, banners, empty states — foll
 | **Not now** / **Done** / **N more to log** / **Fix number** | the log-it tray's words: a card set aside unlogged, one closed after Wrong number, the cards folded under the newest, and the way to Edit contact details after a wrong number | dismiss, skip, snooze, queue |
 | **Call logged** / **WhatsApp logged** | the toast once a log that says how it went is saved (from the tray or the composer); "Call logged · Wrong number" for that outcome | note saved, call saved |
 | **12d** | a trial's days left, where a phone has room for nothing longer (the topbar chip; its spoken name is "Trial · 12 days left") | — |
+| **Platform** | the area only Uncava's own staff reach, from the avatar menu: what every workspace shares. Its header reads **Uncava platform** · Staff only | admin console, back office, super admin |
 
 ## Never on screen
 

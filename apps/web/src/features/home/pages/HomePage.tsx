@@ -3,9 +3,10 @@ import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { PageHeader } from "../../../components/layout/PageHeader";
 import { Icon, ICONS } from "../../../components/layout/Icon";
-import { Button, buttonClassName, CardsSkeleton, EmptyState } from "../../../components/ui";
+import { Button, buttonClassName, CardsSkeleton, EmptyState, useToast } from "../../../components/ui";
 import { StagePill } from "../../../components/ui/Badge";
 import { cn } from "../../../lib/cn";
+import { messageFor } from "../../../lib/errorCodes";
 import { formatShortDate, formatWeekdayDate, todayKey } from "../../../lib/datetime/format";
 import { getDateTimePreferences } from "../../../lib/datetime/preferences";
 import { useAuth } from "../../auth/AuthProvider";
@@ -13,6 +14,10 @@ import { isPureClient, seesEveryPosition } from "../../auth/roles";
 import * as clientsApi from "../../clients/api/clientsApi";
 import { liveClients } from "../../clients/lib/filtering";
 import * as dashboardsApi from "../../dashboards/api/dashboardsApi";
+import { ChartCard } from "../../dashboards/components/ChartCard";
+import { ChartLibraryDrawer, draftFor, type ChartDraft } from "../../dashboards/components/ChartLibraryDrawer";
+import { defaultTitle } from "../../dashboards/lib/chartRules";
+import { useRelabel } from "../../dashboards/lib/useRelabel";
 import type { ConversationScope } from "../../outreach/api/conversationApi";
 import * as projectsApi from "../../projects/api/projectsApi";
 import type { Project } from "../../projects/api/types";
@@ -21,10 +26,13 @@ import { isSeatedOn, STAGE_ORDER } from "../../projects/lib/filtering";
 import * as tasksApi from "../../tasks/api/tasksApi";
 import { useWorkspaceVocabulary } from "../../workspace/lib/vocabulary";
 import * as homeApi from "../api/homeApi";
-import { CustomizeHome } from "../components/CustomizeHome";
-import { ChartsSection, PositionsSection, TodaySection } from "../components/HomeSections";
+import { PositionsSection, TodaySection } from "../components/HomeSections";
+import { HomeGrid } from "../components/HomeGrid";
+import { HomeOptions } from "../components/HomeOptions";
 import { NeedsYou } from "../components/NeedsYou";
-import { useHomeLayout } from "../lib/homeLayout";
+import { MAX_HOME_CHARTS, type ChartTile, type HomeTile } from "../lib/homeLayout";
+import { useHomeEditor } from "../lib/useHomeEditor";
+import { useHomeLayout } from "../lib/useHomeLayout";
 import { isAgendaTask, needsYouOf } from "../lib/needsYou";
 
 function greetingOf(firstName: string | undefined, now = new Date()): string {
@@ -80,8 +88,13 @@ type HeaderFn = (subtitle: string, action?: React.ReactNode) => React.ReactNode;
 
 function StaffHome({ projects, header }: { projects: Project[]; header: HeaderFn }) {
   const { user } = useAuth();
-  const [layout, setLayout] = useHomeLayout({ userId: user?.id ?? "", workspaceId: user?.workspace?.id ?? "" });
-  const [customizing, setCustomizing] = useState(false);
+  const toast = useToast();
+  const owner = { userId: user?.id ?? "", workspaceId: user?.workspace?.id ?? "" };
+  const home = useHomeLayout(owner);
+  const editor = useHomeEditor(home.layout);
+  const { editing, layout } = editor;
+  const [optionsOpen, setOptionsOpen] = useState(false);
+  const [libraryDraft, setLibraryDraft] = useState<ChartDraft | null | "library">(null);
   const [scope, setScope] = useState<ConversationScope>("mine");
 
   const leadsAny = projects.some((project) => isSeatedOn(project, user?.id, "LEAD"));
@@ -115,6 +128,14 @@ function StaffHome({ projects, header }: { projects: Project[]; header: HeaderFn
     queryFn: ({ signal }) => dashboardsApi.getChartLibrary(homeApi.WORKSPACE_CHARTS, signal),
     staleTime: 5 * 60_000,
   });
+  const charts = layout.tiles.filter((tile): tile is ChartTile => tile.kind === "CHART");
+  // Every chart on Home in one request, over one read of the data they share, as a dashboard asks for its charts.
+  const answers = useQuery({
+    queryKey: dashboardsApi.CHART_ANSWERS_KEY(homeApi.WORKSPACE_CHARTS, charts),
+    queryFn: ({ signal }) => dashboardsApi.getChartAnswers(homeApi.WORKSPACE_CHARTS, charts, signal),
+    enabled: charts.length > 0,
+    staleTime: 60_000,
+  });
 
   // Team reads what the caller handed out that is due by the end of today, and the whole queue of the positions they
   // lead; Mine, their own overdue and today's tasks.
@@ -138,23 +159,42 @@ function StaffHome({ projects, header }: { projects: Project[]; header: HeaderFn
     [today.data],
   );
   const tasksPending = shownScope === "team" ? assigned.isPending : today.isPending || overdue.isPending;
-  const labels = useMemo(
-    () => Object.fromEntries((library.data ?? []).map((query) => [query.id, query.label])),
-    [library.data],
-  );
+  const queries = useMemo(() => new Map((library.data ?? []).map((query) => [query.id, query])), [library.data]);
+  const queryOf = (id: string) => queries.get(id);
+  const relabel = useRelabel();
   const count = seated.length === 1 ? "1 position you work on" : `${seated.length} positions you work on`;
 
-  return (
-    <>
-      {header(
-        count,
-        <Button variant="secondary" size="sm" onClick={() => setCustomizing(true)}>
-          <Icon d={ICONS.sliders} size={14} />
-          Customize
-        </Button>,
-      )}
+  const labelOf = (tile: HomeTile) => {
+    if (tile.kind !== "CHART") return SECTION_LABELS[tile.kind];
+    const query = queryOf(tile.queryId);
+    return tile.title || (query ? relabel(defaultTitle(query, tile.options)) : "Chart");
+  };
 
-      <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1.7fr)_minmax(300px,1fr)]">
+  const handleCommit = (chart: ChartDraft) => {
+    if (!editor.commitChart(chart)) toast.error(`Home can hold up to ${MAX_HOME_CHARTS} charts. Remove one to add another.`);
+  };
+
+  const chartEditor = (index: number) => {
+    const tile = layout.tiles[index];
+    const query = tile.kind === "CHART" ? queryOf(tile.queryId) : undefined;
+    return tile.kind === "CHART" && query ? () => setLibraryDraft(draftFor(query, tile, index)) : null;
+  };
+
+  const handleSave = () => {
+    if (!editor.draft) return;
+    home.save.mutate(editor.draft, {
+      onSuccess: () => {
+        editor.stop();
+        setOptionsOpen(false);
+        toast.success("Home saved");
+      },
+      onError: (error) => toast.error(messageFor(error)),
+    });
+  };
+
+  const renderTile = (tile: HomeTile) => {
+    if (tile.kind === "NEEDS") {
+      return (
         <NeedsYou
           items={items}
           more={outreach.data?.truncated ?? false}
@@ -165,31 +205,93 @@ function StaffHome({ projects, header }: { projects: Project[]; header: HeaderFn
           onScopeChange={setScope}
           showScope={leadsAny}
         />
-        <div className="flex min-w-0 flex-col gap-4">
-          {layout.sections
-            .filter((section) => section.on)
-            .map((section) =>
-              section.key === "today" ? (
-                <TodaySection key="today" agenda={agenda} pending={today.isPending} />
-              ) : section.key === "positions" ? (
-                <PositionsSection key="positions" positions={seated} />
-              ) : (
-                <ChartsSection key="charts" queryIds={layout.charts} labels={labels} onPin={() => setCustomizing(true)} />
-              ),
-            )}
-        </div>
-      </div>
-
-      <CustomizeHome
-        open={customizing}
-        onClose={() => setCustomizing(false)}
-        layout={layout}
-        onChange={setLayout}
-        library={library.data ?? []}
+      );
+    }
+    if (tile.kind === "TODAY") return <TodaySection agenda={agenda} pending={today.isPending} />;
+    if (tile.kind !== "CHART") return <PositionsSection positions={seated} />;
+    const chartIndex = charts.indexOf(tile);
+    return (
+      <ChartCard
+        scope={homeApi.WORKSPACE_CHARTS}
+        widget={tile}
+        query={library.isPending ? undefined : queryOf(tile.queryId)}
+        answer={answers.data?.[chartIndex]}
+        isPending={answers.isPending || library.isPending}
+        isError={answers.isError}
+        className="border-u-border-strong"
       />
+    );
+  };
+
+  const actions = editing ? (
+    <div className="flex flex-wrap items-center gap-2">
+      <Button variant="secondary" size="sm" onClick={() => setLibraryDraft("library")}>
+        <Icon d={ICONS.plus} size={14} />
+        Add chart
+      </Button>
+      <Button variant="secondary" size="sm" onClick={() => setOptionsOpen(true)}>
+        <Icon d={ICONS.sliders} size={14} />
+        Options
+      </Button>
+      <Button variant="secondary" size="sm" onClick={() => { editor.stop(); setOptionsOpen(false); }}>
+        Cancel
+      </Button>
+      <Button size="sm" loading={home.save.isPending} onClick={handleSave}>
+        Save layout
+      </Button>
+    </div>
+  ) : (
+    <Button variant="secondary" size="sm" disabled={home.pending} onClick={editor.start}>
+      <Icon d={ICONS.sliders} size={14} />
+      Customize
+    </Button>
+  );
+
+  return (
+    <>
+      {header(count, actions)}
+
+      {editing && (
+        <p className="rounded-u-chip bg-u-accent-tint px-3.5 py-2.5 text-note text-u-text2">
+          Drag a tile anywhere to move it, and its edge or corner to resize it. × takes a section or a chart off Home;
+          Options brings a section back. Nothing changes until you save.
+        </p>
+      )}
+
+      {home.pending ? (
+        <CardsSkeleton cards={3} />
+      ) : (
+        <HomeGrid
+          tiles={layout.tiles}
+          editing={editing}
+          labelOf={labelOf}
+          renderTile={renderTile}
+          onRelayout={editor.relayout}
+          onEditChart={chartEditor}
+          onRemove={editor.remove}
+          onAddChart={() => setLibraryDraft("library")}
+        />
+      )}
+
+      {editing && (
+        <HomeOptions open={optionsOpen} onClose={() => setOptionsOpen(false)} layout={layout} onChange={editor.update} />
+      )}
+      {libraryDraft !== null && (
+        <ChartLibraryDrawer
+          scope={homeApi.WORKSPACE_CHARTS}
+          library={library.data ?? []}
+          onCountLabel={`${library.data?.length ?? 0} ready-made charts · ${charts.length} on Home`}
+          initialDraft={libraryDraft === "library" ? null : libraryDraft}
+          addLabel="Add to Home"
+          onCommit={handleCommit}
+          onClose={() => setLibraryDraft(null)}
+        />
+      )}
     </>
   );
 }
+
+const SECTION_LABELS = { NEEDS: "Needs you", TODAY: "Today", POSITIONS: "Your positions" } as const;
 
 /** A pure client: the positions shared with them, how far each has come. No AI, nothing staff-only. */
 function ClientHome({ projects, header }: { projects: Project[]; header: HeaderFn }) {

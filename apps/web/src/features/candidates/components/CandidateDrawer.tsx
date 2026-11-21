@@ -1,4 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import type { ComponentProps } from "react";
 import { Drawer } from "../../../components/ui/Drawer";
 import type { CustomColumn } from "../../customcolumns/api/types";
 import { CANDIDATE_KEY, getCandidate } from "../api/candidatesApi";
@@ -6,12 +7,14 @@ import type { Candidate } from "../api/types";
 import type { DrawerSection, DrawerTab } from "../lib/drawerTabs";
 import { AddCandidateForm, type CandidateCompanyContext } from "./AddCandidateForm";
 import { CandidateProfile } from "./CandidateProfile";
+import type { RecordStepper } from "./RecordCornerControls";
 
 export type { CandidateCompanyContext } from "./AddCandidateForm";
 
 /**
  * The right-hand panel over the Companies grid: one executive's profile, or the add form. It stays open on a save and
  * shows what the server answered; the person is read through their own query, so a background enrichment shows unasked.
+ * With `frame="page"` the same profile is drawn in place, for the record full page.
  */
 export function CandidateDrawer({
   open,
@@ -29,6 +32,9 @@ export function CandidateDrawer({
   focusNoteId = null,
   focusSection = null,
   focusTab = null,
+  stepper,
+  frame = "peek",
+  clientVisibility,
 }: {
   open: boolean;
   projectId: string;
@@ -58,6 +64,10 @@ export function CandidateDrawer({
   focusSection?: DrawerSection | null;
   /** The tab to open on, from a link that says which; the viewer's remembered tab otherwise. */
   focusTab?: DrawerTab | null;
+  /** Previous and Next along the grid the panel was opened from. */
+  stepper?: RecordStepper;
+  frame?: "peek" | "page";
+  clientVisibility?: ComponentProps<typeof CandidateProfile>["clientVisibility"];
 }) {
   const queryClient = useQueryClient();
   const live = useQuery({
@@ -72,26 +82,31 @@ export function CandidateDrawer({
     onSaved(saved);
   };
 
+  const profile = shown && (
+    // Keyed so moving to another person starts the fold and edit state fresh.
+    <CandidateProfile
+      key={shown.id}
+      projectId={projectId}
+      candidate={shown}
+      customColumns={customColumns}
+      canWrite={canWrite}
+      briefCurrency={defaultCurrency}
+      onClose={onClose}
+      onSaved={handleSaved}
+      onRemove={canWrite ? onDelete : undefined}
+      onOpenCompany={onOpenCompany}
+      focusNoteId={focusNoteId}
+      focusSection={focusSection}
+      focusTab={focusTab}
+      stepper={stepper}
+      clientVisibility={clientVisibility}
+    />
+  );
+  if (frame === "page") return open ? profile : null;
+
   return (
     <Drawer open={open} onClose={onClose} wide label={shown ? shown.fullName : "Add executive"}>
-      {shown ? (
-        // Keyed so moving to another person starts the fold and edit state fresh.
-        <CandidateProfile
-          key={shown.id}
-          projectId={projectId}
-          candidate={shown}
-          customColumns={customColumns}
-          canWrite={canWrite}
-          briefCurrency={defaultCurrency}
-          onClose={onClose}
-          onSaved={handleSaved}
-          onRemove={canWrite ? onDelete : undefined}
-          onOpenCompany={onOpenCompany}
-          focusNoteId={focusNoteId}
-          focusSection={focusSection}
-          focusTab={focusTab}
-        />
-      ) : (
+      {profile || (
         <AddCandidateForm
           projectId={projectId}
           company={company}

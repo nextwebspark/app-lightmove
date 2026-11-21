@@ -15,7 +15,9 @@ export const DISCIPLINE_LABELS: Record<PositionDiscipline, string> = {
 
 export const DISCIPLINES = Object.keys(DISCIPLINE_LABELS) as PositionDiscipline[];
 
+export const TEMPLATE_LIBRARY_PATH = "/platform/templates";
+
 export const SCOPE_COPY: Record<TemplateScope, { heading: string; path: string }> = {
-  library: { heading: "Template library", path: "/settings/template-library" },
+  library: { heading: "Templates", path: TEMPLATE_LIBRARY_PATH },
   workspace: { heading: "Templates", path: "/settings/templates" },
 };

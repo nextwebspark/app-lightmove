@@ -9,6 +9,7 @@ import * as authApi from "../../features/auth/api/authApi";
 import * as notificationsApi from "../../features/notifications/api/notificationsApi";
 import { aUser, aWorkspace } from "../../test/fixtures/user";
 import { ToastProvider } from "../ui";
+import { PlatformBreadcrumb } from "../../features/platform/PlatformBreadcrumb";
 import { Topbar } from "./Topbar";
 
 vi.mock("../../features/auth/api/authApi");
@@ -281,6 +282,47 @@ describe("Topbar — account menu", () => {
     expect(screen.getByRole("menuitemcheckbox", { name: /Dark mode/ })).toBeInTheDocument();
     await userEvent.click(screen.getByRole("menuitem", { name: "Sign out" }));
     await waitFor(() => expect(authApi.logout).toHaveBeenCalled());
+  });
+
+  it("offers Platform to a holder of a platform action, above Sign out, and opens the console", async () => {
+    vi.mocked(authApi.me).mockResolvedValue(aUser({ fullName: "Alok Kumar", platformActions: ["TEMPLATE_LIBRARY_MANAGE"] }));
+    renderWith();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Account: Alok Kumar" }));
+
+    const items = screen.getAllByRole("menuitem").map((item) => item.textContent);
+    expect(items.at(-2)).toContain("Platform");
+    expect(items.at(-1)).toContain("Sign out");
+    await userEvent.click(screen.getByRole("menuitem", { name: /Platform/ }));
+    expect(screen.getByTestId("pathname").textContent).toBe("/platform");
+  });
+
+  it("shows no Platform item to anyone else", async () => {
+    renderWith();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Account: Alok Kumar" }));
+
+    expect(screen.getByRole("menuitem", { name: "Sign out" })).toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: /Platform/ })).not.toBeInTheDocument();
+  });
+
+  it("draws the console's header without the workspace's credit chip or bell", async () => {
+    render(
+      <MemoryRouter>
+        <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+          <AuthProvider>
+            <ToastProvider>
+              <Topbar breadcrumb={<PlatformBreadcrumb section="Templates" />} workspaceChrome={false} />
+            </ToastProvider>
+          </AuthProvider>
+        </QueryClientProvider>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByRole("button", { name: "Account: Alok Kumar" })).toBeInTheDocument();
+    expect(screen.getByText("Uncava platform")).toBeInTheDocument();
+    expect(screen.getByText("Templates")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Notifications/ })).not.toBeInTheDocument();
   });
 
   it("keeps the avatar beside a project's people", async () => {

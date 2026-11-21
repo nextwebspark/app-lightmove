@@ -515,6 +515,8 @@ someone left from is their status's stage. The seed now labels `outOfScope` **No
 Shortlist (`withdrewShortlist`) and Offer (`withdrewOffer`). An existing workspace gained those two only where it still
 runs V163's shape (its own `withdrew` a way out under the `INTERESTED` stage), on a live stage, under a key it does not
 hold; nothing existing was renamed.
+V233 adds `app_lm_home_layout` (docs/custom-dashboards.md, Home): a member's own Home per workspace, unique on (`workspace_id`, `user_id`), both cascading — `tiles` jsonb, an array of `{kind, layout: {x, y, w, h}}` with kind `NEEDS` (always one), `TODAY`, `POSITIONS` or `CHART` (which carries `{queryId, chart, options, title}` like a workspace dashboard widget, at most 12), `needs` jsonb (each Needs you `ConversationGroup` → shown), and `landing` (`HOME` | `POSITIONS`). No row means the default. The choice only, never a figure. Forced RLS on its `workspace_id`. Staff-only.
+
 V232 seeds the workspace action `PROJECT_BROWSE_ALL`, granted to ADMIN alone: seeing every position of the workspace. Anyone without it is answered only the positions they hold a seat on (`ProjectService.visibilityOf`); `PROJECT_BROWSE` stays with ADMIN and MEMBER for the reference data a member works with. No table changes.
 
 V233 adds `app_lm_platform_step_up` (#1313): when a platform admin last entered a two-factor code for a high-impact

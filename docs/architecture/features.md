@@ -355,7 +355,20 @@ Email, Add note and Schedule (Book a call, said why not where do not contact or 
 The In-universe page also reads as a **map**: the Map view (offered only
 where a Mapbox public token is configured) swaps the grid for a mapping panel (country → company →
 executives) beside a Mapbox globe, with a pin per company and
-per executive and the same two drawers opened from a pin's popup or a panel row. Nothing carries a
+per executive and the same two drawers opened from a pin's popup or a panel row. The executive drawer over the
+grid or the map is held in the URL as `?candidate=` (and `?tab=` from a link), so a refresh, Back or a shared link
+reopens it; over the grid its header steps to the previous and next executive in the grid's order (↑ ↓, or K and J),
+held while an edit is open (`RecordCornerControls`). Its ⤢ opens the record **full page** (`?record=page`, `CandidateRecordPage`): the
+toolbar and grid give way to a list of the grid's executives — the grid's own read, so its stage, filters, sort and
+page — each a photo with a status dot, the name with the company's logo, and title · company under it, beside the
+record at the full width left. A record bar replaces the corner buttons (↑ ↓, "N of M", Exit full page), and an action
+row under the header (`RecordActionRow`) offers Write email, Add note, Log and ⋯ (Book a meeting, Add to sequence, Set
+next action, Remove). From `xl` the Details rail (`RecordDetailsRail`) holds what stays true on every tab — next action,
+contact, tags, client visibility and the person's other positions (staff only), and when and how they were added — so
+the header, footer and Outreach tab leave theirs out there; Profile's folds split into two columns once the record is
+wide enough. `/` searches the list and Hide list folds it away (kept per viewer). Going in is a step in history, so
+Back returns to the peek; ⤡, Esc or the list's back link return to the grid with the peek open on whoever is open.
+Below `lg` the list waits behind a List button. Nothing carries a
 coordinate, so `geocoding` resolves each distinct city + country once through Mapbox and keeps it in
 `app_lm_geocoded_place`; `talentmap` composes the stage's companies, people and points into one
 unpaged, capped read (`GET /projects/{id}/talent-map`), with `…/talent-map/locations` answering the
@@ -453,10 +466,15 @@ card on the list are gone. The list is the server's answer: every position for a
 their outreach To do across the positions they work (`GET /me/outreach/needs`, `MyOutreachQueueService`, each
 position's own `ConversationService.list`; **Team** for a lead reads the whole queue of the positions they lead) and
 their overdue and today's tasks, a task a row already carries never drawn twice — beside **Today** (today's calls
-and meetings), **Your positions** and up to four pinned headline charts from the workspace dashboard library.
-**Customize** shows, hides and reorders the sections, chooses which To do groups Needs you carries, and where Uncava
-opens (Home or Positions, read by `homeFor` at sign-in); nothing is locked and **Reset to the default** puts back
-the layout everyone starts from. The layout is the person's own browser preference, per workspace (`lm-home:{userId}:{workspaceId}`). A pure client's Home
+and meetings), **Your positions** and charts from the workspace dashboard library — every one a tile on the
+dashboard's twelve-column grid (`DashboardGrid`). **Customize** is the dashboard's edit mode on Home: drag a tile to
+move it, its edge or corner to resize it, **Add chart** (any library chart, up to 12), × to take a tile off (never
+Needs you), and **Options** for which sections show, which To do groups Needs you carries and where Uncava opens
+(Home or Positions); nothing is kept until **Save layout**, and **Reset to the default** puts back the layout everyone
+starts from. The layout is the person's own, per workspace, on the server (V233, `GET/PUT/DELETE /me/home`,
+`HomeLayoutService`; saving the default deletes the row so they keep following it); the landing choice is also
+remembered on the browser (`lm-landing:{userId}:{workspaceId}`) because `homeFor` decides before any request, and a
+layout kept on the browser before V233 (`lm-home:…`) is carried over on the first save. A pure client's Home
 is the positions shared with them, with no queue and nothing staff-only; an admin of a workspace with no position
 sees the four set-up steps. The AI cards the mockup draws (Since you were last here, drafted replies, meeting prep
 and recaps, positions at risk) are the next steps, not built.
@@ -581,8 +599,8 @@ generic fallback) lives in the database, matched against the mandate's role titl
 Role Brief's **Role title is a combobox**: free text — a mandate is titled "Group CFO – Energy Division" as
 often as it is titled "Chief Financial Officer" — that type-aheads the seventeen titles, and picking
 one takes that title and redrafts the brief from its template (`GET /position-templates` +
-`POST .../position/template`). Templates are edited in Settings (V57/V58; **Settings → Templates** for a
-firm's admin, **Settings → Template library** for a super admin): a LightMove **super admin** — a *platform* role granted only by
+`POST .../position/template`). Templates are edited in two places (V57/V58; **Settings → Templates** for a
+firm's admin, **Platform → Templates** for a super admin): a LightMove **super admin** — a *platform* role granted only by
 `ops/cloudsql/grant-platform-role.sh`, reading no tenant's data — edits the shared library, and a
 workspace admin customises, hides, adds, exports and imports the firm's own. Where a deployment sets
 `lightmove.platform.require-two-factor` (#1313, off by default), that role also needs two-factor: without a factor every
@@ -652,6 +670,14 @@ draws a card from the Open Graph tags in `apps/web/index.html` over `public/og-i
 because no crawler runs the bundle (README, "Link previews"). Publishing stamps who
 called the brief ready and **freezes nothing** (V38 retired the lock deliberately). Don't build ahead of
 the mockups: if a screen isn't being built this session, its tables and entities don't exist yet.
+
+The shared template library a super admin edits is the first section of the **platform console** (#1312, `features/platform`): `/platform/*` in the same SPA, origin and session,
+with its own shell (`PlatformLayout`: the "Uncava platform" header with no workspace menu, credit chip or bell, a rail
+from `platformSections`, **Back to workspace**), reached from a **Platform** item in the avatar menu that only a
+holder of a platform action sees. The whole tree is one lazy chunk (`PlatformRoutes`), mounted behind
+`RequirePlatformStaff`, so nobody else downloads it, and a chunk that will not load (a tab left open across a deploy) draws
+`PlatformUnavailable` in its place rather than blanking the app; the guards are presentation and `@platformAuthorizer` is the
+boundary. `/settings/template-library` and a template's address under it redirect to `/platform/templates`.
 
 
 ## Layout

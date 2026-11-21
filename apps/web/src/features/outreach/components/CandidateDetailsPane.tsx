@@ -1,12 +1,9 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState, type ReactNode } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Link, useOutletContext } from "react-router-dom";
 import type { ProjectOutletContext } from "../../../components/layout/ProjectLayout";
 import { Icon, ICONS } from "../../../components/layout/Icon";
-import { Toggle, useToast } from "../../../components/ui";
+import { DetailBlock, DetailRow } from "../../../components/ui/DetailList";
 import { cn } from "../../../lib/cn";
-import * as shareConsentApi from "../../candidates/api/shareConsentApi";
-import { ShareConsentPromptDialog } from "../../candidates/components/consent/ShareConsentPromptDialog";
 import { PersonAvatar } from "../../candidates/components/pool/PersonAvatar";
 import { isReachable } from "../../contactlookup/lib/phoneReach";
 import {
@@ -15,11 +12,8 @@ import {
   WhatsAppLink,
   type PhoneReach,
 } from "../../contactlookup/components/PhoneActions";
-import { useShareConsents } from "../../candidates/lib/useShareConsents";
-import { useWorkspaceVocabulary } from "../../workspace/lib/vocabulary";
-import { messageFor } from "../../../lib/errorCodes";
 import { pipelineColourClass, pipelineSwatchClass } from "../../candidates/lib/pipelineStatus";
-import { useClientVisibility } from "../../pipeline/lib/usePipelineWrites";
+import { ClientVisibleSwitch } from "../../pipeline/components/ClientVisibleSwitch";
 import { CONVERSATION_KEY, type Conversation } from "../api/conversationApi";
 import { keyDateOf, lastCallKeyDateOf } from "../lib/conversationVocabulary";
 import { lastCallTitle } from "../../candidates/lib/lastCall";
@@ -40,40 +34,15 @@ export function CandidateDetailsPane({
   onOpenRecord: (tab: "activity" | null) => void;
 }) {
   const queryClient = useQueryClient();
-  const toast = useToast();
-  const clientVisibility = useClientVisibility(projectId);
-  const share = useShareConsents(projectId);
   const outlet = useOutletContext<ProjectOutletContext | undefined>();
-  const vocabulary = useWorkspaceVocabulary();
-  const clientName = outlet?.project.clientName ?? `the ${vocabulary.unitLower}`;
-  const [sharePrompt, setSharePrompt] = useState(false);
   const { executive, contact, keyDates, currentRun } = conversation;
-  // Ask first from here goes straight away, in the confidential wording; naming the client is the Pipeline card's.
-  const askShare = useMutation({
-    mutationFn: () => shareConsentApi.requestShareConsent(projectId, executive.candidateId, false),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: shareConsentApi.SHARE_CONSENTS_KEY(projectId) });
-      toast.success(`Request sent to ${executive.fullName.split(" ")[0]}.`);
-      setSharePrompt(false);
-    },
-    onError: (failure) => {
-      toast.error(messageFor(failure));
-      setSharePrompt(false);
-    },
-  });
-  const showToClient = (checked: boolean) =>
-    clientVisibility.mutate(
-      { candidateId: executive.candidateId, clientVisible: checked },
-      {
-        // Written into the read at once, so the switch holds its new place until the refetch confirms it.
-        onSuccess: (saved) =>
-          queryClient.setQueryData<Conversation>(CONVERSATION_KEY(projectId, executive.candidateId), (held) =>
-            held ? { ...held, executive: { ...held.executive, clientVisible: saved.clientVisible } } : held,
-          ),
-        onSettled: () =>
-          void queryClient.invalidateQueries({ queryKey: CONVERSATION_KEY(projectId, executive.candidateId) }),
-      },
+  // Written into the read at once, so the switch holds its new place until the refetch confirms it.
+  const keepClientVisible = (clientVisible: boolean) => {
+    queryClient.setQueryData<Conversation>(CONVERSATION_KEY(projectId, executive.candidateId), (held) =>
+      held ? { ...held, executive: { ...held.executive, clientVisible } } : held,
     );
+    void queryClient.invalidateQueries({ queryKey: CONVERSATION_KEY(projectId, executive.candidateId) });
+  };
   const run = currentRun.run;
   const location = [contact.locationCity, contact.locationCountry].filter(Boolean).join(", ");
   const phoneReach: PhoneReach = {
@@ -89,10 +58,6 @@ export function CandidateDetailsPane({
       approach: conversation.composer?.recentApproach ?? null,
     },
   };
-  const clientVisible = clientVisibility.isPending
-    ? (clientVisibility.variables?.clientVisible ?? executive.clientVisible)
-    : executive.clientVisible;
-
   return (
     <aside aria-label="Candidate details" className="flex flex-col gap-5 px-5 py-4">
       <div className="type-label text-u-text3">Candidate details</div>
@@ -111,40 +76,13 @@ export function CandidateDetailsPane({
         </span>
       </div>
 
-      <div>
-        <div className="flex items-center gap-2">
-          <Icon d={ICONS.eye} size={14} className="text-u-text3" />
-          <span className="text-body text-u-text">Client visible</span>
-          <span className="ms-auto">
-            <Toggle
-              checked={clientVisible}
-              label="Client visible"
-              disabled={clientVisibility.isPending}
-              onChange={(checked) => {
-                if (checked && share.needsPrompt(executive.candidateId)) setSharePrompt(true);
-                else showToClient(checked);
-              }}
-            />
-          </span>
-        </div>
-        <p className="mt-1 text-meta text-u-text3">
-          Client-visible profile only. Emails and private notes remain internal.
-        </p>
-        {sharePrompt && (
-          <ShareConsentPromptDialog
-            fullName={executive.fullName}
-            clientName={clientName}
-            row={share.rowOf(executive.candidateId)}
-            busy={askShare.isPending}
-            onClose={() => setSharePrompt(false)}
-            onShowAnyway={() => {
-              setSharePrompt(false);
-              showToClient(true);
-            }}
-            onAskFirst={() => askShare.mutate()}
-          />
-        )}
-      </div>
+      <ClientVisibleSwitch
+        projectId={projectId}
+        candidateId={executive.candidateId}
+        fullName={executive.fullName}
+        clientVisible={executive.clientVisible}
+        onChanged={keepClientVisible}
+      />
 
       <DetailBlock title="Contact details">
         <DetailRow label="Email">
@@ -257,27 +195,6 @@ export function StatusPill({ label, colour }: { label: string; colour: string })
       <span aria-hidden="true" className={cn("size-1.5 rounded-full", pipelineSwatchClass(colour))} />
       {label}
     </span>
-  );
-}
-
-function DetailBlock({ title, aside, children }: { title: string; aside?: ReactNode; children: ReactNode }) {
-  return (
-    <section className="flex flex-col gap-2 border-t border-u-border pt-4">
-      <div className="flex items-center">
-        <h3 className="type-micro-label text-u-text3">{title}</h3>
-        {aside && <span className="ms-auto">{aside}</span>}
-      </div>
-      {children}
-    </section>
-  );
-}
-
-function DetailRow({ label, mono = false, children }: { label: string; mono?: boolean; children: ReactNode }) {
-  return (
-    <div className="flex gap-3 text-note">
-      <span className="w-24 flex-none text-u-text3">{label}</span>
-      <div className={cn("min-w-0 flex-1 text-u-text2", mono && "font-mono")}>{children}</div>
-    </div>
   );
 }
 

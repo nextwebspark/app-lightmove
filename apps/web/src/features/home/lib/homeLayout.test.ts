@@ -1,46 +1,78 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { DEFAULT_HOME_LAYOUT, landingPath, moveSection, readHomeLayout } from "./homeLayout";
+import {
+  DEFAULT_HOME_LAYOUT,
+  forgetLegacyLayout,
+  hasSection,
+  isDefaultLayout,
+  landingPath,
+  legacyLayout,
+  rememberLanding,
+  tileLimits,
+  withSection,
+} from "./homeLayout";
 
 const owner = { userId: "u1", workspaceId: "w1" };
 
-describe("the Home layout", () => {
+describe("homeLayout", () => {
   afterEach(() => localStorage.clear());
 
-  it("is the default until the person changes it", () => {
-    expect(readHomeLayout(owner)).toEqual(DEFAULT_HOME_LAYOUT);
-    expect(landingPath(owner)).toBe("/");
+  it("takes a section off Home and lets the rest rise, then brings it back at the foot at its usual size", () => {
+    const off = withSection(DEFAULT_HOME_LAYOUT, "TODAY", false);
+    expect(hasSection(off, "TODAY")).toBe(false);
+    expect(off.tiles.find((tile) => tile.kind === "POSITIONS")?.layout).toEqual({ x: 8, y: 0, w: 4, h: 6 });
+
+    const back = withSection(off, "TODAY", true);
+    expect(back.tiles.at(-1)).toEqual({ kind: "TODAY", layout: expect.objectContaining({ w: 4, h: 5 }) });
+    expect(withSection(back, "TODAY", true)).toBe(back);
   });
 
-  it("fills in what a stored layout is missing or got wrong from the default", () => {
+  it("keeps Needs you readable: it cannot be made smaller than half the page", () => {
+    expect(tileLimits(DEFAULT_HOME_LAYOUT.tiles[0])).toMatchObject({ minW: 5, minH: 6 });
+    expect(tileLimits({ kind: "CHART", queryId: "x", chart: "bar", options: {}, title: null, layout: { x: 0, y: 0, w: 6, h: 7 } }))
+      .toMatchObject({ minW: 3, minH: 5 });
+  });
+
+  it("lands on Positions only for someone who chose it in this workspace", () => {
+    expect(landingPath(owner)).toBe("/");
+    rememberLanding(owner, "positions");
+    expect(landingPath(owner)).toBe("/positions");
+    expect(landingPath({ userId: "u1", workspaceId: "w2" })).toBe("/");
+  });
+
+  it("carries a layout kept on this browser before Home was saved on the server", () => {
     localStorage.setItem(
       "lm-home:u1:w1",
-      JSON.stringify({ sections: [{ key: "charts", on: false }, { key: "nonsense", on: true }], kinds: { FOLLOW_UP: false }, landing: "positions" }),
+      JSON.stringify({
+        sections: [{ key: "positions", on: true }, { key: "today", on: false }, { key: "charts", on: true }],
+        kinds: { ATTENTION: false },
+        charts: ["openPositions"],
+        landing: "positions",
+      }),
     );
-    const layout = readHomeLayout(owner);
-    expect(layout.sections.map((section) => section.key)).toEqual(["charts", "today", "positions"]);
-    expect(layout.sections[0].on).toBe(false);
-    expect(layout.kinds.FOLLOW_UP).toBe(false);
-    expect(layout.kinds.NEEDS_REPLY).toBe(true);
+
+    const carried = legacyLayout(owner);
+    expect(carried?.tiles.map((tile) => tile.kind)).toEqual(["NEEDS", "POSITIONS", "CHART"]);
+    expect(carried?.kinds.ATTENTION).toBe(false);
+    expect(carried?.landing).toBe("positions");
     expect(landingPath(owner)).toBe("/positions");
+
+    forgetLegacyLayout(owner);
+    expect(legacyLayout(owner)).toBeNull();
   });
 
-  it("is each person's own, in each workspace", () => {
-    localStorage.setItem("lm-home:u1:w1", JSON.stringify({ landing: "positions" }));
-    expect(landingPath({ userId: "u1", workspaceId: "w2" })).toBe("/");
-    expect(landingPath({ userId: "u2", workspaceId: "w1" })).toBe("/");
-  });
-
-  it("reads an unreadable layout as the default", () => {
-    localStorage.setItem("lm-home:u1:w1", "{not json");
-    expect(readHomeLayout(owner)).toEqual(DEFAULT_HOME_LAYOUT);
-  });
-
-  it("moves a section within its bounds", () => {
-    expect(moveSection(DEFAULT_HOME_LAYOUT, "positions", -1).sections.map((section) => section.key)).toEqual([
-      "positions",
-      "today",
-      "charts",
-    ]);
-    expect(moveSection(DEFAULT_HOME_LAYOUT, "today", -1)).toBe(DEFAULT_HOME_LAYOUT);
+  it("knows the default when it sees it", () => {
+    expect(isDefaultLayout(structuredClone(DEFAULT_HOME_LAYOUT))).toBe(true);
+    // The same layout rebuilt with its keys in another order, as a tile spread or the server's answer leaves it.
+    const reordered = {
+      landing: DEFAULT_HOME_LAYOUT.landing,
+      kinds: { ATTENTION: true, PREPARATION: true, FOLLOW_UP: true, NEEDS_REPLY: true },
+      tiles: DEFAULT_HOME_LAYOUT.tiles.map(({ layout, ...rest }) => ({
+        key: "tile-9",
+        layout: { h: layout.h, w: layout.w, y: layout.y, x: layout.x },
+        ...rest,
+      })),
+    };
+    expect(isDefaultLayout(reordered)).toBe(true);
+    expect(isDefaultLayout(withSection(DEFAULT_HOME_LAYOUT, "TODAY", false))).toBe(false);
   });
 });

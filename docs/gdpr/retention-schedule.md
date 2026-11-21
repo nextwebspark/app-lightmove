@@ -87,6 +87,7 @@ once by `ops/cloudsql/scrub-audit-pii.sql`.
 | `app_lm_candidate_scorecard` | assessment of the executive | the consultant's scorecard | with the mapping | erasure, unmapping | cascade |
 | `app_lm_ranking_scenario` | who saved it, the team's rationale | the position's ranking scenario (no person) | with the position | position or workspace deleted | cascade |
 | `app_lm_dashboard` | who made it, its name | a member's custom dashboard (the charts chosen; no figures, no person) | with its owner and its position or workspace | owner's account, position or workspace deleted | cascade |
+| `app_lm_home_layout` | whose Home it is | a member's own Home layout per workspace (sections and charts chosen, Needs you groups, landing; no figures, no other person) | with its member | account or workspace deleted, or reset to the default | cascade, or deleted on reset |
 | `app_lm_interview_plan` | person, questions for a call | the interview copilot | with the person | erasure | cascade |
 | `app_lm_meeting_recording` | person, transcript | the Notetaker | with the person; transcript per `lightmove.recall.transcript-retention` | erasure, retention | `NotetakerTranscriptPurge` |
 | `app_lm_meeting_live_line` | spoken lines | the live copilot | until the call ends | call end | `NotetakerService` |
