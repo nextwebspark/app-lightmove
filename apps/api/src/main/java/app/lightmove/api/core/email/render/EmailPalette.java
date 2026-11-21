@@ -21,5 +21,18 @@ final class EmailPalette {
     static final String ACCENT = "#4A56D6";
     static final String ON_ACCENT = "#FFFFFF";
 
+    /** The tints below are the app's {@code --u-*-tint} tokens flattened onto white, as {@link #BORDER} is. */
+    static final String ACCENT_TINT = "#EFF0FB";
+    static final String ACCENT_TINT_RULE = "#DCDEF3";
+
+    /** {@code --u-signal}: the app's warning role, which is what late work is. */
+    static final String SIGNAL = "#A05B2D";
+    static final String SIGNAL_TINT = "#F6EFEA";
+
+    /** {@code --u-raised} and {@code --u-text2}. */
+    static final String NEUTRAL_TINT = "#ECEFF3";
+    static final String NEUTRAL_TEXT = "#343A46";
+    static final String LABEL = "#525967";
+
     private EmailPalette() {}
 }
