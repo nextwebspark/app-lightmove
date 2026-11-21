@@ -1,4 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import type { ComponentProps } from "react";
 import { Drawer } from "../../../components/ui/Drawer";
 import type { CustomColumn } from "../../customcolumns/api/types";
 import { CANDIDATE_KEY, getCandidate } from "../api/candidatesApi";
@@ -33,6 +34,7 @@ export function CandidateDrawer({
   focusTab = null,
   stepper,
   frame = "peek",
+  clientVisibility,
 }: {
   open: boolean;
   projectId: string;
@@ -65,6 +67,7 @@ export function CandidateDrawer({
   /** Previous and Next along the grid the panel was opened from. */
   stepper?: RecordStepper;
   frame?: "peek" | "page";
+  clientVisibility?: ComponentProps<typeof CandidateProfile>["clientVisibility"];
 }) {
   const queryClient = useQueryClient();
   const live = useQuery({
@@ -96,6 +99,7 @@ export function CandidateDrawer({
       focusSection={focusSection}
       focusTab={focusTab}
       stepper={stepper}
+      clientVisibility={clientVisibility}
     />
   );
   if (frame === "page") return open ? profile : null;

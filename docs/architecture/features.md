@@ -360,9 +360,15 @@ grid or the map is held in the URL as `?candidate=` (and `?tab=` from a link), s
 reopens it; over the grid its header steps to the previous and next executive in the grid's order (↑ ↓, or K and J),
 held while an edit is open (`RecordCornerControls`). Its ⤢ opens the record **full page** (`?record=page`, `CandidateRecordPage`): the
 toolbar and grid give way to a list of the grid's executives — the grid's own read, so its stage, filters, sort and
-page — each a photo with a status dot, the name with the company's logo, and title · company under it, beside the same
-record capped at a reading width. Going in is a step in history, so Back returns to the peek; ⤡, Esc or the list's
-back link return to the grid with the peek open on whoever is open. Below `lg` the list waits behind a List button. Nothing carries a
+page — each a photo with a status dot, the name with the company's logo, and title · company under it, beside the
+record at the full width left. A record bar replaces the corner buttons (↑ ↓, "N of M", Exit full page), and an action
+row under the header (`RecordActionRow`) offers Write email, Add note, Log and ⋯ (Book a meeting, Add to sequence, Set
+next action, Remove). From `xl` the Details rail (`RecordDetailsRail`) holds what stays true on every tab — next action,
+contact, tags, client visibility and the person's other positions (staff only), and when and how they were added — so
+the header, footer and Outreach tab leave theirs out there; Profile's folds split into two columns once the record is
+wide enough. `/` searches the list and Hide list folds it away (kept per viewer). Going in is a step in history, so
+Back returns to the peek; ⤡, Esc or the list's back link return to the grid with the peek open on whoever is open.
+Below `lg` the list waits behind a List button. Nothing carries a
 coordinate, so `geocoding` resolves each distinct city + country once through Mapbox and keeps it in
 `app_lm_geocoded_place`; `talentmap` composes the stage's companies, people and points into one
 unpaged, capped read (`GET /projects/{id}/talent-map`), with `…/talent-map/locations` answering the
