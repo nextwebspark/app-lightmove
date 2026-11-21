@@ -91,16 +91,15 @@ public class TaskDigestComposer {
             if (!dueToday.isEmpty()) {
                 blocks.add(new EmailSectionTitle("Due today · " + dueToday.size(), EmailTone.ACCENT, null));
                 blocks.add(new EmailCard(EmailCardStyle.PLAIN, null, null, null, dueToday.stream().limit(TODAY_ROWS)
-                        .map(line -> new EmailRow(formats.time(line.dueAt()), nameOf(line),
-                                line.title() + " · " + positionOf(line), null, null, null, linkOf(line)))
+                        .map(line -> EmailRow.of(nameOf(line), line.title() + " · " + positionOf(line), linkOf(line))
+                                .withLeading(formats.time(line.dueAt())))
                         .toList(), moreOf(dueToday.size() - TODAY_ROWS)));
             }
             if (unreadMentions > 0) {
                 blocks.add(new EmailSectionTitle("Mentions · " + unreadMentions, EmailTone.NEUTRAL, null));
                 blocks.add(new EmailCard(EmailCardStyle.PLAIN, null, null, null, mentions.stream()
-                        .map(mention -> new EmailRow(null, mention.actorName() + " mentioned you",
-                                "On " + mention.executiveName() + " · " + mention.positionTitle(), null, null, null,
-                                mention.link()))
+                        .map(mention -> EmailRow.of(mention.actorName() + " mentioned you",
+                                "On " + mention.executiveName() + " · " + mention.positionTitle(), mention.link()))
                         .toList(), moreOf(unreadMentions - mentions.size())));
             }
             if (!positions.isEmpty()) {
@@ -117,9 +116,9 @@ public class TaskDigestComposer {
                 blocks.add(EmailParagraph.of("Still relevant? Close it or give it a new date in Uncava and it "
                         + "leaves this email."));
                 blocks.add(new EmailCard(EmailCardStyle.QUIET, null, null, null, stale.stream().limit(STALE_ROWS)
-                        .map(line -> new EmailRow(null, nameOf(line), line.title() + " · " + positionOf(line)
-                                + " · was due " + formats.date(line.dueAt()), null,
-                                buckets.daysLate(line) + " days", EmailTone.NEUTRAL, linkOf(line)))
+                        .map(line -> EmailRow.of(nameOf(line), line.title() + " · " + positionOf(line)
+                                        + " · was due " + formats.date(line.dueAt()), linkOf(line))
+                                .withBadge(buckets.daysLate(line) + " days", EmailTone.NEUTRAL))
                         .toList(), moreOf(stale.size() - STALE_ROWS)));
             }
             if (!buckets.comingUp().isEmpty()) {
@@ -196,8 +195,8 @@ public class TaskDigestComposer {
 
         private EmailRow lateRowOf(List<DueDigestLine> conversation) {
             DueDigestLine oldest = conversation.getFirst();
-            return new EmailRow(null, nameOf(oldest), titlesOf(conversation), null,
-                    lateBadgeOf(buckets.daysLate(oldest)), EmailTone.SIGNAL, linkOf(oldest));
+            return EmailRow.of(nameOf(oldest), titlesOf(conversation), linkOf(oldest))
+                    .withBadge(lateBadgeOf(buckets.daysLate(oldest)), EmailTone.SIGNAL);
         }
 
         /** Today's first task, the executive one conversation would clear most for, then whoever waited longest. */
@@ -207,8 +206,9 @@ public class TaskDigestComposer {
             Set<List<UUID>> picked = new HashSet<>();
             if (!dueToday.isEmpty()) {
                 DueDigestLine first = dueToday.getFirst();
-                picks.add(new EmailRow(null, first.title() + " · " + nameOf(first), positionOf(first),
-                        "Due at " + formats.time(first.dueAt()) + " today", "Today", EmailTone.ACCENT, linkOf(first)));
+                picks.add(EmailRow.of(first.title() + " · " + nameOf(first), positionOf(first), linkOf(first))
+                        .withDetail("Due at " + formats.time(first.dueAt()) + " today")
+                        .withBadge("Today", EmailTone.ACCENT));
                 picked.add(conversationKeyOf(first));
             }
             List<DueDigestLine> open = new ArrayList<>(buckets.fresh());
@@ -220,10 +220,11 @@ public class TaskDigestComposer {
                     .ifPresent(conversation -> {
                         DueDigestLine oldest = conversation.getFirst();
                         boolean today = buckets.isDueToday(oldest);
-                        picks.add(new EmailRow(null, nameOf(oldest), positionOf(oldest) + " · " + titlesOf(conversation),
-                                "One conversation closes " + conversation.size() + " tasks",
-                                today ? "Today" : lateBadgeOf(buckets.daysLate(oldest)),
-                                today ? EmailTone.ACCENT : EmailTone.SIGNAL, linkOf(oldest)));
+                        picks.add(EmailRow.of(nameOf(oldest), positionOf(oldest) + " · " + titlesOf(conversation),
+                                        linkOf(oldest))
+                                .withDetail("One conversation closes " + conversation.size() + " tasks")
+                                .withBadge(today ? "Today" : lateBadgeOf(buckets.daysLate(oldest)),
+                                        today ? EmailTone.ACCENT : EmailTone.SIGNAL));
                         picked.add(conversationKeyOf(oldest));
                     });
             for (List<DueDigestLine> conversation : conversationsOf(buckets.fresh())) {
@@ -232,9 +233,9 @@ public class TaskDigestComposer {
                 }
                 DueDigestLine oldest = conversation.getFirst();
                 if (picked.add(conversationKeyOf(oldest))) {
-                    picks.add(new EmailRow(null, nameOf(oldest), positionOf(oldest) + " · " + titlesOf(conversation),
-                            "Waiting since " + formats.date(oldest.dueAt()), lateBadgeOf(buckets.daysLate(oldest)),
-                            EmailTone.SIGNAL, linkOf(oldest)));
+                    picks.add(EmailRow.of(nameOf(oldest), positionOf(oldest) + " · " + titlesOf(conversation), linkOf(oldest))
+                            .withDetail("Waiting since " + formats.date(oldest.dueAt()))
+                            .withBadge(lateBadgeOf(buckets.daysLate(oldest)), EmailTone.SIGNAL));
                 }
             }
             return picks;
@@ -244,12 +245,12 @@ public class TaskDigestComposer {
             Map<LocalDate, List<DueDigestLine>> byDay = buckets.comingUp().stream()
                     .collect(Collectors.groupingBy(buckets::workingDayOf, LinkedHashMap::new, Collectors.toList()));
             return byDay.entrySet().stream()
-                    .map(day -> new EmailRow(null,
+                    .map(day -> EmailRow.of(
                             day.getKey().getDayOfWeek().getDisplayName(TextStyle.FULL, Locale.ENGLISH) + " "
                                     + formats.date(day.getKey()),
                             countOf(day.getValue().size(), "task") + " · " + countOf((int) day.getValue().stream()
                                     .map(DueDigestLine::projectId).distinct().count(), "position"),
-                            null, null, null, links.myTasks()))
+                            links.myTasks()))
                     .toList();
         }
 

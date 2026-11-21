@@ -110,8 +110,8 @@ class EmailRendererTest {
 
         private final EmailCard card = new EmailCard(EmailCardStyle.PLAIN, "<b>Merchandising</b> Director",
                 "7 overdue", new EmailAction("Open position", BASE_URL + "/projects/7/pipeline"),
-                List.of(new EmailRow(null, "Amit <i>Tandon</i>", "Call · Debrief", null, "11 days late",
-                        EmailTone.SIGNAL, BASE_URL + "/projects/7/pipeline?candidate=3")),
+                List.of(EmailRow.of("Amit <i>Tandon</i>", "Call · Debrief", BASE_URL + "/projects/7/pipeline?candidate=3")
+                        .withBadge("11 days late", EmailTone.SIGNAL)),
                 "+1 under Gone quiet");
 
         @Test
@@ -156,8 +156,8 @@ class EmailRendererTest {
         @DisplayName("numbers the rows of the one card to start from")
         void numbersTheHighlight() {
             EmailCard start = new EmailCard(EmailCardStyle.HIGHLIGHT, "Start here", null, null, List.of(
-                    new EmailRow(null, "Amit Tandon", null, "One conversation closes 2 tasks", null, null, "#a"),
-                    new EmailRow(null, "Rajiv Shankar", null, null, null, null, "#b")), null);
+                    EmailRow.of("Amit Tandon", null, "#a").withDetail("One conversation closes 2 tasks"),
+                    EmailRow.of("Rajiv Shankar", null, "#b")), null);
             EmailMessage message = render(start);
 
             assertThat(message.htmlBody()).contains("background:#EFF0FB").contains(">2</span>");
