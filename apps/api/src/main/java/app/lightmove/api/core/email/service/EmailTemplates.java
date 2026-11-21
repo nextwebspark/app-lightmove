@@ -535,10 +535,6 @@ public class EmailTemplates {
         return HtmlUtils.htmlEscape(text, "UTF-8");
     }
 
-    private static String countOf(int count, String noun) {
-        return count == 1 ? "1 " + noun : count + " " + noun + "s";
-    }
-
     private static String creditsLeftOf(long credits) {
         return credits == 1 ? "1 credit" : String.format(Locale.ENGLISH, "%,d credits", credits);
     }

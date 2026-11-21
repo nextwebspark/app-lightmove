@@ -295,6 +295,38 @@ class NotificationIntegrationTest extends PipelineFlowSupport {
     }
 
     @Test
+    @DisplayName("the digest names a mention only while its note is there, and opens it on the note")
+    void theDigestNamesOnlyLiveMentions() throws Exception {
+        String omar = add(projectId, """
+                {"fullName":"Omar Said","status":"contacted"}""").get("id").asText();
+        String kept = body(write(admin, "POST", candidatesUrl(projectId) + "/" + layla + "/notes", """
+                {"kind":"call","body":"@[sara](user:%s) please call her back"}""".formatted(researcherId)))
+                .get("id").asText();
+        String goneNotes = candidatesUrl(projectId) + "/" + omar + "/notes";
+        String gone = body(write(admin, "POST", goneNotes, """
+                {"kind":"call","body":"@[sara](user:%s) and him too"}""".formatted(researcherId)))
+                .get("id").asText();
+        mvc.perform(delete(goneNotes + "/" + gone).header("Authorization", "Bearer " + admin))
+                .andExpect(status().isNoContent());
+        ZoneId dubai = ZoneId.of("Asia/Dubai");
+        Instant morning = LocalDate.now(dubai).plusDays(1).with(TemporalAdjusters.next(DayOfWeek.WEDNESDAY))
+                .atTime(LocalTime.of(8, 5)).atZone(dubai).toInstant();
+
+        emails.digestAt(morning);
+
+        EmailMessage digest = email.sent().stream()
+                .filter(message -> message.to().equalsIgnoreCase(researcherAddress))
+                .filter(message -> message.subject().startsWith("Your Uncava day"))
+                .findFirst().orElseThrow();
+        assertThat(digest.textBody())
+                .contains("MENTIONS · 1")
+                .contains("On Layla Haddad")
+                .contains("note=" + kept)
+                .doesNotContain("Omar Said")
+                .doesNotContain(gone);
+    }
+
+    @Test
     @DisplayName("a task falling due rings once, from the scheduled scan as from a direct one")
     void aTaskFallingDueRingsOnce() throws Exception {
         assign(researcherId, "Schedule a call", Instant.now().plus(30, ChronoUnit.MINUTES));

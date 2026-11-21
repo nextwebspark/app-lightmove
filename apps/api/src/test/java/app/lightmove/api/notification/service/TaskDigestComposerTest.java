@@ -10,6 +10,7 @@ import app.lightmove.api.core.email.render.EmailCard;
 import app.lightmove.api.core.email.render.EmailContent;
 import app.lightmove.api.core.email.render.EmailRow;
 import app.lightmove.api.core.email.render.EmailSectionTitle;
+import app.lightmove.api.notification.model.DigestBuckets;
 import app.lightmove.api.notification.model.DigestMention;
 import app.lightmove.api.task.model.DueDigest;
 import app.lightmove.api.task.model.DueDigestLine;
@@ -35,21 +36,22 @@ class TaskDigestComposerTest {
     private static final UUID TECHNOLOGY = UUID.randomUUID();
     private static final UUID INVESTMENT = UUID.randomUUID();
 
-    private final TaskDigestComposer composer = new TaskDigestComposer(BASE_URL,
-            DateTimeFormats.of(DateTimePreferences.STANDARD), DUBAI, MORNING);
+    private static final DateTimeFormats FORMATS = DateTimeFormats.of(DateTimePreferences.STANDARD);
+
+    private final TaskDigestComposer composer = new TaskDigestComposer(NotificationLinks.at(BASE_URL));
 
     private final UUID amit = UUID.randomUUID();
 
     @Test
     @DisplayName("a late morning reads as one verdict, with everything late grouped by position")
     void groupsLateWorkByPosition() {
-        EmailContent content = composer.compose(lateMorning(), List.of(), 0);
+        EmailContent content = compose(lateMorning(), List.of(), 0);
 
         assertThat(content.heading()).isEqualTo("9 tasks overdue, nothing due today");
         List<EmailCard> positions = cardsAfter(content, "Overdue, by position");
         assertThat(positions).extracting(EmailCard::title)
                 .containsExactly("Merchandising Director", "Chief Investment Officer", "Chief Technology Officer");
-        assertThat(positions.getFirst().subtitle()).isEqualTo("7 overdue · 6 candidates");
+        assertThat(positions.getFirst().subtitle()).isEqualTo("7 overdue · 6 executives");
         assertThat(positions.getFirst().footnote()).isEqualTo("+1 under Gone quiet");
         assertThat(positions.getFirst().link().href()).isEqualTo(BASE_URL + "/projects/" + MERCHANDISING + "/pipeline");
     }
@@ -57,7 +59,7 @@ class TaskDigestComposerTest {
     @Test
     @DisplayName("a candidate's two tasks on one position are one row, the longest wait first")
     void mergesOneCandidatesTasks() {
-        EmailCard merchandising = cardsAfter(composer.compose(lateMorning(), List.of(), 0), "Overdue, by position")
+        EmailCard merchandising = cardsAfter(compose(lateMorning(), List.of(), 0), "Overdue, by position")
                 .getFirst();
 
         assertThat(merchandising.rows()).extracting(EmailRow::primary).containsExactly("Amit Tandon",
@@ -70,7 +72,7 @@ class TaskDigestComposerTest {
     @Test
     @DisplayName("work fourteen days late leaves the groups for Gone quiet")
     void setsStaleWorkAside() {
-        EmailContent content = composer.compose(lateMorning(), List.of(), 0);
+        EmailContent content = compose(lateMorning(), List.of(), 0);
 
         EmailCard quiet = cardsAfter(content, "Gone quiet · 14+ days").getFirst();
         assertThat(quiet.style()).isEqualTo(EmailCardStyle.QUIET);
@@ -81,7 +83,7 @@ class TaskDigestComposerTest {
     @Test
     @DisplayName("Start here picks the candidate one conversation clears most for, then the longest waiting")
     void picksWhereToStart() {
-        EmailCard start = highlightOf(composer.compose(lateMorning(), List.of(), 0));
+        EmailCard start = highlightOf(compose(lateMorning(), List.of(), 0));
 
         assertThat(start.rows()).hasSize(3);
         assertThat(start.rows().getFirst().primary()).isEqualTo("Amit Tandon");
@@ -95,7 +97,7 @@ class TaskDigestComposerTest {
         List<DueDigestLine> lines = new ArrayList<>(lateMorning().lines());
         lines.add(line("Call to qualify interest", "Natalie Weare", MERCHANDISING, "Merchandising Director",
                 FRIDAY.atTime(10, 0)));
-        EmailContent content = composer.compose(new DueDigest(lines), List.of(), 0);
+        EmailContent content = compose(new DueDigest(lines), List.of(), 0);
 
         assertThat(content.heading()).isEqualTo("1 task due today, 9 overdue");
         assertThat(cardsAfter(content, "Due today · 1").getFirst().rows().getFirst().leading()).isEqualTo("10:00");
@@ -110,19 +112,33 @@ class TaskDigestComposerTest {
                 .atTime(9, 0)));
         DigestMention mention = new DigestMention("Sara Ali", "Gary de Klerk", "Merchandising Director",
                 BASE_URL + "/projects/x/pipeline");
-        EmailContent content = composer.compose(new DueDigest(lines), List.of(mention), 2);
+        EmailContent content = compose(new DueDigest(lines), List.of(mention), 2);
 
         assertThat(cardsAfter(content, "Mentions · 2").getFirst().rows().getFirst().primary())
                 .isEqualTo("Sara Ali mentioned you");
         assertThat(cardsAfter(content, "Mentions · 2").getFirst().footnote()).isEqualTo("+1 more in Uncava");
         assertThat(cardsAfter(content, "Coming up").getFirst().rows().getFirst().primary()).startsWith("Monday");
-        assertThat(cardsAfter(composer.compose(lateMorning(), List.of(), 0), "Coming up")).isEmpty();
+        assertThat(cardsAfter(compose(lateMorning(), List.of(), 0), "Coming up")).isEmpty();
+    }
+
+    @Test
+    @DisplayName("on a Friday, weekend tasks are counted on Monday, never under a Saturday or Sunday")
+    void foldsTheWeekendIntoMonday() {
+        List<DueDigestLine> lines = new ArrayList<>(lateMorning().lines());
+        lines.add(line("Reply", "Gary de Klerk", MERCHANDISING, "Merchandising Director", LocalDate.of(2026, 11, 21)
+                .atTime(9, 0)));
+        lines.add(line("Debrief", "Rajiv Shankar", TECHNOLOGY, "Chief Technology Officer", LocalDate.of(2026, 11, 23)
+                .atTime(9, 0)));
+        List<EmailRow> days = cardsAfter(compose(new DueDigest(lines), List.of(), 0), "Coming up").getFirst().rows();
+
+        assertThat(days).extracting(EmailRow::primary).containsExactly("Monday 23 Nov 2026");
+        assertThat(days.getFirst().secondary()).isEqualTo("2 tasks · 2 positions");
     }
 
     @Test
     @DisplayName("the read reaches the end of the second working day ahead, over the weekend")
     void reachesTwoWorkingDaysAhead() {
-        assertThat(TaskDigestComposer.horizonOf(MORNING, DUBAI))
+        assertThat(DigestBuckets.horizonOf(MORNING, DUBAI))
                 .isEqualTo(LocalDate.of(2026, 11, 25).atStartOfDay(DUBAI).toInstant());
     }
 
@@ -132,9 +148,13 @@ class TaskDigestComposerTest {
         DueDigest ahead = new DueDigest(List.of(line("Debrief", "Rajiv Shankar", TECHNOLOGY,
                 "Chief Technology Officer", LocalDate.of(2026, 11, 23).atTime(9, 0))));
 
-        assertThat(composer.hasNews(ahead, 0)).isFalse();
-        assertThat(composer.hasNews(ahead, 1)).isTrue();
-        assertThat(composer.hasNews(lateMorning(), 0)).isTrue();
+        assertThat(DigestBuckets.of(ahead, DUBAI, MORNING).hasNews(0)).isFalse();
+        assertThat(DigestBuckets.of(ahead, DUBAI, MORNING).hasNews(1)).isTrue();
+        assertThat(DigestBuckets.of(lateMorning(), DUBAI, MORNING).hasNews(0)).isTrue();
+    }
+
+    private EmailContent compose(DueDigest due, List<DigestMention> mentions, int unreadMentions) {
+        return composer.compose(DigestBuckets.of(due, DUBAI, MORNING), FORMATS, mentions, unreadMentions);
     }
 
     private DueDigest lateMorning() {
@@ -163,7 +183,7 @@ class TaskDigestComposerTest {
 
     private static DueDigestLine line(UUID personId, String title, String name, UUID projectId, String position,
                                       java.time.LocalDateTime due) {
-        return new DueDigestLine(UUID.randomUUID(), title, personId, name, UUID.randomUUID(), projectId, position,
+        return new DueDigestLine(title, personId, name, UUID.randomUUID(), projectId, position,
                 due.atZone(DUBAI).toInstant());
     }
 

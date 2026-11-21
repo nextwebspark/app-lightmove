@@ -49,12 +49,23 @@ public interface NotificationRepository extends JpaRepository<Notification, UUID
             """ + ON_LIVE_POSITION, nativeQuery = true)
     long countUnread(UUID recipientUserId, UUID workspaceId, Instant now);
 
-    @Query(value = """
-            SELECT count(*) FROM app_lm_notification
-            WHERE recipient_user_id = :recipientUserId AND workspace_id = :workspaceId AND kind = :kind
-              AND archived_at IS NULL AND read_at IS NULL
-            """ + ON_LIVE_POSITION, nativeQuery = true)
-    long countUnreadOfKind(UUID recipientUserId, UUID workspaceId, String kind);
+    /** The mentions a digest names and counts: unread, not snoozed, and on a note that is still there. */
+    String DIGEST_MENTIONS = """
+            WHERE recipient_user_id = :recipientUserId AND workspace_id = :workspaceId AND kind = 'MENTIONED'
+              AND archived_at IS NULL AND read_at IS NULL AND (snoozed_until IS NULL OR snoozed_until <= :now)
+              AND note_id IS NOT NULL
+              AND NOT EXISTS (SELECT 1 FROM app_lm_person_note n
+                               WHERE n.id = app_lm_notification.note_id AND n.deleted_at IS NOT NULL)
+            """ + ON_LIVE_POSITION;
+
+    @Query(value = "SELECT count(*) FROM app_lm_notification\n" + DIGEST_MENTIONS, nativeQuery = true)
+    long countDigestMentions(UUID recipientUserId, UUID workspaceId, Instant now);
+
+    @Query(value = "SELECT * FROM app_lm_notification\n" + DIGEST_MENTIONS + """
+            ORDER BY latest_at DESC, id DESC
+            LIMIT :limit
+            """, nativeQuery = true)
+    List<Notification> findDigestMentions(UUID recipientUserId, UUID workspaceId, Instant now, int limit);
 
     /** The live row of a group, locked so two events folding into it queue. */
     @Query(value = """

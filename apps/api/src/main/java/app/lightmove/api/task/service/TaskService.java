@@ -228,7 +228,7 @@ public class TaskService {
                 due.stream().map(Task::getPersonId).distinct().toList());
         Map<UUID, String> projectTitles = titlesOf(due.stream().map(Task::getProjectId).distinct().toList());
         return new DueDigest(due.stream()
-                .map(task -> new DueDigestLine(task.getId(), task.getTitle(), task.getPersonId(),
+                .map(task -> new DueDigestLine(task.getTitle(), task.getPersonId(),
                         personNames.get(task.getPersonId()), task.getCandidateId(), task.getProjectId(),
                         projectTitles.get(task.getProjectId()), task.getDueAt()))
                 .toList());
