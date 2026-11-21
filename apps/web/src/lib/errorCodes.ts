@@ -35,6 +35,8 @@ export type ApiErrorCode =
   | "MFA_SETUP_NOT_STARTED"
   | "MFA_UNAVAILABLE"
   | "MFA_SIGN_IN_AGAIN"
+  | "PLATFORM_TWO_FACTOR_REQUIRED"
+  | "PLATFORM_STEP_UP_REQUIRED"
   | "ACCOUNT_SIGN_IN_AGAIN"
   | "ACCOUNT_HANDOVER_REQUIRED"
   | "SESSION_NOT_FOUND"
@@ -301,6 +303,8 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   MFA_SETUP_NOT_STARTED: "That setup has ended. Start again to get a new QR code.",
   MFA_UNAVAILABLE: "Two-factor authentication is not available yet.",
   MFA_SIGN_IN_AGAIN: "Sign out and back in, then turn on two-factor authentication within 10 minutes.",
+  PLATFORM_TWO_FACTOR_REQUIRED: "Set up two-factor authentication to use the platform console.",
+  PLATFORM_STEP_UP_REQUIRED: "Enter a code from your authenticator app to continue.",
   ACCOUNT_SIGN_IN_AGAIN: "Sign in again to show it's you, then delete your account within 10 minutes.",
   ACCOUNT_HANDOVER_REQUIRED: "Hand over the workspaces and positions only you run first.",
   SESSION_NOT_FOUND: "That session has already ended.",

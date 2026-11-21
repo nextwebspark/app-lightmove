@@ -152,6 +152,18 @@ describe("TemplateListPage — the library", () => {
     expect(screen.queryByRole("button", { name: /^Hide/ })).not.toBeInTheDocument();
   });
 
+  it("tells a super admin with no two-factor how to get in, not that the list failed", async () => {
+    vi.mocked(templateApi.listTemplates).mockRejectedValue(
+      new ApiRequestError({ code: "PLATFORM_TWO_FACTOR_REQUIRED", detail: "factor", status: 403, correlationId: "c1" }),
+    );
+
+    renderPage("library");
+
+    expect(await screen.findByText("Set up two-factor to use the platform console")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Go to Security" })).toHaveAttribute("href", "/settings/security");
+    expect(screen.queryByRole("table", { name: "Templates" })).not.toBeInTheDocument();
+  });
+
   it("archives at once and offers Undo, which restores the template", async () => {
     vi.mocked(templateApi.listTemplates).mockResolvedValue([row({ origin: null })]);
     vi.mocked(templateApi.setTemplateActive).mockResolvedValue({} as TemplateDetail);

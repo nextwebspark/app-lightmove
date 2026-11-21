@@ -3,6 +3,7 @@ import {
   ApiRequestError,
   onRequestRefused,
   onSessionExpired,
+  onStepUpRequired,
   onWorkspaceMoved,
   request,
   restoreSession,
@@ -203,6 +204,68 @@ describe("apiClient", () => {
       (error: unknown) => error instanceof ApiRequestError && error.code === "FORBIDDEN",
     );
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("asks for a fresh code when a platform action needs one, then sends the request again", async () => {
+    const stepUp = { code: "PLATFORM_STEP_UP_REQUIRED", detail: "code", status: 403 };
+    fetchMock.mockResolvedValueOnce(json(403, stepUp)).mockResolvedValueOnce(json(200, { granted: true }));
+    const prompt = vi.fn().mockResolvedValue(undefined);
+    const stopAsking = onStepUpRequired(prompt);
+    const refused = vi.fn();
+    const stopListening = onRequestRefused(refused);
+
+    await expect(
+      request("/platform/workspaces/w1/credit-grants", { method: "POST", body: { credits: 5 } }),
+    ).resolves.toEqual({ granted: true });
+
+    expect(prompt).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls[1][1].body).toBe(JSON.stringify({ credits: 5 }));
+    expect(refused).not.toHaveBeenCalled();
+    stopAsking();
+    stopListening();
+  });
+
+  it("refreshes a token that expired while the code was being entered, and still sends the request again", async () => {
+    setAccessToken("expired");
+    fetchMock
+      .mockResolvedValueOnce(json(403, { code: "PLATFORM_STEP_UP_REQUIRED", detail: "code", status: 403 }))
+      .mockResolvedValueOnce(json(401, { code: "UNAUTHORIZED", detail: "expired" })) // the resend
+      .mockResolvedValueOnce(json(200, { accessToken: "fresh" })) // refresh
+      .mockResolvedValueOnce(json(200, { granted: true }));
+    const stopAsking = onStepUpRequired(() => Promise.resolve());
+
+    await expect(
+      request("/platform/workspaces/w1/credit-grants", { method: "POST", body: { credits: 5 } }),
+    ).resolves.toEqual({ granted: true });
+
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+    expect(fetchMock.mock.calls[3][1].headers.Authorization).toBe("Bearer fresh");
+    stopAsking();
+  });
+
+  it("tells the caller of the refusal when the code is not entered, and does not send again", async () => {
+    fetchMock.mockResolvedValue(json(403, { code: "PLATFORM_STEP_UP_REQUIRED", detail: "code", status: 403 }));
+    const stopAsking = onStepUpRequired(() => Promise.reject(new Error("dismissed")));
+
+    await expect(request("/platform/workspaces/w1/credit-grants", { method: "POST" })).rejects.toSatisfy(
+      (error: unknown) => error instanceof ApiRequestError && error.code === "PLATFORM_STEP_UP_REQUIRED",
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    stopAsking();
+  });
+
+  it("asks once: a request still refused after the code is told to its caller", async () => {
+    fetchMock.mockResolvedValue(json(403, { code: "PLATFORM_STEP_UP_REQUIRED", detail: "code", status: 403 }));
+    const prompt = vi.fn().mockResolvedValue(undefined);
+    const stopAsking = onStepUpRequired(prompt);
+
+    await expect(request("/platform/workspaces/w1/credit-grants", { method: "POST" })).rejects.toBeInstanceOf(
+      ApiRequestError,
+    );
+    expect(prompt).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    stopAsking();
   });
 
   it("surfaces the server's error code and field errors", async () => {

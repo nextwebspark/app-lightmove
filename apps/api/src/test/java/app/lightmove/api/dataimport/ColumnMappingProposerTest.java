@@ -421,13 +421,13 @@ class ColumnMappingProposerTest {
         return new LlmBudgetGuard((key, limit, window) -> true,
                 new LightMoveProperties(null, null, null, null, null,
                         new LlmSettings(new LlmRateLimitSettings(true, 10, 20, 10), 20_000, 1, List.of()),
-                        null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null));
+                        null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null));
     }
 
     private static LightMoveProperties propertiesWith(boolean sendSamples) {
         return new LightMoveProperties(null, null, null, null, null, null, null, null, null,
                 new SpreadsheetImportSettings(10_485_760L, 5000, sendSamples, 250,
-                        Duration.ofSeconds(5), 8, 4, Duration.ofMinutes(10), Duration.ofDays(30), List.of("text/csv")), null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+                        Duration.ofSeconds(5), 8, 4, Duration.ofMinutes(10), Duration.ofDays(30), List.of("text/csv")), null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
     }
 
     /**

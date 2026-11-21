@@ -66,6 +66,11 @@ public class RateLimitGuard {
         checkRateLimit("mfa-change", email, request, config.mfaChangeAttemptsPerHour(), Duration.ofHours(1));
     }
 
+    /** The brake on guessing a six-digit code from a stolen session; sized as a two-factor change, counted apart. */
+    public void checkPlatformStepUp(String email, HttpServletRequest request) {
+        checkRateLimit("platform-step-up", email, request, config.mfaChangeAttemptsPerHour(), Duration.ofHours(1));
+    }
+
     /** The only brake on guessing the current password, which deliberately does not feed the lockout counter. */
     public void checkPasswordChange(String email, HttpServletRequest request) {
         checkRateLimit("password-change", email, request, config.passwordChangeAttemptsPerHour(), Duration.ofHours(1));

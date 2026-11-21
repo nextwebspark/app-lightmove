@@ -9,7 +9,7 @@ import { ICONS } from "./Icon";
  * under one name and in the header under another. Team lives at `/team`, the one roster, and is listed here so an
  * admin looking for it in Settings finds it.
  */
-export type SettingsGroupLabel = "Your account" | "Workspace" | "Platform";
+export type SettingsGroupLabel = "Your account" | "Workspace";
 
 export interface SettingsSection {
   to: string;
@@ -72,13 +72,12 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
   { to: "/settings/billing", label: "Billing", icon: ICONS.card, group: "Workspace", everyStaff: true, billing: true },
   { to: "/settings/templates", label: "Templates", icon: ICONS.file, group: "Workspace" },
   { to: "/settings/data", label: "Data & retention", icon: ICONS.database, group: "Workspace" },
-  { to: "/settings/template-library", label: "Template library", icon: ICONS.position, group: "Platform" },
 ];
 
 /**
  * The sections this caller reaches. Your account is everyone's — a portal guest has a name and a timezone like
  * anyone else — except Email signature, Email templates, Notifications, Availability, API keys and Connected AI apps, which are staff's. Workspace is admin-only
- * but for Team, Pipeline stages and Billing, which every staff member reads, and Platform is Uncava staff's.
+ * but for Team, Pipeline stages and Billing, which every staff member reads.
  * Hiding them is presentation; the route guards are the gate.
  */
 export function visibleSettingsSections(
@@ -88,10 +87,8 @@ export function visibleSettingsSections(
   const roles = user?.workspace?.roles ?? [];
   const isAdmin = roles.includes("ADMIN");
   const isClient = isPureClient(roles);
-  const isLibraryEditor = user?.platformActions.includes("TEMPLATE_LIBRARY_MANAGE") ?? false;
   return SETTINGS_SECTIONS.filter((section) => {
     if (section.billing && !offers.billing) return false;
-    if (section.group === "Platform") return isLibraryEditor;
     if (section.group === "Workspace") return !isClient && (isAdmin || !!section.everyStaff);
     return !(isClient && section.staffOnly);
   });
