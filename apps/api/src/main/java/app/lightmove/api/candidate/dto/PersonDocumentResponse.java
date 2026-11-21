@@ -21,4 +21,11 @@ public record PersonDocumentResponse(
         /** Whether the caller may remove the whole document: whoever filed it, or a workspace admin. */
         boolean removable,
         List<PersonDocumentVersionResponse> versions
-) {}
+) {
+
+    /** The same document, its position no longer named: read by someone not on that position. */
+    public PersonDocumentResponse withoutPositionTitle() {
+        return new PersonDocumentResponse(id, category, title, primaryCv, projectId, null, createdBy, createdByName,
+                createdAt, updatedAt, removable, versions);
+    }
+}

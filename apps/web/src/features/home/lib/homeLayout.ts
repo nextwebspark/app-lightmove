@@ -29,16 +29,22 @@ export const DEFAULT_HOME_LAYOUT: HomeLayout = {
   landing: "home",
 };
 
-const STORAGE_KEY = "lm-home";
+/** Whose layout, in which workspace: one browser may hold several people, and one person several workspaces. */
+export interface HomeOwner {
+  userId: string;
+  workspaceId: string;
+}
+
+const storageKeyOf = ({ userId, workspaceId }: HomeOwner) => `lm-home:${userId}:${workspaceId}`;
 const SECTIONS: readonly HomeSection[] = ["today", "positions", "charts"];
 
 /**
  * A stored layout, or the default. Whatever the stored one is missing or got wrong is taken from the default, so a
  * section added later appears for everyone and nothing stored can break the page.
  */
-export function readHomeLayout(): HomeLayout {
+export function readHomeLayout(owner: HomeOwner): HomeLayout {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(storageKeyOf(owner));
     return raw ? normalised(JSON.parse(raw)) : DEFAULT_HOME_LAYOUT;
   } catch {
     return DEFAULT_HOME_LAYOUT;
@@ -77,22 +83,28 @@ export function isDefaultLayout(layout: HomeLayout): boolean {
   return JSON.stringify(layout) === JSON.stringify(DEFAULT_HOME_LAYOUT);
 }
 
-/** Where to land after signing in: Home, unless the person chose Positions. */
-export function landingPath(): string {
-  return readHomeLayout().landing === "positions" ? "/positions" : "/";
+/** Where to land after signing in: Home, unless the person chose Positions in this workspace. */
+export function landingPath(owner: HomeOwner): string {
+  return readHomeLayout(owner).landing === "positions" ? "/positions" : "/";
 }
 
-/** The layout and its setter; every change is kept for the next visit on this browser. */
-export function useHomeLayout(): [HomeLayout, (next: HomeLayout) => void] {
-  const [layout, setLayout] = useState(readHomeLayout);
-  const save = useCallback((next: HomeLayout) => {
-    setLayout(next);
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-    } catch {
-      // Blocked storage only costs the layout on the next visit.
-    }
-  }, []);
+/** The person's layout in this workspace and its setter; every change is kept for the next visit on this browser. */
+export function useHomeLayout(owner: HomeOwner): [HomeLayout, (next: HomeLayout) => void] {
+  const key = storageKeyOf(owner);
+  const [kept, setKept] = useState(() => ({ key, layout: readHomeLayout(owner) }));
+  // Another person or workspace in the same tab reads its own layout rather than keeping the last one's.
+  const layout = kept.key === key ? kept.layout : readHomeLayout(owner);
+  const save = useCallback(
+    (next: HomeLayout) => {
+      setKept({ key, layout: next });
+      try {
+        localStorage.setItem(key, JSON.stringify(next));
+      } catch {
+        // Blocked storage only costs the layout on the next visit.
+      }
+    },
+    [key],
+  );
   return [layout, save];
 }
 

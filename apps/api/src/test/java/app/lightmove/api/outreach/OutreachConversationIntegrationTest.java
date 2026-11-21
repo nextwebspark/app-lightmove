@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import app.lightmove.api.FixtureJdbc;
@@ -119,7 +120,8 @@ class OutreachConversationIntegrationTest extends FlowTestSupport {
         task(priya, "Call Priya about the board", consultantId, monday.plus(Duration.ofDays(1)));
 
         JsonNode home = body(as(consultant, get("/api/v1/me/outreach/needs")).andExpect(status().isOk()).andReturn());
-        assertThat(home.at("/total").asInt()).isEqualTo(1);
+        assertThat(home.get("rows")).hasSize(1);
+        assertThat(home.get("truncated").asBoolean()).isFalse();
         assertThat(home.at("/rows/0/projectId").asText()).isEqualTo(projectId);
         assertThat(home.at("/rows/0/positionTitle").asText()).isEqualTo("Group CFO");
         assertThat(home.at("/rows/0/row/candidateId").asText()).isEqualTo(priya);
@@ -171,6 +173,25 @@ class OutreachConversationIntegrationTest extends FlowTestSupport {
         assertThat(conversations("who", "team").at("/counts/needs").asInt()).isEqualTo(2);
         as(consultant, get(outreach("/conversations?who=everyone"))).andExpect(status().isBadRequest());
         as(consultant, get(outreach("/conversations?view=inbox"))).andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("Home's Team reads only the positions the caller's own seat leads: never a researcher's, an admin's included")
+    void homeTeamIsTheLeadsAlone() throws Exception {
+        inviteAndAccept(consultant, "Omar Khalil", "omar@" + domain, "MEMBER");
+        inviteAndAccept(consultant, "Sara Al-Mansour", "sara@" + domain, "ADMIN");
+        for (String email : List.of("omar@" + domain, "sara@" + domain)) {
+            as(consultant, put("/api/v1/projects/" + projectId + "/members/" + memberIdOf(consultant, email))
+                    .contentType(MediaType.APPLICATION_JSON).content("{\"role\":\"RESEARCHER\"}"))
+                    .andExpect(status().isOk());
+        }
+        String priya = executive("Priya Raman", "priya@" + domain);
+        task(priya, "Call Priya", consultantId, monday);
+
+        assertThat(homeQueue(consultant, "team").at("/rows/0/row/candidateId").asText()).isEqualTo(priya);
+        assertThat(homeQueue(login("omar@" + domain), "team").get("rows")).isEmpty();
+        assertThat(homeQueue(login("sara@" + domain), "team").get("rows")).isEmpty();
+        assertThat(homeQueue(login("omar@" + domain), "mine").get("rows")).isEmpty();
     }
 
     @Test
@@ -423,6 +444,10 @@ class OutreachConversationIntegrationTest extends FlowTestSupport {
     }
 
     /** {@code params} are name, value pairs, sent as request parameters so the test spells them as typed. */
+    private JsonNode homeQueue(String token, String who) throws Exception {
+        return body(as(token, get("/api/v1/me/outreach/needs").param("who", who)).andExpect(status().isOk()).andReturn());
+    }
+
     private JsonNode conversations(String... params) throws Exception {
         MockHttpServletRequestBuilder request = get(outreach("/conversations"));
         for (int i = 0; i < params.length; i += 2) {

@@ -16,6 +16,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MvcResult;
+import tools.jackson.databind.JsonNode;
 
 /**
  * The action matrix, exercised over HTTP through {@code @PreAuthorize}: who may edit a mandate, who
@@ -126,6 +127,21 @@ class ProjectAuthorizationIntegrationTest extends FlowTestSupport {
 
         seat(f.admin, f.projectId, f.saraId, "RESEARCHER");
         assertThat(listedIds(sara)).contains(f.projectId);
+    }
+
+    @Test
+    @DisplayName("the Clients page counts and lists only the positions the caller may see")
+    void theClientsPageNamesOnlyTheCallersPositions() throws Exception {
+        Fixture f = fixture("Client Count Matrix Firm");
+        String sara = login(f.saraEmail);
+
+        assertThat(clientRow(f.admin, f.clientId).get("activeMandates").asLong()).isEqualTo(1);
+        assertThat(clientRow(sara, f.clientId).get("activeMandates").asLong()).isZero();
+        assertThat(clientDetail(sara, f.clientId).get("mandates")).isEmpty();
+
+        seat(f.admin, f.projectId, f.saraId, "RESEARCHER");
+        assertThat(clientRow(sara, f.clientId).get("activeMandates").asLong()).isEqualTo(1);
+        assertThat(clientDetail(sara, f.clientId).at("/mandates/0/id").asText()).isEqualTo(f.projectId);
     }
 
     @Test
@@ -264,6 +280,23 @@ class ProjectAuthorizationIntegrationTest extends FlowTestSupport {
 
         return new Fixture(admin, clientId, projectId, sara, memberIdOf(admin, sara),
                 memberIdOf(admin, omar));
+    }
+
+    private JsonNode clientRow(String token, String clientId) throws Exception {
+        for (var row : body(mvc.perform(get("/api/v1/clients").header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andReturn())) {
+            if (row.get("id").asText().equals(clientId)) {
+                return row;
+            }
+        }
+        throw new AssertionError("client not listed");
+    }
+
+    private JsonNode clientDetail(String token, String clientId) throws Exception {
+        return body(mvc.perform(get("/api/v1/clients/" + clientId).header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andReturn());
     }
 
     private List<String> listedIds(String token) throws Exception {

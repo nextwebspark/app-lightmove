@@ -433,6 +433,27 @@ class CandidatePoolCrmIntegrationTest extends FlowTestSupport {
                 .andExpect(status().isNotFound());
         mvc.perform(get("/api/v1/candidates/activity").param("position", credit).header("Authorization", "Bearer " + admin))
                 .andExpect(status().isOk());
+
+        // A note about that position is listed to her, but without its name; the admin reads it named.
+        mvc.perform(post("/api/v1/candidates/" + fatima + "/notes")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"body":"Strong credit background","projectId":"%s"}""".formatted(credit)))
+                .andExpect(status().isCreated());
+        JsonNode saraNotes = body(mvc.perform(get("/api/v1/candidates/" + fatima + "/notes")
+                        .header("Authorization", "Bearer " + sara))
+                .andExpect(status().isOk())
+                .andReturn());
+        assertThat(saraNotes).anySatisfy(note -> {
+            assertThat(note.get("body").asText()).contains("Strong credit background");
+            assertThat(note.get("projectTitle").isNull()).isTrue();
+        });
+        JsonNode adminNotes = body(mvc.perform(get("/api/v1/candidates/" + fatima + "/notes")
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isOk())
+                .andReturn());
+        assertThat(adminNotes).anySatisfy(note -> assertThat(note.get("projectTitle").asText()).isEqualTo("Head of Credit Risk"));
         assertThat(record.get("positions").get(1).get("workable").asBoolean()).isTrue();
     }
 

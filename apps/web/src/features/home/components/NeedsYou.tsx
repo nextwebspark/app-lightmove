@@ -7,30 +7,31 @@ import { Avatar } from "../../../components/ui/Avatar";
 import { cn } from "../../../lib/cn";
 import { messageFor } from "../../../lib/errorCodes";
 import type { ConversationScope } from "../../outreach/api/conversationApi";
-import { positionPipelinePath } from "../../pipeline/lib/pipelinePath";
 import * as tasksApi from "../../tasks/api/tasksApi";
 import { DuePill } from "../../tasks/components/TaskBits";
 import { useTasksChanged } from "../../tasks/lib/useTasksChanged";
 import type { NeedsKind } from "../lib/homeLayout";
 import type { NeedsItem } from "../lib/needsYou";
+import { taskPath } from "../lib/taskPath";
 
 const VISIBLE = 6;
 
 /** A row action drawn as a link: the `xs` button's own size. */
 const ROW_ACTION = "px-3.5 py-1.5 text-note";
 
+/** The To do groups by the glossary's names, as the Outreach page calls them. */
 const GROUP_STYLE: Record<NeedsKind, { label: string; tone: string }> = {
-  NEEDS_REPLY: { label: "Replied", tone: "bg-u-inferred-tint text-u-inferred" },
+  NEEDS_REPLY: { label: "Needs reply", tone: "bg-u-inferred-tint text-u-inferred" },
   FOLLOW_UP: { label: "Follow-up", tone: "bg-u-signal-tint text-u-signal" },
-  PREPARATION: { label: "To prepare", tone: "bg-u-raised text-u-text2" },
-  ATTENTION: { label: "Needs attention", tone: "bg-u-offlimits-tint text-u-offlimits" },
+  PREPARATION: { label: "Before first email", tone: "bg-u-raised text-u-text2" },
+  ATTENTION: { label: "Delivery problem", tone: "bg-u-offlimits-tint text-u-offlimits" },
 };
 
 const PRIMARY: Record<NeedsKind, string> = {
   NEEDS_REPLY: "Reply",
   FOLLOW_UP: "Follow up",
   PREPARATION: "Open",
-  ATTENTION: "Fix it",
+  ATTENTION: "Open",
 };
 
 /** Needs you: one ranked list of what is owed today — outreach waiting on the caller, then their tasks. */
@@ -178,9 +179,7 @@ function TaskItem({ item, mine }: { item: Extract<NeedsItem, { kind: "task" }>; 
     },
     onError: (error) => toast.error(messageFor(error)),
   });
-  const open = task.candidateId
-    ? positionPipelinePath(task.projectId, { candidate: task.candidateId })
-    : positionPipelinePath(task.projectId);
+  const open = taskPath(task);
 
   return (
     <div className={cn("grid grid-cols-[28px_minmax(0,1fr)] gap-x-3 gap-y-2 md:grid-cols-[28px_minmax(0,1fr)_auto]", done && "opacity-55")}>

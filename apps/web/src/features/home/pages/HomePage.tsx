@@ -9,7 +9,7 @@ import { cn } from "../../../lib/cn";
 import { formatShortDate, formatWeekdayDate, todayKey } from "../../../lib/datetime/format";
 import { getDateTimePreferences } from "../../../lib/datetime/preferences";
 import { useAuth } from "../../auth/AuthProvider";
-import { isPureClient } from "../../auth/roles";
+import { isPureClient, seesEveryPosition } from "../../auth/roles";
 import * as clientsApi from "../../clients/api/clientsApi";
 import { liveClients } from "../../clients/lib/filtering";
 import * as dashboardsApi from "../../dashboards/api/dashboardsApi";
@@ -17,7 +17,7 @@ import type { ConversationScope } from "../../outreach/api/conversationApi";
 import * as projectsApi from "../../projects/api/projectsApi";
 import type { Project } from "../../projects/api/types";
 import { NewProjectModal } from "../../projects/components/NewProjectModal";
-import { isActive, STAGE_ORDER } from "../../projects/lib/filtering";
+import { isSeatedOn, STAGE_ORDER } from "../../projects/lib/filtering";
 import * as tasksApi from "../../tasks/api/tasksApi";
 import { useWorkspaceVocabulary } from "../../workspace/lib/vocabulary";
 import * as homeApi from "../api/homeApi";
@@ -26,8 +26,6 @@ import { ChartsSection, PositionsSection, TodaySection } from "../components/Hom
 import { NeedsYou } from "../components/NeedsYou";
 import { useHomeLayout } from "../lib/homeLayout";
 import { isAgendaTask, needsYouOf } from "../lib/needsYou";
-
-const WORKSPACE = { kind: "workspace" } as const;
 
 function greetingOf(firstName: string | undefined, now = new Date()): string {
   const hour = now.getHours();
@@ -74,7 +72,7 @@ export function HomePage() {
     );
   }
   if (clientOnly) return <ClientHome projects={projects} header={header} />;
-  if (projects.length === 0 && roles.includes("ADMIN")) return <SetUpHome header={header} />;
+  if (projects.length === 0 && seesEveryPosition(roles)) return <SetUpHome header={header} />;
   return <StaffHome projects={projects} header={header} />;
 }
 
@@ -82,15 +80,13 @@ type HeaderFn = (subtitle: string, action?: React.ReactNode) => React.ReactNode;
 
 function StaffHome({ projects, header }: { projects: Project[]; header: HeaderFn }) {
   const { user } = useAuth();
-  const [layout, setLayout] = useHomeLayout();
+  const [layout, setLayout] = useHomeLayout({ userId: user?.id ?? "", workspaceId: user?.workspace?.id ?? "" });
   const [customizing, setCustomizing] = useState(false);
   const [scope, setScope] = useState<ConversationScope>("mine");
 
-  const leadsAny = projects.some(
-    (project) => isActive(project) && project.team.some((seat) => seat.userId === user?.id && seat.projectRoles.includes("LEAD")),
-  );
+  const leadsAny = projects.some((project) => isSeatedOn(project, user?.id, "LEAD"));
   const shownScope: ConversationScope = leadsAny ? scope : "mine";
-  const seated = projects.filter((project) => isActive(project) && project.team.some((seat) => seat.userId === user?.id));
+  const seated = projects.filter((project) => isSeatedOn(project, user?.id));
 
   // Each read runs every position's own queue on the server, so it is kept a minute rather than redone on every focus.
   const outreach = useQuery({
@@ -100,7 +96,7 @@ function StaffHome({ projects, header }: { projects: Project[]; header: HeaderFn
     refetchOnWindowFocus: false,
   });
   // Home's own keys, never under My tasks' `["tasks", "mine"]`: that card writes its ticks into every entry under its
-  // prefix as pages of an infinite list, and a plain answer there made each tick fail (#1414 review).
+  // prefix as pages of an infinite list, and a plain answer there made each tick fail.
   const today = useQuery({
     queryKey: homeApi.HOME_TASKS_KEY("today"),
     queryFn: ({ signal }) => tasksApi.getMyTasks("today", { size: 50, signal }),
@@ -115,8 +111,8 @@ function StaffHome({ projects, header }: { projects: Project[]; header: HeaderFn
     enabled: shownScope === "team",
   });
   const library = useQuery({
-    queryKey: dashboardsApi.CHART_LIBRARY_KEY(WORKSPACE),
-    queryFn: ({ signal }) => dashboardsApi.getChartLibrary(WORKSPACE, signal),
+    queryKey: dashboardsApi.CHART_LIBRARY_KEY(homeApi.WORKSPACE_CHARTS),
+    queryFn: ({ signal }) => dashboardsApi.getChartLibrary(homeApi.WORKSPACE_CHARTS, signal),
     staleTime: 5 * 60_000,
   });
 
@@ -176,7 +172,7 @@ function StaffHome({ projects, header }: { projects: Project[]; header: HeaderFn
               section.key === "today" ? (
                 <TodaySection key="today" agenda={agenda} pending={today.isPending} />
               ) : section.key === "positions" ? (
-                <PositionsSection key="positions" positions={projects} myUserId={user?.id} />
+                <PositionsSection key="positions" positions={seated} />
               ) : (
                 <ChartsSection key="charts" queryIds={layout.charts} labels={labels} onPin={() => setCustomizing(true)} />
               ),

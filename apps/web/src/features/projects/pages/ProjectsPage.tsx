@@ -14,7 +14,7 @@ import { useGridPaging } from "../../../lib/useGridPaging";
 import { useGridSort, WORKSPACE_SCOPE } from "../../../lib/useGridSort";
 import { filterSpec, useLocalGridFilters, type LocalGridFilter } from "../../../lib/useLocalGridFilters";
 import { useAuth } from "../../auth/AuthProvider";
-import { isPureClient } from "../../auth/roles";
+import { isPureClient, seesEveryPosition } from "../../auth/roles";
 import * as clientsApi from "../../clients/api/clientsApi";
 import { liveClients } from "../../clients/lib/filtering";
 import { useWorkspaceVocabulary } from "../../workspace/lib/vocabulary";
@@ -72,8 +72,7 @@ export function ProjectsPage() {
   const vocabulary = useWorkspaceVocabulary();
   const roles = user?.workspace?.roles ?? [];
   const clientOnly = isPureClient(roles);
-  // Presentation only: which empty state to draw. The server decided what the list holds.
-  const seesEveryPosition = roles.includes("ADMIN");
+  const workspaceWide = seesEveryPosition(roles);
   // In the address, so the back link from a position returns to the list as it was left.
   const { query, setQuery, flushQuery, chip, setChip, clear: clearFilters } = useAddressedSearch(
     "stage",
@@ -219,7 +218,7 @@ export function ProjectsPage() {
     return (
       <>
         {header}
-        {seesEveryPosition ? (
+        {workspaceWide ? (
           <EmptyState icon={<Icon d={ICONS.briefcase} size={24} />} title="Start your first search" body={startCopy} />
         ) : (
           <EmptyState

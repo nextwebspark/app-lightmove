@@ -456,7 +456,7 @@ their overdue and today's tasks, a task a row already carries never drawn twice 
 and meetings), **Your positions** and up to four pinned headline charts from the workspace dashboard library.
 **Customize** shows, hides and reorders the sections, chooses which To do groups Needs you carries, and where Uncava
 opens (Home or Positions, read by `homeFor` at sign-in); nothing is locked and **Reset to the default** puts back
-the layout everyone starts from. The layout is the person's own browser preference (`lm-home`). A pure client's Home
+the layout everyone starts from. The layout is the person's own browser preference, per workspace (`lm-home:{userId}:{workspaceId}`). A pure client's Home
 is the positions shared with them, with no queue and nothing staff-only; an admin of a workspace with no position
 sees the four set-up steps. The AI cards the mockup draws (Since you were last here, drafted replies, meeting prep
 and recaps, positions at risk) are the next steps, not built.

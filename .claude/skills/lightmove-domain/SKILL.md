@@ -169,7 +169,9 @@ by the people on them**: the service answers every position to a holder of works
 (`ProjectService.visibilityOf`). The same rule narrows the Clients page's mandate counts and drawer, and a
 person's positions in the candidate pool are listed without the title of one the caller cannot work — the row's
 chips and last activity, the drawer's Positions and notes, the person's history and the activity feed alike
-(`PositionRedaction`); filtering the feed by such a position answers 404. Shared
+(`PositionRedaction`), documents too; filtering the feed by such a position answers 404. One thing still shows through,
+on purpose: the Clients page's Retained or Prospect reads every mandate a record has, so a member can tell a record has
+work they are not on — that it exists, never what it is. Shared
 reference data (`CompanyReferenceController`, currencies, templates) still rides `PROJECT_BROWSE`, which
 MEMBER keeps: that is the market and the firm's vocabulary, not anyone's search.
 

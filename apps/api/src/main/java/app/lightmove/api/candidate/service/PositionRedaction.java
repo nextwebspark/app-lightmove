@@ -1,5 +1,6 @@
 package app.lightmove.api.candidate.service;
 
+import app.lightmove.api.candidate.dto.PersonDocumentResponse;
 import app.lightmove.api.candidate.dto.PersonNoteResponse;
 import app.lightmove.api.candidate.dto.PersonTimelineEntryResponse;
 import app.lightmove.api.candidate.dto.PersonTimelineResponse;
@@ -62,6 +63,17 @@ public class PositionRedaction {
         return notes.stream()
                 .map(note -> note.projectId() == null || named.contains(note.projectId()) ? note
                         : note.withoutPositionTitle())
+                .toList();
+    }
+
+    /** Documents: one uploaded through a position the caller is not on is listed without that position's title. */
+    public List<PersonDocumentResponse> documentsFor(UUID callerId, UUID workspaceId,
+                                                     List<PersonDocumentResponse> found) {
+        Set<UUID> named = nameableBy(callerId, workspaceId,
+                found.stream().map(PersonDocumentResponse::projectId).filter(Objects::nonNull).distinct().toList());
+        return found.stream()
+                .map(document -> document.projectId() == null || named.contains(document.projectId()) ? document
+                        : document.withoutPositionTitle())
                 .toList();
     }
 

@@ -152,11 +152,11 @@ public class PersonRecordService {
                 .map(row -> {
                     Project mandate = mandates.get(row.getProjectId());
                     User filer = named.get(row.getAddedBy());
-                    boolean onIt = workable.contains(row.getProjectId());
+                    boolean workableHere = workable.contains(row.getProjectId());
                     return new PersonPositionResponse(row.getId(), row.getProjectId(),
-                            mandate == null || !onIt ? null : mandate.getPositionTitle(), row.getStatus().getStatusKey(),
+                            mandate == null || !workableHere ? null : mandate.getPositionTitle(), row.getStatus().getStatusKey(),
                             row.getAddedBy(), filer == null ? null : filer.getFullName(), row.getCreatedAt(),
-                            row.getSource().value(), workable.contains(row.getProjectId()),
+                            row.getSource().value(), workableHere,
                             row.getStatus().getLabel(), row.getStatus().getColour().value(),
                             CandidateResponseMapper.stageOf(row.getStatus()), row.getStatusChangedAt(),
                             mandate != null && mandate.isArchived(), why.get(row.getId()));

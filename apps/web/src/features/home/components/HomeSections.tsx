@@ -6,12 +6,12 @@ import { HealthPill } from "../../../components/ui/Badge";
 import { cn } from "../../../lib/cn";
 import { formatInstantTime, formatShortDate } from "../../../lib/datetime/format";
 import * as dashboardsApi from "../../dashboards/api/dashboardsApi";
-import { positionPipelinePath } from "../../pipeline/lib/pipelinePath";
 import type { Project } from "../../projects/api/types";
-import { isActive } from "../../projects/lib/filtering";
 import type { TaskResponse } from "../../tasks/api/types";
+import { WORKSPACE_CHARTS } from "../api/homeApi";
+import { taskPath } from "../lib/taskPath";
 
-const WORKSPACE = { kind: "workspace" } as const;
+const HEALTH_RANK = { OFF: 0, RISK: 1, OK: 2, DONE: 3 } as const;
 
 function Card({ title, aside, children }: { title: string; aside?: React.ReactNode; children: React.ReactNode }) {
   return (
@@ -40,7 +40,7 @@ export function TodaySection({ agenda, pending }: { agenda: TaskResponse[]; pend
           {agenda.map((task, index) => (
             <li key={task.id} className={cn(index > 0 && "border-t border-u-border")}>
               <Link
-                to={task.candidateId ? positionPipelinePath(task.projectId, { candidate: task.candidateId }) : positionPipelinePath(task.projectId)}
+                to={taskPath(task)}
                 className="grid grid-cols-[48px_minmax(0,1fr)] gap-2.5 px-4 py-2.5 hover:bg-u-raised"
               >
                 <span className="pt-px font-mono text-note text-u-accent">{formatInstantTime(task.dueAt) ?? "—"}</span>
@@ -57,12 +57,12 @@ export function TodaySection({ agenda, pending }: { agenda: TaskResponse[]; pend
   );
 }
 
-/** Your positions: the ones the caller holds a seat on, the ones that need attention first. */
-export function PositionsSection({ positions, myUserId }: { positions: Project[]; myUserId: string | undefined }) {
-  const RANK = { OFF: 0, RISK: 1, OK: 2, DONE: 3 } as const;
-  const mine = positions
-    .filter((project) => isActive(project) && project.team.some((seat) => seat.userId === myUserId))
-    .sort((left, right) => RANK[left.health] - RANK[right.health] || (left.targetDate ?? "").localeCompare(right.targetDate ?? ""));
+/** Your positions: the active ones the caller holds a seat on, the ones that need attention first. */
+export function PositionsSection({ positions }: { positions: Project[] }) {
+  const mine = [...positions].sort(
+    (left, right) =>
+      HEALTH_RANK[left.health] - HEALTH_RANK[right.health] || (left.targetDate ?? "").localeCompare(right.targetDate ?? ""),
+  );
   return (
     <Card
       title="Your positions"
@@ -130,8 +130,8 @@ export function ChartsSection({
 
 function ChartTile({ queryId, label }: { queryId: string; label: string | undefined }) {
   const { data, isPending, isError } = useQuery({
-    queryKey: dashboardsApi.CHART_RESULT_KEY(WORKSPACE, queryId, {}),
-    queryFn: ({ signal }) => dashboardsApi.runChartQuery(WORKSPACE, queryId, {}, signal),
+    queryKey: dashboardsApi.CHART_RESULT_KEY(WORKSPACE_CHARTS, queryId, {}),
+    queryFn: ({ signal }) => dashboardsApi.runChartQuery(WORKSPACE_CHARTS, queryId, {}, signal),
     staleTime: 60_000,
   });
   return (

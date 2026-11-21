@@ -1,4 +1,4 @@
-import type { Project, ProjectStage } from "../api/types";
+import type { Project, ProjectRole, ProjectStage } from "../api/types";
 
 /**
  * The Positions list's logic — stage chips and search — extracted pure so the combination
@@ -39,6 +39,14 @@ export function livePositions(projects: Project[]): Project[] {
 
 export function isActive(project: Project): boolean {
   return !isArchived(project) && project.stage !== "DELIVERED" && project.stage !== "CLOSED";
+}
+
+/** An active position the user holds a seat on, as `role` when one is named. */
+export function isSeatedOn(project: Project, userId: string | undefined, role?: ProjectRole): boolean {
+  return (
+    isActive(project) &&
+    project.team.some((seat) => seat.userId === userId && (role === undefined || seat.projectRoles.includes(role)))
+  );
 }
 
 export function filterProjects(

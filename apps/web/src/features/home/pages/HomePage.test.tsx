@@ -100,7 +100,7 @@ describe("HomePage", () => {
     vi.resetAllMocks();
     vi.mocked(restoreSession).mockResolvedValue("token");
     vi.mocked(tasksApi.getMyTasks).mockResolvedValue(noTasks);
-    vi.mocked(homeApi.getMyOutreachNeeds).mockResolvedValue({ rows: [], total: 0, truncated: false });
+    vi.mocked(homeApi.getMyOutreachNeeds).mockResolvedValue({ rows: [], truncated: false });
   });
   afterEach(() => localStorage.clear());
 
@@ -108,7 +108,6 @@ describe("HomePage", () => {
     vi.mocked(authApi.me).mockResolvedValue(aUser({ id: "u1", fullName: "Yara Haddad", workspace: aWorkspace({ roles: ["MEMBER"] }) }));
     vi.mocked(projectsApi.projects).mockResolvedValue([position("p1", "Product Planning", [seat("u1", "LEAD")])]);
     vi.mocked(homeApi.getMyOutreachNeeds).mockResolvedValue({
-      total: 1,
       truncated: false,
       rows: [
         {
@@ -193,7 +192,7 @@ describe("HomePage", () => {
     await user.click(screen.getByRole("switch", { name: "Show Your positions" }));
 
     expect(screen.queryByRole("region", { name: "Your positions" })).not.toBeInTheDocument();
-    expect(JSON.parse(localStorage.getItem("lm-home") ?? "{}").sections).toContainEqual({ key: "positions", on: false });
+    expect(JSON.parse(localStorage.getItem("lm-home:u1:w1") ?? "{}").sections).toContainEqual({ key: "positions", on: false });
   });
 
   it("shows a client the positions shared with them, and nothing of the staff's queue", async () => {

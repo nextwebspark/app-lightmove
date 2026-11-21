@@ -57,13 +57,9 @@ const conversation = (candidateId: string, group: MyConversationRow["row"]["grou
 });
 
 describe("needsYouOf", () => {
-  it("puts replies first, then the caller's own tasks", () => {
-    const items = needsYouOf(
-      [conversation("follow", "FOLLOW_UP"), conversation("reply", "NEEDS_REPLY")],
-      [task("t1")],
-      DEFAULT_HOME_LAYOUT.kinds,
-    );
-    expect(items.map((item) => item.key)).toEqual(["c:p1:reply", "c:p1:follow", "t:t1"]);
+  it("puts the outreach rows first, then the caller's own tasks", () => {
+    const items = needsYouOf([conversation("reply", "NEEDS_REPLY")], [task("t1")], DEFAULT_HOME_LAYOUT.kinds);
+    expect(items.map((item) => item.key)).toEqual(["c:p1:reply", "t:t1"]);
   });
 
   it("never draws a task twice when a row already carries it as its next action", () => {
@@ -97,16 +93,12 @@ describe("needsYouOf", () => {
     expect(items.map((item) => item.key)).toEqual(["t:missed"]);
   });
 
-  it("keeps each position's order: by group, then soonest due, then latest", () => {
-    const due = (candidateId: string, group: MyConversationRow["row"]["group"], dueAt: string | null) => {
-      const entry = conversation(candidateId, group, dueAt ? `task-${candidateId}` : undefined);
-      return { ...entry, row: { ...entry.row, action: entry.row.action && { ...entry.row.action, dueAt: dueAt ?? "" } } };
-    };
+  it("keeps the order the server sent: the To do queue's own", () => {
     const items = needsYouOf(
-      [due("attention", "ATTENTION", null), due("later", "FOLLOW_UP", "2026-10-15T09:00:00Z"), due("sooner", "FOLLOW_UP", "2026-10-14T09:00:00Z")],
+      [conversation("attention", "ATTENTION"), conversation("reply", "NEEDS_REPLY"), conversation("follow", "FOLLOW_UP")],
       [],
       DEFAULT_HOME_LAYOUT.kinds,
     );
-    expect(items.map((item) => item.key)).toEqual(["c:p1:sooner", "c:p1:later", "c:p1:attention"]);
+    expect(items.map((item) => item.key)).toEqual(["c:p1:attention", "c:p1:reply", "c:p1:follow"]);
   });
 });

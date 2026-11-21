@@ -278,8 +278,7 @@ public class CandidatePoolService {
         Map<UUID, Person> persons = personsOf(workspaceId, ids);
         Map<UUID, List<Candidate>> mapped = mappingsOf(workspaceId, persons.values());
         Map<UUID, Project> mandates = projectsOf(mapped);
-        Set<UUID> named = mandates.isEmpty() ? Set.of()
-                : projectAccess.projectsWithAction(userId, workspaceId, mandates.keySet(), ProjectAction.WORK_EXECUTE);
+        Set<UUID> named = positionRedaction.nameableBy(userId, workspaceId, mandates.keySet());
         // A row's last activity may be another position's line: named only for those who may see that position.
         Map<UUID, PersonTimelineEntryResponse> latest = positionRedaction.latestFor(userId, workspaceId,
                 timeline.latestOf(workspaceId, persons.values()));

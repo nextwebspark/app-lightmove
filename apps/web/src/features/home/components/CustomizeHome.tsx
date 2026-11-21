@@ -21,10 +21,10 @@ const SECTION_TEXT: Record<HomeSection, [string, string]> = {
 };
 
 const KIND_TEXT: [NeedsKind, string, string][] = [
-  ["NEEDS_REPLY", "Replies", "Executives who wrote back"],
+  ["NEEDS_REPLY", "Needs reply", "Executives who wrote back"],
   ["FOLLOW_UP", "Follow-ups", "A call or an email you set for them"],
-  ["PREPARATION", "Preparation", "Work to do before you approach them"],
-  ["ATTENTION", "Needs attention", "A bounced email or a stopped sequence"],
+  ["PREPARATION", "Before first email", "Work to do before you approach them"],
+  ["ATTENTION", "Delivery problems", "A bounced email or a stopped sequence"],
 ];
 
 const LANDINGS: [Landing, string, string][] = [

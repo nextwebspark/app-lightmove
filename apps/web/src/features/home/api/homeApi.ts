@@ -1,6 +1,10 @@
 import { request } from "../../../lib/apiClient";
 import { TASKS_KEY_PREFIX } from "../../tasks/api/tasksApi";
 import type { MyTasksView } from "../../tasks/api/types";
+import type { DashboardScope } from "../../dashboards/api/types";
+
+/** Home's pinned charts read the workspace's library, never a position's. */
+export const WORKSPACE_CHARTS: DashboardScope = { kind: "workspace" };
 import type { ConversationRow, ConversationScope } from "../../outreach/api/conversationApi";
 
 /** One row of Home's outreach queue: a position's conversation row, and the position it belongs to. */
@@ -10,10 +14,9 @@ export interface MyConversationRow {
   row: ConversationRow;
 }
 
+/** Rows in the queue's own order; `truncated` when more wait than were sent. */
 export interface MyOutreachQueue {
   rows: MyConversationRow[];
-  /** How many wait in all, past the rows sent. */
-  total: number;
   truncated: boolean;
 }
 
