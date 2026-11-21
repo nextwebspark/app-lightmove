@@ -32,7 +32,6 @@ export function DrawerSection({
 /** A two-column grid of {@link DetailTile}s, which is how both mockup panels lay out their figures. */
 export function DetailGrid({ wide = false, children }: { wide?: boolean; children: ReactNode }) {
   const grid = <div className={cn("grid grid-cols-2 gap-x-3 gap-y-2.5", wide && "@xl:grid-cols-4")}>{children}</div>;
-  // Wide: four across once the grid's own box has the room, as on the record full page.
   return wide ? <div className="@container">{grid}</div> : grid;
 }
 

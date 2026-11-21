@@ -38,6 +38,7 @@ import { refreshOutreachActivity } from "../../outreach/lib/outreachRefresh";
 import { useMailbox } from "../../outreach/lib/useMailbox";
 import { canExecuteProjectWork } from "../../projects/lib/access";
 import { isArchived } from "../../projects/lib/filtering";
+import { ClientVisibleSwitch } from "../../pipeline/components/ClientVisibleSwitch";
 import { PipelineView } from "../../pipeline/components/PipelineView";
 import * as talentMapApi from "../../talentmap/api/talentMapApi";
 import type * as talentMapTypes from "../../talentmap/api/types";
@@ -1063,12 +1064,24 @@ function TriageStage() {
           onOpen={(candidate) => setProfile({ candidate, company: null })}
           onExit={() => setRecordPage(false)}
         >
-          <CandidateDrawer
-            {...recordProps}
-            open
-            frame="page"
-            onOpenCompany={profileCompanyRow ? () => setOpenCompany({ company: profileCompanyRow }) : undefined}
-          />
+          {(listButton) => (
+            <CandidateDrawer
+              {...recordProps}
+              open
+              frame="page"
+              stepper={stepper && { ...stepper, lead: listButton }}
+              onOpenCompany={profileCompanyRow ? () => setOpenCompany({ company: profileCompanyRow }) : undefined}
+              clientVisibility={(candidate, onSaved) => (
+                <ClientVisibleSwitch
+                  projectId={project.id}
+                  candidateId={candidate.id}
+                  fullName={candidate.fullName}
+                  clientVisible={candidate.clientVisible ?? false}
+                  onChanged={(clientVisible) => onSaved({ ...candidate, clientVisible })}
+                />
+              )}
+            />
+          )}
         </CandidateRecordPage>
       ) : view === "pipeline" ? (
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">

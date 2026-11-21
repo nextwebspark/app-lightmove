@@ -7,7 +7,6 @@ import { formatInstantDate } from "../../../lib/format";
 import { toBrowsableUrl } from "../../../lib/url";
 import { ContactChannels } from "../../contactlookup/components/ContactPanel";
 import type { PhoneReach } from "../../contactlookup/components/PhoneActions";
-import { ClientVisibleSwitch } from "../../pipeline/components/ClientVisibleSwitch";
 import type { Candidate, LastCall, PersonRecord } from "../api/types";
 import { CANDIDATE_SOURCE_STYLES } from "../lib/candidateVocabulary";
 import { pipelineSwatchClass } from "../lib/pipelineStatus";
@@ -23,10 +22,10 @@ export function RecordDetailsRail({
   canWrite,
   person,
   nextAction,
+  clientVisibility,
   reach,
   lastCall,
   onEditContacts,
-  onSaved,
 }: {
   projectId: string;
   candidate: Candidate;
@@ -35,17 +34,18 @@ export function RecordDetailsRail({
   person: PersonRecord | undefined;
   /** The footer's next action bar, moved here. */
   nextAction?: ReactNode;
+  /** The Client visible switch, which the host draws. */
+  clientVisibility?: ReactNode;
   reach?: PhoneReach;
   lastCall?: LastCall | null;
   onEditContacts?: () => void;
-  onSaved: (saved: Candidate) => void;
 }) {
   const capturedFrom = toBrowsableUrl(candidate.sourceUrl);
   const otherPositions = (person?.positions ?? []).filter((position) => position.projectId !== projectId);
   return (
     <aside
       aria-label="Details"
-      className="hidden min-h-0 overflow-y-auto border-s border-u-border bg-u-bg xl:col-start-2 xl:row-span-3 xl:row-start-2 xl:block"
+      className="hidden w-80 flex-none overflow-y-auto border-s border-u-border bg-u-bg xl:block"
     >
       <div className="flex flex-col gap-5 px-5 pb-6 pt-1 [&>section:first-child]:border-t-0">
         {nextAction && <DetailBlock title="Next action">{nextAction}</DetailBlock>}
@@ -78,13 +78,7 @@ export function RecordDetailsRail({
         {/* Staff only: whether the client sees them, and the mandates a client seat may not know of. */}
         {canWrite && (
           <DetailBlock title="Process">
-            <ClientVisibleSwitch
-              projectId={projectId}
-              candidateId={candidate.id}
-              fullName={candidate.fullName}
-              clientVisible={candidate.clientVisible ?? false}
-              onChanged={(clientVisible) => onSaved({ ...candidate, clientVisible })}
-            />
+            {clientVisibility}
             {otherPositions.length > 0 && (
               <div className="mt-2">
                 <div className="type-micro-label text-u-text3">Also on</div>

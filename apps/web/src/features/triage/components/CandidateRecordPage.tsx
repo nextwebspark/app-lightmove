@@ -1,9 +1,8 @@
-import { useEffect, useRef, useState, type ReactNode, type Ref } from "react";
+import { useEffect, useEffectEvent, useRef, useState, type ReactNode, type Ref } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { CompanyLogo } from "../../../components/ui/CompanyLogo";
 import { cn } from "../../../lib/cn";
 import { EscapeLayerContext, useEscapeKey } from "../../../lib/useEscapeKey";
-import { RecordBarLeadContext } from "../../candidates/components/RecordCornerControls";
 import type { Candidate } from "../../candidates/api/types";
 import { CandidateAvatar } from "../../candidates/components/CandidateAvatar";
 import { pipelineSwatchClass, statusStyle } from "../../candidates/lib/pipelineStatus";
@@ -33,8 +32,8 @@ export function CandidateRecordPage({
   openId: string;
   onOpen: (candidate: Candidate) => void;
   onExit: () => void;
-  /** The record itself: the peek's header, tabs, body and foot. */
-  children: ReactNode;
+  /** The record itself, given the List button its bar puts first where the list is away. */
+  children: (listButton: ReactNode) => ReactNode;
 }) {
   const [search, setSearch] = useState("");
   const [listOpen, setListOpen] = useState(false);
@@ -47,7 +46,6 @@ export function CandidateRecordPage({
       // A blocked store only forgets the choice.
     }
   };
-  // Under 1024px the list floats over the record; wider, it takes its column back.
   const showList = () => {
     if (listHidden) hideList(false);
     if (!window.matchMedia?.("(min-width: 64rem)").matches) setListOpen(true);
@@ -67,20 +65,19 @@ export function CandidateRecordPage({
     openRow.current?.scrollIntoView?.({ block: "nearest" });
   }, [openId]);
   // `/` searches the list, as in a mail client; never while typing, and never under a window over the page.
-  useEffect(() => {
-    const handleKey = (event: KeyboardEvent) => {
-      if (event.key !== "/" || event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) return;
-      const target = event.target;
-      if (target instanceof HTMLElement && (target.isContentEditable || target.closest("input, textarea, select")))
-        return;
-      if (!isTopLayer()) return;
-      event.preventDefault();
-      showList();
-      requestAnimationFrame(() => searchBox.current?.focus());
-    };
-    document.addEventListener("keydown", handleKey);
-    return () => document.removeEventListener("keydown", handleKey);
+  const handleSlash = useEffectEvent((event: KeyboardEvent) => {
+    if (event.key !== "/" || event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) return;
+    const target = event.target;
+    if (target instanceof HTMLElement && (target.isContentEditable || target.closest("input, textarea, select"))) return;
+    if (!isTopLayer()) return;
+    event.preventDefault();
+    showList();
+    requestAnimationFrame(() => searchBox.current?.focus());
   });
+  useEffect(() => {
+    document.addEventListener("keydown", handleSlash);
+    return () => document.removeEventListener("keydown", handleSlash);
+  }, []);
   const listButton = (
     <button
       type="button"
@@ -187,14 +184,8 @@ export function CandidateRecordPage({
         </ul>
       </nav>
 
-      {/* The record's bar, header, body and footer down the first column; from 1280px its Details rail beside them. */}
-      <section
-        aria-label="Executive record"
-        className="grid min-h-0 min-w-0 flex-1 grid-rows-[auto_auto_minmax(0,1fr)_auto] bg-u-surface xl:grid-cols-[minmax(0,1fr)_20rem]"
-      >
-        <EscapeLayerContext.Provider value={isTopLayer}>
-          <RecordBarLeadContext.Provider value={listButton}>{children}</RecordBarLeadContext.Provider>
-        </EscapeLayerContext.Provider>
+      <section aria-label="Executive record" className="flex min-h-0 min-w-0 flex-1 flex-col bg-u-surface">
+        <EscapeLayerContext.Provider value={isTopLayer}>{children(listButton)}</EscapeLayerContext.Provider>
       </section>
     </div>
   );

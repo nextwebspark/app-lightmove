@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, type ReactNode } from "react";
+import { useContext, useEffect, type ReactNode } from "react";
 import { EscapeLayerContext } from "../../../lib/useEscapeKey";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { cn } from "../../../lib/cn";
@@ -13,6 +13,8 @@ export interface RecordStepper {
   frame: "peek" | "page";
   /** Where the open person sits in the list, 0-based, for the full page's "3 of 48". */
   position?: { index: number; total: number };
+  /** What the full page's record bar puts first: its List button, where the list is away. */
+  lead?: ReactNode;
   /** The peek's Open full page, the page's Exit full page; absent where the screen has no full page. */
   onToggleFrame?: () => void;
 }
@@ -81,22 +83,18 @@ export function RecordCornerControls({
   );
 }
 
-/** What the full page puts first in the record bar: its List button, where the list is away. */
-export const RecordBarLeadContext = createContext<ReactNode>(null);
-
 /**
  * The full page's record bar, where the peek has its corner: Previous and Next with where this person sits in the
  * list, and the way back to the grid. Stepping is held while `held` says why.
  */
 export function RecordBar({ stepper, held }: { stepper: RecordStepper; held?: string }) {
-  const lead = useContext(RecordBarLeadContext);
   return (
     <div
       role="toolbar"
       aria-label="Executive record"
-      className="flex h-11 flex-none items-center gap-1 border-b border-u-border px-3 xl:col-span-2"
+      className="flex h-11 flex-none items-center gap-1 border-b border-u-border px-3"
     >
-      {lead}
+      {stepper.lead}
       <button
         type="button"
         aria-label="Previous executive"
