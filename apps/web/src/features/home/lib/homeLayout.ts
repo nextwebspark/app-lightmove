@@ -57,6 +57,8 @@ export const DEFAULT_HOME_LAYOUT: HomeLayout = {
   landing: "home",
 };
 
+const KINDS = Object.keys(DEFAULT_HOME_LAYOUT.kinds) as NeedsKind[];
+
 /** The smallest each section still reads at, and the size it comes back at when switched on again. */
 const SECTION_SIZES: Record<HomeSection, { minW: number; minH: number; w: number; h: number }> = {
   NEEDS: { minW: 5, minH: 6, w: 8, h: 11 },
@@ -96,8 +98,32 @@ export function chartCount(layout: HomeLayout): number {
   return layout.tiles.filter((tile) => tile.kind === "CHART").length;
 }
 
+function sameRect(left: WidgetLayout, right: WidgetLayout): boolean {
+  return left.x === right.x && left.y === right.y && left.w === right.w && left.h === right.h;
+}
+
+function sameOptions(left: Record<string, string>, right: Record<string, string>): boolean {
+  const keys = Object.keys(left);
+  return keys.length === Object.keys(right).length && keys.every((key) => left[key] === right[key]);
+}
+
+function sameTile(left: HomeTile, right: HomeTile): boolean {
+  if (left.kind !== right.kind || !sameRect(left.layout, right.layout)) return false;
+  if (left.kind !== "CHART" || right.kind !== "CHART") return true;
+  return left.queryId === right.queryId && left.chart === right.chart && left.title === right.title
+    && sameOptions(left.options, right.options);
+}
+
+/** Field by field, never by serialising: the answer decides whether a save keeps a row or follows the default. */
+export function sameLayout(left: HomeLayout, right: HomeLayout): boolean {
+  return left.landing === right.landing
+    && KINDS.every((kind) => left.kinds[kind] === right.kinds[kind])
+    && left.tiles.length === right.tiles.length
+    && left.tiles.every((tile, index) => sameTile(tile, right.tiles[index]));
+}
+
 export function isDefaultLayout(layout: HomeLayout): boolean {
-  return JSON.stringify(layout) === JSON.stringify(DEFAULT_HOME_LAYOUT);
+  return sameLayout(layout, DEFAULT_HOME_LAYOUT);
 }
 
 /** Whose Home, in which workspace: one browser may hold several people, and one person several workspaces. */
@@ -135,8 +161,6 @@ export function rememberLanding(owner: HomeOwner, landing: Landing): void {
     // Blocked storage only costs the landing choice on this browser's next sign-in.
   }
 }
-
-const KINDS = Object.keys(DEFAULT_HOME_LAYOUT.kinds) as NeedsKind[];
 
 /**
  * The layout someone kept on this browser before Home was saved with them: its sections and headline charts, laid

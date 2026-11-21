@@ -62,6 +62,17 @@ describe("homeLayout", () => {
 
   it("knows the default when it sees it", () => {
     expect(isDefaultLayout(structuredClone(DEFAULT_HOME_LAYOUT))).toBe(true);
+    // The same layout rebuilt with its keys in another order, as a tile spread or the server's answer leaves it.
+    const reordered = {
+      landing: DEFAULT_HOME_LAYOUT.landing,
+      kinds: { ATTENTION: true, PREPARATION: true, FOLLOW_UP: true, NEEDS_REPLY: true },
+      tiles: DEFAULT_HOME_LAYOUT.tiles.map(({ layout, ...rest }) => ({
+        key: "tile-9",
+        layout: { h: layout.h, w: layout.w, y: layout.y, x: layout.x },
+        ...rest,
+      })),
+    };
+    expect(isDefaultLayout(reordered)).toBe(true);
     expect(isDefaultLayout(withSection(DEFAULT_HOME_LAYOUT, "TODAY", false))).toBe(false);
   });
 });

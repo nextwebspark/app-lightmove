@@ -44,6 +44,14 @@ export interface HomeLayoutBody {
   tiles: HomeTileBody[];
   needs: Partial<Record<NeedsKind, boolean>>;
   landing: "HOME" | "POSITIONS";
+  /** The version the layout was read at; a save sends back the one it opened, null when it opened the default. */
+  version: number | null;
+}
+
+/** The person's saved Home and the version it was read at. */
+export interface SavedHome {
+  layout: HomeLayout;
+  version: number;
 }
 
 export const HOME_LAYOUT_KEY = ["home", "layout"] as const;
@@ -68,7 +76,7 @@ export function toHomeLayout(body: HomeLayoutBody): HomeLayout {
   };
 }
 
-export function toHomeLayoutBody(layout: HomeLayout): HomeLayoutBody {
+export function toHomeLayoutBody(layout: HomeLayout, version: number | null): HomeLayoutBody {
   return {
     tiles: layout.tiles.map((tile) =>
       tile.kind === "CHART"
@@ -77,18 +85,27 @@ export function toHomeLayoutBody(layout: HomeLayout): HomeLayoutBody {
     ),
     needs: layout.kinds,
     landing: layout.landing === "positions" ? "POSITIONS" : "HOME",
+    version,
   };
 }
 
-/** The caller's saved Home in this workspace; null until they first save one. */
-export async function getHomeLayout(signal?: AbortSignal): Promise<HomeLayout | null> {
-  const { layout } = await request<{ layout: HomeLayoutBody | null }>("/me/home", { signal });
-  return layout ? toHomeLayout(layout) : null;
+function toSavedHome(body: HomeLayoutBody): SavedHome {
+  return { layout: toHomeLayout(body), version: body.version ?? 0 };
 }
 
-export async function saveHomeLayout(layout: HomeLayout): Promise<HomeLayout> {
-  const saved = await request<{ layout: HomeLayoutBody }>("/me/home", { method: "PUT", body: toHomeLayoutBody(layout) });
-  return toHomeLayout(saved.layout);
+/** The caller's saved Home in this workspace; null until they first save one. */
+export async function getHomeLayout(signal?: AbortSignal): Promise<SavedHome | null> {
+  const { layout } = await request<{ layout: HomeLayoutBody | null }>("/me/home", { signal });
+  return layout ? toSavedHome(layout) : null;
+}
+
+/** Saves over the version it was opened at; a save since then elsewhere answers HOME_LAYOUT_STALE. */
+export async function saveHomeLayout(layout: HomeLayout, version: number | null): Promise<SavedHome> {
+  const saved = await request<{ layout: HomeLayoutBody }>("/me/home", {
+    method: "PUT",
+    body: toHomeLayoutBody(layout, version),
+  });
+  return toSavedHome(saved.layout);
 }
 
 /** Forget the saved Home: the person draws the default again, and follows it as it changes. */

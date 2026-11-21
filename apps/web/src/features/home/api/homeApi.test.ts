@@ -15,8 +15,9 @@ describe("Home's task keys", () => {
 
 describe("Home's layout on the wire", () => {
   it("survives the trip to the server and back, landing and Needs you groups in the server's words", () => {
-    const body = toHomeLayoutBody(DEFAULT_HOME_LAYOUT);
+    const body = toHomeLayoutBody(DEFAULT_HOME_LAYOUT, null);
     expect(body.landing).toBe("HOME");
+    expect(body.version).toBeNull();
     expect(body.tiles[0]).toEqual({ kind: "NEEDS", layout: { x: 0, y: 0, w: 8, h: 11 } });
     expect(toHomeLayout(body)).toEqual(DEFAULT_HOME_LAYOUT);
     expect(toHomeLayout({ ...body, needs: { ATTENTION: false }, landing: "POSITIONS" })).toMatchObject({

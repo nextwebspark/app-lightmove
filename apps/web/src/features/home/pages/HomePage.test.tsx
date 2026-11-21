@@ -103,7 +103,7 @@ describe("HomePage", () => {
     vi.mocked(tasksApi.getMyTasks).mockResolvedValue(noTasks);
     vi.mocked(homeApi.getMyOutreachNeeds).mockResolvedValue({ rows: [], truncated: false });
     vi.mocked(homeApi.getHomeLayout).mockResolvedValue(null);
-    vi.mocked(homeApi.saveHomeLayout).mockImplementation(async (layout) => layout);
+    vi.mocked(homeApi.saveHomeLayout).mockImplementation(async (layout) => ({ layout, version: 1 }));
   });
   afterEach(() => localStorage.clear());
 
@@ -207,7 +207,9 @@ describe("HomePage", () => {
     await user.click(screen.getByRole("button", { name: "Save layout" }));
 
     expect(screen.queryByRole("region", { name: "Your positions" })).not.toBeInTheDocument();
-    expect(vi.mocked(homeApi.saveHomeLayout).mock.calls[0][0].tiles.map((tile) => tile.kind)).toEqual(["NEEDS", "TODAY", "CHART", "CHART", "CHART"]);
+    const [sent, version] = vi.mocked(homeApi.saveHomeLayout).mock.calls[0];
+    expect(sent.tiles.map((tile) => tile.kind)).toEqual(["NEEDS", "TODAY", "CHART", "CHART", "CHART"]);
+    expect(version).toBeNull();
     expect(await screen.findByRole("button", { name: /Customize/ })).toBeInTheDocument();
   });
 
@@ -215,12 +217,15 @@ describe("HomePage", () => {
     vi.mocked(authApi.me).mockResolvedValue(aUser({ id: "u1", workspace: aWorkspace({ roles: ["MEMBER"] }) }));
     vi.mocked(projectsApi.projects).mockResolvedValue([position("p1", "Product Planning", [seat("u1", "RESEARCHER")])]);
     vi.mocked(homeApi.getHomeLayout).mockResolvedValue({
+      version: 4,
+      layout: {
       tiles: [
         { kind: "NEEDS", layout: { x: 0, y: 0, w: 12, h: 8 } },
         { kind: "CHART", queryId: "positionsBy", chart: "bar", options: { group: "stage" }, title: "Where my positions stand", layout: { x: 0, y: 8, w: 6, h: 7 } },
       ],
       kinds: { NEEDS_REPLY: true, FOLLOW_UP: true, PREPARATION: true, ATTENTION: true },
       landing: "home",
+      },
     });
 
     renderHome();

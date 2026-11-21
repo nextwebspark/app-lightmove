@@ -16,9 +16,7 @@ import { liveClients } from "../../clients/lib/filtering";
 import * as dashboardsApi from "../../dashboards/api/dashboardsApi";
 import { ChartCard } from "../../dashboards/components/ChartCard";
 import { ChartLibraryDrawer, draftFor, type ChartDraft } from "../../dashboards/components/ChartLibraryDrawer";
-import { DashboardGrid } from "../../dashboards/components/DashboardGrid";
 import { defaultTitle } from "../../dashboards/lib/chartRules";
-import { clampSize, compact, limitsFor, place, startingLayout } from "../../dashboards/lib/gridLayout";
 import { useRelabel } from "../../dashboards/lib/useRelabel";
 import type { ConversationScope } from "../../outreach/api/conversationApi";
 import * as projectsApi from "../../projects/api/projectsApi";
@@ -29,18 +27,11 @@ import * as tasksApi from "../../tasks/api/tasksApi";
 import { useWorkspaceVocabulary } from "../../workspace/lib/vocabulary";
 import * as homeApi from "../api/homeApi";
 import { PositionsSection, TodaySection } from "../components/HomeSections";
+import { HomeGrid } from "../components/HomeGrid";
 import { HomeOptions } from "../components/HomeOptions";
 import { NeedsYou } from "../components/NeedsYou";
-import {
-  chartCount,
-  MAX_HOME_CHARTS,
-  relaid,
-  settled,
-  tileLimits,
-  type ChartTile,
-  type HomeLayout,
-  type HomeTile,
-} from "../lib/homeLayout";
+import { MAX_HOME_CHARTS, type ChartTile, type HomeTile } from "../lib/homeLayout";
+import { useHomeEditor } from "../lib/useHomeEditor";
 import { useHomeLayout } from "../lib/useHomeLayout";
 import { isAgendaTask, needsYouOf } from "../lib/needsYou";
 
@@ -100,12 +91,11 @@ function StaffHome({ projects, header }: { projects: Project[]; header: HeaderFn
   const toast = useToast();
   const owner = { userId: user?.id ?? "", workspaceId: user?.workspace?.id ?? "" };
   const home = useHomeLayout(owner);
-  const [draft, setDraft] = useState<HomeLayout | null>(null);
+  const editor = useHomeEditor(home.layout);
+  const { editing, layout } = editor;
   const [optionsOpen, setOptionsOpen] = useState(false);
   const [libraryDraft, setLibraryDraft] = useState<ChartDraft | null | "library">(null);
   const [scope, setScope] = useState<ConversationScope>("mine");
-  const editing = draft !== null;
-  const layout = draft ?? home.layout;
 
   const leadsAny = projects.some((project) => isSeatedOn(project, user?.id, "LEAD"));
   const shownScope: ConversationScope = leadsAny ? scope : "mine";
@@ -169,7 +159,8 @@ function StaffHome({ projects, header }: { projects: Project[]; header: HeaderFn
     [today.data],
   );
   const tasksPending = shownScope === "team" ? assigned.isPending : today.isPending || overdue.isPending;
-  const queryOf = (id: string) => library.data?.find((query) => query.id === id);
+  const queries = useMemo(() => new Map((library.data ?? []).map((query) => [query.id, query])), [library.data]);
+  const queryOf = (id: string) => queries.get(id);
   const relabel = useRelabel();
   const count = seated.length === 1 ? "1 position you work on" : `${seated.length} positions you work on`;
 
@@ -180,41 +171,20 @@ function StaffHome({ projects, header }: { projects: Project[]; header: HeaderFn
   };
 
   const handleCommit = (chart: ChartDraft) => {
-    if (!draft) return;
-    const tile: ChartTile = {
-      kind: "CHART",
-      queryId: chart.query.id,
-      chart: chart.chart,
-      options: chart.options,
-      title: chart.title.trim() || null,
-      layout:
-        chart.index === null
-          ? startingLayout(draft.tiles.map((other) => other.layout), chart.chart)
-          : clampSize(draft.tiles[chart.index].layout, limitsFor(chart.chart)),
-    };
-    if (chart.index === null) {
-      if (chartCount(draft) >= MAX_HOME_CHARTS) {
-        toast.error(`Home can hold up to ${MAX_HOME_CHARTS} charts. Remove one to add another.`);
-        return;
-      }
-      setDraft({ ...draft, tiles: [...draft.tiles, tile] });
-      return;
-    }
-    const tiles = draft.tiles.map((other, index) => (index === chart.index ? tile : other));
-    setDraft(relaid({ ...draft, tiles }, compact(place(tiles.map((other) => other.layout), chart.index, tile.layout))));
+    if (!editor.commitChart(chart)) toast.error(`Home can hold up to ${MAX_HOME_CHARTS} charts. Remove one to add another.`);
   };
 
-  const editChart = (index: number) => {
+  const chartEditor = (index: number) => {
     const tile = layout.tiles[index];
     const query = tile.kind === "CHART" ? queryOf(tile.queryId) : undefined;
-    if (tile.kind === "CHART" && query) setLibraryDraft(draftFor(query, { ...tile }, index));
+    return tile.kind === "CHART" && query ? () => setLibraryDraft(draftFor(query, tile, index)) : null;
   };
 
   const handleSave = () => {
-    if (!draft) return;
-    home.save.mutate(draft, {
+    if (!editor.draft) return;
+    home.save.mutate(editor.draft, {
       onSuccess: () => {
-        setDraft(null);
+        editor.stop();
         setOptionsOpen(false);
         toast.success("Home saved");
       },
@@ -263,7 +233,7 @@ function StaffHome({ projects, header }: { projects: Project[]; header: HeaderFn
         <Icon d={ICONS.sliders} size={14} />
         Options
       </Button>
-      <Button variant="secondary" size="sm" onClick={() => { setDraft(null); setOptionsOpen(false); }}>
+      <Button variant="secondary" size="sm" onClick={() => { editor.stop(); setOptionsOpen(false); }}>
         Cancel
       </Button>
       <Button size="sm" loading={home.save.isPending} onClick={handleSave}>
@@ -271,7 +241,7 @@ function StaffHome({ projects, header }: { projects: Project[]; header: HeaderFn
       </Button>
     </div>
   ) : (
-    <Button variant="secondary" size="sm" disabled={home.pending} onClick={() => setDraft(layout)}>
+    <Button variant="secondary" size="sm" disabled={home.pending} onClick={editor.start}>
       <Icon d={ICONS.sliders} size={14} />
       Customize
     </Button>
@@ -291,52 +261,20 @@ function StaffHome({ projects, header }: { projects: Project[]; header: HeaderFn
       {home.pending ? (
         <CardsSkeleton cards={3} />
       ) : (
-        <div>
-          <DashboardGrid
-            editing={editing}
-            items={layout.tiles.map((tile, index) => ({
-              key: tile.kind === "CHART" ? `chart-${index}` : tile.kind,
-              layout: tile.layout,
-              limits: tileLimits(tile),
-              label: labelOf(tile),
-            }))}
-            onChange={(layouts) => draft && setDraft(relaid(draft, layouts))}
-          >
-            {(index) => {
-              const tile = layout.tiles[index];
-              return (
-                <div className="relative h-full min-w-0">
-                  {renderTile(tile)}
-                  {editing && (
-                    <TileChrome
-                      label={labelOf(tile)}
-                      onEdit={tile.kind === "CHART" && queryOf(tile.queryId) ? () => editChart(index) : undefined}
-                      onRemove={
-                        tile.kind === "NEEDS"
-                          ? undefined
-                          : () => setDraft(settled({ ...layout, tiles: layout.tiles.filter((_, other) => other !== index) }))
-                      }
-                    />
-                  )}
-                </div>
-              );
-            }}
-          </DashboardGrid>
-          {editing && (
-            <button
-              type="button"
-              onClick={() => setLibraryDraft("library")}
-              className="mt-3.5 flex w-full items-center justify-center gap-2 rounded-u-card border-[1.5px] border-dashed border-u-border-strong p-5 text-body font-medium text-u-text2 hover:border-u-accent-ring hover:text-u-accent"
-            >
-              <Icon d={ICONS.plus} size={15} />
-              Add chart
-            </button>
-          )}
-        </div>
+        <HomeGrid
+          tiles={layout.tiles}
+          editing={editing}
+          labelOf={labelOf}
+          renderTile={renderTile}
+          onRelayout={editor.relayout}
+          onEditChart={chartEditor}
+          onRemove={editor.remove}
+          onAddChart={() => setLibraryDraft("library")}
+        />
       )}
 
       {editing && (
-        <HomeOptions open={optionsOpen} onClose={() => setOptionsOpen(false)} layout={layout} onChange={setDraft} />
+        <HomeOptions open={optionsOpen} onClose={() => setOptionsOpen(false)} layout={layout} onChange={editor.update} />
       )}
       {libraryDraft !== null && (
         <ChartLibraryDrawer
@@ -354,38 +292,6 @@ function StaffHome({ projects, header }: { projects: Project[]; header: HeaderFn
 }
 
 const SECTION_LABELS = { NEEDS: "Needs you", TODAY: "Today", POSITIONS: "Your positions" } as const;
-
-/**
- * Edit mode over a tile: the whole tile is the handle (its links and buttons stay asleep under the cover so a press
- * anywhere drags), with the pencil for a chart and × for anything but Needs you.
- */
-function TileChrome({ label, onEdit, onRemove }: { label: string; onEdit?: () => void; onRemove?: () => void }) {
-  return (
-    <div className="absolute inset-0 z-10 rounded-u-card border-[1.5px] border-dashed border-u-accent-ring bg-u-accent-tint/40 group-hover/chart:border-u-accent">
-      <div className="absolute right-2 top-2 flex gap-1">
-        {onEdit && <TileButton label={`Edit ${label}`} icon={ICONS.pencil} onClick={onEdit} />}
-        {onRemove && <TileButton label={`Remove ${label}`} icon={ICONS.close} tone="danger" onClick={onRemove} />}
-      </div>
-    </div>
-  );
-}
-
-function TileButton({ label, icon, tone, onClick }: { label: string; icon: string; tone?: "danger"; onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      aria-label={label}
-      title={label}
-      onClick={onClick}
-      className={cn(
-        "grid size-[26px] place-items-center rounded-u-control border border-u-border bg-u-surface text-u-text2 transition hover:text-u-text",
-        tone === "danger" && "hover:border-u-offlimits hover:text-u-offlimits",
-      )}
-    >
-      <Icon d={icon} size={13} />
-    </button>
-  );
-}
 
 /** A pure client: the positions shared with them, how far each has come. No AI, nothing staff-only. */
 function ClientHome({ projects, header }: { projects: Project[]; header: HeaderFn }) {

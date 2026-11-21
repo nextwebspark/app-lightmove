@@ -84,7 +84,6 @@ export function HomeOptions({
           ))}
         </Group>
 
-
         <Group title="Open Uncava on">
           <div role="radiogroup" aria-label="Open Uncava on" className="flex flex-col gap-1.5 p-1.5">
             {LANDINGS.map(([key, label, sub]) => {
