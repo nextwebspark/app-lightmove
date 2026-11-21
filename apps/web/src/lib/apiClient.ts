@@ -54,6 +54,30 @@ export function onRequestRefused(listener: RefusalListener): () => void {
   return () => refusalListeners.delete(listener);
 }
 
+/**
+ * Asks the person for a fresh two-factor code and resolves once the server has taken it; rejects when they dismiss it.
+ * A request refused with `PLATFORM_STEP_UP_REQUIRED` waits on this and is then sent once more, so no caller handles it.
+ */
+type StepUpPrompt = () => Promise<void>;
+let stepUpPrompt: StepUpPrompt | null = null;
+
+export function onStepUpRequired(prompt: StepUpPrompt): () => void {
+  stepUpPrompt = prompt;
+  return () => {
+    if (stepUpPrompt === prompt) stepUpPrompt = null;
+  };
+}
+
+async function stepUpConfirmed(): Promise<boolean> {
+  if (!stepUpPrompt) return false;
+  try {
+    await stepUpPrompt();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /** Thrown for any non-2xx. Carries the server's own ProblemDetail so a form can render field errors. */
 export class ApiRequestError extends Error {
   // Declared, not a constructor parameter property: `erasableSyntaxOnly` requires that stripping the
@@ -298,7 +322,13 @@ async function sendWithAuth(path: string, options: RequestOptions): Promise<Resp
   }
 
   if (!response.ok) {
-    const refused = new ApiRequestError(await problemFrom(response));
+    let problem = await problemFrom(response);
+    if (problem.code === "PLATFORM_STEP_UP_REQUIRED" && !anonymous && (await stepUpConfirmed())) {
+      response = await send(accessToken);
+      if (response.ok) return response;
+      problem = await problemFrom(response);
+    }
+    const refused = new ApiRequestError(problem);
     refusalListeners.forEach((listener) => {
       // A listener's own failure must never replace the refusal its caller is about to be told.
       try {
