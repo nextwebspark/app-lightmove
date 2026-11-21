@@ -1,3 +1,4 @@
+import { PLATFORM_TEMPLATES } from "../../platform/platformSections";
 import type { PositionDiscipline } from "../../position/api/types";
 import type { TemplateScope } from "../api/types";
 
@@ -16,6 +17,6 @@ export const DISCIPLINE_LABELS: Record<PositionDiscipline, string> = {
 export const DISCIPLINES = Object.keys(DISCIPLINE_LABELS) as PositionDiscipline[];
 
 export const SCOPE_COPY: Record<TemplateScope, { heading: string; path: string }> = {
-  library: { heading: "Template library", path: "/settings/template-library" },
+  library: { heading: "Template library", path: PLATFORM_TEMPLATES },
   workspace: { heading: "Templates", path: "/settings/templates" },
 };

@@ -1,11 +1,10 @@
-import type { ReactNode } from "react";
-import { Navigate, Outlet, Route, Routes, useLocation } from "react-router-dom";
+import { lazy, Suspense, type ReactNode } from "react";
+import { Navigate, Outlet, Route, Routes, useLocation, useParams } from "react-router-dom";
 import { ProjectLayout } from "../components/layout/ProjectLayout";
 import { SettingsLanding, SettingsLayout } from "../components/layout/SettingsLayout";
 import { WorkspaceLayout } from "../components/layout/WorkspaceLayout";
 import { Logo, Spinner } from "../components/ui";
 import { useAuth } from "../features/auth/AuthProvider";
-import type { PlatformAction } from "../features/auth/api/types";
 import { homeFor } from "../features/auth/homeFor";
 import { landingAfterSignIn, safeReturnTo } from "../features/auth/returnTo";
 import { hasPendingSignupRestart } from "../features/auth/signupRestart";
@@ -66,8 +65,11 @@ import { StrategyPage } from "../features/strategy/pages/StrategyPage";
 import { TemplateEditorPage } from "../features/templates/pages/TemplateEditorPage";
 import { TemplateListPage } from "../features/templates/pages/TemplateListPage";
 import { TeamPage } from "../features/workspace/pages/TeamPage";
+import { isPlatformStaff, PLATFORM_TEMPLATES } from "../features/platform/platformSections";
 import { NotFoundPage } from "./NotFoundPage";
 import { PublicNotFoundPage } from "./PublicNotFoundPage";
+
+const PlatformRoutes = lazy(() => import("../features/platform/PlatformRoutes"));
 
 /**
  * Routing follows the user's server-derived state (exists, verified, has a workspace), not a step counter, so a
@@ -214,12 +216,26 @@ export function AppRoutes() {
           <Route path="/settings/templates/new" element={<TemplateEditorPage scope="workspace" />} />
           <Route path="/settings/templates/:code" element={<TemplateEditorPage scope="workspace" />} />
         </Route>
-        <Route element={<RequirePlatformAction action="TEMPLATE_LIBRARY_MANAGE"><Outlet /></RequirePlatformAction>}>
-          <Route path="/settings/template-library" element={<TemplateListPage scope="library" />} />
-          <Route path="/settings/template-library/new" element={<TemplateEditorPage scope="library" />} />
-          <Route path="/settings/template-library/:code" element={<TemplateEditorPage scope="library" />} />
-        </Route>
       </Route>
+
+      {/* The template library moved to the platform console; its old addresses are in bookmarks. */}
+      <Route path="/settings/template-library" element={<Navigate to={PLATFORM_TEMPLATES} replace />} />
+      <Route path="/settings/template-library/:code" element={<TemplateLibraryRedirect />} />
+
+      {/* The platform console: Uncava staff's, above every workspace. Its own shell, and its own chunk, which
+          only a holder of a platform action ever requests. */}
+      <Route
+        path="/platform/*"
+        element={
+          <RequireWorkspace>
+            <RequirePlatformStaff>
+              <Suspense fallback={<Booting />}>
+                <PlatformRoutes />
+              </Suspense>
+            </RequirePlatformStaff>
+          </RequireWorkspace>
+        }
+      />
 
       {/* Anything else. Rendered rather than redirected, for the reason NotFoundPage carries. */}
       <Route path="*" element={<UnknownAddress />} />
@@ -342,13 +358,22 @@ function RequireAdmin({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
-/** The Platform settings, for LightMove staff. UX only — every platform endpoint re-reads the grant. */
-function RequirePlatformAction({ action, children }: { action: PlatformAction; children: ReactNode }) {
+/**
+ * The platform console, for Uncava staff: a holder of any platform action. UX only — every platform endpoint
+ * re-reads the grant. Everyone else is sent home before the console's chunk is asked for.
+ */
+function RequirePlatformStaff({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();
 
   if (loading) return <Booting />;
   if (!user) return <Navigate to="/login" replace />;
-  if (!user.platformActions.includes(action)) return <Navigate to="/" replace />;
+  if (!isPlatformStaff(user)) return <Navigate to="/" replace />;
 
   return <>{children}</>;
+}
+
+/** `/settings/template-library/new` or `/:code`, as bookmarked before the library moved. */
+function TemplateLibraryRedirect() {
+  const { code = "" } = useParams();
+  return <Navigate to={`${PLATFORM_TEMPLATES}/${encodeURIComponent(code)}`} replace />;
 }

@@ -18,6 +18,7 @@ export function AppShell({
   navGroups,
   navBackLink,
   breadcrumb,
+  workspaceChrome = true,
   topbarActions,
   notice,
   contentClassName,
@@ -31,6 +32,8 @@ export function AppShell({
   navGroups: SidebarGroup[];
   navBackLink?: SidebarItem;
   breadcrumb?: ReactNode;
+  /** Off in the platform console, which belongs to no workspace: no credit chip, no bell. */
+  workspaceChrome?: boolean;
   topbarActions?: ReactNode;
   /**
    * A line about the whole screen — an archived position's — between the topbar and the page. Outside `main`,
@@ -59,7 +62,7 @@ export function AppShell({
     <HelpProvider>
       {/* Clear of the notch and the status bar: the home-screen app is drawn edge to edge (viewport-fit=cover). */}
       <div className="flex h-dvh flex-col overflow-hidden pt-[env(safe-area-inset-top)] ps-[env(safe-area-inset-left)] pe-[env(safe-area-inset-right)]">
-        <Topbar breadcrumb={breadcrumb} actions={topbarActions} />
+        <Topbar breadcrumb={breadcrumb} actions={topbarActions} workspaceChrome={workspaceChrome} />
 
         <TimeZoneMoveNotice />
 

@@ -1,0 +1,43 @@
+import type { ReactNode } from "react";
+import { Navigate, Outlet, Route, Routes } from "react-router-dom";
+import { NotFoundPage } from "../../app/NotFoundPage";
+import { useAuth } from "../auth/AuthProvider";
+import type { PlatformAction } from "../auth/api/types";
+import { TemplateEditorPage } from "../templates/pages/TemplateEditorPage";
+import { TemplateListPage } from "../templates/pages/TemplateListPage";
+import { PlatformLayout } from "./PlatformLayout";
+import { PLATFORM_HOME, visiblePlatformSections } from "./platformSections";
+
+/**
+ * Everything under `/platform`, loaded as one chunk the first time a holder of a platform action opens it, so
+ * nobody else downloads the console. The route that mounts it has already turned everyone else away.
+ */
+export default function PlatformRoutes() {
+  return (
+    <Routes>
+      <Route element={<PlatformLayout />}>
+        <Route index element={<PlatformLanding />} />
+        <Route element={<RequirePlatformAction action="TEMPLATE_LIBRARY_MANAGE"><Outlet /></RequirePlatformAction>}>
+          <Route path="templates" element={<TemplateListPage scope="library" />} />
+          <Route path="templates/new" element={<TemplateEditorPage scope="library" />} />
+          <Route path="templates/:code" element={<TemplateEditorPage scope="library" />} />
+        </Route>
+        <Route path="*" element={<NotFoundPage />} />
+      </Route>
+    </Routes>
+  );
+}
+
+/** `/platform` itself: the first section this person holds the action for. */
+function PlatformLanding() {
+  const { user } = useAuth();
+  const first = visiblePlatformSections(user)[0];
+  return <Navigate to={first?.to ?? "/"} replace />;
+}
+
+/** One section's routes. UX only — every platform endpoint re-reads the grant. */
+function RequirePlatformAction({ action, children }: { action: PlatformAction; children: ReactNode }) {
+  const { user } = useAuth();
+  if (!user?.platformActions.includes(action)) return <Navigate to={PLATFORM_HOME} replace />;
+  return <>{children}</>;
+}

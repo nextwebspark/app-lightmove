@@ -9,7 +9,7 @@ import type {
 } from "./types";
 
 /**
- * Settings → Templates (the caller's workspace) and Settings → Template library (the one every
+ * Settings → Templates (the caller's workspace) and Platform → Templates (the one every
  * workspace shares). One module for both: the calls have the same shape, and only the root differs.
  */
 
