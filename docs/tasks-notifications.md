@@ -42,12 +42,21 @@ the drawer's Next actions, the card), `Notifications.dc.html` (the bell), `Works
   `pg_notify` channel on `core/stream`'s one LISTEN connection). Email goes only for *assigned to you* and
   *mentioned*, and only if still unread after `lightmove.notifications.email-delay` (10 minutes); a daily
   digest goes at 08:00 in the user's profile time zone (Settings → Profile, V148), claimed once per user per
-  day. Each email is claimed before it is sent, so one the mail service refuses is logged at error with its ids and
+  day — one email per person per workspace, covering every position, never one per position. Each email is claimed before it is sent, so one the mail service refuses is logged at error with its ids and
   never resent: a second copy is worse than a missed one. When it goes it is asked again whether the person still
   works the position, still wants that kind by email, still holds the task and, for a mention, whether the note is
   still there; a row read before its time never sends, even marked unread later, and an older row of a group stays
   read while a newer one waits. Preferences are per kind × channel, defaulted on. A person holds at most ten live
   streams per workspace; an eleventh closes their oldest.
+- **The digest's layout** (`TaskDigestComposer`, on `EmailRenderer`'s chips, section titles and cards, in the app's
+  palette — overdue is `--u-signal`, today the accent): a one-line verdict and three counts; *Start here*, three
+  picks by rule (today's first task, the candidate one conversation clears most for, then the longest waiting),
+  shown only when there are more than three rows below; *Due today* with times; *Mentions*; *Overdue, by
+  position*, one card per position and one row per candidate (their tasks on that position merged), oldest
+  first, five rows then "+N more"; *Gone quiet*, tasks 14+ days late, set apart and asking to be closed or
+  re-dated; *Coming up*, a count per day for the next two working days. Days are the person's own: a task is late
+  from the day after its due date, so one due earlier this morning is *Due today*. Only late, due-today or
+  mentioned work sends it; Coming up alone does not.
 - **An archived position goes quiet** (V137). Its tasks and bell rows are kept but left out of My tasks, the
   counts, the digest, the due scan and the bell until it is restored; an email due about it is claimed and never
   sent. The position's own reads — the drawer, the board — still show its tasks.

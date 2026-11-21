@@ -17,6 +17,7 @@ import app.lightmove.api.core.tenant.EveryWorkspace;
 import app.lightmove.api.core.tenant.TenantResolvers;
 import app.lightmove.api.core.tenant.WorkspaceScope;
 import app.lightmove.api.notification.constant.NotificationKind;
+import app.lightmove.api.notification.model.DigestMention;
 import app.lightmove.api.notification.model.Notification;
 import app.lightmove.api.notification.repository.NotificationRecipientRow;
 import app.lightmove.api.notification.repository.NotificationRepository;
@@ -24,7 +25,6 @@ import app.lightmove.api.project.model.Project;
 import app.lightmove.api.project.repository.ProjectRepository;
 import app.lightmove.api.task.dto.TaskResponse;
 import app.lightmove.api.task.model.DueDigest;
-import app.lightmove.api.task.model.DueDigestLine;
 import app.lightmove.api.task.model.TaskHolder;
 import app.lightmove.api.task.service.TaskService;
 import app.lightmove.api.workspace.service.DateTimePreferenceService;
@@ -40,6 +40,7 @@ import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -63,7 +64,9 @@ import org.springframework.transaction.support.TransactionTemplate;
 public class NotificationEmails {
 
     private static final int BATCH = 200;
-    private static final int DIGEST_LINES = 8;
+    private static final int MENTION_LOOKUP = 20;
+    private static final Instant FAR_FUTURE = Instant.parse("9999-12-31T00:00:00Z");
+    private static final UUID LAST_ID = new UUID(-1L, -1L);
     private static final Duration DIGEST_HORIZON = Duration.ofHours(36);
 
     private static final String CLAIM_EMAILS = """
@@ -234,16 +237,34 @@ public class NotificationEmails {
                 || !workspaceAccess.isStaff(userId, workspaceId) || !preferences.digest(userId, workspaceId)) {
             return false;
         }
-        DueDigest due = tasks.dueDigestOf(userId, workspaceId, zone, now, DIGEST_LINES);
+        DueDigest due = tasks.dueDigestOf(userId, workspaceId, TaskDigestComposer.horizonOf(now, zone));
         long mentions = rows.countUnreadOfKind(userId, workspaceId, NotificationKind.MENTIONED.name());
-        if ((due.isEmpty() && mentions == 0) || !claimDigest(userId, workspaceId, local.toLocalDate())) {
+        TaskDigestComposer composer = new TaskDigestComposer(properties.web().baseUrl(), formats, zone, now);
+        if (!composer.hasNews(due, mentions) || !claimDigest(userId, workspaceId, local.toLocalDate())) {
             return false;
         }
-        List<String> lines = due.lines().stream().map(line -> lineOf(line, formats)).toList();
-        emailSender.send(templates.buildNotificationDigestEmail(user.getEmail(), user.getFullName(),
-                formats.date(now), due.dueToday(), due.overdue(), (int) mentions, lines,
-                properties.web().baseUrl() + "/"));
+        List<DigestMention> named = mentions == 0 ? List.of() : unreadMentionsOf(userId, workspaceId, now);
+        emailSender.send(templates.buildNotificationDigestEmail(user.getEmail(), formats.date(now),
+                composer.compose(due, named, (int) mentions)));
         return true;
+    }
+
+    private List<DigestMention> unreadMentionsOf(UUID userId, UUID workspaceId, Instant now) {
+        List<Notification> unread = rows.findInbox(userId, workspaceId, now, true, FAR_FUTURE, LAST_ID,
+                MENTION_LOOKUP).stream()
+                .filter(row -> row.getKind() == NotificationKind.MENTIONED)
+                .limit(TaskDigestComposer.MENTION_ROWS)
+                .toList();
+        Map<UUID, String> executives = people.personNamesOf(workspaceId, unread.stream()
+                .map(Notification::getPersonId).filter(Objects::nonNull).distinct().toList());
+        return unread.stream().map(row -> new DigestMention(
+                Optional.ofNullable(row.getActorUserId()).flatMap(users::findById).map(User::getFullName)
+                        .orElse("A colleague"),
+                row.getPersonId() == null ? "an executive"
+                        : executives.getOrDefault(row.getPersonId(), "an executive"),
+                Optional.ofNullable(row.getProjectId()).flatMap(projects::findById).map(Project::getPositionTitle)
+                        .orElse("a position"),
+                linkOf(row.getProjectId(), row.getCandidateId(), row.getPersonId(), null))).toList();
     }
 
     private boolean claimDigest(UUID userId, UUID workspaceId, LocalDate day) {
@@ -255,13 +276,6 @@ public class NotificationEmails {
 
     private static boolean isWeekend(DayOfWeek day) {
         return day == DayOfWeek.SATURDAY || day == DayOfWeek.SUNDAY;
-    }
-
-    private static String lineOf(DueDigestLine line, DateTimeFormats formats) {
-        String due = formats.dateTime(line.dueAt());
-        String who = line.executiveName() == null ? "" : " — " + line.executiveName();
-        String where = line.positionTitle() == null ? "" : ", " + line.positionTitle();
-        return (line.overdue() ? "Overdue · " : "") + line.title() + who + where + " · due " + due;
     }
 
     private static String dueOf(TaskResponse task, DateTimeFormats formats) {

@@ -526,20 +526,9 @@ public class EmailTemplates {
         };
     }
 
-    /** The morning's summary: what is due today, what is overdue, and mentions still unread. */
-    public EmailMessage buildNotificationDigestEmail(String recipient, String recipientName, String date,
-                                                     int dueToday, int overdue, int unreadMentions,
-                                                     List<String> lines, String link) {
-        List<EmailBlock> blocks = new ArrayList<>();
-        blocks.add(EmailParagraph.of("Hi %s — here is your day: %s due today, %s overdue and %s unread.",
-                plain(firstName(recipientName)), strong(countOf(dueToday, "task")), strong(countOf(overdue, "task")),
-                strong(countOf(unreadMentions, "mention"))));
-        lines.forEach(line -> blocks.add(EmailParagraph.of("%s", plain(line))));
-        blocks.add(new EmailAction("Open My tasks", link));
-        blocks.add(EmailNote.of("A digest goes each morning there is something on your list. Turn it off in "
-                + "Settings → Notifications."));
-        return renderer.render(recipient, "Your Uncava day — %s".formatted(date),
-                new EmailContent("Your day in Uncava", blocks));
+    /** The morning's digest; its layout is the notification feature's, since only it knows what a task is. */
+    public EmailMessage buildNotificationDigestEmail(String recipient, String date, EmailContent content) {
+        return renderer.render(recipient, "Your Uncava day — %s".formatted(date), content);
     }
 
     private static String escaped(String text) {

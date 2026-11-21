@@ -217,23 +217,20 @@ public class TaskService {
                 from + shown.size() < inTab);
     }
 
-    /** The morning's digest for one person: their open tasks due by the end of their day, overdue first. */
+    /** The morning's digest for one person: their open, dated tasks due before {@code until}, soonest first. */
     @Transactional(readOnly = true)
-    public DueDigest dueDigestOf(UUID userId, UUID workspaceId, ZoneId zone, Instant now, int lineCap) {
-        LocalDate today = LocalDate.ofInstant(now, zone);
+    public DueDigest dueDigestOf(UUID userId, UUID workspaceId, Instant until) {
         List<Task> due = tasks.findOpenAssignedToOnLivePositions(workspaceId, userId).stream()
-                .filter(task -> task.getDueAt() != null
-                        && !LocalDate.ofInstant(task.getDueAt(), zone).isAfter(today))
+                .filter(task -> task.getDueAt() != null && task.getDueAt().isBefore(until))
                 .sorted(TaskOrder.SOONEST_FIRST)
                 .toList();
-        int overdue = (int) due.stream().filter(task -> task.getDueAt().isBefore(now)).count();
-        List<Task> named = due.stream().limit(lineCap).toList();
         Map<UUID, String> personNames = people.personNamesOf(workspaceId,
-                named.stream().map(Task::getPersonId).distinct().toList());
-        Map<UUID, String> projectTitles = titlesOf(named.stream().map(Task::getProjectId).distinct().toList());
-        return new DueDigest(due.size() - overdue, overdue, named.stream()
-                .map(task -> new DueDigestLine(task.getTitle(), personNames.get(task.getPersonId()),
-                        projectTitles.get(task.getProjectId()), task.getDueAt(), task.getDueAt().isBefore(now)))
+                due.stream().map(Task::getPersonId).distinct().toList());
+        Map<UUID, String> projectTitles = titlesOf(due.stream().map(Task::getProjectId).distinct().toList());
+        return new DueDigest(due.stream()
+                .map(task -> new DueDigestLine(task.getId(), task.getTitle(), task.getPersonId(),
+                        personNames.get(task.getPersonId()), task.getCandidateId(), task.getProjectId(),
+                        projectTitles.get(task.getProjectId()), task.getDueAt()))
                 .toList());
     }
 
