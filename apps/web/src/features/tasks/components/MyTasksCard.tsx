@@ -110,7 +110,10 @@ export function MyTasksCard({ page = false }: {
   const toggle = useMutation({
     mutationFn: ({ task }: { task: TaskResponse; on: (typeof TABS)[number] }) =>
       tasksApi.updateTask(task.id, { status: task.status === "done" ? "open" : "done" }),
-    onSuccess: (saved, { on }) => {
+    onSuccess: (saved, { task: ticked, on }) => {
+      // The tab counts open rows: a tick on a row someone else already cancelled answers cancelled, not done.
+      const counted = (status: TaskResponse["status"]) => (status === "open" ? 1 : 0);
+      const delta = counted(saved.status) - counted(ticked.status);
       queryClient.setQueriesData<InfiniteData<MyTasksResponse, number>>(
         { queryKey: [...tasksApi.TASKS_KEY_PREFIX, "mine"] },
         (current) =>
@@ -119,13 +122,18 @@ export function MyTasksCard({ page = false }: {
                 ...current,
                 pages: current.pages.map((slice) => ({
                   ...slice,
-                  tasks: slice.tasks.map((task) => (task.id === saved.id ? saved : task)),
-                  counts: { ...slice.counts, [on.count]: slice.counts[on.count] + (saved.status === "done" ? -1 : 1) },
+                  // A row someone else deleted leaves the list: ticking it again would do nothing, silently.
+                  tasks:
+                    saved.status === "cancelled"
+                      ? slice.tasks.filter((task) => task.id !== saved.id)
+                      : slice.tasks.map((task) => (task.id === saved.id ? saved : task)),
+                  counts: { ...slice.counts, [on.count]: slice.counts[on.count] + delta },
                 })),
               }
             : current,
       );
       tasksChanged(saved.projectId, { keepMyTasks: true });
+      if (saved.status === "cancelled") toast("Someone already deleted this task");
     },
     onError: (error) => toast.error(messageFor(error)),
   });

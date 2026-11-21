@@ -763,6 +763,82 @@ export interface PersonRecord {
   addedAt: string;
   addedByUserId: string | null;
   addedByName: string | null;
+  /** What research vendors said beyond the profile, laid together; null for someone never researched. */
+  research?: PersonResearchDetails | null;
+  /** When a research vendor itself last read the profile. */
+  researchSeenAt?: string | null;
+}
+
+/** A career post as research described it, with the text the person wrote about it. */
+export interface PersonResearchedRole {
+  company: string | null;
+  title: string | null;
+  period: string | null;
+  location: string | null;
+  description: string;
+}
+
+export interface PersonLink {
+  label: string;
+  url: string;
+}
+
+/** A certification, publication, project, award, membership, course, patent, recommendation or post, as research gave it. */
+export interface PersonProfileItem {
+  title: string;
+  subtitle: string | null;
+  period: string | null;
+  url: string | null;
+  description: string | null;
+}
+
+/** What research said beyond the profile. Staff-only: the Strategy preview and the person record carry it. */
+export interface PersonResearchDetails {
+  headline: string | null;
+  industry: string | null;
+  jobFunction: string | null;
+  seniority: string | null;
+  workStatus: string | null;
+  followers: number | null;
+  connections?: number | null;
+  influencer?: boolean | null;
+  recommendationsCount?: number | null;
+  updatedAt: string | null;
+  links: PersonLink[];
+  certifications: PersonProfileItem[];
+  publications: PersonProfileItem[];
+  projects: PersonProfileItem[];
+  volunteering: PersonProfileItem[];
+  honorsAndAwards?: PersonProfileItem[];
+  organizations?: PersonProfileItem[];
+  courses?: PersonProfileItem[];
+  patents?: PersonProfileItem[];
+  recommendations?: PersonProfileItem[];
+  posts?: PersonProfileItem[];
+  roles?: PersonResearchedRole[];
+  languages?: { name: string; proficiency: string | null }[];
+  similarProfileSlugs?: string[];
+  alsoViewedSlugs?: string[];
+  /** Whether a vendor holds each kind of contact — flags only, free; finding one is a paid lookup. */
+  contactAvailability: { personalEmail: boolean; workEmail: boolean; phone: boolean } | null;
+  company: {
+    website: string | null;
+    domain: string | null;
+    industry: string | null;
+    type?: string | null;
+    size: string | null;
+    employees?: number | null;
+    country: string | null;
+    headquarter: string | null;
+    foundedYear: number | null;
+    revenue: string | null;
+    overview: string | null;
+    specialties: string[];
+    locations?: string[];
+    fundingStatus?: string | null;
+    fundingRounds?: number | null;
+    latestFundingDate?: string | null;
+  } | null;
 }
 
 export interface MapToPositionResult {

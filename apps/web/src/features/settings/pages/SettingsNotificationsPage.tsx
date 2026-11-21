@@ -178,7 +178,9 @@ function AutomaticTasksCard() {
   const toast = useToast();
   const rules = useQuery({ queryKey: tasksApi.TASK_RULES_KEY, queryFn: ({ signal }) => tasksApi.getTaskRules(signal) });
 
+  // Each switch sends the whole set, so two quick flips must reach the server in the order they were made.
   const saving = useMutation({
+    scope: { id: "task-rules" },
     mutationFn: (next: TaskRules) => tasksApi.putTaskRules(next),
     onMutate: async (next) => {
       await queryClient.cancelQueries({ queryKey: tasksApi.TASK_RULES_KEY });

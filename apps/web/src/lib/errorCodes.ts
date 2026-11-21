@@ -79,6 +79,13 @@ export type ApiErrorCode =
   | "CANDIDATE_ASSESSMENT_NOTHING_OPEN"
   | "AI_ASSESSMENT_DISABLED"
   | "RANKING_SCENARIO_STALE"
+  | "DASHBOARD_NOT_FOUND"
+  | "DASHBOARD_READ_ONLY"
+  | "DASHBOARD_STALE"
+  | "DASHBOARD_TOO_MANY_WIDGETS"
+  | "CHART_QUERY_NOT_FOUND"
+  | "CHART_TYPE_NOT_ALLOWED"
+  | "CHART_OPTION_INVALID"
   | "RANKING_BRIEF_CHANGED"
   | "AI_UNAVAILABLE"
   | "PIPELINE_STAGE_NOT_EMPTY"
@@ -99,6 +106,8 @@ export type ApiErrorCode =
   | "PERSON_SUPPRESSED"
   | "PERSON_PROCESSING_RESTRICTED"
   | "PERSON_PROCESSING_RESTRICTION_NOT_YOURS"
+  | "PERSON_RESEARCH_NEEDS_PROFILE"
+  | "PERSON_RESEARCH_REFRESHING"
   | "PERSON_ERASE_SEND_IN_FLIGHT"
   | "SUPPRESSION_UNAVAILABLE"
   | "CANDIDATE_PRIVACY_NOT_SET_UP"
@@ -112,6 +121,7 @@ export type ApiErrorCode =
   | "SHARE_CLIENT_CONFIDENTIAL"
   | "TASK_ASSIGNEE_NOT_ON_TEAM"
   | "TASK_NOT_YOURS"
+  | "TASK_CLOSED"
   | "STRATEGY_SEARCH_NAME_TAKEN"
   | "ASSISTANT_UNAVAILABLE"
   | "ASSISTANT_BUSY"
@@ -315,11 +325,19 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
     "Some variables have nothing to fill them for this executive. Fill them in, give them a fallback or remove them.",
   TASK_ASSIGNEE_NOT_ON_TEAM: "They aren't on this position's team. Add them in Team & access, or pick someone who is.",
   TASK_NOT_YOURS: "Only whoever set this task, whoever it's assigned to, the position's lead or an admin can change it.",
+  TASK_CLOSED: "This task is done or deleted. Reopen it to change it.",
   CANDIDATE_TAG_EXISTS: "Your team already has that tag.",
   CANDIDATE_TAG_RETIRED: "That tag is retired. Restore it in Settings to use it again.",
   CANDIDATE_ASSESSMENT_STALE: "Someone saved this assessment after you opened it. Reload to keep your changes over theirs.",
   RANKING_SCENARIO_STALE: "Someone saved this scenario after you opened it. Reload to keep your changes over theirs.",
   RANKING_BRIEF_CHANGED: "The brief's competencies changed since you opened this. Reload to see them.",
+  DASHBOARD_NOT_FOUND: "That dashboard no longer exists, or it is no longer shared with you.",
+  DASHBOARD_READ_ONLY: "Only the person who made this dashboard can change it. Duplicate it to make your own.",
+  DASHBOARD_STALE: "This dashboard was changed since you opened it. Reload to see the changes.",
+  DASHBOARD_TOO_MANY_WIDGETS: "A dashboard can hold up to 30 charts. Remove one to add another.",
+  CHART_QUERY_NOT_FOUND: "That chart is no longer available. Remove it, or pick a replacement from the library.",
+  CHART_TYPE_NOT_ALLOWED: "That chart type doesn't fit this data. Pick another way to show it.",
+  CHART_OPTION_INVALID: "That option isn't available for this chart.",
   CANDIDATE_ASSESSMENT_NO_CRITERIA:
     "The brief has no competencies to assess against yet. Add them in the position's Assessment Criteria step.",
   CANDIDATE_ASSESSMENT_NOTHING_OPEN:
@@ -345,6 +363,8 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   PERSON_PROCESSING_RESTRICTED:
     "Processing is restricted for this person, so this can't be done until the restriction is lifted.",
   PERSON_PROCESSING_RESTRICTION_NOT_YOURS: "Only the person who restricted processing, or an admin, can lift it.",
+  PERSON_RESEARCH_NEEDS_PROFILE: "Add their LinkedIn profile first, so research has a profile to read.",
+  PERSON_RESEARCH_REFRESHING: "Their research is already being refreshed. Give it a few minutes.",
   PERSON_ERASE_SEND_IN_FLIGHT: "An email to this person is sending right now. Try again in a minute.",
   SUPPRESSION_UNAVAILABLE: "Your workspace's suppression list can't be checked right now, so nobody can be added. Contact Uncava support.",
   CANDIDATE_PRIVACY_NOT_SET_UP:

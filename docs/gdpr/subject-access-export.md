@@ -80,6 +80,7 @@ its logic text, or listed as leaving nothing on a person.
 | `app_lm_person` | Included | `person` |
 | `app_lm_person_contact` | Included | `contacts`, each with its `source` |
 | `app_lm_person_tag` | Included | `tags`, by label |
+| `app_lm_person_vendor_record` | Included | `research`: each research vendor's answer as it sent it (V229). It can name other people — people also viewed, recommenders — whether to redact them is for counsel (#930) |
 | `app_lm_person_photo` | Included | `photo`, and the file |
 | `app_lm_person_note` | Included | `notes`, deleted ones until purged, each with its `outcome` (V224) |
 | `app_lm_person_document` | Included | `documents`, and the latest file of each |

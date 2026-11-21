@@ -73,3 +73,6 @@ export function inPresetOrder(presets: readonly TaskPreset[], liveIds: readonly 
     position: index,
   }));
 }
+
+/** A preset's name, at most (`TaskPreset.MAX_LABEL`); a task title may run to 200. */
+export const PRESET_LABEL_MAX = 80;

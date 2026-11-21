@@ -1,5 +1,6 @@
 package app.lightmove.api.enrichment.peoplesearch.service;
 
+import app.lightmove.api.candidate.model.VendorProfileRecord;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.enrichment.candidate.model.BrightDataPeopleHits;
 import app.lightmove.api.enrichment.candidate.model.BrightDataPerson;
@@ -27,7 +28,7 @@ import tools.jackson.databind.ObjectMapper;
 @Service
 public class CachedContactOutPeopleQuery {
 
-    static final String PROVIDER = "contactout";
+    static final String PROVIDER = VendorProfileRecord.CONTACTOUT;
 
     private static final Duration COUNT_TTL = Duration.ofMinutes(10);
 

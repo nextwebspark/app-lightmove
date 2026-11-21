@@ -8,6 +8,8 @@ import { formatRelativeTime } from "../../../lib/format";
 import { useAuth } from "../../auth/AuthProvider";
 import type { Project } from "../../projects/api/types";
 import { canExecuteProjectWork } from "../../projects/lib/access";
+import { ProjectDashboardBody, ProjectDashboardRail } from "../../dashboards/components/ProjectDashboards";
+import { DASHBOARD_PARAM } from "../../dashboards/components/DashboardRailSection";
 import * as reportApi from "../api/reportApi";
 import type { Report } from "../api/types";
 import { ReportGap } from "../components/ReportGap";
@@ -82,12 +84,17 @@ function ReportBody({ project, report }: { project: Project; report: Report }) {
   const chapters = CHAPTERS.filter((chapter) => isStaff || !STAFF_ONLY_CHAPTERS.includes(chapter.key));
   const requested = searchParams.get(CHAPTER_PARAM);
   const active = chapters[Math.max(chapters.findIndex((chapter) => chapter.key === requested), 0)];
+  // A custom dashboard replaces the chapter body; a client seat has none, so the parameter means nothing to them.
+  const dashboardId = isStaff ? searchParams.get(DASHBOARD_PARAM) : null;
 
   return (
     <div className={`${GROUND} flex-col lg:flex-row`}>
       <ReportNav
         chapters={chapters}
-        activeKey={active.key}
+        activeKey={dashboardId ? "" : active.key}
+        extra={isStaff ? (collapsed) => (
+          <ProjectDashboardRail projectId={project.id} activeId={dashboardId} collapsed={collapsed} />
+        ) : undefined}
         footer={
           <>
             Talent mapping report, prepared for {project.clientName} — confidential. Generated{" "}
@@ -100,10 +107,14 @@ function ReportBody({ project, report }: { project: Project; report: Report }) {
         <div
           className={cn(
             "px-4 pb-[100px] pt-[34px]",
-            active.key === "ranking" ? "sm:px-6" : "max-w-[900px] sm:px-10",
+            dashboardId || active.key === "ranking" ? "sm:px-6 lg:px-8" : "max-w-[900px] sm:px-10",
           )}
         >
-          <Chapter chapterKey={active.key} project={project} report={report} />
+          {dashboardId ? (
+            <ProjectDashboardBody projectId={project.id} dashboardId={dashboardId} />
+          ) : (
+            <Chapter chapterKey={active.key} project={project} report={report} />
+          )}
         </div>
       </div>
     </div>

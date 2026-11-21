@@ -446,6 +446,13 @@ in the mandate the panel's Contact fold is the candidate drawer's, Find email an
 results read as a Table or as Cards (a per-viewer localStorage choice). The Location box suggests from
 two letters: countries, then LinkedIn's own spellings of where people on file live (`raw ->> 'city'`),
 then Mapbox, sent as `City, Country`. Saved searches carry a `kind`.
+**Custom dashboards** (`dashboard`, docs/custom-dashboards.md): beside the fixed report, a member builds named
+dashboards — under **Your dashboards** in the report's rail (`?dashboard=<id>` replaces the chapter body) and on
+**Dashboards** in the workspace sidebar (`/dashboards`) — from a server-side library of ready-made chart queries, each
+drawn as one of the chart types its answer fits. Private, or shared read-only with the staff; staff only throughout.
+`dashboard` reads `report` (`ReportService`), `candidate` and `project` through their public services; nothing
+depends back.
+
 The **Reports**
 tab — **Dashboard** in the rail and the phone's bar, while the route and code keep `reports` — is the mandate's talent
 mapping report (`GET /projects/{id}/report`): four chapters — mapping
@@ -1082,7 +1089,9 @@ about no position mentions nobody. Anyone on the team completes a task; changing
 its creator's, its holder's, `TEAM_MANAGE`'s or `WORKSPACE_MANAGE`'s (`TASK_NOT_YOURS`). A seat that goes
 (`ProjectSeatVacated`, from the team screen or a member's removal) hands its open tasks to the position's first
 lead in the same transaction, and so does a role change or removal (`MemberAccessNarrowed`) for a task held on a
-position its holder worked only as an admin. The due scan claims inside a `TransactionTemplate`: a scheduled call
+position its holder worked only as an admin. An executive unmapped from the position (`CandidateUnmapped`,
+`UnmappedCandidateTasks`) has their open tasks there cancelled in the removing transaction, and a done or cancelled
+task refuses a change or reassignment (`TASK_CLOSED`) unless the same PATCH reopens it. The due scan claims inside a `TransactionTemplate`: a scheduled call
 is a self-invocation, and without a transaction the after-commit listeners never hear it. Presets are the workspace's catalog (`app_lm_workspace_task_preset`, V98's
 seeded-on-first-read, retired-not-deleted idiom); free text is a title only. Rules file tasks from outreach — a
 reply, a bounce, a booked call — once per event (`rule_key`, unique), each switchable per workspace.

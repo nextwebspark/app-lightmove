@@ -11,6 +11,7 @@ import { CareerTimeline } from "../CareerTimeline";
 import { CompensationSummary } from "../CompensationSummary";
 import { DocumentsPanel } from "../documents/DocumentsPanel";
 import { ClampedText } from "../ProfileParts";
+import { ResearchedProfileSections } from "../ResearchedProfileSections";
 
 /**
  * The Profile tab: the profile every position shares, read here and edited from a position's own drawer — the summary
@@ -59,6 +60,7 @@ export function PersonProfileTab({
           <CareerTimeline career={person.career} />
         </div>
       </CollapsibleSection>
+      <ResearchedProfileSections details={person.research} fold={fold} />
       <CollapsibleSection
         {...fold("background")}
         title="Background"

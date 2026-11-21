@@ -263,6 +263,16 @@ export function assignOwners(personIds: string[], ownerUserId: string | null): P
   });
 }
 
+/** Researches the person again, as their profile reads now; the answer lands a minute or two later. */
+export function refreshResearch(personId: string): Promise<{ changed: number }> {
+  return request<{ changed: number }>(`/candidates/${personId}/research`, { method: "POST" });
+}
+
+/** As {@link refreshResearch} for each person; `changed` counts who was sent (no LinkedIn profile, or restricted, is not). */
+export function refreshResearchOfPeople(personIds: string[]): Promise<{ changed: number }> {
+  return request<{ changed: number }>("/candidates/bulk/research", { method: "POST", body: { personIds } });
+}
+
 /** Adds the people to a position as Identified; someone already in it stays as they are. */
 export function addToPosition(projectId: string, personIds: string[]): Promise<MapToPositionResult> {
   return request<MapToPositionResult>("/candidates/bulk/position", {

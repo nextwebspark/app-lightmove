@@ -11,6 +11,11 @@ public interface LinkedInProfileEnricher {
 
     Optional<EnrichedProfile> fetch(String linkedinUrl);
 
+    /** As {@link #fetch}, but past any cache of earlier answers: a researcher asked for the profile as it is now. */
+    default Optional<EnrichedProfile> fetchFresh(String linkedinUrl) {
+        return fetch(linkedinUrl);
+    }
+
     /** False when no provider is configured: the Add form's lookup then says so rather than "not found". */
     default boolean isOffered() {
         return true;

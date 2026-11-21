@@ -70,6 +70,7 @@ once by `ops/cloudsql/scrub-audit-pii.sql`.
 | `app_lm_person` | the executive: name, profile, background, package | the candidate record | while held; reviewed for deletion once untouched for the workspace's period (default 24 months ⚖️) and on no live position | erasure, retention review | `PersonErasureService` |
 | `app_lm_person_contact` | emails, phones | reaching the executive | with the person | erasure, edit | cascade |
 | `app_lm_person_photo` | photo | the drawer | with the person | erasure | cascade |
+| `app_lm_person_vendor_record` | each research vendor's answer for the executive, as sent; may name other people (people also viewed, recommenders) | the profile's further facts, without buying them again | with the person; replaced by the next answer from the same vendor | erasure | cascade |
 | `app_lm_person_tag` | person | the workspace's tags | with the person | erasure, untag | cascade |
 | `app_lm_person_note` | person, staff's notes | the team's record | with the person; a deleted note 30 days ⚖️ | erasure, delete | `PersonNotePurge` |
 | `app_lm_person_document` | person, CV and references | the team's record | with the person | erasure, removal | cascade |
@@ -84,6 +85,7 @@ once by `ops/cloudsql/scrub-audit-pii.sql`.
 | `app_lm_candidate_photo` | frozen photo copy | none: frozen for #606 | with the mapping | erasure, #606 cleanup | cascade |
 | `app_lm_candidate_scorecard` | assessment of the executive | the consultant's scorecard | with the mapping | erasure, unmapping | cascade |
 | `app_lm_ranking_scenario` | who saved it, the team's rationale | the position's ranking scenario (no person) | with the position | position or workspace deleted | cascade |
+| `app_lm_dashboard` | who made it, its name | a member's custom dashboard (the charts chosen; no figures, no person) | with its owner and its position or workspace | owner's account, position or workspace deleted | cascade |
 | `app_lm_interview_plan` | person, questions for a call | the interview copilot | with the person | erasure | cascade |
 | `app_lm_meeting_recording` | person, transcript | the Notetaker | with the person; transcript per `lightmove.recall.transcript-retention` | erasure, retention | `NotetakerTranscriptPurge` |
 | `app_lm_meeting_live_line` | spoken lines | the live copilot | until the call ends | call end | `NotetakerService` |

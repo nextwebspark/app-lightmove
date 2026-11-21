@@ -94,6 +94,52 @@ class CandidateEnrichmentTest {
     }
 
     @Test
+    @DisplayName("refreshed research replaces what only research writes and fills only what nobody typed")
+    void refreshedResearchNeverOverwritesAnEdit() {
+        Person person = captured(details("Sample Person", "Chief Financial Officer", null, null, null, null));
+        person.enrich(RESEARCH);
+
+        person.refreshResearch(new EnrichedProfile("Group CEO", "A new about.", null, null, null, "Riyadh",
+                "Saudi Arabia", List.of(new CandidateCareerEntry("New Co", "Group CEO", "2026 – Present", null)),
+                List.of(new CandidateEducationEntry("LBS", "MSc", "2015")), List.of("Treasury"), List.of("French"),
+                null, EnrichmentVendor.HARVESTAPI));
+
+        assertThat(person.getTitle()).isEqualTo("Chief Financial Officer");
+        assertThat(person.getSummary()).isEqualTo("Finance leader across GCC retail.");
+        assertThat(person.getLocationCity()).isEqualTo("Dubai");
+        assertThat(person.getProfile().career()).extracting(CandidateCareerEntry::company)
+                .containsExactly("Al Rawabi Dairy");
+        assertThat(person.getProfile().languages()).containsExactly("English", "Arabic");
+        assertThat(person.getProfile().education()).extracting(CandidateEducationEntry::school).containsExactly("LBS");
+        assertThat(person.getProfile().skills()).containsExactly("Treasury");
+        assertThat(person.getEnrichedBy()).isEqualTo(EnrichmentVendor.HARVESTAPI);
+    }
+
+    @Test
+    @DisplayName("a refresh that finds no education or skills keeps the ones on file")
+    void aThinRefreshKeepsWhatIsOnFile() {
+        Person person = captured(details("Sample Person", null, null, null, null, null));
+        person.enrich(RESEARCH);
+
+        person.refreshResearch(new EnrichedProfile(null, null, null, null, null, null, null, List.of(), List.of(),
+                List.of(), List.of(), null, EnrichmentVendor.BRIGHTDATA));
+
+        assertThat(person.getProfile().education()).extracting(CandidateEducationEntry::school).containsExactly("AUC");
+        assertThat(person.getProfile().skills()).containsExactly("Financial Planning");
+    }
+
+    @Test
+    @DisplayName("a refresh fills a title cleared to blank")
+    void aRefreshFillsABlankTitle() {
+        Person person = captured(details("Sample Person", " ", null, null, null, null));
+
+        person.refreshResearch(new EnrichedProfile("Group CEO", null, null, null, null, null, null, List.of(),
+                List.of(), List.of(), List.of(), null, EnrichmentVendor.BRIGHTDATA));
+
+        assertThat(person.getTitle()).isEqualTo("Group CEO");
+    }
+
+    @Test
     @DisplayName("an unresearched candidate names no provider")
     void anUnresearchedCandidateNamesNoProvider() {
         Person person = captured(details("Sample Person", null, null, null, null, null));

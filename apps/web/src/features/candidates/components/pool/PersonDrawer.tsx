@@ -164,6 +164,12 @@ function PersonDrawerBody({
     onError: (error) => toast.error(messageFor(error)),
   });
 
+  const refreshing = useMutation({
+    mutationFn: () => poolApi.refreshResearch(person.personId),
+    onSuccess: () => toast.success("Refreshing their research — the profile updates in a minute or two"),
+    onError: (error) => toast.error(messageFor(error)),
+  });
+
   const lifting = useMutation({
     mutationFn: () => poolApi.setProcessingRestriction(person.personId, false),
     onSuccess: (record) => {
@@ -179,7 +185,8 @@ function PersonDrawerBody({
   const offersRestriction = dataProtection && (!restriction || restriction.mayLift);
   const offersErasure = dataProtection && isAdmin;
   const offersExport = dataProtection && isAdmin;
-  const hasMenu = dataProtection;
+  const offersRefresh = Boolean(person.linkedinUrl) && !restriction;
+  const hasMenu = dataProtection || offersRefresh;
 
   return (
     <>
@@ -190,90 +197,106 @@ function PersonDrawerBody({
             <ActionMenu label={`More for ${person.fullName}`} width={256}>
               {(close) => (
                 <>
-                  <MenuItem
-                    icon={ICONS.mail}
-                    onSelect={() => {
-                      close();
-                      setNoticing(true);
-                    }}
-                  >
-                    Send privacy notice…
-                  </MenuItem>
-                  <MenuItem
-                    icon={ICONS.check}
-                    onSelect={() => {
-                      close();
-                      setMarkingNotified(true);
-                    }}
-                  >
-                    Mark as notified…
-                  </MenuItem>
-                  {consentMode.on && (
+                  {offersRefresh && (
+                    <MenuItem
+                      icon={ICONS.sparkle}
+                      onSelect={() => {
+                        close();
+                        refreshing.mutate();
+                      }}
+                    >
+                      Refresh research
+                    </MenuItem>
+                  )}
+                  {offersRefresh && dataProtection && <MenuSeparator />}
+                  {dataProtection && (
                     <>
                       <MenuItem
-                        icon={ICONS.shield}
+                        icon={ICONS.mail}
                         onSelect={() => {
                           close();
-                          setAskingConsent(true);
+                          setNoticing(true);
                         }}
                       >
-                        Ask for consent…
+                        Send privacy notice…
                       </MenuItem>
                       <MenuItem
-                        icon={ICONS.pencil}
+                        icon={ICONS.check}
                         onSelect={() => {
                           close();
-                          setRecordingConsent(true);
+                          setMarkingNotified(true);
                         }}
                       >
-                        Record an answer…
+                        Mark as notified…
                       </MenuItem>
+                      {consentMode.on && (
+                        <>
+                          <MenuItem
+                            icon={ICONS.shield}
+                            onSelect={() => {
+                              close();
+                              setAskingConsent(true);
+                            }}
+                          >
+                            Ask for consent…
+                          </MenuItem>
+                          <MenuItem
+                            icon={ICONS.pencil}
+                            onSelect={() => {
+                              close();
+                              setRecordingConsent(true);
+                            }}
+                          >
+                            Record an answer…
+                          </MenuItem>
+                        </>
+                      )}
+                      {(offersRestriction || offersExport || offersErasure) && <MenuSeparator />}
+                      {!offersRestriction ? null : restriction ? (
+                        <MenuItem
+                          icon={ICONS.unlock}
+                          onSelect={() => {
+                            close();
+                            lifting.mutate();
+                          }}
+                        >
+                          Lift restriction
+                        </MenuItem>
+                      ) : (
+                        <MenuItem
+                          icon={ICONS.lock}
+                          onSelect={() => {
+                            close();
+                            setRestricting(true);
+                          }}
+                        >
+                          Restrict processing…
+                        </MenuItem>
+                      )}
+                      {offersExport && (
+                        <MenuItem
+                          icon={ICONS.download}
+                          onSelect={() => {
+                            close();
+                            setExportingData(true);
+                          }}
+                        >
+                          Export personal data…
+                        </MenuItem>
+                      )}
+                      {offersErasure && (
+                        <MenuItem
+                          icon={ICONS.trash}
+                          tone="danger"
+                          onSelect={() => {
+                            close();
+                            setErasing(true);
+                          }}
+                        >
+                          Delete person permanently…
+                        </MenuItem>
+                      )}
                     </>
-                  )}
-                  {(offersRestriction || offersExport || offersErasure) && <MenuSeparator />}
-                  {!offersRestriction ? null : restriction ? (
-                    <MenuItem
-                      icon={ICONS.unlock}
-                      onSelect={() => {
-                        close();
-                        lifting.mutate();
-                      }}
-                    >
-                      Lift restriction
-                    </MenuItem>
-                  ) : (
-                    <MenuItem
-                      icon={ICONS.lock}
-                      onSelect={() => {
-                        close();
-                        setRestricting(true);
-                      }}
-                    >
-                      Restrict processing…
-                    </MenuItem>
-                  )}
-                  {offersExport && (
-                    <MenuItem
-                      icon={ICONS.download}
-                      onSelect={() => {
-                        close();
-                        setExportingData(true);
-                      }}
-                    >
-                      Export personal data…
-                    </MenuItem>
-                  )}
-                  {offersErasure && (
-                    <MenuItem
-                      icon={ICONS.trash}
-                      tone="danger"
-                      onSelect={() => {
-                        close();
-                        setErasing(true);
-                      }}
-                    >
-                      Delete person permanently…
-                    </MenuItem>
                   )}
                 </>
               )}

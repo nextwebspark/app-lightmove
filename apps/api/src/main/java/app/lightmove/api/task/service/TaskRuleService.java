@@ -134,8 +134,11 @@ public class TaskRuleService {
                 callEndOf(moved.previousStartsAt(), moved.previousEndsAt()), moved.movedBy(),
                 ProjectEventType.TASK_UPDATED, task -> {
                     task.reschedule(callEndOf(moved.startsAt(), moved.endsAt()));
-                    task.rekey(tasks.existsByWorkspaceIdAndRuleKey(moved.workspaceId(), movedKey)
-                            ? releasedKeyOf(task) : movedKey);
+                    if (tasks.existsByWorkspaceIdAndRuleKey(moved.workspaceId(), movedKey)) {
+                        task.releaseRuleKey();
+                    } else {
+                        task.rekey(movedKey);
+                    }
                 });
     }
 
@@ -151,7 +154,7 @@ public class TaskRuleService {
                 callEndOf(cancelled.startsAt(), cancelled.endsAt()), cancelled.cancelledBy(),
                 ProjectEventType.TASK_CANCELLED, task -> {
                     task.cancel();
-                    task.rekey(releasedKeyOf(task));
+                    task.releaseRuleKey();
                     timeline.record(task, cancelled.cancelledBy(), PersonActivityKind.TASK_CANCELLED, null);
                 });
     }
@@ -171,10 +174,6 @@ public class TaskRuleService {
 
     private static String bookedCallKey(UUID projectId, UUID personId, Instant startsAt) {
         return "booked_call:" + projectId + ":" + personId + ":" + startsAt.getEpochSecond();
-    }
-
-    private static String releasedKeyOf(Task task) {
-        return task.getRuleKey() + ":released:" + task.getId();
     }
 
     /**

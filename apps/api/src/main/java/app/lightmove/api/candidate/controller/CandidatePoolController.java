@@ -13,6 +13,7 @@ import app.lightmove.api.candidate.dto.PersonNoteResponse;
 import app.lightmove.api.candidate.dto.PersonRecordResponse;
 import app.lightmove.api.candidate.dto.PersonTimelineResponse;
 import app.lightmove.api.candidate.dto.PinPersonNoteRequest;
+import app.lightmove.api.candidate.dto.RefreshResearchRequest;
 import app.lightmove.api.candidate.dto.WritePersonNoteRequest;
 import app.lightmove.api.candidate.model.NoteViewpoint;
 import app.lightmove.api.candidate.model.PoolCriteria;
@@ -20,6 +21,7 @@ import app.lightmove.api.candidate.model.StoredPhoto;
 import app.lightmove.api.candidate.service.CandidatePoolService;
 import app.lightmove.api.candidate.service.PersonNoteService;
 import app.lightmove.api.candidate.service.PersonRecordService;
+import app.lightmove.api.candidate.service.PersonResearchRefreshService;
 import app.lightmove.api.candidate.service.PersonTimelineService;
 import app.lightmove.api.core.security.model.AuthPrincipal;
 import app.lightmove.api.core.security.rbac.RequireWorkspacePermission;
@@ -63,6 +65,7 @@ public class CandidatePoolController {
     private final PersonNoteService notes;
     private final PersonTimelineService timeline;
     private final CandidatePoolService pool;
+    private final PersonResearchRefreshService researchRefreshes;
 
     /** A page of the workspace's people; every filter is optional, as {@link PoolCriteria#read} reads them. */
     @GetMapping
@@ -165,6 +168,23 @@ public class CandidatePoolController {
                                                  HttpServletRequest httpRequest) {
         return pool.assignOwner(principal.userId(), principal.requireWorkspaceId(), request.personIds(),
                 request.ownerUserId(), httpRequest);
+    }
+
+    /** Research for these people again, as their profiles read now; answers how many were sent. */
+    @PostMapping("/bulk/research")
+    @RequireWorkspacePermission(WorkspaceAction.CANDIDATE_POOL_MANAGE)
+    public ResponseEntity<BulkPeopleChangeResponse> refreshResearchOfPeople(
+            @AuthenticationPrincipal AuthPrincipal principal, @Valid @RequestBody RefreshResearchRequest request) {
+        return ResponseEntity.accepted().body(researchRefreshes.refreshMany(principal.userId(),
+                principal.requireWorkspaceId(), request.personIds()));
+    }
+
+    @PostMapping("/{personId}/research")
+    @RequireWorkspacePermission(WorkspaceAction.CANDIDATE_POOL_MANAGE)
+    public ResponseEntity<BulkPeopleChangeResponse> refreshResearch(@AuthenticationPrincipal AuthPrincipal principal,
+                                                                    @PathVariable UUID personId) {
+        return ResponseEntity.accepted().body(researchRefreshes.refreshOne(principal.userId(),
+                principal.requireWorkspaceId(), personId));
     }
 
     /** Adds the people to a position as Identified; the caller needs that position's WORK_EXECUTE too. */

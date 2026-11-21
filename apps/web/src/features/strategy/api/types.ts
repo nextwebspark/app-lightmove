@@ -1,4 +1,8 @@
-import type { CandidateCareerEntry, CandidateEducationEntry } from "../../candidates/api/types";
+import type {
+  CandidateCareerEntry,
+  CandidateEducationEntry,
+  PersonResearchDetails as PersonDetails,
+} from "../../candidates/api/types";
 
 /** One offerable value: what a filter stores, and what the control reading it says. */
 export interface FacetOption {
@@ -281,48 +285,7 @@ export interface PersonResult {
   held: boolean;
 }
 
-export interface PersonLink {
-  label: string;
-  url: string;
-}
-
-/** A certification, publication, project or volunteering role, in whichever terms ContactOut gave it. */
-export interface PersonProfileItem {
-  title: string;
-  subtitle: string | null;
-  period: string | null;
-  url: string | null;
-  description: string | null;
-}
-
-export interface PersonDetails {
-  headline: string | null;
-  industry: string | null;
-  jobFunction: string | null;
-  seniority: string | null;
-  workStatus: string | null;
-  followers: number | null;
-  updatedAt: string | null;
-  links: PersonLink[];
-  certifications: PersonProfileItem[];
-  publications: PersonProfileItem[];
-  projects: PersonProfileItem[];
-  volunteering: PersonProfileItem[];
-  /** Whether ContactOut holds each kind of contact — flags only, free; finding one is a paid lookup. */
-  contactAvailability: { personalEmail: boolean; workEmail: boolean; phone: boolean } | null;
-  company: {
-    website: string | null;
-    domain: string | null;
-    industry: string | null;
-    size: string | null;
-    country: string | null;
-    headquarter: string | null;
-    foundedYear: number | null;
-    revenue: string | null;
-    overview: string | null;
-    specialties: string[];
-  } | null;
-}
+export type { PersonLink, PersonProfileItem, PersonResearchDetails as PersonDetails } from "../../candidates/api/types";
 
 /** One page of the search; `billed` is the credits it spent, zero when it came from the cache. */
 export interface PeopleSearchPage {

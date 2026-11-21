@@ -2,11 +2,13 @@ package app.lightmove.api.candidate.service;
 
 import app.lightmove.api.candidate.constant.PersonActivityKind;
 import app.lightmove.api.candidate.model.Candidate;
+import app.lightmove.api.candidate.model.CandidateUnmapped;
 import app.lightmove.api.candidate.repository.CandidateRepository;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 
 /**
@@ -20,11 +22,14 @@ class CandidateRemoval {
     private final CandidateRepository candidates;
     private final PersonActivityRecorder activity;
     private final AuditService audit;
+    private final ApplicationEventPublisher events;
 
     void unmap(Candidate candidate, UUID userId) {
         // The person stays with the workspace — their notes, contacts and history are the point of
         // keeping them — and the line saying which mandate let them go is written before the row goes.
         activity.record(candidate, userId, PersonActivityKind.UNMAPPED);
+        events.publishEvent(new CandidateUnmapped(candidate.getPerson().getWorkspaceId(), candidate.getProjectId(),
+                candidate.getId(), candidate.getPerson().getId(), userId));
         candidates.delete(candidate);
     }
 

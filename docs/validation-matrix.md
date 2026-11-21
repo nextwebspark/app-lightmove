@@ -122,6 +122,9 @@ Rows marked ☐ are open in #858; a PR that closes one ticks it and states the r
 | ☐ Client name, sector, country, domain | no `maxLength`, no domain check | 160/96/64/160 | toast |
 | ☐ Off-limits note | — | unbounded | toast |
 | Business unit / client notes | the note editor's Markdown, ≤ 4000 held under the box (both drawers' Save waits on it); sent only when changed, so stored plain notes stay plain | `@Size(4000)`; `notesFormat` an `ApiValueEnum`, plain when absent | toast |
+| Dashboard name (new, rename) | trimmed, required, ≤ 80 (zod) | `@NotBlank @Size(80)` | field (client), toast (server) |
+| Dashboard charts | at most 30; only the chart types the query's answer fits can be picked; options from the query's own choices | ≤ 30 (`DASHBOARD_TOO_MANY_WIDGETS`); the query exists on this kind of dashboard (`CHART_QUERY_NOT_FOUND`, a retired one kept only if already saved); `CHART_TYPE_NOT_ALLOWED`; `CHART_OPTION_INVALID`; a `layout` on the twelve-column grid (`0 ≤ x`, `x + w ≤ 12`, `1 ≤ h ≤ 24`, else `VALIDATION_FAILED`); stale `version` → `DASHBOARD_STALE` | toast |
+| Chart title | ≤ 80, optional (blank uses the query's name) | `@Size(80)` | toast |
 
 ### Position brief
 Limits mirrored in `features/position/lib/briefLimits.ts`. A blank role title, benefit, criterion or competency name

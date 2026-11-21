@@ -185,4 +185,42 @@ describe("SettingsTaskPresetsPage", () => {
     const rows = within(screen.getByRole("list", { name: "Presets" })).getAllByRole("listitem");
     expect(rows.map((row) => row.getAttribute("aria-label"))).toEqual(["Request CV", "Call to qualify interest"]);
   });
+
+  it("trims a typed title longer than a preset name may be", async () => {
+    const long = "Confirm the candidate's notice period, garden leave terms and any clawback on the deferred bonus first";
+    vi.mocked(tasksApi.getTaskPresetSuggestions).mockResolvedValue([{ label: long, count: 3 }]);
+    renderPage();
+
+    const card = await screen.findByRole("region", { name: "Most typed, not a preset" });
+    await userEvent.click(within(card).getByRole("button", { name: `Make a preset of ${long}` }));
+
+    expect(screen.getByLabelText("Preset name")).toHaveValue(long.slice(0, 80));
+  });
+
+  it("sends moves one at a time and keeps the latest order when an earlier answer comes back late", async () => {
+    const answers: ((saved: TaskPreset[]) => void)[] = [];
+    vi.mocked(tasksApi.reorderTaskPresets).mockImplementation(
+      () => new Promise((resolve) => answers.push(resolve)),
+    );
+    renderPage();
+    await screen.findByRole("listitem", { name: "Request CV" });
+    const order = () =>
+      within(screen.getByRole("list", { name: "Presets" }))
+        .getAllByRole("listitem")
+        .map((row) => row.getAttribute("aria-label"));
+
+    screen.getByRole("button", { name: "Reorder Request CV" }).focus();
+    await userEvent.keyboard("{ArrowUp}");
+    screen.getByRole("button", { name: "Reorder Request CV" }).focus();
+    await userEvent.keyboard("{ArrowDown}");
+    expect(tasksApi.reorderTaskPresets).toHaveBeenCalledTimes(1);
+
+    answers[0]([{ ...requestCv, position: 0 }, { ...qualify, position: 1 }, salarySurvey]);
+    await waitFor(() => expect(tasksApi.reorderTaskPresets).toHaveBeenCalledTimes(2));
+    expect(order()).toEqual(["Call to qualify interest", "Request CV"]);
+
+    answers[1]([qualify, requestCv, salarySurvey]);
+    await waitFor(() => expect(tasksApi.reorderTaskPresets).toHaveBeenLastCalledWith(["p1", "p2"]));
+    expect(order()).toEqual(["Call to qualify interest", "Request CV"]);
+  });
 });

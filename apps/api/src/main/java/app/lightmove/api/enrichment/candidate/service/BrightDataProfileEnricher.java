@@ -1,6 +1,7 @@
 package app.lightmove.api.enrichment.candidate.service;
 
 import app.lightmove.api.candidate.model.EnrichedProfile;
+import app.lightmove.api.candidate.model.VendorProfileRecord;
 import app.lightmove.api.core.config.BrightDataSettings;
 import app.lightmove.api.core.resilience.model.VendorCall;
 import app.lightmove.api.core.resilience.model.VendorClientSpec;
@@ -12,6 +13,7 @@ import app.lightmove.api.core.text.service.LinkedInUrls;
 import app.lightmove.api.enrichment.candidate.model.BrightDataPeopleHits;
 import app.lightmove.api.enrichment.candidate.model.BrightDataPerson;
 import app.lightmove.api.enrichment.common.service.BrightDataSearch;
+import app.lightmove.api.enrichment.common.service.VendorProfileRecords;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Optional;
@@ -64,14 +66,32 @@ public class BrightDataProfileEnricher implements LinkedInProfileEnricher {
             multiplierString = "${lightmove.resilience.retry-multiplier}",
             maxDelayString = "${lightmove.resilience.retry-max-delay}")
     public Optional<EnrichedProfile> fetch(String linkedinUrl) {
+        return research(linkedinUrl, true);
+    }
+
+    @Override
+    @Retryable(
+            predicate = VendorRetryPredicate.class,
+            maxRetriesString = "${lightmove.enrichment.brightdata.max-retries}",
+            delayString = "${lightmove.resilience.retry-delay}",
+            jitterString = "${lightmove.resilience.retry-jitter}",
+            multiplierString = "${lightmove.resilience.retry-multiplier}",
+            maxDelayString = "${lightmove.resilience.retry-max-delay}")
+    public Optional<EnrichedProfile> fetchFresh(String linkedinUrl) {
+        return research(linkedinUrl, false);
+    }
+
+    private Optional<EnrichedProfile> research(String linkedinUrl, boolean readsCache) {
         // The dataset keys on the lower-case slug exactly, while LinkedIn treats case as one page.
         String slug = LinkedInUrls.profileSlugOrNull(linkedinUrl);
         if (slug == null) {
             return Optional.empty();
         }
-        Optional<BrightDataPerson> onFile = people.find(slug, Instant.now().minus(peopleCacheTtl));
+        Optional<CachedPeopleStore.OnFile> onFile = readsCache
+                ? people.findOnFile(slug, Instant.now().minus(peopleCacheTtl)) : Optional.empty();
         if (onFile.isPresent()) {
-            return Optional.of(withPhoto(onFile.get()));
+            return Optional.of(withPhoto(onFile.get().person()).withVendorRecord(
+                    VendorProfileRecords.of(onFile.get().provider(), onFile.get().ownRecord(), json)));
         }
         BrightDataPeopleHits result = BrightDataPeopleHits.read(guard.call(VendorCall.of(VENDOR, "profile-search"),
                 () -> client.post()
@@ -86,7 +106,8 @@ public class BrightDataProfileEnricher implements LinkedInProfileEnricher {
         }
         people.purgeFetchedBefore(Instant.now().minus(peopleCacheTtl));
         people.rememberAll(VENDOR, result);
-        return Optional.of(withPhoto(result.hits().getFirst()));
+        return Optional.of(withPhoto(result.hits().getFirst())
+                .withVendorRecord(VendorProfileRecords.of(VendorProfileRecord.BRIGHTDATA, result.rawOf(0), json)));
     }
 
     private EnrichedProfile withPhoto(BrightDataPerson person) {

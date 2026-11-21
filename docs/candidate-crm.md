@@ -432,6 +432,19 @@ spelled one way. So:
 > - **Research once.** A plugin capture of someone already researched spends no vendor call; the new
 >   mandate still has them scored against its own brief, and files them under the employer their latest
 >   position recorded, as research would have — that position's company row, LinkedIn page and all.
+> - **Every research answer is kept (V229).** Each vendor's own record behind a research — the people dataset's
+>   hit, Business Search's document, ContactOut's people record, HarvestAPI's scrape — is kept on the person in
+>   `app_lm_person_vendor_record` with its typed reading (headline, followers, certifications, awards,
+>   organisations, posts, role descriptions, the employer's facts…), whether or not the profile itself changes.
+>   The drawer reads it laid together from `GET /candidates/{personId}` (`research`). **Refresh research**
+>   (`POST /candidates/{personId}/research`, `POST /candidates/bulk/research` for up to 50, `CANDIDATE_POOL_MANAGE`,
+>   `lightmove.enrichment.research-refreshes-per-user-per-hour`) asks the vendor again past the people cache:
+>   education, skills, the employer mark and the vendor record are replaced, title, summary, location, career and
+>   languages filled only where still blank (`Person.refreshResearch`; a drawer save never writes education or
+>   skills, so they are research's alone), and the timeline says `RESEARCHED` (`refreshed`). One refresh per person
+>   per ten minutes: the drawer's second ask answers `409 PERSON_RESEARCH_REFRESHING`, a person with no LinkedIn
+>   profile `422 PERSON_RESEARCH_NEEDS_PROFILE`, and the bulk ask passes both over. A record is stored without NUL
+>   characters (jsonb refuses them) and not at all past 1 MB, so keeping it can never fail the filing.
 > - The within-mandate name rule (`CANDIDATE_ALREADY_MAPPED` for a second person of one name at one
 >   company) is held by the service alone now that V36's name indexes are gone.
 > - Scripts that write or read the tables directly moved with it: `ops/dev/seed-report.sql` files a person

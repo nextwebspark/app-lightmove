@@ -9,6 +9,7 @@ import type { TaskKind, TaskPreset, TaskPresetDraft } from "../../tasks/api/type
 import {
   dueOffsetLabel,
   dueOffsetsFor,
+  PRESET_LABEL_MAX,
   retiredLabel,
   TASK_KIND_CHIPS,
   TASK_KINDS,
@@ -176,7 +177,7 @@ export function TaskPresetEditor({
         onChange={(event) => onChange({ ...draft, label: event.target.value })}
         placeholder={placeholder}
         aria-label="Preset name"
-        maxLength={80}
+        maxLength={PRESET_LABEL_MAX}
         autoFocus={focus === "label"}
         className="min-w-[180px] flex-1 border-u-accent bg-u-surface px-2.5 py-1.5"
       />
