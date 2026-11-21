@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Button, useToast } from "../../../components/ui";
@@ -50,7 +50,10 @@ export function DashboardView({
   sharedWith,
   onOpen,
   onDeleted,
+  tabs,
 }: {
+  /** The page's dashboard tabs; drawn in place of the title, beside the actions. */
+  tabs?: ReactNode;
   scope: DashboardScope;
   dashboard: Dashboard;
   library: ChartQueryDef[];
@@ -140,141 +143,161 @@ export function DashboardView({
       },
     });
 
-  return (
-    <section aria-label={dashboard.name} className="animate-fade-up">
-      <div className="flex flex-wrap items-start justify-between gap-x-5 gap-y-3.5">
-        <div className="min-w-0">
-          <h1 className="type-title">{dashboard.name}</h1>
-          <p className="mt-1.5 flex items-center gap-1.5 text-note text-u-text3">
-            <Icon d={dashboard.shared ? ICONS.team : ICONS.lock} size={13} />
-            {!dashboard.owned
-              ? `Shared by a teammate — read only · ${liveNote}`
-              : dashboard.shared
-                ? `Shared with ${sharedWith} · ${liveNote}`
-                : `Only you can see this dashboard · ${liveNote}`}
-          </p>
-        </div>
-        {dashboard.owned && !editing && (
-          <div className="flex items-center gap-2">
-            <Button variant="secondary" size="sm" className="hidden md:inline-flex" onClick={() => startEditing()}>
-              <Icon d={ICONS.dashboard} size={14} />
-              Edit layout
-            </Button>
-            <ActionMenu label="Dashboard options" triggerClassName="size-[34px] border-u-border-strong">
-              {(close) => (
-                <>
-                  <MenuItem icon={ICONS.team} onSelect={() => {
-                    close();
-                    save.mutate({ id: dashboard.id, body: bodyOf(dashboard, { shared: !dashboard.shared }) }, {
-                      onSuccess: () => toast.success(dashboard.shared ? "Only you can see this dashboard now" : `Shared with ${sharedWith}`),
-                    });
-                  }}>
-                    {dashboard.shared ? "Stop sharing" : "Share with team"}
-                  </MenuItem>
-                  <MenuItem icon={ICONS.pencil} onSelect={() => { close(); setDialog("rename"); }}>Rename</MenuItem>
-                  <MenuItem icon={ICONS.copy} onSelect={() => { close(); handleDuplicate(); }}>Duplicate</MenuItem>
-                  <MenuSeparator />
-                  <MenuItem icon={ICONS.trash} tone="danger" onSelect={() => { close(); setDialog("delete"); }}>
-                    Delete dashboard
-                  </MenuItem>
-                </>
-              )}
-            </ActionMenu>
-          </div>
-        )}
-        {!dashboard.owned && (
-          <Button variant="secondary" size="sm" loading={duplicate.isPending} onClick={handleDuplicate}>
-            <Icon d={ICONS.copy} size={14} />
-            Duplicate to edit
+  const status = (
+    <p className={cn("flex items-center gap-1.5 text-note text-u-text3", tabs ? "mt-4" : "mt-1.5")}>
+      <Icon d={dashboard.shared ? ICONS.team : ICONS.lock} size={13} />
+      {!dashboard.owned
+        ? `Shared by a teammate — read only · ${liveNote}`
+        : dashboard.shared
+          ? `Shared with ${sharedWith} · ${liveNote}`
+          : `Only you can see this dashboard · ${liveNote}`}
+    </p>
+  );
+
+  const actions = (
+    <>
+      {dashboard.owned && !editing && (
+        <div className="flex items-center gap-2">
+          <Button variant="secondary" size="sm" className="hidden md:inline-flex" onClick={() => startEditing()}>
+            <Icon d={ICONS.dashboard} size={14} />
+            Edit layout
           </Button>
-        )}
-        {editing && (
-          <div className="flex items-center gap-2">
-            <Button variant="secondary" size="sm" onClick={() => setLibraryDraft("library")}>
-              <Icon d={ICONS.plus} size={14} />
-              Add chart
-            </Button>
-            <Button variant="secondary" size="sm" onClick={() => setDraft(null)}>
-              Cancel
-            </Button>
-            <Button size="sm" loading={save.isPending} onClick={handleSave}>
-              Save layout
-            </Button>
-          </div>
-        )}
-      </div>
-
-      {editing && (
-        <p className="mt-4 rounded-u-chip bg-u-accent-tint px-3.5 py-2.5 text-note text-u-text2">
-          Drag a chart anywhere to move it, and its edge or corner to resize it. The pencil changes its chart type and
-          options. Nothing changes for anyone else until you save.
-        </p>
+          <ActionMenu label="Dashboard options" triggerClassName="size-[34px] border-u-border-strong">
+            {(close) => (
+              <>
+                <MenuItem icon={ICONS.team} onSelect={() => {
+                  close();
+                  save.mutate({ id: dashboard.id, body: bodyOf(dashboard, { shared: !dashboard.shared }) }, {
+                    onSuccess: () => toast.success(dashboard.shared ? "Only you can see this dashboard now" : `Shared with ${sharedWith}`),
+                  });
+                }}>
+                  {dashboard.shared ? "Stop sharing" : "Share with team"}
+                </MenuItem>
+                <MenuItem icon={ICONS.pencil} onSelect={() => { close(); setDialog("rename"); }}>Rename</MenuItem>
+                <MenuItem icon={ICONS.copy} onSelect={() => { close(); handleDuplicate(); }}>Duplicate</MenuItem>
+                <MenuSeparator />
+                <MenuItem icon={ICONS.trash} tone="danger" onSelect={() => { close(); setDialog("delete"); }}>
+                  Delete dashboard
+                </MenuItem>
+              </>
+            )}
+          </ActionMenu>
+        </div>
       )}
+      {!dashboard.owned && (
+        <Button variant="secondary" size="sm" loading={duplicate.isPending} onClick={handleDuplicate}>
+          <Icon d={ICONS.copy} size={14} />
+          Duplicate to edit
+        </Button>
+      )}
+      {editing && (
+        <div className="flex items-center gap-2">
+          <Button variant="secondary" size="sm" onClick={() => setLibraryDraft("library")}>
+            <Icon d={ICONS.plus} size={14} />
+            Add chart
+          </Button>
+          <Button variant="secondary" size="sm" onClick={() => setDraft(null)}>
+            Cancel
+          </Button>
+          <Button size="sm" loading={save.isPending} onClick={handleSave}>
+            Save layout
+          </Button>
+        </div>
+      )}
+    </>
+  );
 
-      {items.length === 0 ? (
-        <div className="mt-5 flex flex-col items-center rounded-u-card border-[1.5px] border-dashed border-u-border-strong px-5 py-16 text-center">
-          <div className="mb-4 grid size-12 place-items-center rounded-u-card bg-u-accent-tint text-u-accent">
-            <Icon d={ICONS.dashboard} size={22} />
-          </div>
-          <div className="text-lead font-semibold">Nothing on this dashboard yet</div>
-          <p className="mb-4 mt-2 max-w-[420px] text-body text-u-text2">
-            Pick from the library of ready-made charts, choose how each one is drawn, then arrange them your way.
-          </p>
-          {dashboard.owned && (
-            <Button onClick={() => setLibraryDraft("library")}>
-              <Icon d={ICONS.plus} size={14} />
-              Add chart
-            </Button>
-          )}
+  return (
+    <section aria-label={dashboard.name} className={cn(tabs ? "flex min-h-0 flex-1 flex-col" : "animate-fade-up")}>
+      {tabs ? (
+        <div className="flex flex-none flex-wrap-reverse items-end justify-between gap-x-3 gap-y-2 border-b border-u-border bg-u-surface px-4 pt-2.5">
+          <div className="-mb-px min-w-0 flex-1">{tabs}</div>
+          <div className="flex flex-none items-center gap-2 self-center">{actions}</div>
         </div>
       ) : (
-        <>
-          <DashboardGrid
-            editing={editing}
-            items={items.map((item) => ({
-              key: item.key,
-              layout: item.widget.layout,
-              limits: limitsFor(item.widget.chart),
-              label: item.widget.title || queryOf(item.widget.queryId)?.label || "Chart",
-            }))}
-            onChange={(layouts) => setDraft(relaid(items, layouts))}
-          >
-            {(index) => {
-              const item = items[index];
-              return (
-                <ChartCard
-                  scope={scope}
-                  widget={item.widget}
-                  query={queryOf(item.widget.queryId)}
-                  answer={answers.data?.[index]}
-                  isPending={answers.isPending}
-                  isError={answers.isError}
-                  className={cn(editing && "border-u-accent-ring shadow-u-e1 group-hover/chart:border-u-accent")}
-                  actions={
-                    editing ? (
-                      <>
-                        {queryOf(item.widget.queryId) && (
-                          <IconButton label="Edit chart" icon={ICONS.pencil} onClick={() => editChart(index)} />
-                        )}
-                        <IconButton label="Remove chart" icon={ICONS.close} tone="danger" onClick={() => removeChart(index)} />
-                      </>
-                    ) : dashboard.owned && queryOf(item.widget.queryId) ? (
-                      <IconButton label="Edit chart" icon={ICONS.pencil} onClick={() => editChart(index)} />
-                    ) : undefined
-                  }
-                />
-              );
-            }}
-          </DashboardGrid>
-          {editing && (
-            <button type="button" onClick={() => setLibraryDraft("library")}
-                    className="mt-3.5 flex w-full items-center justify-center gap-2 rounded-u-card border-[1.5px] border-dashed border-u-border-strong p-5 text-body font-medium text-u-text2 hover:border-u-accent-ring hover:text-u-accent">
-              <Icon d={ICONS.plus} size={15} />
-              Add chart
-            </button>
-          )}
-        </>
+        <div className="flex flex-wrap items-start justify-between gap-x-5 gap-y-3.5">
+          <div className="min-w-0">
+            <h1 className="type-title">{dashboard.name}</h1>
+            {status}
+          </div>
+          {actions}
+        </div>
       )}
+
+      <div className={cn(tabs && "min-h-0 flex-1 overflow-y-auto px-4 pb-[60px] sm:px-7")}>
+        {tabs && status}
+        {editing && (
+          <p className="mt-4 rounded-u-chip bg-u-accent-tint px-3.5 py-2.5 text-note text-u-text2">
+            Drag a chart anywhere to move it, and its edge or corner to resize it. The pencil changes its chart type and
+            options. Nothing changes for anyone else until you save.
+          </p>
+        )}
+
+        {items.length === 0 ? (
+          <div className="mt-5 flex flex-col items-center rounded-u-card border-[1.5px] border-dashed border-u-border-strong px-5 py-16 text-center">
+            <div className="mb-4 grid size-12 place-items-center rounded-u-card bg-u-accent-tint text-u-accent">
+              <Icon d={ICONS.dashboard} size={22} />
+            </div>
+            <div className="text-lead font-semibold">Nothing on this dashboard yet</div>
+            <p className="mb-4 mt-2 max-w-[420px] text-body text-u-text2">
+              Pick from the library of ready-made charts, choose how each one is drawn, then arrange them your way.
+            </p>
+            {dashboard.owned && (
+              <Button onClick={() => setLibraryDraft("library")}>
+                <Icon d={ICONS.plus} size={14} />
+                Add chart
+              </Button>
+            )}
+          </div>
+        ) : (
+          <>
+            <DashboardGrid
+              editing={editing}
+              items={items.map((item) => ({
+                key: item.key,
+                layout: item.widget.layout,
+                limits: limitsFor(item.widget.chart),
+                label: item.widget.title || queryOf(item.widget.queryId)?.label || "Chart",
+              }))}
+              onChange={(layouts) => setDraft(relaid(items, layouts))}
+            >
+              {(index) => {
+                const item = items[index];
+                return (
+                  <ChartCard
+                    scope={scope}
+                    widget={item.widget}
+                    query={queryOf(item.widget.queryId)}
+                    answer={answers.data?.[index]}
+                    isPending={answers.isPending}
+                    isError={answers.isError}
+                    className={cn(editing && "border-u-accent-ring shadow-u-e1 group-hover/chart:border-u-accent")}
+                    actions={
+                      editing ? (
+                        <>
+                          {queryOf(item.widget.queryId) && (
+                            <IconButton label="Edit chart" icon={ICONS.pencil} onClick={() => editChart(index)} />
+                          )}
+                          <IconButton label="Remove chart" icon={ICONS.close} tone="danger" onClick={() => removeChart(index)} />
+                        </>
+                      ) : dashboard.owned && queryOf(item.widget.queryId) ? (
+                        <IconButton label="Edit chart" icon={ICONS.pencil} onClick={() => editChart(index)} />
+                      ) : undefined
+                    }
+                  />
+                );
+              }}
+            </DashboardGrid>
+            {editing && (
+              <button type="button" onClick={() => setLibraryDraft("library")}
+                      className="mt-3.5 flex w-full items-center justify-center gap-2 rounded-u-card border-[1.5px] border-dashed border-u-border-strong p-5 text-body font-medium text-u-text2 hover:border-u-accent-ring hover:text-u-accent">
+                <Icon d={ICONS.plus} size={15} />
+                Add chart
+              </button>
+            )}
+          </>
+        )}
+      </div>
 
       {/* Portalled: this section's fade-up keeps a transform, which would pin a fixed drawer or dialog inside it. */}
       {createPortal(

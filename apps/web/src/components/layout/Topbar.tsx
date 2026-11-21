@@ -56,7 +56,12 @@ export function Topbar({ breadcrumb, actions }: {
   );
 }
 
-/** The project shell's breadcrumb: `[mark] Projects / {client} / {position title}` (mockup header). */
+const CRUMB_SEPARATOR = <span aria-hidden="true" className="text-xs text-u-text3 opacity-40">/</span>;
+const CRUMB_LINK =
+  "-mx-1.5 whitespace-nowrap rounded-md px-1.5 py-1 text-sm font-medium text-u-text2 hover:bg-u-raised hover:text-u-text";
+const CRUMB_HERE = "min-w-0 truncate whitespace-nowrap text-sm font-semibold text-u-text";
+
+/** The project shell's breadcrumb: `[mark] Workspace / Positions / {client} / {position title}`. */
 export function ProjectBreadcrumb({
   clientName,
   positionTitle,
@@ -69,48 +74,55 @@ export function ProjectBreadcrumb({
 }) {
   return (
     <div className="flex min-w-0 items-center gap-2">
-      <WorkspaceMenu compact />
-      <Link
-        to={positionsHref}
-        className="hidden whitespace-nowrap rounded-md px-1.5 py-1 font-mono text-[13px] font-medium text-u-text3 hover:bg-u-raised hover:text-u-text lg:inline"
-      >
-        Positions
-      </Link>
-      <span className="hidden text-xs text-u-text3 opacity-40 lg:inline">/</span>
-      <span className="hidden min-w-0 shrink items-center gap-1.5 whitespace-nowrap font-mono text-[13px] font-medium text-u-text2 sm:flex">
-        <span className="size-1.5 flex-none rounded-full bg-u-accent" />
-        <span className="truncate">{clientName}</span>
+      <WorkspaceMenu />
+      <span className="hidden items-center gap-2 lg:flex">
+        {CRUMB_SEPARATOR}
+        <Link to={positionsHref} className={CRUMB_LINK}>Positions</Link>
       </span>
-      <span className="hidden text-xs text-u-text3 opacity-40 sm:inline">/</span>
-      <span className="min-w-0 flex-1 truncate text-sm font-semibold text-u-text lg:max-w-[280px] lg:flex-initial">
-        {positionTitle}
+      <span className="hidden min-w-0 shrink items-center gap-2 sm:flex">
+        {CRUMB_SEPARATOR}
+        <span className="flex min-w-0 items-center gap-1.5 whitespace-nowrap text-sm font-medium text-u-text2">
+          <span className="size-1.5 flex-none rounded-full bg-u-accent" />
+          <span className="truncate">{clientName}</span>
+        </span>
       </span>
+      {CRUMB_SEPARATOR}
+      <span className={cn(CRUMB_HERE, "flex-1 lg:max-w-[280px] lg:flex-initial")}>{positionTitle}</span>
+    </div>
+  );
+}
+
+/** A workspace screen's breadcrumb: `[mark] Workspace / {section}`. */
+export function WorkspaceBreadcrumb({ section }: { section: string | null }) {
+  return (
+    <div className="flex min-w-0 items-center gap-2">
+      <WorkspaceMenu />
+      {section && (
+        <span className="hidden min-w-0 items-center gap-2 sm:flex">
+          {CRUMB_SEPARATOR}
+          <span className={CRUMB_HERE}>{section}</span>
+        </span>
+      )}
     </div>
   );
 }
 
 /** The breadcrumb variant: `[mark] Workspace / Settings / {section}`. */
 export function SettingsBreadcrumb({ section }: { section: string }) {
-  const { user } = useAuth();
   return (
     <div className="flex min-w-0 items-center gap-2">
-      <WorkspaceMenu compact />
-      <Link
-        to="/"
-        className="hidden max-w-[200px] truncate whitespace-nowrap rounded-md px-1.5 py-1 font-mono text-[13px] font-medium text-u-text3 hover:bg-u-raised hover:text-u-text md:inline xl:hidden"
-      >
-        {user?.workspace?.name ?? "Workspace"}
-      </Link>
-      {/* From xl the trigger beside it carries the name, so the crumb steps aside rather than say it twice. */}
-      <span className="hidden text-xs text-u-text3 opacity-40 md:inline xl:hidden">/</span>
-      <span className="hidden whitespace-nowrap text-sm font-semibold text-u-text sm:inline">Settings</span>
-      <span className="hidden text-xs text-u-text3 opacity-40 sm:inline">/</span>
-      <span className="truncate font-mono text-[13px] font-medium text-u-text2">{section}</span>
+      <WorkspaceMenu />
+      <span className="hidden items-center gap-2 sm:flex">
+        {CRUMB_SEPARATOR}
+        <span className="whitespace-nowrap text-sm font-medium text-u-text2">Settings</span>
+      </span>
+      {CRUMB_SEPARATOR}
+      <span className={CRUMB_HERE}>{section}</span>
     </div>
   );
 }
 
-function WorkspaceMenu({ compact = false }: { compact?: boolean }) {
+function WorkspaceMenu() {
   const { user, switchWorkspace, acceptAndSwitch, reload } = useAuth();
   const navigate = useNavigate();
   const toast = useToast();
@@ -156,7 +168,7 @@ function WorkspaceMenu({ compact = false }: { compact?: boolean }) {
   const invitationCount = invitations.length === 1 ? "1 invitation" : `${invitations.length} invitations`;
 
   return (
-    <div className={cn("relative", compact ? "flex-none" : "min-w-0")} ref={menu.rootRef}>
+    <div className="relative min-w-0 flex-none" ref={menu.rootRef}>
       <button
         ref={menu.triggerRef}
         type="button"
@@ -167,7 +179,7 @@ function WorkspaceMenu({ compact = false }: { compact?: boolean }) {
         className={cn(
           "flex min-w-0 items-center gap-2 rounded-lg hover:bg-u-raised aria-expanded:bg-u-raised",
           "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-u-accent",
-          compact ? "py-1 pl-1 pr-2" : "py-[5px] pl-1.5 pr-2",
+          "py-[5px] pl-1.5 pr-2",
         )}
       >
         <AppIcon className="h-[22px]" />
@@ -184,11 +196,7 @@ function WorkspaceMenu({ compact = false }: { compact?: boolean }) {
           )}
         </span>
         <span
-          className={cn(
-            "min-w-0 truncate text-body font-semibold text-u-text",
-            // A position's breadcrumb has room for the name only on a wide screen; a list page always shows it.
-            compact ? "hidden max-w-[160px] xl:block" : "block max-w-[120px] sm:max-w-[240px]",
-          )}
+          className="block min-w-0 max-w-[120px] truncate text-body font-semibold text-u-text sm:max-w-[240px]"
         >
           {workspace.name}
         </span>
