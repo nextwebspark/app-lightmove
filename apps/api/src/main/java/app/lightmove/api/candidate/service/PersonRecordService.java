@@ -123,7 +123,8 @@ public class PersonRecordService {
 
     /**
      * Every mandate mapping the person. Opened from a position, that one leads and the rest follow
-     * oldest first; opened from the workspace's Candidates page, the newest leads.
+     * oldest first; opened from the workspace's Candidates page, the newest leads. A position the caller is not on
+     * is listed without its title.
      */
     @Transactional(readOnly = true)
     public List<PersonPositionResponse> positionsOf(UUID userId, UUID workspaceId, UUID personId,
@@ -151,8 +152,9 @@ public class PersonRecordService {
                 .map(row -> {
                     Project mandate = mandates.get(row.getProjectId());
                     User filer = named.get(row.getAddedBy());
+                    boolean onIt = workable.contains(row.getProjectId());
                     return new PersonPositionResponse(row.getId(), row.getProjectId(),
-                            mandate == null ? null : mandate.getPositionTitle(), row.getStatus().getStatusKey(),
+                            mandate == null || !onIt ? null : mandate.getPositionTitle(), row.getStatus().getStatusKey(),
                             row.getAddedBy(), filer == null ? null : filer.getFullName(), row.getCreatedAt(),
                             row.getSource().value(), workable.contains(row.getProjectId()),
                             row.getStatus().getLabel(), row.getStatus().getColour().value(),

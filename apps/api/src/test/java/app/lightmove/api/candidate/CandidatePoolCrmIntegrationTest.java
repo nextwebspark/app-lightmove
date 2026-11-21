@@ -414,8 +414,10 @@ class CandidatePoolCrmIntegrationTest extends FlowTestSupport {
                 .andExpect(status().isOk())
                 .andReturn());
         assertThat(record.get("positions")).hasSize(2);
-        assertThat(record.get("positions").get(0).get("positionTitle").asText()).isEqualTo("Head of Credit Risk");
+        // A position the caller is not on is listed, but not named.
+        assertThat(record.get("positions").get(0).get("positionTitle").isNull()).isTrue();
         assertThat(record.get("positions").get(0).get("workable").asBoolean()).isFalse();
+        assertThat(record.get("positions").get(1).get("positionTitle").isNull()).isFalse();
         assertThat(record.get("positions").get(1).get("workable").asBoolean()).isTrue();
     }
 

@@ -39,6 +39,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -93,7 +94,7 @@ public class CandidatePoolService {
             case CONSENT_ENDING -> counts.consentEnding();
             case CONSENT_REFUSED -> counts.consentRefused();
         };
-        return new CandidatePoolResponse(rowsOf(workspaceId, ids), total,
+        return new CandidatePoolResponse(rowsOf(userId, workspaceId, ids), total,
                 new CandidatePoolViewCountsResponse(counts.all(), counts.mine(), counts.active(), counts.unplaced(),
                         counts.notNotified(), counts.consentAsked(), counts.consentEnding(),
                         counts.consentRefused()),
@@ -272,10 +273,12 @@ public class CandidatePoolService {
         return found;
     }
 
-    private List<CandidatePoolRowResponse> rowsOf(UUID workspaceId, List<UUID> ids) {
+    private List<CandidatePoolRowResponse> rowsOf(UUID userId, UUID workspaceId, List<UUID> ids) {
         Map<UUID, Person> persons = personsOf(workspaceId, ids);
         Map<UUID, List<Candidate>> mapped = mappingsOf(workspaceId, persons.values());
         Map<UUID, Project> mandates = projectsOf(mapped);
+        Set<UUID> named = mandates.isEmpty() ? Set.of()
+                : projectAccess.projectsWithAction(userId, workspaceId, mandates.keySet(), ProjectAction.WORK_EXECUTE);
         Map<UUID, PersonTimelineEntryResponse> latest = timeline.latestOf(workspaceId, persons.values());
         Map<UUID, PersonEmployer> employers = persons.values().stream().collect(Collectors.toMap(Person::getId,
                 person -> PersonEmployerResolver.employerOf(person, mapped.getOrDefault(person.getId(), List.of()))));
@@ -289,7 +292,7 @@ public class CandidatePoolService {
                     person.getSeniorityLevel() == null ? null : person.getSeniorityLevel().value(),
                     person.getSource().value(), person.getCreatedAt(), person.getProfile().career().size(),
                     holds(person, ContactChannel.EMAIL), holds(person, ContactChannel.PHONE),
-                    chipsOf(rows, mandates), List.copyOf(person.getTagIds()), person.getOwnerUserId(),
+                    chipsOf(rows, mandates, named), List.copyOf(person.getTagIds()), person.getOwnerUserId(),
                     latest.get(person.getId()));
         }).toList();
     }
@@ -298,15 +301,19 @@ public class CandidatePoolService {
         return person.getContacts().stream().anyMatch(contact -> contact.getChannel() == channel);
     }
 
-    /** Newest first. A chip is what the row draws, so who filed it and whether the caller may work it are left out. */
-    private static List<PersonPositionResponse> chipsOf(List<Candidate> rows, Map<UUID, Project> mandates) {
+    /**
+     * Newest first. A chip is what the row draws, so who filed it and whether the caller may work it are left out, and
+     * a position the caller is not on is drawn without its title.
+     */
+    private static List<PersonPositionResponse> chipsOf(List<Candidate> rows, Map<UUID, Project> mandates,
+                                                        Set<UUID> named) {
         return rows.stream()
                 .sorted(Comparator.comparing(Candidate::getCreatedAt).reversed())
                 .map(row -> {
                     Project mandate = mandates.get(row.getProjectId());
                     return new PersonPositionResponse(row.getId(), row.getProjectId(),
-                            mandate == null ? null : mandate.getPositionTitle(), row.getStatus().getStatusKey(),
-                            row.getAddedBy(), null, row.getCreatedAt(), row.getSource().value(), false,
+                            mandate == null || !named.contains(row.getProjectId()) ? null : mandate.getPositionTitle(),
+                            row.getStatus().getStatusKey(), row.getAddedBy(), null, row.getCreatedAt(), row.getSource().value(), false,
                             row.getStatus().getLabel(), row.getStatus().getColour().value(),
                             CandidateResponseMapper.stageOf(row.getStatus()), row.getStatusChangedAt(),
                             mandate != null && mandate.isArchived(), null);

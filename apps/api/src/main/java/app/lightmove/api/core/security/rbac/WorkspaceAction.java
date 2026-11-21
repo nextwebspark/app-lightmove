@@ -18,8 +18,11 @@ public enum WorkspaceAction {
     /** Start a mandate — the creator becomes its project-ADMIN (and LEAD). */
     PROJECT_CREATE,
 
-    /** See the workspace's project list. */
+    /** Reference data a member works with (currencies, countries, templates, the company search). */
     PROJECT_BROWSE,
+
+    /** Every position of the workspace in the list, not only the ones the member holds a seat on. An admin's alone. */
+    PROJECT_BROWSE_ALL,
 
     /** The client registry — hiring-entity records, not client users. */
     CLIENT_RECORD_MANAGE,

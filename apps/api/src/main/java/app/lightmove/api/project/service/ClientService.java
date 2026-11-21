@@ -27,6 +27,7 @@ import app.lightmove.api.project.dto.UpdateClientRequest;
 import app.lightmove.api.project.dto.ViewerSummary;
 import app.lightmove.api.project.model.Client;
 import app.lightmove.api.project.model.ClientRepresentative;
+import app.lightmove.api.project.model.PositionVisibility;
 import app.lightmove.api.project.model.Project;
 import app.lightmove.api.project.repository.ClientRepository;
 import app.lightmove.api.project.repository.ClientRepresentativeRepository;
@@ -63,7 +64,7 @@ public class ClientService {
     private final RepresentativeViews representativeViews;
 
     @Transactional(readOnly = true)
-    public List<ClientListResponse> list(UUID workspaceId, ClientListScope scope) {
+    public List<ClientListResponse> list(UUID userId, UUID workspaceId, ClientListScope scope) {
         List<Client> allClients = scope == ClientListScope.WITH_ARCHIVED
                 ? clients.findByWorkspaceIdOrderByNameAsc(workspaceId)
                 : clients.findByWorkspaceIdAndArchivedAtIsNullOrderByNameAsc(workspaceId);
@@ -72,6 +73,8 @@ public class ClientService {
         }
         Map<UUID, String> archiverNames = namesOf(allClients.stream().map(Client::getArchivedBy).toList());
 
+        // A record's counts name only the positions the caller may see; whether it has any at all stays whole.
+        PositionVisibility visibility = projectService.visibilityOf(userId, workspaceId);
         Map<UUID, List<Project>> mandatesByClient = projects.findByWorkspaceIdOrderByCreatedAtDesc(workspaceId)
                 .stream()
                 .collect(Collectors.groupingBy(Project::getClientId));
@@ -84,16 +87,16 @@ public class ClientService {
 
         return allClients.stream()
                 .map(client -> toListResponse(client,
-                        mandatesByClient.getOrDefault(client.getId(), List.of()),
+                        mandatesByClient.getOrDefault(client.getId(), List.of()), visibility,
                         repsByClient.getOrDefault(client.getId(), List.of()),
                         archiverNameOf(client, archiverNames)))
                 .toList();
     }
 
     @Transactional(readOnly = true)
-    public ClientDetailResponse get(UUID workspaceId, UUID clientId) {
+    public ClientDetailResponse get(UUID userId, UUID workspaceId, UUID clientId) {
         Client client = requireClient(workspaceId, clientId);
-        List<ClientMandateResponse> mandates = mandatesFor(workspaceId, clientId);
+        List<ClientMandateResponse> mandates = mandatesFor(userId, workspaceId, clientId);
         long active = mandates.stream()
                 .filter(mandate -> mandate.archivedAt() == null && !mandate.stage().isDone()).count();
         long delivered = mandates.stream()
@@ -151,7 +154,7 @@ public class ClientService {
                 .actor(userId).workspace(workspaceId).target("client", clientId).from(httpRequest)
                 .record();
 
-        return get(workspaceId, clientId);
+        return get(userId, workspaceId, clientId);
     }
 
     /**
@@ -178,7 +181,7 @@ public class ClientService {
                     .detail("name", client.getName())
                     .record();
         }
-        return get(workspaceId, clientId);
+        return get(userId, workspaceId, clientId);
     }
 
     @Transactional
@@ -190,7 +193,7 @@ public class ClientService {
                     .detail("name", client.getName())
                     .record();
         }
-        return get(workspaceId, clientId);
+        return get(userId, workspaceId, clientId);
     }
 
     @Transactional
@@ -203,7 +206,7 @@ public class ClientService {
                 .detail("section", "persona")
                 .record();
 
-        return get(workspaceId, clientId);
+        return get(userId, workspaceId, clientId);
     }
 
     /** The industry of the client a mandate hires for, and nothing else about it: outreach names no client. */
@@ -230,9 +233,11 @@ public class ClientService {
                 client.getHqCountry(), client.getDomain(), employees, client.getPersona());
     }
 
-    /** The drawer's mandates, lead and health resolved. */
-    private List<ClientMandateResponse> mandatesFor(UUID workspaceId, UUID clientId) {
+    /** The drawer's mandates the caller may see, lead and health resolved. */
+    private List<ClientMandateResponse> mandatesFor(UUID userId, UUID workspaceId, UUID clientId) {
+        PositionVisibility visibility = projectService.visibilityOf(userId, workspaceId);
         return projectService.listForClient(workspaceId, clientId).stream()
+                .filter(project -> visibility.admits(project.id()))
                 .map(ClientService::toMandate)
                 .toList();
     }
@@ -253,11 +258,12 @@ public class ClientService {
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
     }
 
-    private ClientListResponse toListResponse(Client client, List<Project> mandates,
+    private ClientListResponse toListResponse(Client client, List<Project> mandates, PositionVisibility visibility,
                                               List<ClientRepresentative> reps, String archivedByName) {
-        long active = mandates.stream()
+        List<Project> visible = mandates.stream().filter(project -> visibility.admits(project.getId())).toList();
+        long active = visible.stream()
                 .filter(project -> !project.isArchived() && !project.getStage().isDone()).count();
-        long delivered = mandates.stream()
+        long delivered = visible.stream()
                 .filter(project -> !project.isArchived() && project.getStage().isDone()).count();
         ClientType type = mandates.isEmpty() ? ClientType.PROSPECT : ClientType.RETAINED;
 

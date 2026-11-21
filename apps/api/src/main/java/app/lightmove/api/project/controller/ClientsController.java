@@ -50,7 +50,7 @@ public class ClientsController {
     @RequireWorkspacePermission(WorkspaceAction.CLIENT_RECORD_MANAGE)
     public List<ClientListResponse> list(@AuthenticationPrincipal AuthPrincipal principal,
                                          @RequestParam(defaultValue = "false") boolean includeArchived) {
-        return clients.list(principal.requireWorkspaceId(),
+        return clients.list(principal.userId(), principal.requireWorkspaceId(),
                 includeArchived ? ClientListScope.WITH_ARCHIVED : ClientListScope.LIVE);
     }
 
@@ -69,7 +69,7 @@ public class ClientsController {
     @RequireWorkspacePermission(WorkspaceAction.CLIENT_RECORD_MANAGE)
     public ClientDetailResponse get(@AuthenticationPrincipal AuthPrincipal principal,
                                     @PathVariable UUID clientId) {
-        return clients.get(principal.requireWorkspaceId(), clientId);
+        return clients.get(principal.userId(), principal.requireWorkspaceId(), clientId);
     }
 
     @PatchMapping("/{clientId}")
