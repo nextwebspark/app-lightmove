@@ -30,6 +30,7 @@ import app.lightmove.api.project.model.CandidateCountScope;
 import app.lightmove.api.project.model.Client;
 import app.lightmove.api.project.model.ClientRepresentative;
 import app.lightmove.api.project.model.PendingRepresentativeAttachment;
+import app.lightmove.api.project.model.PositionVisibility;
 import app.lightmove.api.project.model.Project;
 import app.lightmove.api.project.model.ProjectArchived;
 import app.lightmove.api.project.model.ProjectMember;
@@ -89,7 +90,10 @@ public class ProjectService {
     private final ApplicationEventPublisher events;
     private final Clock clock;
 
-    /** A pure client is never shown an archived position, whatever the scope asked. */
+    /**
+     * The positions the caller may see: every one for a holder of {@code PROJECT_BROWSE_ALL}, otherwise only those
+     * they hold a seat on. A pure client is never shown an archived position, whatever the scope asked.
+     */
     @Transactional(readOnly = true)
     public List<ProjectResponse> list(UUID userId, UUID workspaceId, ProjectListScope scope) {
         WorkspaceMember member = access.requireActiveMember(userId, workspaceId);
@@ -100,14 +104,10 @@ public class ProjectService {
         if (all.isEmpty()) {
             return List.of();
         }
-        // Staff browse every mandate; a pure client sees only the ones they are attached to (seated on).
-        if (pureClient) {
-            Set<UUID> seated = seats.findByMemberId(member.getId()).stream()
-                    .map(ProjectMember::getProjectId).collect(Collectors.toSet());
-            all = all.stream().filter(project -> seated.contains(project.getId())).toList();
-            if (all.isEmpty()) {
-                return List.of();
-            }
+        PositionVisibility visibility = visibilityOf(member, pureClient, userId, workspaceId);
+        all = all.stream().filter(project -> visibility.admits(project.getId())).toList();
+        if (all.isEmpty()) {
+            return List.of();
         }
         Set<UUID> readAsClient = projectAccess.projectsReadAsClient(userId, workspaceId,
                 all.stream().map(Project::getId).toList());
@@ -115,6 +115,21 @@ public class ProjectService {
         return all.stream()
                 .map(project -> toResponse(project, assembly, !readAsClient.contains(project.getId())))
                 .toList();
+    }
+
+    /** Every position for a holder of {@code PROJECT_BROWSE_ALL}; otherwise the ones the caller holds a seat on. */
+    @Transactional(readOnly = true)
+    public PositionVisibility visibilityOf(UUID userId, UUID workspaceId) {
+        WorkspaceMember member = access.requireActiveMember(userId, workspaceId);
+        return visibilityOf(member, access.isPureClient(member.getId()), userId, workspaceId);
+    }
+
+    private PositionVisibility visibilityOf(WorkspaceMember member, boolean pureClient, UUID userId, UUID workspaceId) {
+        if (!pureClient && access.holdsAction(userId, workspaceId, WorkspaceAction.PROJECT_BROWSE_ALL)) {
+            return PositionVisibility.everyPosition();
+        }
+        return PositionVisibility.seatedOn(seats.findByMemberId(member.getId()).stream()
+                .map(ProjectMember::getProjectId).collect(Collectors.toSet()));
     }
 
     /** The client drawer's mandates, fully assembled. The registry is staff's, so every count is whole. */

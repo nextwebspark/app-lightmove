@@ -38,30 +38,29 @@ describe("filterProjects", () => {
   });
   const delivered = project({ id: "done", stage: "DELIVERED" });
 
-  it("'my' keeps only projects whose team includes me", () => {
-    const rows = filterProjects([mine, theirs], { view: "my", myMemberId: "m1", chip: "allstages", query: "" });
-    expect(rows.map((p) => p.id)).toEqual(["mine"]);
+  it("keeps every position the server answered: which ones a person sees is the server's decision", () => {
+    const rows = filterProjects([mine, theirs], { chip: "allstages", query: "" });
+    expect(rows.map((p) => p.id)).toEqual(["mine", "theirs"]);
   });
 
   it("the Active chip hides delivered and closed mandates", () => {
-    const rows = filterProjects([mine, delivered], { view: "all", chip: "active", query: "" });
+    const rows = filterProjects([mine, delivered], { chip: "active", query: "" });
     expect(rows.map((p) => p.id)).toEqual(["mine"]);
   });
 
   it("a stage chip keeps only that stage", () => {
-    const rows = filterProjects([mine, delivered], { view: "all", chip: "DELIVERED", query: "" });
+    const rows = filterProjects([mine, delivered], { chip: "DELIVERED", query: "" });
     expect(rows.map((p) => p.id)).toEqual(["done"]);
   });
 
   it("search matches client and position, case-insensitively", () => {
     const rows = filterProjects([mine, project({ id: "other", clientName: "Agthia", positionTitle: "CEO" })], {
-      view: "all",
       chip: "allstages",
       query: "meridian",
     });
     expect(rows.map((p) => p.id)).toEqual(["mine"]);
 
-    const byPosition = filterProjects([mine], { view: "all", chip: "allstages", query: "cfo" });
+    const byPosition = filterProjects([mine], { chip: "allstages", query: "cfo" });
     expect(byPosition).toHaveLength(1);
   });
 
@@ -70,8 +69,8 @@ describe("filterProjects", () => {
     const all = [mine, delivered, archived];
 
     for (const chip of ["active", "allstages", "MAPPING"] as const) {
-      expect(filterProjects(all, { view: "all", chip, query: "" }).map((p) => p.id)).not.toContain("archived");
+      expect(filterProjects(all, { chip, query: "" }).map((p) => p.id)).not.toContain("archived");
     }
-    expect(filterProjects(all, { view: "all", chip: "archived", query: "" }).map((p) => p.id)).toEqual(["archived"]);
+    expect(filterProjects(all, { chip: "archived", query: "" }).map((p) => p.id)).toEqual(["archived"]);
   });
 });

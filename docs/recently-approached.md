@@ -89,8 +89,6 @@ the warning off. It is set in Settings → Meetings & email (`PUT /api/v1/worksp
 ## Next (PR 2: adding to a position)
 
 These pieces are not built yet:
-- The drawer's Positions (`PersonRecordService.positionsOf`) still names every position to every staff member. It
-  should follow the same rule, through `PositionRedaction`.
 - `outOfProcess` on `PersonPositionResponse`, for the pool's Add to position line.
 - The executive drawer's header line.
 - The extension's held pre-check, which gains where else the person is in process.

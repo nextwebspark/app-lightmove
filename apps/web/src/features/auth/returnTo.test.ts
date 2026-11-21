@@ -39,7 +39,7 @@ describe("where sign-in should land", () => {
 });
 
 describe("landingAfterSignIn", () => {
-  const member = { emailVerified: true, workspace: { roles: ["MEMBER"] }, pendingInvitations: [] };
+  const member = { id: "u1", emailVerified: true, workspace: { id: "w1", roles: ["MEMBER"] }, pendingInvitations: [] };
 
   it("returns to the interrupted page once the user is in a workspace, and goes home otherwise", () => {
     expect(landingAfterSignIn(member, "/oauth/consent?client_id=x")).toBe("/oauth/consent?client_id=x");

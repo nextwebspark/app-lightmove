@@ -25,6 +25,11 @@ public final class NoteViewpoint {
         return WORKSPACE;
     }
 
+    /** The Candidates page's: it reads every position's notes, so a position's name may need withholding. */
+    public boolean isWorkspace() {
+        return this == WORKSPACE;
+    }
+
     /** {@code aboutProjectId} is the position a note is about, null for one about the person. */
     public boolean reads(UUID aboutProjectId) {
         return this == WORKSPACE || aboutProjectId == null || aboutProjectId.equals(projectId);

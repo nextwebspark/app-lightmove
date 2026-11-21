@@ -81,11 +81,13 @@ public class PersonDocumentService {
     private final WorkspaceAccess workspaceAccess;
     private final AuditService audit;
     private final PersonDocumentSettings settings;
+    private final PositionRedaction positionRedaction;
 
     public PersonDocumentService(PersonRepository people, PersonDocumentRepository documents,
                                  PersonDocumentVersionRepository versions, PersonDocumentWriter writer,
                                  DocumentStore store, UserRepository users, WorkspaceAccess workspaceAccess,
-                                 AuditService audit, LightMoveProperties properties) {
+                                 AuditService audit, LightMoveProperties properties,
+                                 PositionRedaction positionRedaction) {
         this.people = people;
         this.documents = documents;
         this.versions = versions;
@@ -95,6 +97,7 @@ public class PersonDocumentService {
         this.workspaceAccess = workspaceAccess;
         this.audit = audit;
         this.settings = properties.personDocuments();
+        this.positionRedaction = positionRedaction;
     }
 
     @Transactional(readOnly = true)
@@ -105,11 +108,11 @@ public class PersonDocumentService {
                 .stream().collect(Collectors.groupingBy(PersonDocumentVersion::getDocumentId));
         Map<UUID, User> named = usersOf(found, stacks.values().stream().flatMap(List::stream).toList());
         boolean mayRemoveAny = mayRemoveAny(userId, workspaceId);
-        return found.stream()
+        return positionRedaction.documentsFor(userId, workspaceId, found.stream()
                 .map(document -> toDto(document, stacks.getOrDefault(document.getId(), List.of()), named, userId,
                         mayRemoveAny))
                 .sorted(CARD_ORDER)
-                .toList();
+                .toList());
     }
 
     /**

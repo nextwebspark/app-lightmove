@@ -8,3 +8,11 @@ import type { WorkspaceRole } from "./api/types";
 export function isPureClient(roles: WorkspaceRole[]): boolean {
   return roles.includes("CLIENT") && !roles.some((role) => role === "ADMIN" || role === "MEMBER");
 }
+
+/**
+ * Whether the server answers this person every position of the workspace (`PROJECT_BROWSE_ALL`, held by ADMIN): for
+ * choosing an empty state only, never for deciding what is shown. The one place the role stands for that action.
+ */
+export function seesEveryPosition(roles: WorkspaceRole[]): boolean {
+  return roles.includes("ADMIN");
+}
