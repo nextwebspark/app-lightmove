@@ -2,23 +2,20 @@ import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Button, Toggle } from "../../../components/ui";
 import { Drawer, DrawerFooter } from "../../../components/ui/Drawer";
 import { cn } from "../../../lib/cn";
-import type { ChartQueryDef } from "../../dashboards/api/types";
 import {
   DEFAULT_HOME_LAYOUT,
+  hasSection,
   isDefaultLayout,
-  MAX_PINNED_CHARTS,
-  moveSection,
+  withSection,
   type HomeLayout,
-  type HomeSection,
   type Landing,
   type NeedsKind,
 } from "../lib/homeLayout";
 
-const SECTION_TEXT: Record<HomeSection, [string, string]> = {
-  today: ["Today", "Your calls and meetings for today"],
-  positions: ["Your positions", "Health and stage of the positions you are on"],
-  charts: ["Pinned charts", "Headline figures from the dashboard library"],
-};
+const SECTION_TEXT: ["TODAY" | "POSITIONS", string, string][] = [
+  ["TODAY", "Today", "Your calls and meetings for today"],
+  ["POSITIONS", "Your positions", "Health and stage of the positions you are on"],
+];
 
 const KIND_TEXT: [NeedsKind, string, string][] = [
   ["NEEDS_REPLY", "Needs reply", "Executives who wrote back"],
@@ -32,29 +29,27 @@ const LANDINGS: [Landing, string, string][] = [
   ["positions", "Positions", "The list of positions"],
 ];
 
-/** Customize Home: only the person's own layout changes, and Reset brings back the default everyone starts from. */
-export function CustomizeHome({
+/**
+ * Home options, beside the grid while Home is being edited: which sections are on it, what Needs you shows and where
+ * to land. Like every change in edit mode it waits for Save layout; Reset brings back the default everyone starts from.
+ */
+export function HomeOptions({
   open,
   onClose,
   layout,
   onChange,
-  library,
 }: {
   open: boolean;
   onClose: () => void;
   layout: HomeLayout;
   onChange: (next: HomeLayout) => void;
-  library: ChartQueryDef[];
 }) {
-  const headline = library.filter((query) => query.shape === "KPI");
-  const pinnedFull = layout.charts.length >= MAX_PINNED_CHARTS;
-
   return (
-    <Drawer open={open} onClose={onClose} label="Customize Home">
+    <Drawer open={open} onClose={onClose} label="Home options">
       <div className="flex items-start gap-3 border-b border-u-border px-5 py-4">
         <div>
-          <h2 className="text-lead font-semibold">Customize Home</h2>
-          <p className="mt-0.5 text-note text-u-text3">Only you see these changes.</p>
+          <h2 className="text-lead font-semibold">Home options</h2>
+          <p className="mt-0.5 text-note text-u-text3">Only you see these. Nothing changes until you save the layout.</p>
         </div>
         <button type="button" onClick={onClose} aria-label="Close" className="ml-auto grid size-8 place-items-center rounded-u-control text-u-text3 hover:bg-u-raised hover:text-u-text">
           <Icon d={ICONS.close} size={15} />
@@ -64,36 +59,16 @@ export function CustomizeHome({
       <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-5 py-4">
         <Group title="Sections">
           <Row label="Needs you" sub="Replies, follow-ups and your tasks" trailing={<span className="text-meta text-u-text3">Always shown</span>} />
-          {layout.sections.map((section, index) => {
-            const [label, sub] = SECTION_TEXT[section.key];
-            return (
-              <Row
-                key={section.key}
-                label={label}
-                sub={sub}
-                leading={
-                  <span className="flex gap-0.5">
-                    <MoveButton label={`Move ${label} up`} icon={ICONS.arrowUp} disabled={index === 0} onClick={() => onChange(moveSection(layout, section.key, -1))} />
-                    <MoveButton
-                      label={`Move ${label} down`}
-                      icon={ICONS.arrowDown}
-                      disabled={index === layout.sections.length - 1}
-                      onClick={() => onChange(moveSection(layout, section.key, 1))}
-                    />
-                  </span>
-                }
-                trailing={
-                  <Toggle
-                    checked={section.on}
-                    label={`Show ${label}`}
-                    onChange={(on) =>
-                      onChange({ ...layout, sections: layout.sections.map((own) => (own.key === section.key ? { ...own, on } : own)) })
-                    }
-                  />
-                }
-              />
-            );
-          })}
+          {SECTION_TEXT.map(([section, label, sub]) => (
+            <Row
+              key={section}
+              label={label}
+              sub={sub}
+              trailing={
+                <Toggle checked={hasSection(layout, section)} label={`Show ${label}`} onChange={(on) => onChange(withSection(layout, section, on))} />
+              }
+            />
+          ))}
         </Group>
 
         <Group title="What Needs you shows" note="Your own tasks always show.">
@@ -109,33 +84,6 @@ export function CustomizeHome({
           ))}
         </Group>
 
-        {headline.length > 0 && (
-          <Group title="Pinned charts" note={`Up to ${MAX_PINNED_CHARTS}.`}>
-            {headline.map((query) => {
-              const pinned = layout.charts.includes(query.id);
-              return (
-                <Row
-                  key={query.id}
-                  label={query.label}
-                  sub={query.description}
-                  trailing={
-                    <Toggle
-                      checked={pinned}
-                      disabled={!pinned && pinnedFull}
-                      label={`Pin ${query.label}`}
-                      onChange={(on) =>
-                        onChange({
-                          ...layout,
-                          charts: on ? [...layout.charts, query.id] : layout.charts.filter((id) => id !== query.id),
-                        })
-                      }
-                    />
-                  }
-                />
-              );
-            })}
-          </Group>
-        )}
 
         <Group title="Open Uncava on">
           <div role="radiogroup" aria-label="Open Uncava on" className="flex flex-col gap-1.5 p-1.5">
@@ -190,36 +138,19 @@ function Group({ title, note, children }: { title: string; note?: string; childr
 function Row({
   label,
   sub,
-  leading,
   trailing,
 }: {
   label: string;
   sub: string;
-  leading?: React.ReactNode;
   trailing: React.ReactNode;
 }) {
   return (
     <div className="flex items-center gap-2.5 border-t border-u-border px-3 py-2.5 first:border-t-0">
-      {leading}
       <div className="min-w-0 flex-1">
         <div className="text-body font-medium">{label}</div>
         <div className="text-meta text-u-text3">{sub}</div>
       </div>
       {trailing}
     </div>
-  );
-}
-
-function MoveButton({ label, icon, disabled, onClick }: { label: string; icon: string; disabled: boolean; onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      aria-label={label}
-      disabled={disabled}
-      onClick={onClick}
-      className="grid size-6 place-items-center rounded-u-control text-u-text3 hover:bg-u-raised hover:text-u-text disabled:opacity-35 disabled:hover:bg-transparent"
-    >
-      <Icon d={icon} size={13} />
-    </button>
   );
 }

@@ -1,118 +1,180 @@
-import { useCallback, useState } from "react";
+import type { ChartType, WidgetLayout } from "../../dashboards/api/types";
+import { compact, GRID_COLUMNS, limitsFor, nextSlot, type SizeLimits } from "../../dashboards/lib/gridLayout";
 
-/** The sections beside Needs you, in the order the person keeps them. */
-export type HomeSection = "today" | "positions" | "charts";
+/** Home's own sections; Needs you is always there, the others may be taken off. */
+export type HomeSection = "NEEDS" | "TODAY" | "POSITIONS";
 
 /** The outreach groups Needs you can carry; the person's own tasks are always there. */
 export type NeedsKind = "NEEDS_REPLY" | "FOLLOW_UP" | "PREPARATION" | "ATTENTION";
 
 export type Landing = "home" | "positions";
 
+export interface SectionTile {
+  kind: HomeSection;
+  layout: WidgetLayout;
+}
+
+/** A chart from the workspace's dashboard library, kept as a dashboard keeps one. */
+export interface ChartTile {
+  kind: "CHART";
+  layout: WidgetLayout;
+  queryId: string;
+  chart: ChartType;
+  options: Record<string, string>;
+  title: string | null;
+}
+
+export type HomeTile = SectionTile | ChartTile;
+
 export interface HomeLayout {
-  sections: { key: HomeSection; on: boolean }[];
+  /** Every tile on Home, each at its place on the dashboard's twelve-column grid. */
+  tiles: HomeTile[];
   kinds: Record<NeedsKind, boolean>;
-  /** Workspace chart queries drawn as tiles, at most {@link MAX_PINNED_CHARTS}. */
-  charts: string[];
   landing: Landing;
 }
 
-export const MAX_PINNED_CHARTS = 4;
+export const MAX_HOME_CHARTS = 12;
+
+const chartTile = (queryId: string, x: number, y: number): ChartTile => ({
+  kind: "CHART",
+  layout: { x, y, w: 4, h: 3 },
+  queryId,
+  chart: "kpi",
+  options: {},
+  title: null,
+});
 
 export const DEFAULT_HOME_LAYOUT: HomeLayout = {
-  sections: [
-    { key: "today", on: true },
-    { key: "positions", on: true },
-    { key: "charts", on: true },
+  tiles: [
+    { kind: "NEEDS", layout: { x: 0, y: 0, w: 8, h: 11 } },
+    { kind: "TODAY", layout: { x: 8, y: 0, w: 4, h: 5 } },
+    { kind: "POSITIONS", layout: { x: 8, y: 5, w: 4, h: 6 } },
+    chartTile("executivesEngaged", 0, 11),
+    chartTile("positionsOffTrack", 4, 11),
+    chartTile("openPositions", 8, 11),
   ],
   kinds: { NEEDS_REPLY: true, FOLLOW_UP: true, PREPARATION: true, ATTENTION: true },
-  charts: ["executivesEngaged", "positionsOffTrack", "openPositions"],
   landing: "home",
 };
 
-/** Whose layout, in which workspace: one browser may hold several people, and one person several workspaces. */
-export interface HomeOwner {
-  userId: string;
-  workspaceId: string;
+/** The smallest each section still reads at, and the size it comes back at when switched on again. */
+const SECTION_SIZES: Record<HomeSection, { minW: number; minH: number; w: number; h: number }> = {
+  NEEDS: { minW: 5, minH: 6, w: 8, h: 11 },
+  TODAY: { minW: 3, minH: 3, w: 4, h: 5 },
+  POSITIONS: { minW: 3, minH: 4, w: 4, h: 6 },
+};
+
+export function tileLimits(tile: HomeTile): SizeLimits {
+  if (tile.kind === "CHART") return limitsFor(tile.chart);
+  const { minW, minH } = SECTION_SIZES[tile.kind];
+  return { minW, minH, maxW: GRID_COLUMNS, maxH: 24 };
 }
 
-const storageKeyOf = ({ userId, workspaceId }: HomeOwner) => `lm-home:${userId}:${workspaceId}`;
-const SECTIONS: readonly HomeSection[] = ["today", "positions", "charts"];
-
-/**
- * A stored layout, or the default. Whatever the stored one is missing or got wrong is taken from the default, so a
- * section added later appears for everyone and nothing stored can break the page.
- */
-export function readHomeLayout(owner: HomeOwner): HomeLayout {
-  try {
-    const raw = localStorage.getItem(storageKeyOf(owner));
-    return raw ? normalised(JSON.parse(raw)) : DEFAULT_HOME_LAYOUT;
-  } catch {
-    return DEFAULT_HOME_LAYOUT;
-  }
+export function hasSection(layout: HomeLayout, section: HomeSection): boolean {
+  return layout.tiles.some((tile) => tile.kind === section);
 }
 
-function normalised(stored: unknown): HomeLayout {
-  if (!stored || typeof stored !== "object") return DEFAULT_HOME_LAYOUT;
-  const value = stored as Partial<HomeLayout>;
-  const kept = Array.isArray(value.sections)
-    ? value.sections.filter(
-        (section, index, all): section is { key: HomeSection; on: boolean } =>
-          SECTIONS.includes(section?.key) &&
-          typeof section.on === "boolean" &&
-          all.findIndex((other) => other?.key === section.key) === index,
-      )
-    : [];
-  const missing = DEFAULT_HOME_LAYOUT.sections.filter((section) => !kept.some((own) => own.key === section.key));
-  const kinds = { ...DEFAULT_HOME_LAYOUT.kinds };
-  for (const kind of Object.keys(kinds) as NeedsKind[]) {
-    const own = value.kinds?.[kind];
-    if (typeof own === "boolean") kinds[kind] = own;
-  }
-  const charts = Array.isArray(value.charts)
-    ? value.charts.filter((id): id is string => typeof id === "string").slice(0, MAX_PINNED_CHARTS)
-    : DEFAULT_HOME_LAYOUT.charts;
-  return {
-    sections: [...kept, ...missing],
-    kinds,
-    charts,
-    landing: value.landing === "positions" ? "positions" : "home",
-  };
+/** A section switched on goes to the first gap at the foot of Home, at its usual size; switched off, the rest settle. */
+export function withSection(layout: HomeLayout, section: Exclude<HomeSection, "NEEDS">, on: boolean): HomeLayout {
+  if (on === hasSection(layout, section)) return layout;
+  if (!on) return settled({ ...layout, tiles: layout.tiles.filter((tile) => tile.kind !== section) });
+  const { w, h } = SECTION_SIZES[section];
+  const place = nextSlot(layout.tiles.map((tile) => tile.layout), w, h);
+  return { ...layout, tiles: [...layout.tiles, { kind: section, layout: place }] };
+}
+
+export function settled(layout: HomeLayout): HomeLayout {
+  const rects = compact(layout.tiles.map((tile) => tile.layout));
+  return { ...layout, tiles: layout.tiles.map((tile, index) => ({ ...tile, layout: rects[index] })) };
+}
+
+export function relaid(layout: HomeLayout, layouts: WidgetLayout[]): HomeLayout {
+  return { ...layout, tiles: layout.tiles.map((tile, index) => ({ ...tile, layout: layouts[index] })) };
+}
+
+export function chartCount(layout: HomeLayout): number {
+  return layout.tiles.filter((tile) => tile.kind === "CHART").length;
 }
 
 export function isDefaultLayout(layout: HomeLayout): boolean {
   return JSON.stringify(layout) === JSON.stringify(DEFAULT_HOME_LAYOUT);
 }
 
-/** Where to land after signing in: Home, unless the person chose Positions in this workspace. */
+/** Whose Home, in which workspace: one browser may hold several people, and one person several workspaces. */
+export interface HomeOwner {
+  userId: string;
+  workspaceId: string;
+}
+
+const landingKeyOf = ({ userId, workspaceId }: HomeOwner) => `lm-landing:${userId}:${workspaceId}`;
+/** Where Home's layout lived before it was kept on the server; read once, to carry it over. */
+const legacyKeyOf = ({ userId, workspaceId }: HomeOwner) => `lm-home:${userId}:${workspaceId}`;
+
+function readJson(key: string): unknown {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Where to land after signing in: Home, unless the person chose Positions in this workspace. Sign-in decides before any
+ * request, so the choice is remembered on this browser whenever Home reads or saves it.
+ */
 export function landingPath(owner: HomeOwner): string {
-  return readHomeLayout(owner).landing === "positions" ? "/positions" : "/";
+  const landing = readJson(landingKeyOf(owner)) ?? (readJson(legacyKeyOf(owner)) as { landing?: unknown } | null)?.landing;
+  return landing === "positions" ? "/positions" : "/";
 }
 
-/** The person's layout in this workspace and its setter; every change is kept for the next visit on this browser. */
-export function useHomeLayout(owner: HomeOwner): [HomeLayout, (next: HomeLayout) => void] {
-  const key = storageKeyOf(owner);
-  const [kept, setKept] = useState(() => ({ key, layout: readHomeLayout(owner) }));
-  // Another person or workspace in the same tab reads its own layout rather than keeping the last one's.
-  const layout = kept.key === key ? kept.layout : readHomeLayout(owner);
-  const save = useCallback(
-    (next: HomeLayout) => {
-      setKept({ key, layout: next });
-      try {
-        localStorage.setItem(key, JSON.stringify(next));
-      } catch {
-        // Blocked storage only costs the layout on the next visit.
-      }
-    },
-    [key],
-  );
-  return [layout, save];
+export function rememberLanding(owner: HomeOwner, landing: Landing): void {
+  try {
+    localStorage.setItem(landingKeyOf(owner), JSON.stringify(landing));
+  } catch {
+    // Blocked storage only costs the landing choice on this browser's next sign-in.
+  }
 }
 
-export function moveSection(layout: HomeLayout, key: HomeSection, by: -1 | 1): HomeLayout {
-  const sections = [...layout.sections];
-  const from = sections.findIndex((section) => section.key === key);
-  const to = from + by;
-  if (from < 0 || to < 0 || to >= sections.length) return layout;
-  [sections[from], sections[to]] = [sections[to], sections[from]];
-  return { ...layout, sections };
+const KINDS = Object.keys(DEFAULT_HOME_LAYOUT.kinds) as NeedsKind[];
+
+/**
+ * The layout someone kept on this browser before Home was saved with them: its sections and headline charts, laid
+ * out as the default lays them, so their choice carries over on their first save. Null when there is none.
+ */
+export function legacyLayout(owner: HomeOwner): HomeLayout | null {
+  const stored = readJson(legacyKeyOf(owner)) as {
+    sections?: { key?: string; on?: boolean }[];
+    kinds?: Partial<Record<NeedsKind, unknown>>;
+    charts?: unknown[];
+    landing?: unknown;
+  } | null;
+  if (!stored || typeof stored !== "object" || !Array.isArray(stored.sections)) return null;
+  let layout: HomeLayout = { ...DEFAULT_HOME_LAYOUT, tiles: [DEFAULT_HOME_LAYOUT.tiles[0]] };
+  for (const section of stored.sections) {
+    if (section?.on === false) continue;
+    if (section?.key === "today") layout = withSection(layout, "TODAY", true);
+    if (section?.key === "positions") layout = withSection(layout, "POSITIONS", true);
+  }
+  const charts = (Array.isArray(stored.charts) ? stored.charts : [])
+    .filter((id): id is string => typeof id === "string")
+    .slice(0, MAX_HOME_CHARTS);
+  for (const queryId of charts) {
+    const place = nextSlot(layout.tiles.map((tile) => tile.layout), 4, 3);
+    layout = { ...layout, tiles: [...layout.tiles, { ...chartTile(queryId, place.x, place.y), layout: place }] };
+  }
+  const kinds = { ...DEFAULT_HOME_LAYOUT.kinds };
+  for (const kind of KINDS) {
+    const own = stored.kinds?.[kind];
+    if (typeof own === "boolean") kinds[kind] = own;
+  }
+  return { ...layout, kinds, landing: stored.landing === "positions" ? "positions" : "home" };
+}
+
+export function forgetLegacyLayout(owner: HomeOwner): void {
+  try {
+    localStorage.removeItem(legacyKeyOf(owner));
+  } catch {
+    // Nothing to forget.
+  }
 }
