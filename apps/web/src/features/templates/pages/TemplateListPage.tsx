@@ -46,7 +46,7 @@ const HIDEABLE_COLUMNS = {
 
 const DEFAULT_TEMPLATE_SORT = { field: "discipline", direction: "asc" } as const;
 
-/** Settings → Templates or Settings → Template library: every template in one searchable, sortable grid. */
+/** Settings → Templates or Platform → Templates: every template in one searchable, sortable grid. */
 export function TemplateListPage({ scope }: { scope: TemplateScope }) {
   // Both routes render this page in the same slot, so without the key a navigation between them
   // would keep the other scope's filter, sort and remembered columns.

@@ -34,6 +34,7 @@ vi.mock("../features/triage/api/triageApi", async (importOriginal) => ({
 vi.mock("../features/templates/api/templateAdminApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../features/templates/api/templateAdminApi")>()),
   listTemplates: vi.fn(),
+  getTemplate: vi.fn(),
 }));
 vi.mock("../features/workspace/api/workspaceApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../features/workspace/api/workspaceApi")>()),
@@ -352,8 +353,8 @@ describe("routes — the settings gates", () => {
 });
 
 /**
- * The template library is LightMove staff's, not any workspace's: being a workspace admin does not
- * reach it, and a super admin reaches it whatever their workspace role.
+ * The platform console is Uncava staff's, not any workspace's: being a workspace admin does not reach it, and a
+ * super admin reaches it whatever their workspace role. The template library lives in it, at /platform/templates.
  */
 describe("routes — the platform gate", () => {
   beforeEach(() => {
@@ -363,24 +364,62 @@ describe("routes — the platform gate", () => {
     vi.mocked(templateAdminApi.listTemplates).mockResolvedValue([]);
   });
 
-  it("bounces a workspace admin who is not LightMove staff from the template library", async () => {
-    vi.mocked(authApi.me).mockResolvedValue(userWith(["ADMIN"]));
+  const superAdmin = () => ({ ...userWith(["MEMBER"]), platformActions: ["TEMPLATE_LIBRARY_MANAGE" as const] });
 
-    renderAt("/settings/template-library");
+  it.each(["/platform", "/platform/templates", "/platform/templates/chief-financial-officer", "/settings/template-library"])(
+    "sends a workspace admin who is not Uncava staff home from %s",
+    async (path) => {
+      vi.mocked(authApi.me).mockResolvedValue(userWith(["ADMIN"]));
 
-    await waitFor(() => expect(screen.getByTestId("pathname").textContent).toBe("/"));
-  });
+      renderAt(path);
 
-  it("opens the template library to a super admin, and puts it in their settings rail", async () => {
-    vi.mocked(authApi.me).mockResolvedValue({
-      ...userWith(["MEMBER"]),
-      platformActions: ["TEMPLATE_LIBRARY_MANAGE" as const],
-    });
+      await waitFor(() => expect(screen.getByTestId("pathname").textContent).toBe("/"));
+      expect(templateAdminApi.listTemplates).not.toHaveBeenCalled();
+      expect(templateAdminApi.getTemplate).not.toHaveBeenCalled();
+    },
+  );
 
-    renderAt("/settings/template-library");
+  it("opens the console on the template library for a super admin, in its own shell", async () => {
+    vi.mocked(authApi.me).mockResolvedValue(superAdmin());
+
+    renderAt("/platform");
 
     expect(await screen.findByRole("table", { name: "Templates" })).toBeInTheDocument();
-    expect(screen.getAllByRole("link", { name: "Template library" }).length).toBeGreaterThan(0);
+    expect(screen.getByTestId("pathname").textContent).toBe("/platform/templates");
+    expect(screen.getByText("Uncava platform")).toBeInTheDocument();
+    expect(screen.getByText("Staff only")).toBeInTheDocument();
+    expect(screen.getAllByRole("link", { name: "Templates" }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("link", { name: "Back to workspace" })[0]).toHaveAttribute("href", "/");
+    // The console belongs to no workspace: no workspace menu in its header.
+    expect(screen.queryByRole("button", { name: /^Workspace:/ })).not.toBeInTheDocument();
+  });
+
+  it("redirects the library's old address to the console", async () => {
+    vi.mocked(authApi.me).mockResolvedValue(superAdmin());
+
+    renderAt("/settings/template-library");
+    await waitFor(() => expect(screen.getByTestId("pathname").textContent).toBe("/platform/templates"));
+  });
+
+  it("redirects a bookmarked template of the library to its place in the console", async () => {
+    vi.mocked(authApi.me).mockResolvedValue(superAdmin());
+    vi.mocked(templateAdminApi.getTemplate).mockReturnValue(new Promise(() => {}));
+
+    renderAt("/settings/template-library/chief-financial-officer");
+
+    await waitFor(() =>
+      expect(screen.getByTestId("pathname").textContent).toBe("/platform/templates/chief-financial-officer"),
+    );
+  });
+
+  it("no longer lists the library in a super admin's Settings", async () => {
+    vi.mocked(authApi.me).mockResolvedValue({ ...superAdmin(), workspace: userWith(["ADMIN"]).workspace });
+    vi.mocked(authApi.listSessions).mockResolvedValue([]);
+
+    renderAt("/settings/security");
+
+    expect((await screen.findAllByRole("link", { name: "Security" })).length).toBeGreaterThan(0);
+    expect(screen.queryByRole("link", { name: "Template library" })).not.toBeInTheDocument();
   });
 });
 

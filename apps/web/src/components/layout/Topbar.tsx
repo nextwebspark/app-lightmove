@@ -24,8 +24,10 @@ import { useDropdownMenu } from "./useDropdownMenu";
  * the right — the convention people bring from every other tool — and, for staff, the notification bell. A project passes its people as `actions`, and
  * settings and project screens a breadcrumb led by the workspace menu.
  */
-export function Topbar({ breadcrumb, actions }: {
+export function Topbar({ breadcrumb, actions, workspaceChrome = true }: {
   breadcrumb?: ReactNode;
+  /** Off in the platform console: the credit chip and the bell are a workspace's. */
+  workspaceChrome?: boolean;
   /** Drawn beside the avatar — a project header's people. */
   actions?: ReactNode;
 }) {
@@ -43,9 +45,9 @@ export function Topbar({ breadcrumb, actions }: {
       <div className="flex min-w-0 flex-1 items-center">{breadcrumb ?? <WorkspaceMenu />}</div>
 
       <div className="flex flex-none items-center gap-2.5">
-        <CreditChip />
+        {workspaceChrome && <CreditChip />}
         {actions}
-        {isStaff && <NotificationBell />}
+        {workspaceChrome && isStaff && <NotificationBell />}
         {/* Help is also in the account menu, which is where a phone finds it. */}
         <span className="hidden sm:contents">
           <HelpButton />
@@ -56,10 +58,10 @@ export function Topbar({ breadcrumb, actions }: {
   );
 }
 
-const CRUMB_SEPARATOR = <span aria-hidden="true" className="text-xs text-u-text3 opacity-40">/</span>;
+export const CRUMB_SEPARATOR = <span aria-hidden="true" className="text-xs text-u-text3 opacity-40">/</span>;
 const CRUMB_LINK =
   "-mx-1.5 whitespace-nowrap rounded-md px-1.5 py-1 text-sm font-medium text-u-text2 hover:bg-u-raised hover:text-u-text";
-const CRUMB_HERE = "min-w-0 truncate whitespace-nowrap text-sm font-semibold text-u-text";
+export const CRUMB_HERE = "min-w-0 truncate whitespace-nowrap text-sm font-semibold text-u-text";
 
 /** The project shell's breadcrumb: `[mark] Workspace / Positions / {client} / {position title}`. */
 export function ProjectBreadcrumb({
@@ -319,7 +321,7 @@ function AccountMenu() {
           </div>
           {actions.map((action) => (
             <Fragment key={action.key}>
-              {action.key === "signOut" && <MenuDivider />}
+              {(action.key === "signOut" || action.key === "platform") && <MenuDivider />}
               <MenuItem
                 role={action.checked === undefined ? "menuitem" : "menuitemcheckbox"}
                 checked={action.checked}
@@ -332,6 +334,9 @@ function AccountMenu() {
                 )}
                 {action.key === "help" && (
                   <kbd aria-hidden="true" className="font-mono text-meta text-u-text3">?</kbd>
+                )}
+                {action.key === "platform" && (
+                  <span aria-hidden="true" className="text-meta text-u-text3">Uncava staff</span>
                 )}
               </MenuItem>
             </Fragment>
