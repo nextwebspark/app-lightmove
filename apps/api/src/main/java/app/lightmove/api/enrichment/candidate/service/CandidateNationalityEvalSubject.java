@@ -2,6 +2,8 @@ package app.lightmove.api.enrichment.candidate.service;
 
 import app.lightmove.api.candidate.constant.BackgroundField;
 import app.lightmove.api.common.constant.NationalityGroup;
+import app.lightmove.api.core.llm.constant.EvalCheckVerdict;
+import app.lightmove.api.core.llm.service.EvalCheck;
 import app.lightmove.api.core.llm.service.EvalSubject;
 import java.util.ArrayList;
 import java.util.EnumSet;
@@ -17,6 +19,16 @@ import tools.jackson.databind.ObjectMapper;
 class CandidateNationalityEvalSubject implements EvalSubject {
 
     static final String LABEL = "nationality";
+
+    private static final List<EvalCheck> CHECKS = List.of(
+            EvalCheck.of("nationality-group", "Nationality group is the labelled one",
+                    (input, expected, answer) -> labelled(expected).equals(answered(answer))
+                            ? EvalCheckVerdict.PASSED : EvalCheckVerdict.FAILED),
+            EvalCheck.of("no-gcc-false-positive", "No Gulf nationality without the evidence for it",
+                    (input, expected, answer) -> GoldenRowScorer.isGcc(labelled(expected))
+                            ? EvalCheckVerdict.NOT_APPLICABLE
+                            : GoldenRowScorer.isGcc(answered(answer))
+                                    ? EvalCheckVerdict.FAILED : EvalCheckVerdict.PASSED));
 
     private final CandidateNationalityClassifier classifier;
     private final ObjectMapper json;
@@ -36,6 +48,20 @@ class CandidateNationalityEvalSubject implements EvalSubject {
             problems.add("expected.nationality is not a nationality group or Unknown.");
         }
         return problems;
+    }
+
+    @Override
+    public List<EvalCheck> checks() {
+        return CHECKS;
+    }
+
+    private static String labelled(JsonNode expected) {
+        return GoldenRowScorer.canonical(GoldenProfileCase.labelOf(expected, LABEL));
+    }
+
+    /** No answer is scored as Unknown, as the offline suite scores a row the classifier could not read. */
+    private static String answered(JsonNode answer) {
+        return GoldenRowScorer.canonical(GoldenProfileCase.labelOf(answer, "category"));
     }
 
     @Override

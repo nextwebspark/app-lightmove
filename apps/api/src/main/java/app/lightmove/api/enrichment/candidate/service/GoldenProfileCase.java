@@ -31,7 +31,13 @@ final class GoldenProfileCase {
                 break;
             }
         }
-        JsonNode profile = input.get(PROFILE);
+        problems.addAll(profileProblemsOf(input.get(PROFILE), json));
+        return problems;
+    }
+
+    /** What is wrong with the profile of a case, whatever else the case carries beside it. */
+    static List<String> profileProblemsOf(JsonNode profile, ObjectMapper json) {
+        List<String> problems = new ArrayList<>();
         if (profile == null || !profile.isObject()) {
             problems.add("input.profile is missing.");
             return problems;

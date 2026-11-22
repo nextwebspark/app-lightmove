@@ -23,4 +23,20 @@ public interface EvalSubject {
 
     /** Asks the model once with a case's input. */
     void answer(JsonNode input);
+
+    /** The rules every answer of this prompt is held to, in the order a compare view lists them. */
+    List<EvalCheck> checks();
+
+    /** How many times a case is answered at the least: more than once where answers vary even at temperature 0. */
+    default int minimumRepeats() {
+        return 1;
+    }
+
+    /**
+     * Whether a run on this prompt's cases may let a version go live without a written reason. False until a person
+     * has reviewed the cases the check would rest on; a run still scores and reports either way.
+     */
+    default boolean isGateReady() {
+        return true;
+    }
 }
