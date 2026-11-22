@@ -139,25 +139,32 @@ more, but no trust decision may rest on it.
 No caller reads a prompt file or names a vendor class. Each asks `PromptCalls.prepare(spec)` **per call** and
 gets the system text, the provider's options and the wiring that counts the call:
 
-- **`PromptSource.current(promptId)`** answers the version serving now. With
-  `lightmove.ai.prompt-registry.enabled` off it is the bundled `prompts/*.st` (`BundledPrompts`), today's path.
-  On, it is the version under the `production` label (`RegistryPromptSource`), held in memory per instance. It
-  is never the reason a call fails: a registry that cannot be read, or holds no version of a prompt, serves the
-  bundled file and logs it.
+- **`PromptSource.current(promptId, kind)`** answers the version serving now (`RegistryPromptSource`, its one
+  implementation). With `lightmove.ai.prompt-registry.enabled` off it is the bundled `prompts/*.st`
+  (`BundledPrompts`), today's path. On, **only an `EDITED` production version overrides the build's file**:
+  while production is a `BUNDLED` version, each instance serves its own bundled text and looks up that text's
+  version by its SHA-256. The `production` label is one row for every revision running, so during a rollout or
+  a traffic split it cannot say which shipped text an instance should answer with; the build can. Held in
+  memory per instance. It is never the reason a call fails: a registry that cannot be read serves the bundled
+  file and logs it, and a text the sync has not recorded yet is served with no version (and so not counted).
 - **The boot sync** (`PromptRegistrySync`) records each bundled text as a `BUNDLED` version once, under an
-  advisory lock. Production follows the build's own text (so a rollback deploy serves the older prompt again)
-  unless an `EDITED` version is live, which stays live.
+  advisory lock. Production follows the build's own text unless an `EDITED` version is live, which stays live.
+  For shipped texts that label is the record the console reads, not what serves, so two revisions moving it
+  between them change no answer. A sync that recorded or moved anything bumps the reload, for an instance that
+  served before it.
 - **The model and settings are the version's.** `provider` + `model_id` null means the configured model
   (`LLM_CHAT_MODEL`, or `ASSISTANT_MODEL` for the assistant). A setting left unset is the calling feature's own
   default, declared in its `PromptCallSpec`, so a version that sets nothing behaves as the code always has.
-  A version naming a model past its retirement date, or one `AiModelCatalog` no longer lists, is answered by
-  the configured model and logged once.
+  A version naming a model past its retirement date, one `AiModelCatalog` no longer lists, or one that lacks
+  what the prompt's kind needs (`PromptKind.needs()`: tool calling for the assistant) is answered by the
+  configured model and logged once.
 - **`ChatModelProvider`** is the one seam to a vendor: `VertexGeminiChatModelProvider` owns the JSON mime type,
   the thinking budget and the labels (`prompt`, and `prompt_version` when the registry served the text). A
   second provider is a second implementation and catalogue entries.
 - **The reload** is `PlatformConfigReload`: the transaction that moves `production` bumps the `prompts` counter
   and notifies on `lm_platform_config` through `core/stream`'s listener; every instance drops its cache. Each
-  also re-reads the counters every `reload-check` (30 s), for a notification it missed.
+  also re-reads the counters every `lightmove.platform.config-reload-check` (30 s), for a notification it
+  missed. The channel is generic (`core/reload`), so its key is the platform's, not the registry's.
 - **Every call is counted** against the version and model that answered, in
   `app_lm_platform_prompt_call_daily` (`PromptCallCounter`, innermost advisor: a schema repair's second ask and
   each round of the assistant's tool loop are each a call). The write is off the calling thread and a failed
@@ -220,10 +227,12 @@ deterministic matcher.
   inherits the configured model, temperature and ceiling. The blocked and empty cases are
   pinned on `LlmCallPolicy.requireModelAnswer`, which owns that translation for every caller.
 - `PromptRegistryIntegrationTest` (registry on) — every prompt served equals its shipped file; a changed
-  shipped prompt moves production and an edited live one stays; two boots record one version; a version put
-  live serves, model included, after the backstop check alone; calls are counted per version; a failed count
-  does not fail the call; versions and moves cannot be rewritten.
-- `RegistryPromptSourceTest`, `PromptCatalogsTest` — off and unreadable serve the bundled file; a retired or
-  unlisted model falls back; every catalogue entry is fully described; the Vertex adapter's options.
+  shipped prompt moves production and an edited live one stays; another revision's shipped text is never
+  served here; a sync that changed something bumps the reload; two boots record one version; a version put
+  live serves, model included, after the backstop check alone, and after the notification alone; calls are
+  counted per version; a failed count does not fail the call; versions and moves cannot be rewritten.
+- `RegistryPromptSourceTest`, `PromptCatalogsTest` — off and unreadable serve the bundled file; two revisions
+  on one registry each serve their own text; a read a reload overtook is not kept; a retired, unlisted or
+  unable model falls back; every catalogue entry is fully described; the Vertex adapter's options.
 - The whole suite must stay green **with no GCP credentials**, which is the real check on the
   conditional wiring: `cd apps/api && ./mvnw test`.

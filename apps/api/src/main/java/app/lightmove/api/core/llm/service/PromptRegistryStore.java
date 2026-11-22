@@ -7,6 +7,7 @@ import app.lightmove.api.core.llm.model.BundledPrompt;
 import app.lightmove.api.core.llm.model.GenerationSettings;
 import app.lightmove.api.core.llm.model.ProductionVersion;
 import app.lightmove.api.core.llm.model.PromptCallCount;
+import app.lightmove.api.core.llm.model.RecordedBundledPrompt;
 import app.lightmove.api.core.llm.model.ServedPrompt;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -30,15 +31,26 @@ public class PromptRegistryStore {
     private final JdbcClient jdbc;
     private final ObjectMapper json;
 
-    public List<ServedPrompt> productionVersions() {
+    /** The prompts whose production version was edited in the console: the only ones that override a build's file. */
+    public List<ServedPrompt> editedProductionVersions() {
         return jdbc.sql("""
                         SELECT v.prompt_id, v.version, v.body, v.provider, v.model_id, v.settings::text AS settings
                         FROM app_lm_platform_prompt_label l
                         JOIN app_lm_platform_prompt_version v ON v.prompt_id = l.prompt_id AND v.version = l.version
-                        WHERE l.label = :label
+                        WHERE l.label = :label AND v.origin = 'EDITED'
                         """)
                 .param("label", PRODUCTION)
                 .query(this::servedPrompt)
+                .list();
+    }
+
+    public List<RecordedBundledPrompt> recordedBundledPrompts() {
+        return jdbc.sql("""
+                        SELECT prompt_id, bundled_sha256, version FROM app_lm_platform_prompt_version
+                        WHERE origin = 'BUNDLED'
+                        """)
+                .query((row, index) -> new RecordedBundledPrompt(row.getString("prompt_id"),
+                        row.getString("bundled_sha256"), row.getInt("version")))
                 .list();
     }
 

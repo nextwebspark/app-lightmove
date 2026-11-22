@@ -3,10 +3,10 @@ package app.lightmove.api.core.llm;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import app.lightmove.api.TestLlmCallPolicy;
+import app.lightmove.api.TestPromptCalls;
 import app.lightmove.api.candidate.service.CandidateShortlistService;
 import app.lightmove.api.core.llm.config.ChatClientConfig;
 import app.lightmove.api.core.llm.service.ChatCallLog;
-import app.lightmove.api.core.llm.service.PromptCalls;
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
@@ -156,7 +156,7 @@ class ChatClientLoggingTest {
 
     private CandidateShortlistService shortlistService() {
         return new CandidateShortlistService(chatClientOver(new FixedChatModel()),
-                PromptCalls.bundledOnly(), TestLlmCallPolicy.asShipped());
+                TestPromptCalls.bundledOnly(), TestLlmCallPolicy.asShipped());
     }
 
     private ChatClient chatClientOver(ChatModel model) {

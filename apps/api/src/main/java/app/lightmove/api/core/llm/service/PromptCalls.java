@@ -19,13 +19,8 @@ public class PromptCalls {
     private final ChatModelProvider provider;
     private final PromptCallCounter counter;
 
-    /** The bundled files and nothing else, for a service built by hand: no registry, so nothing is counted. */
-    public static PromptCalls bundledOnly() {
-        return new PromptCalls(new BundledPrompts(), new VertexGeminiChatModelProvider(), new PromptCallCounter(null));
-    }
-
     public PreparedPrompt prepare(PromptCallSpec spec) {
-        ServedPrompt served = prompts.current(spec.promptId());
+        ServedPrompt served = prompts.current(spec.promptId(), spec.kind());
         String model = served.modelId() != null ? served.modelId() : spec.defaultModel();
         PromptCallOptions call = new PromptCallOptions(spec.callLabel(), served.version(), spec.kind(), model,
                 served.settings().orElse(spec.defaults()));

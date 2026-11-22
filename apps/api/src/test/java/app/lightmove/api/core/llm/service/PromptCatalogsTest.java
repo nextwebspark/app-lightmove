@@ -37,8 +37,7 @@ class PromptCatalogsTest {
                         ? name.substring(0, name.length() - "-system.st".length())
                         : name.substring(0, name.length() - ".st".length());
                 assertThat(ids).contains(id);
-                assertThat(bundled.current(id).body()).isEqualTo(Files.readString(file, StandardCharsets.UTF_8));
-                assertThat(bundled.current(id).version()).isNull();
+                assertThat(bundled.bodyOf(id)).isEqualTo(Files.readString(file, StandardCharsets.UTF_8));
             }
         }
     }

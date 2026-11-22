@@ -13,6 +13,8 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * Makes a platform change live on every instance: the writer raises its scope's number in
@@ -28,6 +30,7 @@ public class PlatformConfigReload implements PostgresNotificationHandler {
 
     private final JdbcClient jdbc;
     private final PostgresNotificationPublisher notifications;
+    private final ObjectMapper json;
     private final List<PlatformConfigListener> listeners;
 
     private final Map<String, Long> seen = new ConcurrentHashMap<>();
@@ -51,10 +54,14 @@ public class PlatformConfigReload implements PostgresNotificationHandler {
 
     @Override
     public void handle(String payload) {
-        reload(payload.replace("\"", ""));
+        try {
+            reload(json.readValue(payload, String.class));
+        } catch (JacksonException malformed) {
+            log.warn("Dropped a platform configuration notification that names no scope; the timed check covers it");
+        }
     }
 
-    @Scheduled(fixedDelayString = "${lightmove.ai.prompt-registry.reload-check}")
+    @Scheduled(fixedDelayString = "${lightmove.platform.config-reload-check}")
     public void recheck() {
         try {
             jdbc.sql("SELECT scope, version FROM app_lm_platform_config_version")

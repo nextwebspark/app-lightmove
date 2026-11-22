@@ -4,7 +4,6 @@ import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.config.LlmRateLimitSettings;
 import app.lightmove.api.core.config.LlmSettings;
 import app.lightmove.api.core.llm.service.LlmCallPolicy;
-import app.lightmove.api.core.llm.service.PromptCalls;
 import app.lightmove.api.core.llm.service.StructuredPromptFactory;
 import java.util.List;
 import org.springframework.ai.chat.client.ChatClient;
@@ -33,6 +32,6 @@ public final class TestLlmCallPolicy {
     }
 
     public static StructuredPromptFactory promptsOver(ChatClient chatClient) {
-        return new StructuredPromptFactory(chatClient, asShipped(), PromptCalls.bundledOnly());
+        return new StructuredPromptFactory(chatClient, asShipped(), TestPromptCalls.bundledOnly());
     }
 }

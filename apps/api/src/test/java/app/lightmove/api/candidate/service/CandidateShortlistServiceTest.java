@@ -3,7 +3,7 @@ package app.lightmove.api.candidate.service;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import app.lightmove.api.TestLlmCallPolicy;
-import app.lightmove.api.core.llm.service.PromptCalls;
+import app.lightmove.api.TestPromptCalls;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
@@ -26,7 +26,7 @@ class CandidateShortlistServiceTest {
     void sendsBothFieldsAndReturnsTheModelsVerdict() {
         RecordingChatModel chatModel = new RecordingChatModel("SHORTLIST — strong sector match.");
         CandidateShortlistService service =
-                new CandidateShortlistService(ChatClient.builder(chatModel).build(), PromptCalls.bundledOnly(),
+                new CandidateShortlistService(ChatClient.builder(chatModel).build(), TestPromptCalls.bundledOnly(),
                         TestLlmCallPolicy.asShipped());
 
         String verdict = service.shortlist(
@@ -47,7 +47,7 @@ class CandidateShortlistServiceTest {
     @DisplayName("names only its prompt, so the configured model, temperature and ceiling still apply")
     void inheritsTheConfiguredOptions() {
         RecordingChatModel chatModel = new RecordingChatModel("SHORTLIST");
-        new CandidateShortlistService(ChatClient.builder(chatModel).build(), PromptCalls.bundledOnly(),
+        new CandidateShortlistService(ChatClient.builder(chatModel).build(), TestPromptCalls.bundledOnly(),
                 TestLlmCallPolicy.asShipped()).shortlist("a brief", "a profile");
 
         assertThat(chatModel.lastPrompt.getOptions()).isInstanceOfSatisfying(GoogleGenAiChatOptions.class, options -> {

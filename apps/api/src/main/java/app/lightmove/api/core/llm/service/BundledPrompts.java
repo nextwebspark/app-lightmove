@@ -1,7 +1,6 @@
 package app.lightmove.api.core.llm.service;
 
 import app.lightmove.api.core.llm.model.BundledPrompt;
-import app.lightmove.api.core.llm.model.ServedPrompt;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
@@ -22,16 +21,11 @@ import org.springframework.stereotype.Component;
  * without {@code .st} where it has no such suffix.
  */
 @Component
-public class BundledPrompts implements PromptSource {
+public class BundledPrompts {
 
     private static final String FOLDER = "prompts/";
     private static final String STRUCTURED_SUFFIX = "-system.st";
     private static final String SUFFIX = ".st";
-
-    @Override
-    public ServedPrompt current(String promptId) {
-        return ServedPrompt.bundled(promptId, bodyOf(promptId));
-    }
 
     public String bodyOf(String promptId) {
         Resource structured = new ClassPathResource(FOLDER + promptId + STRUCTURED_SUFFIX);

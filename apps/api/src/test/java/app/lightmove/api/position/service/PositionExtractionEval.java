@@ -3,13 +3,13 @@ package app.lightmove.api.position.service;
 import static org.mockito.Mockito.mock;
 
 import app.lightmove.api.TestLlmCallPolicy;
+import app.lightmove.api.TestPromptCalls;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.config.LlmRateLimitSettings;
 import app.lightmove.api.core.config.LlmSettings;
 import app.lightmove.api.core.config.PositionExtractionSettings;
 import app.lightmove.api.core.config.PositionSettings;
 import app.lightmove.api.core.llm.service.StructuredPrompt;
-import app.lightmove.api.core.llm.service.PromptCalls;
 import app.lightmove.api.core.llm.service.StructuredPromptFactory;
 import app.lightmove.api.core.llm.service.TextPseudonymiser;
 import app.lightmove.api.core.ratelimit.service.LlmBudgetGuard;
@@ -479,7 +479,7 @@ class PositionExtractionEval {
     /** Swaps in {@code prompts/<id>-baseline-*} wherever test resources keep one, the shipped prompt otherwise. */
     private static StructuredPromptFactory promptsFor(String subject) {
         ChatClient chatClient = ChatClient.builder(vertexModel()).build();
-        return new StructuredPromptFactory(chatClient, TestLlmCallPolicy.asShipped(), PromptCalls.bundledOnly()) {
+        return new StructuredPromptFactory(chatClient, TestLlmCallPolicy.asShipped(), TestPromptCalls.bundledOnly()) {
             @Override
             public StructuredPrompt create(String promptId, String blockedAnswer) {
                 String baseline = promptId + "-baseline";
