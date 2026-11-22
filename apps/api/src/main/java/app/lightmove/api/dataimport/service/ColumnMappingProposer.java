@@ -64,6 +64,18 @@ public class ColumnMappingProposer {
     private static final String BLOCKED =
             "{\"columns\":[{\"header\":\"" + BlockedAnswer.MARKER + "\"}]}";
 
+    /** What is sent beside the instructions: the same text for every call, filled from the sheet's headers. */
+    static final String USER_MESSAGE = """
+            Columns in the uploaded file:
+            {columns}
+
+            Fields available to map onto:
+            {fields}
+
+            Custom columns this project already has:
+            {existing}
+            """;
+
     private final HeuristicColumnMatcher heuristics;
     private final StructuredPrompt prompt;
     private final LlmBudgetGuard llmBudget;
@@ -91,7 +103,12 @@ public class ColumnMappingProposer {
         // Spent here, not at the endpoint: template-built files never reach Vertex and must not be metered.
         llmBudget.require(LlmBudget.IMPORT_COLUMN_MAPPING, userId);
 
-        List<ColumnMapping> fallback = heuristic.mappings();
+        return proposeFromModel(sheet, existingColumns, heuristic.mappings());
+    }
+
+    /** The model's answer checked against the sheet; {@code fallback}, the header matcher's, on any failure. */
+    ProposedColumnMappings proposeFromModel(ParsedSheet sheet, List<CustomColumnDto> existingColumns,
+                                            List<ColumnMapping> fallback) {
         try {
             ModelMappingAnswer answered = ask(sheet, existingColumns);
             if (answered == null) {
@@ -114,16 +131,7 @@ public class ColumnMappingProposer {
     }
 
     private ModelMappingAnswer ask(ParsedSheet sheet, List<CustomColumnDto> existingColumns) {
-        return prompt.ask(ModelMappingAnswer.class, user -> user.text("""
-                Columns in the uploaded file:
-                {columns}
-
-                Fields available to map onto:
-                {fields}
-
-                Custom columns this project already has:
-                {existing}
-                """)
+        return prompt.ask(ModelMappingAnswer.class, user -> user.text(USER_MESSAGE)
                 .param("columns", describeColumns(sheet))
                 .param("fields", describeFields())
                 .param("existing", describeExisting(existingColumns)));

@@ -37,6 +37,10 @@ export type ApiErrorCode =
   | "MFA_SIGN_IN_AGAIN"
   | "PLATFORM_TWO_FACTOR_REQUIRED"
   | "PLATFORM_STEP_UP_REQUIRED"
+  | "PROMPT_CONTRACT_BROKEN"
+  | "PROMPT_MODEL_UNAVAILABLE"
+  | "PROMPT_TRIAL_UNAVAILABLE"
+  | "PROMPT_ALREADY_LIVE"
   | "ACCOUNT_SIGN_IN_AGAIN"
   | "ACCOUNT_HANDOVER_REQUIRED"
   | "SESSION_NOT_FOUND"
@@ -305,6 +309,10 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   MFA_SIGN_IN_AGAIN: "Sign out and back in, then turn on two-factor authentication within 10 minutes.",
   PLATFORM_TWO_FACTOR_REQUIRED: "Set up two-factor authentication to use the platform console.",
   PLATFORM_STEP_UP_REQUIRED: "Enter a code from your authenticator app to continue.",
+  PROMPT_CONTRACT_BROKEN: "This prompt must keep its variables exactly as written.",
+  PROMPT_MODEL_UNAVAILABLE: "That model can't be used for this prompt. Choose another.",
+  PROMPT_TRIAL_UNAVAILABLE: "This prompt can't be tried here yet.",
+  PROMPT_ALREADY_LIVE: "That version is already live.",
   ACCOUNT_SIGN_IN_AGAIN: "Sign in again to show it's you, then delete your account within 10 minutes.",
   ACCOUNT_HANDOVER_REQUIRED: "Hand over the workspaces and positions only you run first.",
   SESSION_NOT_FOUND: "That session has already ended.",

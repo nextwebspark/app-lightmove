@@ -18,7 +18,12 @@ public enum PlatformEventType implements AuditEventType {
     PLATFORM_ROLE_GRANTED,
     PLATFORM_ROLE_REVOKED,
     PLATFORM_STEP_UP_PASSED,
-    PLATFORM_STEP_UP_FAILED;
+    PLATFORM_STEP_UP_FAILED,
+
+    PROMPT_VERSION_SAVED,
+    PROMPT_TRIED,
+    PROMPT_PUT_LIVE,
+    PROMPT_ROLLED_BACK;
 
     @Override
     public String code() {

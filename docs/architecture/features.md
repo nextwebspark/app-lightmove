@@ -686,7 +686,25 @@ Behind it, every AI system prompt is served through the **prompt registry** (#13
 `PromptSource`, `AiModelCatalog`, `ChatModelProvider`; V235): immutable versions with their model and generation
 settings, a `production` label, a cross-instance reload (`core/reload`) and a daily count of the calls each version
 answered. Behind `lightmove.ai.prompt-registry.enabled`, off by default: off, the bundled `prompts/*.st` serve as
-before. No screen yet; `docs/llm-guardrails.md` has the call path.
+before; `docs/llm-guardrails.md` has the call path.
+Its API (#1317, `promptregistry`, under `/api/v1/platform/prompts` and `/ai-models`): `PROMPT_MANAGE` reads the list
+(`PlatformPrompt` names the sixteen), a prompt's versions and a version's text, saves a new version (text, model from
+`AiModelCatalog`, settings inside that model's bounds, a change note; `PromptContract` keeps a prompt's `{variables}`)
+and runs **Try it** (`PromptTrial`, one bean beside each structured caller, a fictional input through the feature's own
+call path on the tried version's model and settings; `LlmBudget.PROMPT_TRIAL`). A save naming no model is on the
+configured model, an explicit choice (the editor's Default model): the editor opens on the edited version's model, so
+"defaults to the previous version's" is the SPA's, and the API never guesses. Settings with no model whose bounds are
+known are refused rather than checked against another model's. Try it's fictional inputs live in code, one per
+`PromptTrial`, not stored with the prompt, and a trial is never counted in `app_lm_platform_prompt_call_daily`.
+`PROMPT_PROMOTE` with a fresh two-factor code moves `production` (`PUT …/production`, a reason required until the eval
+gate of #1320), which is also how a rollback is made, and reloads every instance; a version whose model
+`AiModelCatalog.unusableBecause` refuses today (retired since it was saved, say) is `PROMPT_MODEL_UNAVAILABLE`, so a
+rollback cannot quietly hand a prompt to the configured model. Saving never changes what serves. Every act is audited
+(`PROMPT_VERSION_SAVED`, `PROMPT_TRIED`, `PROMPT_PUT_LIVE`, `PROMPT_ROLLED_BACK`) with the prompt id, version, model
+and note, never the text. The assistant and the shortlist prompt have no Try it. A list row flags
+`shippedChanged` (a release shipped a newer text than the live edit) and `modelUnavailable` (the live version's model
+is retired, no longer listed or unable to answer the prompt, `AiModelCatalog.unusableBecause`, so the configured
+model answers it).
 
 
 ## Layout

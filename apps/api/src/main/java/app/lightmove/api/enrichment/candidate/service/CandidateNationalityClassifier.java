@@ -39,6 +39,27 @@ public class CandidateNationalityClassifier {
     private static final String NO_RULE = "none";
     private static final Set<String> RULES = Set.of("A", "B", "C", "D", "E", NO_RULE);
 
+    /** What is sent beside the instructions: the same text for every call, filled from the dossier and the material. */
+    static final String USER_MESSAGE = """
+            Name: {name}
+            Headline: {headline}
+            About: {about}
+            Languages: {languages}
+            Current location (residence — not evidence of nationality): {location}
+
+            Education:
+            {education}
+
+            Experience, OLDEST FIRST:
+            {experience}
+
+            Notes on file (the team's own, newest first):
+            {notes}
+
+            Documents on file:
+            {documents}
+            """;
+
     private final StructuredPrompt prompt;
 
     public CandidateNationalityClassifier(StructuredPromptFactory prompts) {
@@ -65,25 +86,7 @@ public class CandidateNationalityClassifier {
     }
 
     private ModelAnswer ask(CandidateDossier dossier, MaterialText material) {
-        return prompt.ask(ModelAnswer.class, user -> user.text("""
-                Name: {name}
-                Headline: {headline}
-                About: {about}
-                Languages: {languages}
-                Current location (residence — not evidence of nationality): {location}
-
-                Education:
-                {education}
-
-                Experience, OLDEST FIRST:
-                {experience}
-
-                Notes on file (the team's own, newest first):
-                {notes}
-
-                Documents on file:
-                {documents}
-                """)
+        return prompt.ask(ModelAnswer.class, user -> user.text(USER_MESSAGE)
                 .param("name", DossierText.orNotStated(dossier.fullName()))
                 .param("headline", headlineOf(dossier))
                 .param("about", DossierText.orNotStated(ContactRedaction.redact(dossier.summary())))

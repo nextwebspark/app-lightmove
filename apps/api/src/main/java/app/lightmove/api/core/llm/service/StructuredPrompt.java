@@ -37,13 +37,13 @@ public final class StructuredPrompt {
      */
     public <T> T ask(Class<T> answerType, List<Message> history, Consumer<ChatClient.PromptUserSpec> user) {
         PreparedPrompt prompt = prompts.prepare(spec);
-        return chatClient.prompt()
+        return prompts.bound(chatClient.prompt()
                 .advisors(guarded.andThen(prompt.attribution()))
                 .options(prompt.options())
                 .system(prompt.systemText())
                 .messages(history)
                 .user(user)
                 .call()
-                .entity(answerType);
+                .entity(answerType));
     }
 }

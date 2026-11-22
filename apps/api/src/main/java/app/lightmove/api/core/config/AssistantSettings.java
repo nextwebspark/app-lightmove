@@ -1,5 +1,6 @@
 package app.lightmove.api.core.config;
 
+import app.lightmove.api.core.llm.model.GenerationSettings;
 import java.time.Duration;
 import org.springframework.boot.context.properties.bind.DefaultValue;
 
@@ -87,5 +88,10 @@ public record AssistantSettings(
             throw new IllegalArgumentException(
                     "lightmove.assistant.vocabulary-limit must be at least 1, but was " + vocabularyLimit);
         }
+    }
+
+    /** What an assistant prompt version naming no settings is asked with: the console shows the same. */
+    public GenerationSettings generationDefaults() {
+        return new GenerationSettings(temperature, thinkingBudget, null);
     }
 }

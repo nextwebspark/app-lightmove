@@ -33,6 +33,24 @@ public class SearchWordsDrafter {
             + "\"standaloneTitles\":[],\"excludedWords\":[],\"suggestions\":[],\"roleSummary\":\""
             + BlockedAnswer.MARKER + "\"}";
 
+    /** What is sent beside the instructions: the same text for every call, filled from the brief and the countries. */
+    static final String USER_MESSAGE = """
+            THE ROLE
+            Title: {roleTitle}
+            Seniority: {seniority}
+            Department: {department}
+            Location: {location}
+
+            Responsibilities:
+            {responsibilities}
+
+            Narrative: {narrative}
+
+            Technical competencies: {competencies}
+
+            Companies being searched are in: {companyCountries}
+            """;
+
     private final StructuredPrompt prompt;
 
     public SearchWordsDrafter(StructuredPromptFactory prompts) {
@@ -42,22 +60,7 @@ public class SearchWordsDrafter {
     /** {@code companyCountries} are the countries the companies searched are in, by name; empty when unknown. */
     public Optional<SearchWords> draft(SourcingBrief brief, List<String> companyCountries) {
         try {
-            ModelAnswer answered = prompt.ask(ModelAnswer.class, user -> user.text("""
-                    THE ROLE
-                    Title: {roleTitle}
-                    Seniority: {seniority}
-                    Department: {department}
-                    Location: {location}
-
-                    Responsibilities:
-                    {responsibilities}
-
-                    Narrative: {narrative}
-
-                    Technical competencies: {competencies}
-
-                    Companies being searched are in: {companyCountries}
-                    """)
+            ModelAnswer answered = prompt.ask(ModelAnswer.class, user -> user.text(USER_MESSAGE)
                     .param("roleTitle", orNotStated(brief.roleTitle()))
                     .param("seniority", brief.seniority() == null ? NOT_STATED : brief.seniority().name())
                     .param("department", orNotStated(brief.department()))

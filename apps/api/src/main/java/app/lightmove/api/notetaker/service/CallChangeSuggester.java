@@ -46,6 +46,15 @@ class CallChangeSuggester {
             .map(Currency::getCurrencyCode)
             .collect(Collectors.toUnmodifiableSet());
 
+    /** What is sent beside the instructions: the same text for every call, filled from the record and the transcript. */
+    static final String USER_MESSAGE = """
+            WHAT THE RECORD HOLDS NOW
+            {held}
+
+            THE TRANSCRIPT (time into the call, speaker, words)
+            {transcript}
+            """;
+
     private final StructuredPrompt prompt;
 
     CallChangeSuggester(StructuredPromptFactory prompts) {
@@ -58,13 +67,7 @@ class CallChangeSuggester {
      * caller to answer as unavailable.
      */
     List<CallSuggestion> suggest(List<TranscriptLine> transcript, Instant callStart, CallHeldFields held) {
-        CallChangesAnswer answer = prompt.ask(CallChangesAnswer.class, user -> user.text("""
-                WHAT THE RECORD HOLDS NOW
-                {held}
-
-                THE TRANSCRIPT (time into the call, speaker, words)
-                {transcript}
-                """)
+        CallChangesAnswer answer = prompt.ask(CallChangesAnswer.class, user -> user.text(USER_MESSAGE)
                 .param("held", heldText(held))
                 .param("transcript", MeetingSummariser.transcriptText(transcript, callStart)));
         if (answer == null) {

@@ -18,13 +18,24 @@ public class PromptCalls {
     private final PromptSource prompts;
     private final ChatModelProvider provider;
     private final PromptCallCounter counter;
+    private final PromptTrialRunner trials;
 
     public PreparedPrompt prepare(PromptCallSpec spec) {
-        ServedPrompt served = prompts.current(spec.promptId(), spec.kind());
+        ServedPrompt underTrial = trials.versionUnderTrial(spec.promptId());
+        ServedPrompt served = underTrial != null ? underTrial : prompts.current(spec.promptId(), spec.kind());
         String model = served.modelId() != null ? served.modelId() : spec.defaultModel();
         PromptCallOptions call = new PromptCallOptions(spec.callLabel(), served.version(), spec.kind(), model,
                 served.settings().orElse(spec.defaults()));
-        return new PreparedPrompt(served.body(), model, provider.optionsFor(call),
-                counter.attributing(served, provider.provider()));
+        // A trial is a console experiment, not a workspace served: counted, it would put calls on a version never
+        // live and mix experiments into the live version's error and token rates.
+        return new PreparedPrompt(served.body(), model, provider.optionsFor(call), underTrial != null
+                ? trials.recording()
+                : counter.attributing(served, provider.provider()));
+    }
+
+    /** Hands a bound answer to a running trial, and back to the caller unchanged. */
+    public <T> T bound(T answer) {
+        trials.bound(answer);
+        return answer;
     }
 }

@@ -1,10 +1,10 @@
 package app.lightmove.api.notetaker.service;
 
-import app.lightmove.api.candidate.constant.AiUse;
 import app.lightmove.api.candidate.model.SubjectAccessContribution;
 import app.lightmove.api.candidate.model.SubjectAccessSection;
 import app.lightmove.api.candidate.model.SubjectAccessSubject;
 import app.lightmove.api.candidate.service.SubjectAccessContributor;
+import app.lightmove.api.common.constant.AiUse;
 import app.lightmove.api.core.export.service.RowSnapshotReader;
 import java.util.EnumSet;
 import java.util.List;

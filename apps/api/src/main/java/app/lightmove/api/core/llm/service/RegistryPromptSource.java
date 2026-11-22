@@ -1,9 +1,8 @@
 package app.lightmove.api.core.llm.service;
 
 import app.lightmove.api.core.config.LightMoveProperties;
-import app.lightmove.api.core.llm.constant.ModelCapability;
 import app.lightmove.api.core.llm.constant.PromptKind;
-import app.lightmove.api.core.llm.model.AiModel;
+import app.lightmove.api.core.llm.constant.UnusableModelReason;
 import app.lightmove.api.core.llm.model.BundledPrompt;
 import app.lightmove.api.core.llm.model.GenerationSettings;
 import app.lightmove.api.core.llm.model.RecordedBundledPrompt;
@@ -23,9 +22,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 /**
- * Serves each prompt from the registry, held in memory until a platform change drops it. Only a version edited in
- * the console overrides this build's own file: the production label is shared by every revision running, so a
- * shipped text is served from the build and merely numbered by the registry. Never the reason a call fails: with
+ * Serves each prompt from the registry, held in memory until a platform change drops it. Only a version a person
+ * chose overrides this build's own file: the production label is shared by every revision running, so a shipped
+ * text a release's sync moved to is served from the build and merely numbered by the registry. Never the reason a call fails: with
  * the registry off or unreadable the bundled file serves, and a version whose model is retired, no longer listed
  * or unable to answer its kind of prompt is answered by the configured model.
  */
@@ -121,7 +120,7 @@ public class RegistryPromptSource implements PromptSource, PlatformConfigListene
             read.put(own.promptId(), new ServedPrompt(own.promptId(), own.body(),
                     recorded.get(keyOf(own.promptId(), own.sha256())), null, null, GenerationSettings.UNSET));
         }
-        store.editedProductionVersions().forEach(edited -> read.put(edited.promptId(), edited));
+        store.overridingProductionVersions().forEach(chosen -> read.put(chosen.promptId(), chosen));
         return Map.copyOf(read);
     }
 
@@ -133,29 +132,16 @@ public class RegistryPromptSource implements PromptSource, PlatformConfigListene
         if (served.modelId() == null) {
             return served;
         }
-        Optional<String> unusable = whyUnusable(models.find(served.provider(), served.modelId()), kind);
+        Optional<UnusableModelReason> unusable = models.unusableBecause(served.provider(), served.modelId(), kind,
+                LocalDate.now(clock.withZone(ZoneOffset.UTC)));
         if (unusable.isEmpty()) {
             return served;
         }
         if (reportedModelFallbacks.add(served.promptId() + ":" + served.version())) {
-            log.warn("Prompt {} version {} names model {}, which is {}; the configured model answers instead",
+            log.warn("Prompt {} version {} names model {}, unusable ({}); the configured model answers instead",
                     served.promptId(), served.version(), served.modelId(), unusable.get());
         }
         return served.onTheConfiguredModel();
-    }
-
-    private Optional<String> whyUnusable(Optional<AiModel> model, PromptKind kind) {
-        if (model.isEmpty()) {
-            return Optional.of("not in the model catalogue");
-        }
-        if (model.get().isRetiredOn(LocalDate.now(clock.withZone(ZoneOffset.UTC)))) {
-            return Optional.of("past its retirement date");
-        }
-        ModelCapability needed = kind.needs();
-        if (needed != null && !model.get().can(needed)) {
-            return Optional.of("not able to answer a " + kind + " prompt");
-        }
-        return Optional.empty();
     }
 
     private static String keyOf(RecordedBundledPrompt recorded) {

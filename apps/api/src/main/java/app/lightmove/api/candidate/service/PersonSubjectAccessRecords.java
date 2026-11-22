@@ -1,13 +1,13 @@
 package app.lightmove.api.candidate.service;
 
 import app.lightmove.api.candidate.constant.AiRunScope;
-import app.lightmove.api.candidate.constant.AiUse;
 import app.lightmove.api.candidate.constant.PersonActivityKind;
 import app.lightmove.api.candidate.model.StoredDocumentFile;
 import app.lightmove.api.candidate.model.SubjectAccessContribution;
 import app.lightmove.api.candidate.model.SubjectAccessFile;
 import app.lightmove.api.candidate.model.SubjectAccessSection;
 import app.lightmove.api.candidate.model.SubjectAccessSubject;
+import app.lightmove.api.common.constant.AiUse;
 import app.lightmove.api.core.export.service.RowSnapshotReader;
 import app.lightmove.api.core.export.service.ZipArchiveWriter;
 import java.util.ArrayList;

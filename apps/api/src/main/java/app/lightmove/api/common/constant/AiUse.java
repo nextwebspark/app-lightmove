@@ -1,4 +1,4 @@
-package app.lightmove.api.candidate.constant;
+package app.lightmove.api.common.constant;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;

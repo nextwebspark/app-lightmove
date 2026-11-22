@@ -1,6 +1,7 @@
 package app.lightmove.api.core.llm.service;
 
 import app.lightmove.api.core.llm.constant.AiProvider;
+import app.lightmove.api.core.llm.model.GenerationSettings;
 import app.lightmove.api.core.llm.model.PromptCallOptions;
 import org.springframework.ai.chat.prompt.ChatOptions;
 
@@ -11,6 +12,12 @@ import org.springframework.ai.chat.prompt.ChatOptions;
 public interface ChatModelProvider {
 
     AiProvider provider();
+
+    /** The deployment's chat model, which a call naming none is answered by; null when the provider's own. */
+    String configuredModel();
+
+    /** The deployment's settings a call's options are merged over; a null field is the provider's own default. */
+    GenerationSettings configuredSettings();
 
     ChatOptions.Builder<?> optionsFor(PromptCallOptions call);
 }

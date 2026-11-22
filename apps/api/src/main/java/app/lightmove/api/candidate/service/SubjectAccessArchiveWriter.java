@@ -1,9 +1,9 @@
 package app.lightmove.api.candidate.service;
 
-import app.lightmove.api.candidate.constant.AiUse;
 import app.lightmove.api.candidate.model.SubjectAccessArchive;
 import app.lightmove.api.candidate.model.SubjectAccessFile;
 import app.lightmove.api.candidate.model.SubjectAccessSection;
+import app.lightmove.api.common.constant.AiUse;
 import app.lightmove.api.core.export.service.ZipArchiveWriter;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
