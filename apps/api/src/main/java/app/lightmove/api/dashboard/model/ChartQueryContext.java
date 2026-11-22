@@ -16,6 +16,7 @@ public final class ChartQueryContext {
     private final UUID workspaceId;
     private final UUID projectId;
     private final Map<String, Object> shared = new HashMap<>();
+    private final Map<String, RuntimeException> failedReads = new HashMap<>();
 
     public ChartQueryContext(UUID userId, UUID workspaceId, UUID projectId) {
         this.userId = userId;
@@ -35,9 +36,27 @@ public final class ChartQueryContext {
         return projectId;
     }
 
-    /** The read named {@code key}, made on first ask and kept for every later chart of this request. */
+    /**
+     * The read named {@code key}, made on first ask and kept for every later chart of this request. A read that fails
+     * is kept failed too: each chart answers in its own transaction, so every later chart needing a slow shared read
+     * would otherwise wait out the same time limit again.
+     */
     @SuppressWarnings("unchecked")
     public <T> T sharedRead(String key, Supplier<T> read) {
-        return (T) shared.computeIfAbsent(key, ignored -> read.get());
+        RuntimeException failed = failedReads.get(key);
+        if (failed != null) {
+            throw failed;
+        }
+        if (shared.containsKey(key)) {
+            return (T) shared.get(key);
+        }
+        try {
+            T value = read.get();
+            shared.put(key, value);
+            return value;
+        } catch (RuntimeException failure) {
+            failedReads.put(key, failure);
+            throw failure;
+        }
     }
 }

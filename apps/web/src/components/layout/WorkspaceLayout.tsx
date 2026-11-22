@@ -95,7 +95,6 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
       ];
 
   const sections: Record<string, string> = {
-    "/": "Home",
     "/positions": "Positions",
     "/dashboards": "Dashboards",
     "/candidates": "Candidates",

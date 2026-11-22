@@ -8,6 +8,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import org.springframework.ai.chat.prompt.ChatOptions;
 import org.springframework.ai.google.genai.GoogleGenAiChatOptions;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 /**
@@ -30,9 +31,30 @@ public class VertexGeminiChatModelProvider implements ChatModelProvider {
     /** Snake case: Google Cloud refuses a label key with an upper-case letter. */
     static final String PROMPT_VERSION_LABEL = "prompt_version";
 
+    private final String configuredModel;
+    private final GenerationSettings configuredSettings;
+
+    public VertexGeminiChatModelProvider(
+            @Value("${spring.ai.google.genai.chat.model:}") String chatModel,
+            @Value("${spring.ai.google.genai.chat.temperature:#{null}}") Double chatTemperature,
+            @Value("${spring.ai.google.genai.chat.max-output-tokens:#{null}}") Integer chatMaxOutputTokens) {
+        this.configuredModel = chatModel == null || chatModel.isBlank() ? null : chatModel;
+        this.configuredSettings = new GenerationSettings(chatTemperature, null, chatMaxOutputTokens);
+    }
+
     @Override
     public AiProvider provider() {
         return AiProvider.VERTEX_GEMINI;
+    }
+
+    @Override
+    public String configuredModel() {
+        return configuredModel;
+    }
+
+    @Override
+    public GenerationSettings configuredSettings() {
+        return configuredSettings;
     }
 
     @Override

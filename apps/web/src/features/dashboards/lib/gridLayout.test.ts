@@ -53,3 +53,20 @@ describe("gridLayout", () => {
     expect(widgets[0]).toMatchObject({ layout: at(0, 0, 12, 3), size: null });
   });
 });
+
+describe("dragging a chart down", () => {
+  it("trades places with the chart it lands on, and keeps the trade once everything settles", () => {
+    const dropped = compact(place([at(0, 0, 12, 4), at(0, 4, 12, 4)], 0, at(0, 4, 12, 4)));
+    expect(dropped).toEqual([at(0, 4, 12, 4), at(0, 0, 12, 4)]);
+  });
+
+  it("pushes the chart below when there is no room for it above", () => {
+    const dropped = compact(place([at(0, 0, 12, 4), at(0, 4, 12, 4)], 0, at(0, 2, 12, 4)));
+    expect(dropped).toEqual([at(0, 0, 12, 4), at(0, 4, 12, 4)]);
+  });
+
+  it("leaves a chart beside the drop where it is", () => {
+    const dropped = compact(place([at(0, 0, 6, 4), at(6, 0, 6, 4), at(0, 4, 6, 4)], 0, at(0, 4, 6, 4)));
+    expect(dropped).toEqual([at(0, 4, 6, 4), at(6, 0, 6, 4), at(0, 0, 6, 4)]);
+  });
+});

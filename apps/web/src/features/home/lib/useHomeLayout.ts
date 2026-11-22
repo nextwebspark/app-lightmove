@@ -38,7 +38,7 @@ export function useHomeLayout(owner: HomeOwner) {
   const save = useMutation({
     mutationFn: async (next: HomeLayout) => {
       if (isDefaultLayout(next)) {
-        await homeApi.resetHomeLayout();
+        await homeApi.resetHomeLayout(version);
         return null;
       }
       return homeApi.saveHomeLayout(next, version);

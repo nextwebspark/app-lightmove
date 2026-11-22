@@ -1,6 +1,6 @@
 package app.lightmove.api.promptregistry.service;
 
-import app.lightmove.api.candidate.constant.AiUse;
+import app.lightmove.api.common.constant.AiUse;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
@@ -13,6 +13,7 @@ import app.lightmove.api.core.llm.model.PromptCallSpec;
 import app.lightmove.api.core.llm.model.PromptVersion;
 import app.lightmove.api.core.llm.service.AiModelCatalog;
 import app.lightmove.api.core.llm.service.BundledPrompts;
+import app.lightmove.api.core.llm.service.ChatModelProvider;
 import app.lightmove.api.core.llm.service.PromptRegistryStore;
 import app.lightmove.api.core.llm.service.PromptTrial;
 import app.lightmove.api.promptregistry.constant.PlatformPrompt;
@@ -26,54 +27,29 @@ import app.lightmove.api.promptregistry.dto.PromptVersionSummary;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
-import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
-import java.util.function.Function;
-import java.util.stream.Collectors;
-import org.springframework.beans.factory.annotation.Value;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /** What the platform console reads of the prompt registry: the list, a prompt's page, a version's text, the models. */
 @Service
+@RequiredArgsConstructor
 public class PromptCatalogService {
 
     /** How long before a model's stated retirement date the console starts warning. */
     static final int RETIREMENT_WARNING_DAYS = 60;
 
-    private static final String STATUS_GA = "GA";
-
     private final PromptRegistryStore store;
     private final BundledPrompts bundled;
     private final AiModelCatalog models;
-    private final Map<String, PromptTrial> trials;
+    private final List<PromptTrial> trials;
+    private final ChatModelProvider provider;
     private final LightMoveProperties properties;
-    private final String chatModel;
-    private final Double chatTemperature;
-    private final Integer chatMaxOutputTokens;
     private final Clock clock;
-
-    // Hand-written: Lombok cannot put @Value on a generated constructor parameter.
-    public PromptCatalogService(PromptRegistryStore store, BundledPrompts bundled, AiModelCatalog models,
-                                List<PromptTrial> trials, LightMoveProperties properties, Clock clock,
-                                @Value("${spring.ai.google.genai.chat.model:}") String chatModel,
-                                @Value("${spring.ai.google.genai.chat.temperature:#{null}}") Double chatTemperature,
-                                @Value("${spring.ai.google.genai.chat.max-output-tokens:#{null}}")
-                                Integer chatMaxOutputTokens) {
-        this.store = store;
-        this.bundled = bundled;
-        this.models = models;
-        this.trials = trials.stream().collect(Collectors.toUnmodifiableMap(PromptTrial::promptId, Function.identity()));
-        this.properties = properties;
-        this.clock = clock;
-        this.chatModel = chatModel;
-        this.chatTemperature = chatTemperature;
-        this.chatMaxOutputTokens = chatMaxOutputTokens;
-    }
 
     @Transactional(readOnly = true)
     public List<PromptOverview> list() {
@@ -93,14 +69,14 @@ public class PromptCatalogService {
         List<PromptVersionSummary> versions = store.versionsOf(promptId).stream()
                 .map(version -> summaryOf(version, live.live().version()))
                 .toList();
-        PromptTrial trial = trials.get(promptId);
+        PromptTrial trial = trialOf(promptId).orElse(null);
         return new PromptDetail(
                 overviewOf(prompt, live),
                 versions,
                 live.newestBundledVersion() == 0 ? null : live.newestBundledVersion(),
                 PromptContract.variablesOf(bundled.bodyOf(promptId)).stream().sorted().toList(),
                 prompt.getKind().needs(),
-                specOf(prompt).defaultModel(),
+                defaultModelOf(prompt),
                 defaultsOf(prompt),
                 trial == null ? null : trial.userMessageTemplate(),
                 trial == null ? null : new PromptTrialInput(trial.inputName(), trial.inputDescription()),
@@ -119,9 +95,10 @@ public class PromptCatalogService {
     public List<AiModelResponse> models() {
         LocalDate today = today();
         return models.all().stream().map(model -> {
-            long days = ChronoUnit.DAYS.between(today, model.retiresOn());
-            return new AiModelResponse(model.provider(), model.modelId(), model.displayName(), STATUS_GA,
-                    model.retiresOn(), days, days <= RETIREMENT_WARNING_DAYS, model.isRetiredOn(today),
+            Long days = model.retiresInDaysFrom(today);
+            boolean retired = model.isRetiredOn(today);
+            return new AiModelResponse(model.provider(), model.modelId(), model.displayName(), model.launchStage(),
+                    model.retiresOn(), days, !retired && days != null && days <= RETIREMENT_WARNING_DAYS, retired,
                     model.dataTerms(), model.capabilities(), model.temperature(), model.thinkingBudget(),
                     model.maxOutputTokens());
         }).toList();
@@ -133,34 +110,38 @@ public class PromptCatalogService {
     }
 
     Optional<PromptTrial> trialOf(String promptId) {
-        return Optional.ofNullable(trials.get(promptId));
+        return trials.stream().filter(trial -> trial.promptId().equals(promptId)).findFirst();
     }
 
-    /** The model and settings a version of this prompt gets where it names none: what its caller declares. */
-    PromptCallSpec specOf(PlatformPrompt prompt) {
-        return switch (prompt.getKind()) {
-            case STRUCTURED -> withTheChatModel(PromptCallSpec.structured(prompt.getPromptId()));
-            case PROSE -> withTheChatModel(PromptCallSpec.prose(prompt.getPromptId()));
-            case TOOL_CALLING -> PromptCallSpec.toolCalling(prompt.getPromptId(), prompt.getPromptId(),
-                    properties.assistant().model(), new GenerationSettings(properties.assistant().temperature(),
-                            properties.assistant().thinkingBudget(), null));
-        };
+    /** The model a version of this prompt naming none is answered by: its caller's, else the deployment's. */
+    String defaultModelOf(PlatformPrompt prompt) {
+        String declared = specOf(prompt).defaultModel();
+        return declared != null ? declared : provider.configuredModel();
     }
 
     static Optional<PromptAiUse> aiUseOf(String promptId) {
         return Arrays.stream(AiUse.values())
-                .filter(use -> use.promptFile() != null && use.promptFile().equals(promptId + "-system.st"))
+                .filter(use -> use.promptFile() != null && BundledPrompts.idOf(use.promptFile()).equals(promptId))
                 .findFirst()
                 .map(use -> new PromptAiUse(use.title(), use.logic()));
     }
 
-    private PromptCallSpec withTheChatModel(PromptCallSpec spec) {
-        return new PromptCallSpec(spec.promptId(), spec.callLabel(), spec.kind(),
-                chatModel == null || chatModel.isBlank() ? null : chatModel, spec.defaults());
+    /**
+     * The spec each caller hands {@code PromptCalls}, built by the same factory from the same settings, so the
+     * console cannot show a default the call does not use.
+     */
+    private PromptCallSpec specOf(PlatformPrompt prompt) {
+        String promptId = prompt.getPromptId();
+        return switch (prompt.getKind()) {
+            case STRUCTURED -> PromptCallSpec.structured(promptId);
+            case PROSE -> PromptCallSpec.prose(promptId);
+            case TOOL_CALLING -> PromptCallSpec.toolCalling(promptId, promptId, properties.assistant().model(),
+                    properties.assistant().generationDefaults());
+        };
     }
 
     private GenerationSettings defaultsOf(PlatformPrompt prompt) {
-        return specOf(prompt).defaults().orElse(new GenerationSettings(chatTemperature, null, chatMaxOutputTokens));
+        return specOf(prompt).defaults().orElse(provider.configuredSettings());
     }
 
     private PromptOverview overviewOf(PlatformPrompt prompt, LivePrompt livePrompt) {
@@ -176,7 +157,7 @@ public class PromptCatalogService {
                 live.provider(),
                 live.modelId(),
                 model.map(AiModel::displayName).orElse(live.modelId()),
-                model.map(named -> (int) ChronoUnit.DAYS.between(today(), named.retiresOn())).orElse(null),
+                model.map(named -> named.retiresInDaysFrom(today())).map(Long::intValue).orElse(null),
                 live.modelId() != null && models.unusableBecause(live.provider(), live.modelId(), prompt.getKind(),
                         today()).isPresent(),
                 livePrompt.shippedChangedSinceTheEdit(),

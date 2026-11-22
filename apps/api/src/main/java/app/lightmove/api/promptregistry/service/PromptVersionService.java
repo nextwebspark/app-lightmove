@@ -6,6 +6,7 @@ import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.llm.constant.AiProvider;
 import app.lightmove.api.core.llm.constant.ModelCapability;
+import app.lightmove.api.core.llm.constant.UnusableModelReason;
 import app.lightmove.api.core.llm.model.AiModel;
 import app.lightmove.api.core.llm.model.GenerationSettings;
 import app.lightmove.api.core.llm.model.SettingRange;
@@ -46,7 +47,7 @@ public class PromptVersionService {
         PlatformPrompt prompt = catalog.require(promptId);
         GenerationSettings settings = request.settings() == null ? GenerationSettings.UNSET : request.settings();
         Optional<AiModel> named = namedModel(prompt, request.provider(), request.modelId());
-        requireWithinBounds(settings, named.or(() -> configuredModel(prompt)).orElse(models.all().getFirst()));
+        requireWithinBounds(settings, named.or(() -> configuredModel(prompt)));
         PromptContract.require(bundled.bodyOf(promptId), request.body());
 
         int version = transactions.execute(status -> {
@@ -68,28 +69,37 @@ public class PromptVersionService {
         if (provider == null && (modelId == null || modelId.isBlank())) {
             return Optional.empty();
         }
-        AiModel model = provider == null || modelId == null ? null : models.find(provider, modelId).orElse(null);
-        if (model == null) {
-            throw unavailable("That model is not one a prompt can use.");
+        Optional<UnusableModelReason> unusable = models.unusableBecause(provider, modelId, prompt.getKind(),
+                LocalDate.now(clock.withZone(ZoneOffset.UTC)));
+        if (unusable.isPresent()) {
+            throw unavailable(switch (unusable.get()) {
+                case NOT_IN_CATALOGUE -> "That model is not one a prompt can use.";
+                case RETIRED -> "That model has been retired. Choose another.";
+                case LACKS_CAPABILITY -> prompt.getKind().needs() == ModelCapability.TOOL_CALLING
+                        ? "This prompt calls tools, which that model cannot do. Choose another."
+                        : "This prompt needs a structured answer, which that model cannot give. Choose another.";
+            });
         }
-        if (model.isRetiredOn(LocalDate.now(clock.withZone(ZoneOffset.UTC)))) {
-            throw unavailable("That model has been retired. Choose another.");
-        }
-        ModelCapability needed = prompt.getKind().needs();
-        if (needed != null && !model.can(needed)) {
-            throw unavailable(needed == ModelCapability.TOOL_CALLING
-                    ? "This prompt calls tools, which that model cannot do. Choose another."
-                    : "This prompt needs a structured answer, which that model cannot give. Choose another.");
-        }
-        return Optional.of(model);
+        return models.find(provider, modelId);
     }
 
     private Optional<AiModel> configuredModel(PlatformPrompt prompt) {
-        String configured = catalog.specOf(prompt).defaultModel();
+        String configured = catalog.defaultModelOf(prompt);
         return configured == null ? Optional.empty() : models.find(AiProvider.VERTEX_GEMINI, configured);
     }
 
-    private static void requireWithinBounds(GenerationSettings settings, AiModel model) {
+    /**
+     * Without a model whose bounds are known, settings cannot be checked; refused rather than checked against some
+     * other model's, which would pass a value the configured model might not take.
+     */
+    private static void requireWithinBounds(GenerationSettings settings, Optional<AiModel> checkedAgainst) {
+        if (checkedAgainst.isEmpty()) {
+            if (!GenerationSettings.UNSET.equals(settings)) {
+                throw unavailable("Choose a model before changing its settings.");
+            }
+            return;
+        }
+        AiModel model = checkedAgainst.get();
         requireWithin("settings.temperature", settings.temperature(), model.temperature(), "Temperature");
         requireWithin("settings.thinkingBudget", settings.thinkingBudget(), model.thinkingBudget(), "Thinking budget");
         requireWithin("settings.maxOutputTokens", settings.maxOutputTokens(), model.maxOutputTokens(),

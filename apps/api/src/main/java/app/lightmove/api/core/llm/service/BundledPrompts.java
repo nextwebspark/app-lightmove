@@ -57,7 +57,7 @@ public class BundledPrompts {
         }
     }
 
-    private static String idOf(String fileName) {
+    public static String idOf(String fileName) {
         String suffix = fileName.endsWith(STRUCTURED_SUFFIX) ? STRUCTURED_SUFFIX : SUFFIX;
         return fileName.substring(0, fileName.length() - suffix.length());
     }

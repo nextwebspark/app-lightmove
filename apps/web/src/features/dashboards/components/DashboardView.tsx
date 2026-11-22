@@ -2,13 +2,14 @@ import { useQuery } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { Icon, ICONS } from "../../../components/layout/Icon";
+import { LeaveGuard } from "../../../components/layout/LeaveGuard";
 import { Button, useToast } from "../../../components/ui";
 import { ActionMenu, MenuItem, MenuSeparator } from "../../../components/ui/ActionMenu";
 import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
 import { cn } from "../../../lib/cn";
 import * as dashboardsApi from "../api/dashboardsApi";
 import type { ChartQueryDef, Dashboard, DashboardScope, DashboardWidget, WidgetLayout } from "../api/types";
-import { clampSize, compact, limitsFor, place, settledWidgets, startingLayout } from "../lib/gridLayout";
+import { clampSize, compact, limitsFor, place, sameWidgets, settledWidgets, startingLayout } from "../lib/gridLayout";
 import { bodyOf, useDashboardWrites } from "../lib/useDashboardWrites";
 
 /** Figures stay live without a refetch on every focus: each answer is a server-side aggregate. */
@@ -66,7 +67,9 @@ export function DashboardView({
   const [libraryDraft, setLibraryDraft] = useState<ChartDraft | null | "library">(null);
   const [dialog, setDialog] = useState<"rename" | "delete" | null>(null);
   const editing = draft !== null;
-  const items = draft ?? placed(dashboard.widgets).map((widget, index) => ({ key: `saved-${index}`, widget }));
+  const saved = placed(dashboard.widgets);
+  const items = draft ?? saved.map((widget, index) => ({ key: `saved-${index}`, widget }));
+  const changed = draft !== null && !sameWidgets(draft.map((item) => item.widget), saved);
   const queryOf = (id: string) => library.find((query) => query.id === id);
   const asked = items.map((item) => item.widget);
   const answers = useQuery({
@@ -294,6 +297,9 @@ export function DashboardView({
           </>
         )}
       </div>
+
+      {/* Opening another dashboard remounts this one, so an unsaved layout was dropped without a word. */}
+      <LeaveGuard hasUnsavedChanges={changed} guardSearch />
 
       {/* Portalled: this section's fade-up keeps a transform, which would pin a fixed drawer or dialog inside it. */}
       {createPortal(

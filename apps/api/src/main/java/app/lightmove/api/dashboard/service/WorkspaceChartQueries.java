@@ -40,6 +40,8 @@ import org.springframework.stereotype.Component;
 class WorkspaceChartQueries {
 
     static final int WEEKS_SHOWN = 12;
+    /** "Since kickoff" reaches back at most two years: a start date years back (an import, a typo) is not a scan. */
+    static final int MAX_WEEKS_SHOWN = 104;
     static final int RESEARCH_DAYS = 30;
 
     private final ProjectService projects;
@@ -196,14 +198,15 @@ class WorkspaceChartQueries {
 
     private ChartResult executivesFiledPerWeek(ChartQueryContext context, Map<String, String> options) {
         LocalDate today = LocalDate.now(clock);
-        LocalDate firstDay = today.minusWeeks(WEEKS_SHOWN).plusDays(1);
+        int weeks = Math.min(Math.max(WEEKS_SHOWN, weeksSinceKickoff(open(context), today)), MAX_WEEKS_SHOWN);
+        LocalDate firstDay = today.minusWeeks(weeks).plusDays(1);
         Map<String, Long> perDay = new LinkedHashMap<>();
         data.executivesFiledPerDay(context.workspaceId(), openIds(context),
                         firstDay.atStartOfDay(ZoneOffset.UTC).toInstant())
                 .forEach(day -> perDay.put(day.label(), day.count()));
         List<String> labels = new ArrayList<>();
         List<Double> values = new ArrayList<>();
-        for (int week = WEEKS_SHOWN - 1; week >= 0; week--) {
+        for (int week = weeks - 1; week >= 0; week--) {
             LocalDate end = today.minusWeeks(week);
             long sum = 0;
             for (int day = 0; day < 7; day++) {
@@ -239,6 +242,19 @@ class WorkspaceChartQueries {
                 .map(TeamMemberResponse::fullName)
                 .findFirst()
                 .orElse(null);
+    }
+
+    /**
+     * The weeks back to the earliest open position's start, today's week included. "Since kickoff" showed only the
+     * last {@value #WEEKS_SHOWN} weeks, the same chart as "Last 12 weeks", however long a search had been running.
+     */
+    private static int weeksSinceKickoff(List<ProjectResponse> open, LocalDate today) {
+        return open.stream()
+                .map(WorkspaceChartQueries::startOf)
+                .min(Comparator.naturalOrder())
+                .filter(kickoff -> kickoff.isBefore(today))
+                .map(kickoff -> (int) (ChronoUnit.DAYS.between(kickoff, today) / 7) + 1)
+                .orElse(0);
     }
 
     private static LocalDate startOf(ProjectResponse project) {

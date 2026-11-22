@@ -166,7 +166,7 @@ class RegistryPromptSourceTest {
             @Override
             public Optional<AiModel> find(AiProvider provider, String modelId) {
                 return super.find(provider, modelId).map(model -> new AiModel(model.provider(), model.modelId(),
-                        model.displayName(), model.retiresOn(), model.dataTerms(),
+                        model.displayName(), model.launchStage(), model.retiresOn(), model.dataTerms(),
                         Set.of(ModelCapability.STRUCTURED_ANSWER), model.temperature(), model.thinkingBudget(),
                         model.maxOutputTokens()));
             }

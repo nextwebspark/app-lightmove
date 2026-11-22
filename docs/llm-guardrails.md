@@ -159,7 +159,8 @@ gets the system text, the provider's options and the wiring that counts the call
   default, declared in its `PromptCallSpec`, so a version that sets nothing behaves as the code always has.
   A version naming a model past its retirement date, one `AiModelCatalog` no longer lists, or one that lacks
   what the prompt's kind needs (`PromptKind.needs()`: tool calling for the assistant) is answered by the
-  configured model and logged once.
+  configured model and logged once. The same rule (`AiModelCatalog.unusableBecause`) refuses saving such a
+  version and putting one live, so this fallback is only for a model that retires while its version serves.
 - **`ChatModelProvider`** is the one seam to a vendor: `VertexGeminiChatModelProvider` owns the JSON mime type,
   the thinking budget and the labels (`prompt`, and `prompt_version` when the registry served the text). A
   second provider is a second implementation and catalogue entries.
@@ -170,7 +171,8 @@ gets the system text, the provider's options and the wiring that counts the call
 - **Every call is counted** against the version and model that answered, in
   `app_lm_platform_prompt_call_daily` (`PromptCallCounter`, innermost advisor: a schema repair's second ask and
   each round of the assistant's tool loop are each a call). The write is off the calling thread and a failed
-  one is logged, never thrown. That table is the record; the label and the log line are secondary.
+  one is logged, never thrown. A console Try it is not counted: `PromptCalls` attaches the trial's recorder in
+  the counter's place, so a version never live shows no calls and the live one's rates hold no experiments. That table is the record; the label and the log line are secondary.
 
 The answer schema (`-schema.json`), the answer format and the user message stay in code: code parses the
 answer against the first two, and the third decides which data reaches the model.

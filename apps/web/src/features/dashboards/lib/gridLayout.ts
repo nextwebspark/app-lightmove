@@ -1,4 +1,4 @@
-import type { ChartType, WidgetLayout } from "../api/types";
+import type { ChartType, DashboardWidget, WidgetLayout } from "../api/types";
 
 export const GRID_COLUMNS = 12;
 export const GRID_ROW_PX = 44;
@@ -67,9 +67,23 @@ export function compact(rects: WidgetLayout[], pinned: number | null = null): Wi
   return settled as WidgetLayout[];
 }
 
-/** One chart moved or resized to `rect`; anything it lands on is pushed down below it, then everything settles. */
+/**
+ * One chart moved or resized to `rect`; anything it lands on is pushed down below it, then everything settles. A chart
+ * moved down onto one that was below it trades places with it instead: pushed down, that chart would leave the moved
+ * one an empty row to rise back into, and the drop would snap back to where it started.
+ */
 export function place(rects: WidgetLayout[], index: number, rect: WidgetLayout): WidgetLayout[] {
+  const origin = rects[index];
   const next = rects.map((other, position) => (position === index ? rect : other));
+  if (rect.y > origin.y) {
+    next.forEach((other, position) => {
+      if (position === index || other.y <= origin.y || !overlaps(rect, other)) return;
+      const above = { ...other, y: rect.y - other.h };
+      const blocked = above.y < 0
+        || next.some((third, at) => at !== index && at !== position && overlaps(above, third));
+      if (!blocked) next[position] = above;
+    });
+  }
   return compact(next, index);
 }
 
@@ -138,4 +152,23 @@ export function settledWidgets<T extends { chart: ChartType; layout: WidgetLayou
 export function startingLayout(rects: WidgetLayout[], chart: ChartType): WidgetLayout {
   const { w, h } = LIMITS[chart];
   return nextSlot(rects, w, h);
+}
+
+export function sameRect(left: WidgetLayout | null, right: WidgetLayout | null): boolean {
+  if (left === null || right === null) return left === right;
+  return left.x === right.x && left.y === right.y && left.w === right.w && left.h === right.h;
+}
+
+export function sameOptions(left: Record<string, string>, right: Record<string, string>): boolean {
+  const keys = Object.keys(left);
+  return keys.length === Object.keys(right).length && keys.every((key) => left[key] === right[key]);
+}
+
+/** Field by field: whether an edited dashboard still holds exactly the charts, and places, it was saved with. */
+export function sameWidgets(left: readonly DashboardWidget[], right: readonly DashboardWidget[]): boolean {
+  return left.length === right.length && left.every((widget, index) => {
+    const other = right[index];
+    return widget.queryId === other.queryId && widget.chart === other.chart && widget.title === other.title
+      && sameOptions(widget.options, other.options) && sameRect(widget.layout, other.layout);
+  });
 }
