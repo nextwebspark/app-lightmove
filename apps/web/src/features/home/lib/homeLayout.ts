@@ -1,5 +1,13 @@
 import type { ChartType, WidgetLayout } from "../../dashboards/api/types";
-import { compact, GRID_COLUMNS, limitsFor, nextSlot, type SizeLimits } from "../../dashboards/lib/gridLayout";
+import {
+  compact,
+  GRID_COLUMNS,
+  limitsFor,
+  nextSlot,
+  sameOptions,
+  sameRect,
+  type SizeLimits,
+} from "../../dashboards/lib/gridLayout";
 
 /** Home's own sections; Needs you is always there, the others may be taken off. */
 export type HomeSection = "NEEDS" | "TODAY" | "POSITIONS";
@@ -96,15 +104,6 @@ export function relaid(layout: HomeLayout, layouts: WidgetLayout[]): HomeLayout 
 
 export function chartCount(layout: HomeLayout): number {
   return layout.tiles.filter((tile) => tile.kind === "CHART").length;
-}
-
-function sameRect(left: WidgetLayout, right: WidgetLayout): boolean {
-  return left.x === right.x && left.y === right.y && left.w === right.w && left.h === right.h;
-}
-
-function sameOptions(left: Record<string, string>, right: Record<string, string>): boolean {
-  const keys = Object.keys(left);
-  return keys.length === Object.keys(right).length && keys.every((key) => left[key] === right[key]);
 }
 
 function sameTile(left: HomeTile, right: HomeTile): boolean {

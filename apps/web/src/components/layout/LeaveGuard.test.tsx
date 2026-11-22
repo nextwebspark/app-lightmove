@@ -79,3 +79,20 @@ describe("LeaveGuard", () => {
     expect(await screen.findByRole("dialog", { name: "Leave without saving?" })).toBeInTheDocument();
   });
 });
+
+describe("LeaveGuard without a flush", () => {
+  it("asks before leaving, since nothing saves on the way out", async () => {
+    render(
+      <MemoryRouter initialEntries={["/brief"]}>
+        <Routes>
+          <Route path="/brief" element={<><LeaveGuard hasUnsavedChanges /><Link to="/projects">Positions</Link></>} />
+          <Route path="/projects" element={<h1>Positions page</h1>} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    await userEvent.click(screen.getByRole("link", { name: "Positions" }));
+
+    expect(await screen.findByRole("dialog", { name: "Leave without saving?" })).toBeInTheDocument();
+  });
+});

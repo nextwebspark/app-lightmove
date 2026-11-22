@@ -31,7 +31,7 @@ import { PositionsSection, TodaySection } from "../components/HomeSections";
 import { HomeGrid } from "../components/HomeGrid";
 import { HomeOptions } from "../components/HomeOptions";
 import { NeedsYou } from "../components/NeedsYou";
-import { MAX_HOME_CHARTS, type ChartTile, type HomeTile } from "../lib/homeLayout";
+import { MAX_HOME_CHARTS, sameLayout, type ChartTile, type HomeTile } from "../lib/homeLayout";
 import { useHomeEditor } from "../lib/useHomeEditor";
 import { useHomeLayout } from "../lib/useHomeLayout";
 import { isAgendaTask, needsYouOf } from "../lib/needsYou";
@@ -274,7 +274,7 @@ function StaffHome({ projects, header }: { projects: Project[]; header: HeaderFn
         />
       )}
 
-      <LeaveGuard hasUnsavedChanges={editing} flush={keepUnsavedHome} />
+      <LeaveGuard hasUnsavedChanges={editor.draft !== null && !sameLayout(editor.draft, home.layout)} />
       {editing && (
         <HomeOptions open={optionsOpen} onClose={() => setOptionsOpen(false)} layout={layout} onChange={editor.update} />
       )}
@@ -291,11 +291,6 @@ function StaffHome({ projects, header }: { projects: Project[]; header: HeaderFn
       )}
     </>
   );
-}
-
-/** Customize is never saved on the way out: leaving asks first. */
-function keepUnsavedHome(): Promise<void> {
-  return Promise.reject(new Error("unsaved Home"));
 }
 
 const SECTION_LABELS = { NEEDS: "Needs you", TODAY: "Today", POSITIONS: "Your positions" } as const;

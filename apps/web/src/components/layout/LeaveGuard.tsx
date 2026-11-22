@@ -12,8 +12,8 @@ export function LeaveGuard({
   guardSearch = false,
 }: {
   hasUnsavedChanges: boolean;
-  /** Saves what is held; rejects when the save is refused. */
-  flush: () => Promise<void>;
+  /** Saves what is held; rejects when the save is refused. Without one, leaving always asks first. */
+  flush?: () => Promise<void>;
   /** A link that changes only the query string leaves too: it opens another dashboard in place of this one. */
   guardSearch?: boolean;
 }) {
@@ -43,10 +43,14 @@ export function LeaveGuard({
       if (target === null) return;
       event.preventDefault();
       event.stopPropagation();
+      const flushHeld = flushRef.current;
+      if (!flushHeld) {
+        setRefusedTarget(target);
+        return;
+      }
       if (leaving.current) return;
       leaving.current = true;
-      flushRef
-        .current()
+      flushHeld()
         .then(() => navigate(target))
         .catch(() => setRefusedTarget(target))
         .finally(() => {

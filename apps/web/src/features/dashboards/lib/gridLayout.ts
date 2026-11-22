@@ -1,4 +1,4 @@
-import type { ChartType, WidgetLayout } from "../api/types";
+import type { ChartType, DashboardWidget, WidgetLayout } from "../api/types";
 
 export const GRID_COLUMNS = 12;
 export const GRID_ROW_PX = 44;
@@ -152,4 +152,23 @@ export function settledWidgets<T extends { chart: ChartType; layout: WidgetLayou
 export function startingLayout(rects: WidgetLayout[], chart: ChartType): WidgetLayout {
   const { w, h } = LIMITS[chart];
   return nextSlot(rects, w, h);
+}
+
+export function sameRect(left: WidgetLayout | null, right: WidgetLayout | null): boolean {
+  if (left === null || right === null) return left === right;
+  return left.x === right.x && left.y === right.y && left.w === right.w && left.h === right.h;
+}
+
+export function sameOptions(left: Record<string, string>, right: Record<string, string>): boolean {
+  const keys = Object.keys(left);
+  return keys.length === Object.keys(right).length && keys.every((key) => left[key] === right[key]);
+}
+
+/** Field by field: whether an edited dashboard still holds exactly the charts, and places, it was saved with. */
+export function sameWidgets(left: readonly DashboardWidget[], right: readonly DashboardWidget[]): boolean {
+  return left.length === right.length && left.every((widget, index) => {
+    const other = right[index];
+    return widget.queryId === other.queryId && widget.chart === other.chart && widget.title === other.title
+      && sameOptions(widget.options, other.options) && sameRect(widget.layout, other.layout);
+  });
 }

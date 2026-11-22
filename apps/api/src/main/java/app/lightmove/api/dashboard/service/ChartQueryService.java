@@ -18,8 +18,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataAccessException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionException;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -73,9 +75,9 @@ public class ChartQueryService {
     private ChartAnswerDto answerAlone(ChartQueryContext context, ChartQuery query, Map<String, String> asked) {
         try {
             return new ChartAnswerDto(query.id(), oneChart.execute(status -> answer(context, query, asked)), null);
-        } catch (ApiException refused) {
-            throw refused;
-        } catch (RuntimeException failed) {
+        } catch (DataAccessException | TransactionException failed) {
+            // Only the database failing to answer (a statement past its time limit) is a chart that can try again;
+            // a fault in the code still fails the request, never a 503 telling the reader to wait.
             log.warn("Chart query {} could not be answered", query.id(), failed);
             return new ChartAnswerDto(query.id(), null, ErrorCode.CHART_UNAVAILABLE.name());
         }
@@ -90,7 +92,7 @@ public class ChartQueryService {
         return new ChartResultResponse(query.id(), result.shape().name(), allowed, options, result.dimension(),
                 result.measure(), result.unit(), result.labels(), result.values(), result.series(),
                 result.suppressed(), result.kpi(), result.columns(), result.rows(), result.note(), result.percent(),
-                result.truncated());
+                result.truncated(), result.folded());
     }
 
     ChartQuery require(DashboardScope scope, String queryId) {
