@@ -38,11 +38,13 @@ public record LightMoveProperties(
         RetentionSettings retention,
         DataProtectionSettings dataProtection,
         LegalSettings legal,
-        PlatformSecuritySettings platform
+        PlatformSecuritySettings platform,
+        AiSettings ai
 ) {
 
     public LightMoveProperties {
         legal = legal == null ? LegalSettings.none() : legal;
         platform = platform == null ? PlatformSecuritySettings.defaults() : platform;
+        ai = ai == null ? AiSettings.defaults() : ai;
     }
 }

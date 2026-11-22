@@ -3,6 +3,7 @@ package app.lightmove.api.position.service;
 import static org.mockito.Mockito.mock;
 
 import app.lightmove.api.TestLlmCallPolicy;
+import app.lightmove.api.TestPromptCalls;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.config.LlmRateLimitSettings;
 import app.lightmove.api.core.config.LlmSettings;
@@ -478,7 +479,7 @@ class PositionExtractionEval {
     /** Swaps in {@code prompts/<id>-baseline-*} wherever test resources keep one, the shipped prompt otherwise. */
     private static StructuredPromptFactory promptsFor(String subject) {
         ChatClient chatClient = ChatClient.builder(vertexModel()).build();
-        return new StructuredPromptFactory(chatClient, TestLlmCallPolicy.asShipped()) {
+        return new StructuredPromptFactory(chatClient, TestLlmCallPolicy.asShipped(), TestPromptCalls.bundledOnly()) {
             @Override
             public StructuredPrompt create(String promptId, String blockedAnswer) {
                 String baseline = promptId + "-baseline";
@@ -497,7 +498,7 @@ class PositionExtractionEval {
         return new LightMoveProperties(null, null, null, null,
                 new PositionSettings(null, settings, null),
                 new LlmSettings(new LlmRateLimitSettings(true, 10, 20, 10), 20_000, 1, List.of()),
-                null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+                null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
     }
 
     private static ChatModel vertexModel() {

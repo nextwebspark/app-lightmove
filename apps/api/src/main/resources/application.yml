@@ -824,6 +824,12 @@ lightmove:
     # The daily consent scan (#1267), UTC. Spelled out here: @Scheduled reads it from the environment.
     consent-scan: ${DATA_PROTECTION_CONSENT_SCAN:0 20 3 * * *}
 
+  # The prompt registry (#1316). Off: every AI prompt is read from its bundled prompts/*.st, as before. On: the
+  # version under the production label serves, and each call is counted in app_lm_platform_prompt_call_daily.
+  ai:
+    prompt-registry:
+      enabled: ${AI_PROMPT_REGISTRY_ENABLED:false}
+
   # What /api/v1/platform/** asks of a super admin beyond the role (#1313). require-two-factor ships off: turn it on
   # in an environment only once every super admin there has enrolled, or they are refused every platform route. It
   # needs lightmove.auth.mfa.enabled and a keyset, since nobody can enrol without them, and lightmove.auth.rate-limit
@@ -831,6 +837,9 @@ lightmove:
   platform:
     require-two-factor: ${PLATFORM_REQUIRE_TWO_FACTOR:false}
     step-up-window: ${PLATFORM_STEP_UP_WINDOW:10m}
+    # How often an instance re-reads the platform configuration versions (core/reload), for a notification it
+    # missed. Read by @Scheduled from the environment, so it has no settings record.
+    config-reload-check: ${PLATFORM_CONFIG_RELOAD_CHECK:PT30S}
 
   # The data processing agreement a founder accepts for the firm when creating a workspace (#928). Both blank until
   # counsel publishes one: nothing is asked. Set together; a new version asks only workspaces created after it.

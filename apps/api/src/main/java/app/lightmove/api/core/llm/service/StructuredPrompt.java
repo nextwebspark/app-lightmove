@@ -1,47 +1,28 @@
 package app.lightmove.api.core.llm.service;
 
+import app.lightmove.api.core.llm.model.PreparedPrompt;
+import app.lightmove.api.core.llm.model.PromptCallSpec;
 import java.util.List;
-import java.util.Map;
 import java.util.function.Consumer;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.messages.Message;
-import org.springframework.ai.google.genai.GoogleGenAiChatOptions;
-import org.springframework.core.io.Resource;
 
 /**
- * One prompt whose answer binds to a record: its system text, its guard and schema advisors, and the
- * options every such call is made with. Built once per caller by {@link StructuredPromptFactory}.
+ * One prompt whose answer binds to a record: its guard and schema advisors, and on every call the system text,
+ * model and settings of the version serving now. Built once per caller by {@link StructuredPromptFactory}.
  */
 public final class StructuredPrompt {
 
-    /** Extraction and mapping have one right answer, so variance buys only answers that will not bind. */
-    private static final double TEMPERATURE = 0.0;
-
-    /**
-     * Asked for natively, so there is no markdown fence on the answer. Without it Gemini wrapped its
-     * reply in a {@code ```json} fence, {@code StructuredOutputValidationAdvisor} handed that text to
-     * Jackson verbatim, and every call failed validation on the leading backtick — then spent its
-     * repair attempt re-asking a question whose answer came back fenced identically.
-     */
-    private static final String ANSWER_MIME_TYPE = "application/json";
-
-    /**
-     * No reasoning step: reading a document onto a fixed field list is not a problem thinking
-     * improves, and left at the default the model deliberated before every answer — billed output
-     * tokens and seconds a person is waiting on.
-     */
-    private static final int THINKING_BUDGET = 0;
-
     private final ChatClient chatClient;
-    private final String promptId;
-    private final Resource systemPrompt;
+    private final PromptCalls prompts;
+    private final PromptCallSpec spec;
     private final Consumer<ChatClient.AdvisorSpec> guarded;
 
-    StructuredPrompt(ChatClient chatClient, String promptId, Resource systemPrompt,
+    StructuredPrompt(ChatClient chatClient, PromptCalls prompts, String promptId,
                      Consumer<ChatClient.AdvisorSpec> guarded) {
         this.chatClient = chatClient;
-        this.promptId = promptId;
-        this.systemPrompt = systemPrompt;
+        this.prompts = prompts;
+        this.spec = PromptCallSpec.structured(promptId);
         this.guarded = guarded;
     }
 
@@ -55,21 +36,14 @@ public final class StructuredPrompt {
      * turn, because the model keeps nothing between calls. The guard reads every turn, not only the last.
      */
     public <T> T ask(Class<T> answerType, List<Message> history, Consumer<ChatClient.PromptUserSpec> user) {
+        PreparedPrompt prompt = prompts.prepare(spec);
         return chatClient.prompt()
-                .advisors(guarded)
-                .options(options())
-                .system(systemPrompt)
+                .advisors(guarded.andThen(prompt.attribution()))
+                .options(prompt.options())
+                .system(prompt.systemText())
                 .messages(history)
                 .user(user)
                 .call()
                 .entity(answerType);
-    }
-
-    private GoogleGenAiChatOptions.Builder options() {
-        return GoogleGenAiChatOptions.builder()
-                .temperature(TEMPERATURE)
-                .thinkingBudget(THINKING_BUDGET)
-                .labels(Map.of("prompt", promptId))
-                .responseMimeType(ANSWER_MIME_TYPE);
     }
 }

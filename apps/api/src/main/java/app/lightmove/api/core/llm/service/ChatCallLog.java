@@ -24,6 +24,9 @@ public final class ChatCallLog {
      */
     public static final String PROMPT_ID_ATTRIBUTE = "lightmove.promptId";
 
+    /** Advisor-context key holding the registry version of the prompt a call was asked with, when it has one. */
+    public static final String PROMPT_VERSION_ATTRIBUTE = "lightmove.promptVersion";
+
     private ChatCallLog() {
     }
 
@@ -33,8 +36,9 @@ public final class ChatCallLog {
             return "chat request: null";
         }
         ChatOptions options = request.prompt().getOptions();
-        return "chat request prompt=%s model=%s temperature=%s".formatted(
+        return "chat request prompt=%s%s model=%s temperature=%s".formatted(
                 promptIdOf(request),
+                promptVersionOf(request),
                 options == null ? "default" : options.getModel(),
                 options == null ? "default" : options.getTemperature());
     }
@@ -77,6 +81,11 @@ public final class ChatCallLog {
     private static String promptIdOf(ChatClientRequest request) {
         Object promptId = request.context() == null ? null : request.context().get(PROMPT_ID_ATTRIBUTE);
         return promptId == null ? "unattributed" : blankToUnknown(promptId.toString());
+    }
+
+    private static String promptVersionOf(ChatClientRequest request) {
+        Object version = request.context() == null ? null : request.context().get(PROMPT_VERSION_ATTRIBUTE);
+        return version == null ? "" : " promptVersion=" + version;
     }
 
     private static String blankToUnknown(String value) {

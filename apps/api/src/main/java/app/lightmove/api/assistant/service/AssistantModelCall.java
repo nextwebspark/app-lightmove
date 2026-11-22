@@ -4,7 +4,11 @@ import app.lightmove.api.assistant.model.AssistantTurn;
 import app.lightmove.api.assistant.tool.AssistantToolContext;
 import app.lightmove.api.core.config.AssistantSettings;
 import app.lightmove.api.core.config.LightMoveProperties;
+import app.lightmove.api.core.llm.model.GenerationSettings;
+import app.lightmove.api.core.llm.model.PreparedPrompt;
+import app.lightmove.api.core.llm.model.PromptCallSpec;
 import app.lightmove.api.core.llm.service.ChatCallLog;
+import app.lightmove.api.core.llm.service.PromptCalls;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -15,12 +19,9 @@ import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.Generation;
-import org.springframework.ai.google.genai.GoogleGenAiChatOptions;
 import org.springframework.ai.model.tool.ToolCallingManager;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
 
 /**
@@ -34,21 +35,26 @@ public class AssistantModelCall {
     /** Kept from before playbooks existed, so the cost and log lines of an answer read as they did. */
     static final String PROMPT_ID = "assistant-turn";
 
+    private static final String CORE_PROMPT = "assistant-core";
+
     private final ChatClient chatClient;
     private final AssistantSettings settings;
-    private final Resource corePrompt;
+    private final PromptCalls prompts;
+    private final PromptCallSpec corePrompt;
     private final ToolCallingAdvisor toolLoop;
 
     private final ModelCallThreads modelCalls;
 
     public AssistantModelCall(ChatClient chatClient, LightMoveProperties properties,
-                              @Value("classpath:prompts/assistant-core.st") Resource corePrompt,
+                              PromptCalls prompts,
                               AssistantThreads threads, ObjectProvider<ToolCallingManager> toolCalling,
                               ModelCallThreads modelCalls) {
         this.chatClient = chatClient;
         this.modelCalls = modelCalls;
         this.settings = properties.assistant();
-        this.corePrompt = corePrompt;
+        this.prompts = prompts;
+        this.corePrompt = PromptCallSpec.toolCalling(CORE_PROMPT, PROMPT_ID, settings.model(),
+                new GenerationSettings(settings.temperature(), settings.thinkingBudget(), null));
         ToolCallingManager oneAtATime = toolCalling.getIfAvailable(() -> ToolCallingManager.builder().build());
         this.toolLoop = ToolCallingAdvisor.builder()
                 .toolCallingManager(new ParallelToolCalls(oneAtATime, threads.tools(),
@@ -58,16 +64,14 @@ public class AssistantModelCall {
 
     public String ask(Map<String, Object> systemParams, List<ToolCallback> tools, List<AssistantTurn> history,
                       String question, AssistantToolContext context) {
+        PreparedPrompt prompt = prompts.prepare(corePrompt);
         ChatResponse response = chatClient.prompt()
-                .advisors(advisors -> advisors.param(ChatCallLog.PROMPT_ID_ATTRIBUTE, PROMPT_ID)
-                        .advisors(toolLoop, new AssistantRounds(context.recorder(), settings.model(),
-                                settings.answerDeadline(), settings.roundPatience(), modelCalls::execute)))
-                .options(GoogleGenAiChatOptions.builder()
-                        .model(settings.model())
-                        .temperature(settings.temperature())
-                        .thinkingBudget(settings.thinkingBudget())
-                        .labels(Map.of("prompt", PROMPT_ID)))
-                .system(system -> system.text(corePrompt).params(systemParams))
+                .advisors(advisors -> prompt.attribution().accept(
+                        advisors.param(ChatCallLog.PROMPT_ID_ATTRIBUTE, PROMPT_ID)
+                                .advisors(toolLoop, new AssistantRounds(context.recorder(), prompt.model(),
+                                        settings.answerDeadline(), settings.roundPatience(), modelCalls::execute))))
+                .options(prompt.options())
+                .system(system -> system.text(prompt.systemText()).params(systemParams))
                 .messages(conversation(history, question))
                 .tools(tools.toArray())
                 .toolContext(context.asMap())
