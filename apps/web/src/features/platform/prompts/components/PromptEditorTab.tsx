@@ -132,7 +132,9 @@ export function PromptEditorTab({
             <span className={HINT}>
               {chosen
                 ? `${chosen.status} · retires ${formatDate(chosen.retiresOn)} · same region and data terms as today`
-                : "Follows the deployment's configured model."}
+                : modelId !== DEFAULT_MODEL
+                  ? `${modelId} is no longer offered. The default model answers this version.`
+                  : "Follows the deployment's configured model."}
             </span>
           )}
           {chosen && isRetiringSoon(chosen.retiresInDays) && (

@@ -254,6 +254,9 @@ describe("PromptPage", () => {
     vi.mocked(promptApi.getPrompt).mockResolvedValue(
       detail({
         prompt: overview({ modelId: "gemini-1.0-pro", modelName: "gemini-1.0-pro", modelRetiresInDays: null, modelUnavailable: true }),
+        versions: [
+          version({ version: 2, origin: "EDITED", live: true, provider: "VERTEX_GEMINI", modelId: "gemini-1.0-pro", modelName: "gemini-1.0-pro" }),
+        ],
       }),
     );
     renderPage();
@@ -262,6 +265,7 @@ describe("PromptPage", () => {
     expect(screen.getByRole("note")).toHaveTextContent(
       "Version 2 names gemini-1.0-pro, which is retired, no longer offered or cannot answer this prompt.",
     );
+    expect(screen.getByText("gemini-1.0-pro is no longer offered. The default model answers this version.")).toBeInTheDocument();
   });
 
   it("draws no Try it for a prompt that has none", async () => {
