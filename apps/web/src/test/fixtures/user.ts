@@ -60,6 +60,7 @@ export function aUser(overrides: Partial<User> = {}): User {
     termsUpdateRequired: false,
     termsVersion: "2026-07-01",
     workspaces: workspace ? [workspace] : [],
+    startPage: workspace ? { kind: "HOME", dashboardId: null, projectId: null, section: null, available: true } : null,
     ...overrides,
     workspace,
   };

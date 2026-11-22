@@ -90,6 +90,7 @@ export type ApiErrorCode =
   | "DASHBOARD_STALE"
   | "DASHBOARD_TOO_MANY_WIDGETS"
   | "HOME_LAYOUT_STALE"
+  | "START_PAGE_UNAVAILABLE"
   | "CHART_QUERY_NOT_FOUND"
   | "CHART_TYPE_NOT_ALLOWED"
   | "CHART_OPTION_INVALID"
@@ -350,6 +351,7 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   DASHBOARD_STALE: "This dashboard was changed since you opened it. Reload to see the changes.",
   DASHBOARD_TOO_MANY_WIDGETS: "A dashboard can hold up to 30 charts. Remove one to add another.",
   HOME_LAYOUT_STALE: "Your Home was changed in another window. Reload to see it.",
+  START_PAGE_UNAVAILABLE: "That page is not available to you. Choose another.",
   CHART_QUERY_NOT_FOUND: "That chart is no longer available. Remove it, or pick a replacement from the library.",
   CHART_TYPE_NOT_ALLOWED: "That chart type doesn't fit this data. Pick another way to show it.",
   CHART_OPTION_INVALID: "That option isn't available for this chart.",

@@ -11,6 +11,7 @@ import { messageFor } from "../../../lib/errorCodes";
 import { formatShortDate, formatWeekdayDate, todayKey } from "../../../lib/datetime/format";
 import { getDateTimePreferences } from "../../../lib/datetime/preferences";
 import { useAuth } from "../../auth/AuthProvider";
+import { StartPageNotice } from "../../startpage/components/StartPageNotice";
 import { isPureClient, seesEveryPosition } from "../../auth/roles";
 import * as clientsApi from "../../clients/api/clientsApi";
 import { liveClients } from "../../clients/lib/filtering";
@@ -251,6 +252,7 @@ function StaffHome({ projects, header }: { projects: Project[]; header: HeaderFn
   return (
     <>
       {header(count, actions)}
+      <StartPageNotice />
 
       {editing && (
         <p className="rounded-u-chip bg-u-accent-tint px-3.5 py-2.5 text-note text-u-text2">
@@ -306,6 +308,7 @@ function ClientHome({ projects, header }: { projects: Project[]; header: HeaderF
   return (
     <>
       {header(live.length === 1 ? `1 position shared with you by ${sharer}` : `${live.length} positions shared with you by ${sharer}`)}
+      <StartPageNotice />
       {live.length === 0 ? (
         <EmptyState
           icon={<Icon d={ICONS.briefcase} size={24} />}

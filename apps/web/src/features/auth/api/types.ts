@@ -6,6 +6,7 @@
  * OpenAPI document instead of maintaining it twice.
  */
 
+import type { StartPage } from "../../startpage/api/types";
 import type { DateFormatStyle, DateTimePreferences, TimeFormatStyle } from "../../../lib/datetime";
 
 export type WorkspaceRole = "ADMIN" | "MEMBER" | "CLIENT";
@@ -87,6 +88,9 @@ export interface User {
    * belongs in the app or back in the onboarding wizard.
    */
   workspace: WorkspaceSummary | null;
+
+  /** Where Uncava opens in that workspace (Home when nothing is saved); null with no workspace. */
+  startPage: StartPage | null;
 
   /** Every workspace the user is an active member of, oldest first. What the switcher lists. */
   workspaces: WorkspaceSummary[];

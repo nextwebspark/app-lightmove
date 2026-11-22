@@ -44,7 +44,6 @@ export interface HomeTileBody {
 export interface HomeLayoutBody {
   tiles: HomeTileBody[];
   needs: Partial<Record<NeedsKind, boolean>>;
-  landing: "HOME" | "POSITIONS";
   /** The version the layout was read at; a save sends back the one it opened, null when it opened the default. */
   version: number | null;
 }
@@ -73,7 +72,6 @@ export function toHomeLayout(body: HomeLayoutBody): HomeLayout {
   return {
     tiles,
     kinds: { ...DEFAULT_HOME_LAYOUT.kinds, ...body.needs },
-    landing: body.landing === "POSITIONS" ? "positions" : "home",
   };
 }
 
@@ -85,7 +83,6 @@ export function toHomeLayoutBody(layout: HomeLayout, version: number | null): Ho
         : { kind: tile.kind, layout: tile.layout },
     ),
     needs: layout.kinds,
-    landing: layout.landing === "positions" ? "POSITIONS" : "HOME",
     version,
   };
 }

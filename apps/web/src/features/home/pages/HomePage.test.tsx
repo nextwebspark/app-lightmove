@@ -234,7 +234,6 @@ describe("HomePage", () => {
         { kind: "CHART", queryId: "positionsBy", chart: "bar", options: { group: "stage" }, title: "Where my positions stand", layout: { x: 0, y: 8, w: 6, h: 7 } },
       ],
       kinds: { NEEDS_REPLY: true, FOLLOW_UP: true, PREPARATION: true, ATTENTION: true },
-      landing: "home",
       },
     });
 

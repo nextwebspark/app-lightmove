@@ -13,11 +13,11 @@ describe("homeFor", () => {
     expect(homeFor({ ...base, workspace: { id: "w1", roles: ["MEMBER"] }, pendingInvitations: [{}] })).toBe("/");
   });
 
-  it("lands on Positions for someone who chose it for that workspace, and on Home in another", () => {
-    localStorage.setItem("lm-home:u1:w1", JSON.stringify({ landing: "positions" }));
-    expect(homeFor({ ...base, workspace: { id: "w1", roles: ["MEMBER"] } })).toBe("/positions");
-    expect(homeFor({ ...base, workspace: { id: "w2", roles: ["MEMBER"] } })).toBe("/");
-    localStorage.clear();
+  it("lands on the start page the session's workspace carries, and on Home when it is no longer theirs", () => {
+    const workspace = { id: "w1", roles: ["MEMBER"] };
+    const startPage = { kind: "POSITION", dashboardId: null, projectId: "p1", section: "OUTREACH", available: true } as const;
+    expect(homeFor({ ...base, workspace, startPage })).toBe("/projects/p1/outreach");
+    expect(homeFor({ ...base, workspace, startPage: { ...startPage, available: false } })).toBe("/");
   });
 
   it("holds an unverified user at the verify step before anything else", () => {
