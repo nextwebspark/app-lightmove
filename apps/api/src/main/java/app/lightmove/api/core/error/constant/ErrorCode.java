@@ -79,6 +79,15 @@ public enum ErrorCode {
     /** A person with no password proves it is them by having signed in moments ago. */
     MFA_SIGN_IN_AGAIN(HttpStatus.CONFLICT, "Sign out and back in, then turn on two-factor authentication within 10 minutes"),
 
+    /**
+     * A super admin with no factor, where the deployment requires one (#1313). Answered only to a holder of the
+     * platform action asked for: anyone else gets the 404 that hides the route.
+     */
+    PLATFORM_TWO_FACTOR_REQUIRED(HttpStatus.FORBIDDEN, "Set up two-factor authentication to use the platform console"),
+
+    /** A high-impact platform action with no code entered inside the step-up window: the SPA asks for one and retries. */
+    PLATFORM_STEP_UP_REQUIRED(HttpStatus.FORBIDDEN, "Enter a code from your authenticator app to continue"),
+
     /** Account deletion, by a person with no password: the proof is a sign-in moments ago, as for two-factor. */
     ACCOUNT_SIGN_IN_AGAIN(HttpStatus.CONFLICT, "Sign in again, then delete your account within 10 minutes"),
 
@@ -311,6 +320,9 @@ public enum ErrorCode {
 
     /** An option the query does not offer, or a value it does not allow. */
     CHART_OPTION_INVALID(HttpStatus.BAD_REQUEST, "That option is not available for this chart"),
+
+    /** One chart of a dashboard's batch failed to answer (a query past its time limit); the rest still draw. */
+    CHART_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "That chart could not be answered just now. Try again in a moment"),
 
     /** The brief's competencies changed after the ranking was opened, so the scenario names the wrong ones. */
     RANKING_BRIEF_CHANGED(HttpStatus.CONFLICT,

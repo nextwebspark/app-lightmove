@@ -38,9 +38,20 @@ class ChartShapingTest {
         assertThat(top.labels()).containsExactly("B", "C", "D", "Other");
         assertThat(top.values()).containsExactly(5d, 3d, 2d, 1d);
         assertThat(top.truncated()).isFalse();
+        assertThat(top.folded()).isTrue();
 
         ChartResult medians = ChartShaping.shape(breakdown(true), raw, Map.of("top", "3"));
         assertThat(medians.labels()).containsExactly("B", "C", "D");
+        assertThat(medians.folded()).isFalse();
+    }
+
+    @Test
+    void anAnswerThatAlreadyFoldedItsTailDrawsOneOther() {
+        ChartResult raw = ChartResult.categorical("Sector", "Companies", "", List.of("A", "B", "C", "D", "Other"),
+                List.of(6d, 5d, 3d, 2d, 9d));
+        ChartResult top = ChartShaping.shape(breakdown(false), raw, Map.of("top", "3"));
+        assertThat(top.labels()).containsExactly("A", "B", "C", "Other");
+        assertThat(top.values()).containsExactly(6d, 5d, 3d, 11d);
     }
 
     @Test

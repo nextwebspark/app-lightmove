@@ -8,6 +8,7 @@ import { AppRoutes } from "./app/routes";
 import { ToastProvider } from "./components/ui";
 import { AssistantProvider } from "./features/assistant/AssistantProvider";
 import { AuthProvider } from "./features/auth/AuthProvider";
+import { PlatformStepUp } from "./features/platform/components/PlatformStepUp";
 import { PendingContactsBoundary } from "./features/outreach/calling/PendingContactsBoundary";
 import { TermsUpdateSheet } from "./features/auth/components/TermsUpdateSheet";
 import { BillingRefusalSheets } from "./features/billing/components/BillingRefusalSheets";
@@ -49,6 +50,7 @@ createRoot(document.getElementById("root")!).render(
               </DateTimeBoundary>
             </AssistantProvider>
             <BillingRefusalSheets />
+            <PlatformStepUp />
             {/* Over every signed-in screen, the signup steps and the extension's pairing included, until changed
                 terms are accepted: beside the routes rather than in each guard, so no route is added without it. */}
             <TermsUpdateSheet />

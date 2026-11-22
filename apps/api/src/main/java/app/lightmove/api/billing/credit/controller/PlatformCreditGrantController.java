@@ -5,7 +5,7 @@ import app.lightmove.api.billing.credit.dto.CreditGrantResponse;
 import app.lightmove.api.billing.credit.service.PlatformCreditGrantService;
 import app.lightmove.api.core.security.model.AuthPrincipal;
 import app.lightmove.api.core.security.rbac.PlatformAction;
-import app.lightmove.api.core.security.rbac.RequirePlatformPermission;
+import app.lightmove.api.core.security.rbac.RequireRecentTwoFactor;
 import app.lightmove.api.core.tenant.WorkspaceScope;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -27,7 +27,7 @@ public class PlatformCreditGrantController {
     private final PlatformCreditGrantService grants;
 
     @PostMapping("/api/v1/platform/workspaces/{workspaceId}/credit-grants")
-    @RequirePlatformPermission(PlatformAction.CREDIT_GRANT)
+    @RequireRecentTwoFactor(PlatformAction.CREDIT_GRANT)
     @ResponseStatus(HttpStatus.CREATED)
     public CreditGrantResponse grant(@AuthenticationPrincipal AuthPrincipal principal,
                                      @PathVariable UUID workspaceId,

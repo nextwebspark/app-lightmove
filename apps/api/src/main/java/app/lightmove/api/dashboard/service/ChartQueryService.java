@@ -17,16 +17,27 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataAccessException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionException;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /** Lists the library and answers one of its queries. Options are checked against the query's own declaration. */
+@Slf4j
 @Service
-@RequiredArgsConstructor
 public class ChartQueryService {
 
     private final ChartQueryLibrary library;
+    private final TransactionTemplate oneChart;
+
+    public ChartQueryService(ChartQueryLibrary library, PlatformTransactionManager transactions) {
+        this.library = library;
+        this.oneChart = new TransactionTemplate(transactions);
+        this.oneChart.setReadOnly(true);
+    }
 
     public List<ChartQueryResponse> library(DashboardScope scope) {
         return library.of(scope).stream().map(ChartQueryService::toResponse).toList();
@@ -39,10 +50,11 @@ public class ChartQueryService {
     }
 
     /**
-     * Every chart of a dashboard in one request and one transaction, so the reads they share — the report, the
-     * executives, the positions — are made once ({@code ChartQueryContext.sharedRead}) rather than once a chart.
+     * Every chart of a dashboard in one request, so the reads they share — the report, the executives, the positions —
+     * are made once ({@code ChartQueryContext.sharedRead}) rather than once a chart. Each chart runs in a transaction
+     * of its own: in one shared transaction a single statement past its time limit aborted it, and every chart after
+     * it — the whole dashboard, and Home — failed with it.
      */
-    @Transactional(readOnly = true)
     public List<ChartAnswerDto> answers(ChartQueryContext context, DashboardScope scope,
                                         List<ChartQuestionDto> questions) {
         List<ChartAnswerDto> answers = new ArrayList<>();
@@ -54,10 +66,21 @@ public class ChartQueryService {
             } else if (!hasValidOptions(query.get(), asked)) {
                 answers.add(new ChartAnswerDto(question.queryId(), null, ErrorCode.CHART_OPTION_INVALID.name()));
             } else {
-                answers.add(new ChartAnswerDto(question.queryId(), answer(context, query.get(), asked), null));
+                answers.add(answerAlone(context, query.get(), asked));
             }
         }
         return answers;
+    }
+
+    private ChartAnswerDto answerAlone(ChartQueryContext context, ChartQuery query, Map<String, String> asked) {
+        try {
+            return new ChartAnswerDto(query.id(), oneChart.execute(status -> answer(context, query, asked)), null);
+        } catch (DataAccessException | TransactionException failed) {
+            // Only the database failing to answer (a statement past its time limit) is a chart that can try again;
+            // a fault in the code still fails the request, never a 503 telling the reader to wait.
+            log.warn("Chart query {} could not be answered", query.id(), failed);
+            return new ChartAnswerDto(query.id(), null, ErrorCode.CHART_UNAVAILABLE.name());
+        }
     }
 
     private ChartResultResponse answer(ChartQueryContext context, ChartQuery query, Map<String, String> requested) {
@@ -69,7 +92,7 @@ public class ChartQueryService {
         return new ChartResultResponse(query.id(), result.shape().name(), allowed, options, result.dimension(),
                 result.measure(), result.unit(), result.labels(), result.values(), result.series(),
                 result.suppressed(), result.kpi(), result.columns(), result.rows(), result.note(), result.percent(),
-                result.truncated());
+                result.truncated(), result.folded());
     }
 
     ChartQuery require(DashboardScope scope, String queryId) {

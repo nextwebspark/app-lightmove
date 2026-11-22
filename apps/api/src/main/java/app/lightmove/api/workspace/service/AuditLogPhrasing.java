@@ -294,6 +294,8 @@ public class AuditLogPhrasing {
         on(AuthEventType.AVATAR_REMOVED, line -> "Removed their profile photo");
         on(PlatformEventType.PLATFORM_ROLE_GRANTED, line -> "Gave Uncava platform access");
         on(PlatformEventType.PLATFORM_ROLE_REVOKED, line -> "Removed Uncava platform access");
+        on(PlatformEventType.PLATFORM_STEP_UP_PASSED, line -> "Confirmed a platform change with a two-factor code");
+        on(PlatformEventType.PLATFORM_STEP_UP_FAILED, line -> "Entered a wrong two-factor code for a platform change");
     }
 
     private void on(AuditEventType type, Function<AuditLine, String> phrase) {
