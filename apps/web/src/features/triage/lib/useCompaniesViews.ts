@@ -10,9 +10,10 @@ export const COMPANIES_VIEW_LABELS: Record<CompaniesView, { label: string; icon:
   table: { label: "Table", icon: ICONS.table },
   map: { label: "Map", icon: ICONS.mapPin },
   pipeline: { label: "Pipeline", icon: ICONS.pipeline },
+  executives: { label: "Executives", icon: ICONS.candidates },
 };
 
-/** The readings a Companies stage offers — In universe's table, map and pipeline, every other stage its table. */
+/** The readings a Companies stage offers — In universe's table, map and pipeline, every stage its table and executives. */
 export function useCompaniesViews(stage: TriageCompanyStatus, canWrite: boolean) {
   // A refused or failed read means no map rather than a broken globe, and a token does not change while a tab is open.
   const mapConfig = useQuery({
@@ -20,13 +21,14 @@ export function useCompaniesViews(stage: TriageCompanyStatus, canWrite: boolean)
     queryFn: ({ signal }) => talentMapApi.getTalentMapConfig(signal),
     staleTime: Infinity,
   });
-  if (stage !== "inUniverse") return { views: ["table"] as CompaniesView[], mapConfig };
+  if (stage !== "inUniverse") return { views: ["table", "executives"] as CompaniesView[], mapConfig };
   const mapOffered = MAP_OFFERED && mapConfig.data?.enabled === true && !!mapConfig.data.publicToken;
   // The pipeline is the position's WORK_EXECUTE, so a client seat reads the table and the map alone.
   const views: CompaniesView[] = [
     "table",
     ...(mapOffered ? (["map"] as const) : []),
     ...(canWrite ? (["pipeline"] as const) : []),
+    "executives",
   ];
   return { views, mapConfig };
 }

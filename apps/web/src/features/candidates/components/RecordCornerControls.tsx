@@ -13,18 +13,25 @@ export interface RecordStepper {
   frame: "peek" | "page";
   /** Where the open person sits in the list, 0-based, for the full page's "3 of 48". */
   position?: { index: number; total: number };
-  /** What the full page's record bar puts first: its List button, where the list is away. */
+  /** What the full page's corner puts first: its List button, where the list is away. */
   lead?: ReactNode;
-  /** The peek's Open full page, the page's Exit full page; absent where the screen has no full page. */
+  /** The peek's Open full page, the page's way back to where it was opened from; absent where there is none. */
   onToggleFrame?: () => void;
+  /** What the page's way back says, "Back to Table". */
+  toggleLabel?: string;
+}
+
+/** Whether there is a list to step along at all: a record opened alone from a board has none. */
+function stepsShown(stepper: RecordStepper): boolean {
+  return stepper.position !== undefined || stepper.onPrevious !== undefined || stepper.onNext !== undefined;
 }
 
 const CORNER_BUTTON =
   "rounded-md p-1.5 text-u-text3 transition hover:bg-u-raised hover:text-u-text disabled:pointer-events-none disabled:opacity-40";
 
 /**
- * The record header's corner: Previous, Next, the frame switch and, in the peek, Close. Stepping is held while
- * `held` says why — an edit open — since moving would drop it.
+ * The record header's corner: on the full page the List button, "N of M", Previous and Next; in the peek Previous,
+ * Next, the frame switch and Close. Stepping is held while `held` says why — an edit open — since moving would drop it.
  */
 export function RecordCornerControls({
   stepper,
@@ -41,31 +48,41 @@ export function RecordCornerControls({
     <div className="absolute end-3.5 top-3.5 flex items-center gap-0.5">
       {stepper && (
         <>
-          <button
-            type="button"
-            aria-label="Previous executive"
-            title={held ?? "Previous executive (K)"}
-            disabled={!stepper.onPrevious || held !== undefined}
-            onClick={stepper.onPrevious}
-            className={CORNER_BUTTON}
-          >
-            <Icon d={ICONS.chevronDown} size={16} className="rotate-180" />
-          </button>
-          <button
-            type="button"
-            aria-label="Next executive"
-            title={held ?? "Next executive (J)"}
-            disabled={!stepper.onNext || held !== undefined}
-            onClick={stepper.onNext}
-            className={CORNER_BUTTON}
-          >
-            <Icon d={ICONS.chevronDown} size={16} />
-          </button>
+          {stepper.frame === "page" && stepper.lead}
+          {stepper.frame === "page" && stepper.position && (
+            <span className="me-1 font-u-num text-meta tabular-nums text-u-text3">
+              {stepper.position.index + 1} of {stepper.position.total}
+            </span>
+          )}
+          {stepsShown(stepper) && (
+            <>
+              <button
+                type="button"
+                aria-label="Previous executive"
+                title={held ?? "Previous executive (K)"}
+                disabled={!stepper.onPrevious || held !== undefined}
+                onClick={stepper.onPrevious}
+                className={CORNER_BUTTON}
+              >
+                <Icon d={ICONS.chevronDown} size={16} className="rotate-180" />
+              </button>
+              <button
+                type="button"
+                aria-label="Next executive"
+                title={held ?? "Next executive (J)"}
+                disabled={!stepper.onNext || held !== undefined}
+                onClick={stepper.onNext}
+                className={CORNER_BUTTON}
+              >
+                <Icon d={ICONS.chevronDown} size={16} />
+              </button>
+            </>
+          )}
           {stepper.onToggleFrame && (
             <button
               type="button"
-              aria-label={stepper.frame === "peek" ? "Open full page" : "Exit full page"}
-              title={stepper.frame === "peek" ? "Open full page" : "Exit full page (Esc)"}
+              aria-label={stepper.frame === "peek" ? "Open full page" : (stepper.toggleLabel ?? "Exit full page")}
+              title={stepper.frame === "peek" ? "Open full page" : `${stepper.toggleLabel ?? "Exit full page"} (Esc)`}
               onClick={stepper.onToggleFrame}
               className={cn(CORNER_BUTTON, "ms-1")}
             >
@@ -83,62 +100,11 @@ export function RecordCornerControls({
   );
 }
 
-/**
- * The full page's record bar, where the peek has its corner: Previous and Next with where this person sits in the
- * list, and the way back to the grid. Stepping is held while `held` says why.
- */
-export function RecordBar({ stepper, held }: { stepper: RecordStepper; held?: string }) {
-  return (
-    <div
-      role="toolbar"
-      aria-label="Executive record"
-      className="flex h-11 flex-none items-center gap-1 border-b border-u-border px-3"
-    >
-      {stepper.lead}
-      <button
-        type="button"
-        aria-label="Previous executive"
-        title={held ?? "Previous executive (K)"}
-        disabled={!stepper.onPrevious || held !== undefined}
-        onClick={stepper.onPrevious}
-        className={CORNER_BUTTON}
-      >
-        <Icon d={ICONS.chevronDown} size={16} className="rotate-180" />
-      </button>
-      <button
-        type="button"
-        aria-label="Next executive"
-        title={held ?? "Next executive (J)"}
-        disabled={!stepper.onNext || held !== undefined}
-        onClick={stepper.onNext}
-        className={CORNER_BUTTON}
-      >
-        <Icon d={ICONS.chevronDown} size={16} />
-      </button>
-      {stepper.position && (
-        <span className="ms-1.5 font-u-num text-meta tabular-nums text-u-text3">
-          {stepper.position.index + 1} of {stepper.position.total}
-        </span>
-      )}
-      {stepper.onToggleFrame && (
-        <button
-          type="button"
-          onClick={stepper.onToggleFrame}
-          title="Exit full page (Esc)"
-          className="ms-auto flex items-center gap-1.5 rounded-md px-2 py-1 text-note font-medium text-u-text2 transition hover:bg-u-raised hover:text-u-text"
-        >
-          <Icon d={ICONS.fullscreenExit} size={14} />
-          Exit full page
-        </button>
-      )}
-    </div>
-  );
-}
-
 export function cornerButtonCount(stepper: RecordStepper | undefined): number {
   if (!stepper) return 1;
-  if (stepper.frame === "page") return 0;
-  return 2 + (stepper.onToggleFrame ? 1 : 0) + (stepper.frame === "peek" ? 1 : 0);
+  const steps = stepsShown(stepper) ? 2 : 0;
+  if (stepper.frame === "page") return steps + 2 + (stepper.onToggleFrame ? 1 : 0);
+  return steps + (stepper.onToggleFrame ? 1 : 0) + 1;
 }
 
 /**

@@ -104,7 +104,6 @@ import { ActivityTimeline } from "./activity/ActivityTimeline";
 import { PersonTagsSection } from "./PersonTagsSection";
 import {
   cornerButtonCount,
-  RecordBar,
   RecordCornerControls,
   useRecordStepKeys,
   type RecordStepper,
@@ -536,7 +535,7 @@ export function CandidateProfile({
 
   const recordHeader = (
     <div className="relative flex-none border-b border-u-border px-5 pt-4">
-      {!onPage && <RecordCornerControls stepper={stepper} held={stepHeld} onClose={onClose} />}
+      <RecordCornerControls stepper={stepper} held={stepHeld} onClose={onClose} />
       <PersonHeaderLayout
         cornerButtons={cornerButtonCount(stepper)}
         contactsClassName={takenByRail}
@@ -1084,7 +1083,6 @@ export function CandidateProfile({
       {changeStatus.dialog}
       {onPage && stepper ? (
         <RecordPageLayout
-          bar={<RecordBar stepper={stepper} held={stepHeld} />}
           header={recordHeader}
           body={recordBody}
           footer={recordFooter}

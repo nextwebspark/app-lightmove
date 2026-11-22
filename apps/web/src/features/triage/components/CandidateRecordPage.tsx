@@ -1,4 +1,4 @@
-import { useEffect, useEffectEvent, useRef, useState, type ReactNode, type Ref } from "react";
+import { useEffect, useRef, useState, type ReactNode, type Ref } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { CompanyLogo } from "../../../components/ui/CompanyLogo";
 import { cn } from "../../../lib/cn";
@@ -8,7 +8,7 @@ import { CandidateAvatar } from "../../candidates/components/CandidateAvatar";
 import { pipelineSwatchClass, statusStyle } from "../../candidates/lib/pipelineStatus";
 import type { PipelineCatalog } from "../../workspace/api/types";
 import { usePipelineCatalog } from "../../workspace/lib/usePipelineCatalog";
-import { executivesOf } from "../lib/triageVocabulary";
+import { LIST_PANE_WIDTH } from "../../../components/layout/listPane";
 
 /** One executive in the full page's list, with the logo of the company the grid's row drew them at. */
 export interface RecordListEntry {
@@ -16,14 +16,15 @@ export interface RecordListEntry {
   companyLogo: string | null;
 }
 
-/** The executive record full page (`Position.dc.html`, `recordMode=page`): the grid's executives beside the record. */
+/** The stage's Executives view: the grid's executives beside the record, one at a time. */
 export function CandidateRecordPage({
   projectId,
   stageLabel,
   entries,
   openId,
   onOpen,
-  onExit,
+  onLeave,
+  footer,
   children,
 }: {
   projectId: string;
@@ -31,11 +32,13 @@ export function CandidateRecordPage({
   entries: readonly RecordListEntry[];
   openId: string;
   onOpen: (candidate: Candidate) => void;
-  onExit: () => void;
-  /** The record itself, given the List button its bar puts first where the list is away. */
+  /** Esc's way back to where the view was opened from, where it was opened from somewhere. */
+  onLeave?: () => void;
+  /** Under the list: the grid's pager, since the list is one page of it. */
+  footer?: ReactNode;
+  /** The record itself, given what its corner puts first: Hide list, or List where the list is away. */
   children: (listButton: ReactNode) => ReactNode;
 }) {
-  const [search, setSearch] = useState("");
   const [listOpen, setListOpen] = useState(false);
   const [listHidden, setListHidden] = useState(readListHidden);
   const hideList = (hidden: boolean) => {
@@ -50,47 +53,42 @@ export function CandidateRecordPage({
     if (listHidden) hideList(false);
     if (!window.matchMedia?.("(min-width: 64rem)").matches) setListOpen(true);
   };
-  const searchBox = useRef<HTMLInputElement>(null);
   const openRow = useRef<HTMLButtonElement>(null);
-  // Topmost only, so a window the record opens over the page takes Esc first; then the list's overlay, then the page.
-  const isTopLayer = useEscapeKey(true, () => (listOpen ? setListOpen(false) : onExit()));
-  const needle = search.trim().toLowerCase();
-  const shown = needle
-    ? entries.filter(({ candidate }) =>
-        [candidate.fullName, candidate.title, candidate.companyName].some((field) => field?.toLowerCase().includes(needle)),
-      )
-    : entries;
+  // Topmost only, so a window the record opens over the page takes Esc first; then the list's overlay, then leaving.
+  const isTopLayer = useEscapeKey(true, () => (listOpen ? setListOpen(false) : onLeave?.()));
   const { catalog } = usePipelineCatalog();
   useEffect(() => {
     openRow.current?.scrollIntoView?.({ block: "nearest" });
   }, [openId]);
-  // `/` searches the list, as in a mail client; never while typing, and never under a window over the page.
-  const handleSlash = useEffectEvent((event: KeyboardEvent) => {
-    if (event.key !== "/" || event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) return;
-    const target = event.target;
-    if (target instanceof HTMLElement && (target.isContentEditable || target.closest("input, textarea, select"))) return;
-    if (!isTopLayer()) return;
-    event.preventDefault();
-    showList();
-    requestAnimationFrame(() => searchBox.current?.focus());
-  });
-  useEffect(() => {
-    document.addEventListener("keydown", handleSlash);
-    return () => document.removeEventListener("keydown", handleSlash);
-  }, []);
   const listButton = (
-    <button
-      type="button"
-      aria-expanded={listHidden ? false : listOpen}
-      onClick={() => (listHidden ? showList() : setListOpen((open) => !open))}
-      className={cn(
-        "me-1.5 flex items-center gap-1.5 rounded-md border border-u-border px-2.5 py-1 text-note font-medium text-u-text2 hover:text-u-text",
-        !listHidden && "lg:hidden",
+    <>
+      {!listHidden && (
+        <button
+          type="button"
+          aria-label="Hide list"
+          title="Hide list"
+          onClick={() => {
+            setListOpen(false);
+            hideList(true);
+          }}
+          className="me-1 hidden rounded-md p-1.5 text-u-text3 hover:bg-u-raised hover:text-u-text lg:flex"
+        >
+          <Icon d={ICONS.collapse} size={15} />
+        </button>
       )}
-    >
-      <Icon d={ICONS.menu} size={14} />
-      List
-    </button>
+      <button
+        type="button"
+        aria-expanded={listHidden ? false : listOpen}
+        onClick={() => (listHidden ? showList() : setListOpen((open) => !open))}
+        className={cn(
+          "me-1.5 flex items-center gap-1.5 rounded-md border border-u-border px-2.5 py-1 text-note font-medium text-u-text2 hover:text-u-text",
+          !listHidden && "lg:hidden",
+        )}
+      >
+        <Icon d={ICONS.menu} size={14} />
+        List
+      </button>
+    </>
   );
 
   return (
@@ -99,69 +97,14 @@ export function CandidateRecordPage({
       <nav
         aria-label={`${stageLabel} executives`}
         className={cn(
-          "flex w-[280px] flex-none flex-col border-e border-u-border bg-u-surface",
+          "flex flex-none flex-col border-e border-u-border bg-u-surface",
+          LIST_PANE_WIDTH,
           listOpen ? "absolute inset-y-0 start-0 z-20 shadow-u-e3" : "hidden",
           !listHidden && "lg:static lg:flex lg:shadow-none",
         )}
       >
-        <div className="flex-none border-b border-u-border px-3 pb-3 pt-3">
-          <div className="flex items-center gap-1.5">
-            <button
-              type="button"
-              onClick={onExit}
-              aria-label={`Back to ${stageLabel}`}
-              className="flex items-center gap-1.5 rounded-md px-1 py-0.5 text-note font-medium text-u-text2 hover:text-u-text"
-            >
-              <Icon d={ICONS.back} size={14} />
-              {stageLabel}
-            </button>
-            {!listHidden && (
-              <button
-                type="button"
-                aria-label="Hide list"
-                title="Hide list"
-                onClick={() => {
-                  setListOpen(false);
-                  hideList(true);
-                }}
-                className="ms-auto hidden rounded-md p-1.5 text-u-text3 hover:bg-u-raised hover:text-u-text lg:flex"
-              >
-                <Icon d={ICONS.collapse} size={14} />
-              </button>
-            )}
-          </div>
-          <p className="mt-2 px-1 text-meta text-u-text3">
-            {executivesOf(entries.length)} · same filters and sort as the grid
-          </p>
-          <label className="mt-2 flex items-center gap-2 rounded-md border border-u-border bg-u-canvas px-2.5 py-1.5">
-            <Icon d={ICONS.search} size={14} className="flex-none text-u-text3" />
-            <input
-              ref={searchBox}
-              type="search"
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              // Esc clears the box, or leaves it once empty, and goes no further: the page's own Esc is leaving it.
-              onKeyDown={(event) => {
-                if (event.key !== "Escape") return;
-                event.stopPropagation();
-                if (search) setSearch("");
-                else event.currentTarget.blur();
-              }}
-              placeholder="Search executives"
-              aria-label="Search executives"
-              aria-keyshortcuts="/"
-              className="min-w-0 flex-1 bg-transparent text-note text-u-text outline-none placeholder:text-u-text3"
-            />
-            <kbd
-              aria-hidden="true"
-              className="flex-none rounded border border-u-border px-1.5 font-mono text-meta text-u-text3"
-            >
-              /
-            </kbd>
-          </label>
-        </div>
         <ul className="relative min-h-0 flex-1 overflow-y-auto py-1">
-          {shown.map((entry) => (
+          {entries.map((entry) => (
             <li key={entry.candidate.id}>
               <RecordListRow
                 projectId={projectId}
@@ -176,12 +119,9 @@ export function CandidateRecordPage({
               />
             </li>
           ))}
-          {shown.length === 0 && (
-            <li className="px-4 py-6 text-note text-u-text3">
-              {needle ? "No executives match that search." : "No executives on this page."}
-            </li>
-          )}
+          {entries.length === 0 && <li className="px-4 py-6 text-note text-u-text3">No executives on this page.</li>}
         </ul>
+        {footer}
       </nav>
 
       <section aria-label="Executive record" className="flex min-h-0 min-w-0 flex-1 flex-col bg-u-surface">

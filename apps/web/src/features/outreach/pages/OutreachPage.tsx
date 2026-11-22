@@ -1,6 +1,7 @@
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState, type ReactNode } from "react";
 import { Link, useOutletContext, useSearchParams } from "react-router-dom";
+import { LIST_PANE_GRID } from "../../../components/layout/listPane";
 import type { ProjectOutletContext } from "../../../components/layout/ProjectLayout";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { buttonClassName, EmptyState, ToolbarSearch } from "../../../components/ui";
@@ -181,7 +182,7 @@ export function OutreachPage() {
       />
       <MailboxBanner state={mailboxState} connector={connector} />
 
-      <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)] lg:grid-cols-[clamp(260px,24vw,336px)_minmax(0,1fr)] xl:grid-cols-[clamp(260px,24vw,336px)_minmax(420px,1fr)_clamp(260px,22vw,320px)]">
+      <div className={cn("grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)]", LIST_PANE_GRID)}>
         <div className={cn("min-h-0 flex-col border-e border-u-border", candidateId ? "hidden lg:flex" : "flex")}>
           <ConversationListPane
             view={view}
