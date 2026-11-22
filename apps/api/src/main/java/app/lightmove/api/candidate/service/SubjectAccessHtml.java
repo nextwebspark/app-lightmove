@@ -1,11 +1,11 @@
 package app.lightmove.api.candidate.service;
 
-import app.lightmove.api.candidate.constant.AiUse;
 import app.lightmove.api.candidate.model.SubjectAccessAbout;
 import app.lightmove.api.candidate.model.SubjectAccessArchive;
 import app.lightmove.api.candidate.model.SubjectAccessPosition;
 import app.lightmove.api.candidate.model.SubjectAccessReferences;
 import app.lightmove.api.candidate.model.SubjectAccessSection;
+import app.lightmove.api.common.constant.AiUse;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;

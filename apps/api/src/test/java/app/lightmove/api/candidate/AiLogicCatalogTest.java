@@ -2,7 +2,7 @@ package app.lightmove.api.candidate;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import app.lightmove.api.candidate.constant.AiUse;
+import app.lightmove.api.common.constant.AiUse;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;

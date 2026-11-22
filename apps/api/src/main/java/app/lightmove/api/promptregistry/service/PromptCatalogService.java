@@ -1,6 +1,6 @@
 package app.lightmove.api.promptregistry.service;
 
-import app.lightmove.api.candidate.constant.AiUse;
+import app.lightmove.api.common.constant.AiUse;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
