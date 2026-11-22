@@ -91,11 +91,12 @@ class HomeLayoutIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("a tab opened before the start page still saves Home, its landing ignored")
-    void aTabFromBeforeTheStartPageStillSaves() throws Exception {
+    @DisplayName("a save still naming the retired landing is refused like any unknown field")
+    void theRetiredLandingIsRefused() throws Exception {
         String admin = firm("Home Old Tab Firm");
-        save(admin, "{\"tiles\":[%s],\"landing\":\"POSITIONS\"}".formatted(NEEDS)).andExpect(status().isOk());
-        assertThat(read(admin).get("layout").has("landing")).isFalse();
+        assertThat(codeOf(save(admin, "{\"tiles\":[%s],\"landing\":\"POSITIONS\"}".formatted(NEEDS))
+                .andExpect(status().isBadRequest()).andReturn())).isEqualTo("VALIDATION_FAILED");
+        assertThat(read(admin).get("layout").isNull()).isTrue();
     }
 
     @Test
