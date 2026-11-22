@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { TaskResponse } from "../../tasks/api/types";
 import type { MyConversationRow } from "../api/homeApi";
 import { DEFAULT_HOME_LAYOUT } from "./homeLayout";
-import { needsYouOf } from "./needsYou";
+import { blocksOf, needsYouOf } from "./needsYou";
 
 const person = { userId: "u1", fullName: "Yara Haddad", avatarUrl: null };
 
@@ -100,5 +100,23 @@ describe("needsYouOf", () => {
       DEFAULT_HOME_LAYOUT.kinds,
     );
     expect(items.map((item) => item.key)).toEqual(["c:p1:attention", "c:p1:reply", "c:p1:follow"]);
+  });
+});
+
+describe("blocksOf", () => {
+  it("keeps a reply as a card, and draws a follow-up row as the task it waits on, beside the caller's own by due", () => {
+    const followUp = conversation("quiet", "FOLLOW_UP", "t9");
+    const items = needsYouOf(
+      [conversation("reply", "NEEDS_REPLY"), followUp],
+      [task("t1", { dueAt: "2026-10-15T09:00:00Z" })],
+      DEFAULT_HOME_LAYOUT.kinds,
+      new Date("2026-10-13T08:00:00Z"),
+    );
+    const { cards, lines } = blocksOf(items);
+    expect(cards.map((card) => card.key)).toEqual(["c:p1:reply"]);
+    expect(lines.map((line) => [line.taskId, line.group, line.personName])).toEqual([
+      ["t9", "FOLLOW_UP", "quiet"],
+      ["t1", null, "Priya Raman"],
+    ]);
   });
 });

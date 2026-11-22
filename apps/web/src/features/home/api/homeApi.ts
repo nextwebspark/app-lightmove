@@ -24,7 +24,8 @@ export interface MyOutreachQueue {
 /** Home's task reads: under every task write's invalidation, and apart from My tasks' infinite lists. */
 export const HOME_TASKS_KEY = (view: MyTasksView) => [...TASKS_KEY_PREFIX, "home", view] as const;
 
-export const MY_OUTREACH_NEEDS_KEY = (who: ConversationScope) => ["outreach", "me", "needs", who] as const;
+export const MY_OUTREACH_NEEDS_PREFIX = ["outreach", "me", "needs"] as const;
+export const MY_OUTREACH_NEEDS_KEY = (who: ConversationScope) => [...MY_OUTREACH_NEEDS_PREFIX, who] as const;
 
 export function getMyOutreachNeeds(who: ConversationScope, signal?: AbortSignal): Promise<MyOutreachQueue> {
   return request<MyOutreachQueue>(`/me/outreach/needs?who=${who}`, { signal });

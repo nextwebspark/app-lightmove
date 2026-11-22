@@ -174,11 +174,21 @@ describe("HomePage", () => {
 
     const needs = await screen.findByRole("region", { name: "Needs you" });
     expect(await within(needs).findByText("Lina Farouk")).toBeInTheDocument();
-    expect(within(needs).getByRole("link", { name: "Reply" })).toHaveAttribute(
+    const outreach = await within(needs).findByRole("list", { name: "Outreach" });
+    expect(within(outreach).getByRole("link", { name: "Lina Farouk" })).toHaveAttribute(
+      "href",
+      "/projects/p1/companies/universe?view=table&candidate=c9&tab=outreach",
+    );
+    expect(within(outreach).getByRole("link", { name: "Reply" })).toHaveAttribute(
       "href",
       "/projects/p1/outreach?view=needs&who=mine&candidate=c9",
     );
-    expect(await within(needs).findByText("Send profile to the hiring manager")).toBeInTheDocument();
+    const tasks = await within(needs).findByRole("list", { name: "Tasks" });
+    expect(within(tasks).getByRole("link", { name: "Send profile to the hiring manager" })).toHaveAttribute(
+      "href",
+      "/projects/p1/companies/universe?view=table&candidate=c2",
+    );
+    expect(within(tasks).getByRole("checkbox", { name: "Complete Send profile to the hiring manager" })).toBeInTheDocument();
     expect(within(needs).getByRole("radio", { name: "Team" })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Your positions" })).toHaveTextContent("Product Planning");
   });
