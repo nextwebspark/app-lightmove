@@ -212,7 +212,7 @@ class RegistryPromptSourceTest {
                                              List<RecordedBundledPrompt> recorded) {
         return new PromptRegistryStore(null, null) {
             @Override
-            public List<ServedPrompt> editedProductionVersions() {
+            public List<ServedPrompt> overridingProductionVersions() {
                 return edited.get();
             }
 

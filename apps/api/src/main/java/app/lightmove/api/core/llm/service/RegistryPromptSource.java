@@ -23,9 +23,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 /**
- * Serves each prompt from the registry, held in memory until a platform change drops it. Only a version edited in
- * the console overrides this build's own file: the production label is shared by every revision running, so a
- * shipped text is served from the build and merely numbered by the registry. Never the reason a call fails: with
+ * Serves each prompt from the registry, held in memory until a platform change drops it. Only a version a person
+ * chose overrides this build's own file: the production label is shared by every revision running, so a shipped
+ * text a release's sync moved to is served from the build and merely numbered by the registry. Never the reason a call fails: with
  * the registry off or unreadable the bundled file serves, and a version whose model is retired, no longer listed
  * or unable to answer its kind of prompt is answered by the configured model.
  */
@@ -121,7 +121,7 @@ public class RegistryPromptSource implements PromptSource, PlatformConfigListene
             read.put(own.promptId(), new ServedPrompt(own.promptId(), own.body(),
                     recorded.get(keyOf(own.promptId(), own.sha256())), null, null, GenerationSettings.UNSET));
         }
-        store.editedProductionVersions().forEach(edited -> read.put(edited.promptId(), edited));
+        store.overridingProductionVersions().forEach(chosen -> read.put(chosen.promptId(), chosen));
         return Map.copyOf(read);
     }
 

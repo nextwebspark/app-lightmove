@@ -9,6 +9,7 @@ import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.StubChatModel;
 import app.lightmove.api.candidate.service.CandidateShortlistService;
 import app.lightmove.api.core.llm.constant.PromptKind;
+import app.lightmove.api.core.llm.model.BundledPrompt;
 import app.lightmove.api.core.llm.service.BundledPrompts;
 import app.lightmove.api.core.llm.model.PromptTrialResult;
 import app.lightmove.api.core.llm.service.PromptRegistryStore;
@@ -206,6 +207,30 @@ class PromptManagementIntegrationTest extends PositionTemplateFlowSupport {
                 SELECT reason FROM app_lm_platform_prompt_label_move
                 WHERE prompt_id = 'recruiter-shortlist' ORDER BY id DESC LIMIT 1
                 """, String.class)).isEqualTo("Answers got longer");
+    }
+
+    @Test
+    @DisplayName("an older release's text put live by a person serves, until a release's sync moves production again")
+    void anOlderShippedVersionPutLiveServes() throws Exception {
+        String admin = superAdmin();
+        String older = "An older release's shortlist prompt.";
+        sync.sync(List.of(new BundledPrompt("recruiter-shortlist", older, BundledPrompts.sha256Of(older))));
+        sync.sync(bundled.all());
+        int olderVersion = db.queryForObject("""
+                SELECT version FROM app_lm_platform_prompt_version
+                WHERE prompt_id = 'recruiter-shortlist' AND body = ?
+                """, Integer.class, older);
+
+        expect(200, putJson(admin, SHORTLIST + "/production",
+                "{\"version\":" + olderVersion + ",\"reason\":\"The new text regressed\"}"));
+        reload.recheck();
+        shortlist.shortlist("a brief", "a profile");
+        assertThat(model.lastPrompt().getSystemMessage().getText()).isEqualTo(older);
+
+        sync.sync(bundled.all());
+        registry.reload();
+        shortlist.shortlist("a brief", "a profile");
+        assertThat(model.lastPrompt().getSystemMessage().getText()).isEqualTo(bundled.bodyOf("recruiter-shortlist"));
     }
 
     @Test

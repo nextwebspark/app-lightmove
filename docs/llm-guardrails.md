@@ -141,8 +141,10 @@ gets the system text, the provider's options and the wiring that counts the call
 
 - **`PromptSource.current(promptId, kind)`** answers the version serving now (`RegistryPromptSource`, its one
   implementation). With `lightmove.ai.prompt-registry.enabled` off it is the bundled `prompts/*.st`
-  (`BundledPrompts`), today's path. On, **only an `EDITED` production version overrides the build's file**:
-  while production is a `BUNDLED` version, each instance serves its own bundled text and looks up that text's
+  (`BundledPrompts`), today's path. On, **only a production version a person chose overrides the build's file**
+  (an `EDITED` one, or a `BUNDLED` one put live in the console, #1317, which serves until a release's sync moves
+  production again): while production is a `BUNDLED` version a release's sync moved to, each instance serves its
+  own bundled text and looks up that text's
   version by its SHA-256. The `production` label is one row for every revision running, so during a rollout or
   a traffic split it cannot say which shipped text an instance should answer with; the build can. Held in
   memory per instance. It is never the reason a call fails: a registry that cannot be read serves the bundled

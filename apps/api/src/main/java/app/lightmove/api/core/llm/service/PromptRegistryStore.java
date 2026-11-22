@@ -38,13 +38,17 @@ public class PromptRegistryStore {
     private final JdbcClient jdbc;
     private final ObjectMapper json;
 
-    /** The prompts whose production version was edited in the console: the only ones that override a build's file. */
-    public List<ServedPrompt> editedProductionVersions() {
+    /**
+     * The production versions that override a build's own file: one edited in the console, or a shipped one a person
+     * put live (a rollback to an older release's text). A shipped version a release's sync moved to stays the
+     * build's to serve, since every revision running moves the one label.
+     */
+    public List<ServedPrompt> overridingProductionVersions() {
         return jdbc.sql("""
                         SELECT v.prompt_id, v.version, v.body, v.provider, v.model_id, v.settings::text AS settings
                         FROM app_lm_platform_prompt_label l
                         JOIN app_lm_platform_prompt_version v ON v.prompt_id = l.prompt_id AND v.version = l.version
-                        WHERE l.label = :label AND v.origin = 'EDITED'
+                        WHERE l.label = :label AND (v.origin = 'EDITED' OR l.moved_by IS NOT NULL)
                         """)
                 .param("label", PRODUCTION)
                 .query(this::servedPrompt)
