@@ -1,6 +1,7 @@
 import { ICONS } from "../../components/layout/Icon";
 import type { PlatformAction, User } from "../auth/api/types";
 import { TEMPLATE_LIBRARY_PATH } from "../templates/lib/labels";
+import { PROMPTS_PATH } from "./prompts/lib/promptLabels";
 
 export const PLATFORM_HOME = "/platform";
 
@@ -16,10 +17,13 @@ export interface PlatformSection {
   action: PlatformAction;
   /** Its list is a grid that takes the whole main area, as the Settings template grid does. */
   grid?: boolean;
+  /** Its pages are drawn wider than a form: a table at its list, a working area beneath it. */
+  wide?: boolean;
 }
 
 export const PLATFORM_SECTIONS: readonly PlatformSection[] = [
   { to: TEMPLATE_LIBRARY_PATH, label: "Templates", icon: ICONS.position, action: "TEMPLATE_LIBRARY_MANAGE", grid: true },
+  { to: PROMPTS_PATH, label: "Prompts", icon: ICONS.file, action: "PROMPT_MANAGE", wide: true },
 ];
 
 /** Whether the person holds any platform action: what shows the Platform item and opens `/platform` at all. */

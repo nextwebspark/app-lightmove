@@ -692,6 +692,14 @@ two-factor code moves `production` (`PUT …/production`, a reason required unti
 how a rollback is made, and reloads every instance. Saving never changes what serves. Every act is audited
 (`PROMPT_VERSION_SAVED`, `PROMPT_TRIED`, `PROMPT_PUT_LIVE`, `PROMPT_ROLLED_BACK`) with the prompt id, version, model
 and note, never the text. The assistant and the shortlist prompt have no Try it.
+Its screens (#1318, `features/platform/prompts`, behind `PROMPT_MANAGE` in `platformSections`): `/platform/prompts`
+lists what serves for each prompt (search; All / Edited / Needs attention, the last being a shipped prompt that changed
+under a live edit or a model within 60 days of retirement), and `/platform/prompts/:promptId` is one prompt: its version
+history, an **Editor** (text, model from the catalogue with unusable ones disabled and their reason, the three settings
+with the model's range, the read-only message the feature sends, a required change note, **Save as new version**),
+**Compare versions** (`lineDiff`, plus model and settings) and **Try it**. **Put version N live** and **Roll back to
+version N** show only to a holder of `PROMPT_PROMOTE` and open `PutLiveDialog`, which always asks a reason until the
+eval gate (#1321); the code before it is the app's own step-up dialog.
 
 
 ## Layout

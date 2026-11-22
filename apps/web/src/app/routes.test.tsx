@@ -394,6 +394,15 @@ describe("routes — the platform gate", () => {
     expect(screen.queryByRole("button", { name: /^Workspace:/ })).not.toBeInTheDocument();
   });
 
+  it("keeps someone who holds only the template library out of Prompts", async () => {
+    vi.mocked(authApi.me).mockResolvedValue(superAdmin());
+
+    renderAt("/platform/prompts");
+
+    await waitFor(() => expect(screen.getByTestId("pathname").textContent).toBe("/platform/templates"));
+    expect(screen.queryByRole("link", { name: "Prompts" })).not.toBeInTheDocument();
+  });
+
   it("redirects the library's old address to the console", async () => {
     vi.mocked(authApi.me).mockResolvedValue(superAdmin());
 
