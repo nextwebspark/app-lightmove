@@ -11,7 +11,13 @@ import { versionLabel } from "../lib/promptLabels";
 
 const REASON_LIMIT = 500;
 
-const putLiveSchema = z.object({ reason: z.string().trim().min(1, "Say why, for whoever reviews this later").max(REASON_LIMIT) });
+const putLiveSchema = z.object({
+  reason: z
+    .string()
+    .trim()
+    .min(1, "Say why, for whoever reviews this later")
+    .max(REASON_LIMIT, `At most ${REASON_LIMIT} characters`),
+});
 type PutLiveValues = z.infer<typeof putLiveSchema>;
 
 /**
@@ -35,9 +41,8 @@ export function PutLiveDialog({
   const {
     register,
     handleSubmit,
-    watch,
-    formState: { errors },
-  } = useForm<PutLiveValues>({ resolver: zodResolver(putLiveSchema), defaultValues: { reason: "" } });
+    formState: { errors, isValid },
+  } = useForm<PutLiveValues>({ resolver: zodResolver(putLiveSchema), mode: "onChange", defaultValues: { reason: "" } });
 
   const move = useMutation({
     mutationFn: (reason: string) => promptApi.putPromptLive(detail.prompt.id, target.version, reason),
@@ -66,7 +71,7 @@ export function PutLiveDialog({
           <Button type="button" variant="secondary" onClick={onClose}>
             Cancel
           </Button>
-          <Button type="submit" loading={move.isPending} disabled={watch("reason").trim() === ""}>
+          <Button type="submit" loading={move.isPending} disabled={!isValid}>
             {isRollback ? "Roll back" : "Put live"}
           </Button>
         </>

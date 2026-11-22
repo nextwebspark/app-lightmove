@@ -1,5 +1,5 @@
-import { useQuery } from "@tanstack/react-query";
-import { matchPath, Outlet, useLocation } from "react-router-dom";
+import { useState } from "react";
+import { Outlet, useLocation } from "react-router-dom";
 import { AppShell } from "../../components/layout/AppShell";
 import { ICONS } from "../../components/layout/Icon";
 import { cn } from "../../lib/cn";
@@ -8,8 +8,7 @@ import type { SidebarItem } from "../../components/layout/Sidebar";
 import { useAuth } from "../auth/AuthProvider";
 import { isPureClient } from "../auth/roles";
 import { PlatformBreadcrumb } from "./PlatformBreadcrumb";
-import { getPrompt, PROMPT_KEY } from "./prompts/api/promptApi";
-import { PROMPTS_PATH } from "./prompts/lib/promptLabels";
+import { PlatformCrumbContext } from "./platformCrumb";
 import { platformSectionOf, visiblePlatformSections, type PlatformSection } from "./platformSections";
 
 /**
@@ -20,19 +19,13 @@ export function PlatformLayout() {
   const { pathname } = useLocation();
   const { user } = useAuth();
 
+  const [page, setPage] = useState<string | null>(null);
   const section = platformSectionOf(pathname);
-  const promptId = matchPath(`${PROMPTS_PATH}/:promptId`, pathname)?.params.promptId ?? "";
-  // The prompt page's own query: one request between them, and the crumb names the prompt once it lands.
-  const { data: openPrompt } = useQuery({
-    queryKey: PROMPT_KEY(promptId),
-    queryFn: ({ signal }) => getPrompt(promptId, signal),
-    enabled: promptId !== "",
-  });
   const items = visiblePlatformSections(user).map(({ to, label, icon }): SidebarItem => ({ to, label, icon }));
 
   return (
     <AppShell
-      breadcrumb={<PlatformBreadcrumb section={section ?? null} page={openPrompt?.prompt.name ?? null} />}
+      breadcrumb={<PlatformBreadcrumb section={section ?? null} page={page} />}
       workspaceChrome={false}
       navGroups={[{ label: "", items }]}
       navBackLink={{ to: "/", label: "Back to workspace", icon: ICONS.back }}
@@ -44,7 +37,9 @@ export function PlatformLayout() {
           : cn("mx-auto px-4 pb-[60px] pt-5 sm:px-7 sm:pt-7", widthOf(section, pathname))
       }
     >
-      <Outlet />
+      <PlatformCrumbContext value={setPage}>
+        <Outlet />
+      </PlatformCrumbContext>
     </AppShell>
   );
 }

@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Icon, ICONS } from "../../../../components/layout/Icon";
 import { PageHeader } from "../../../../components/layout/PageHeader";
 import { FormError, LinesSkeleton } from "../../../../components/ui";
@@ -107,6 +107,7 @@ function PromptRow({ prompt, onOpen }: { prompt: PromptOverview; onOpen: () => v
   return (
     <div
       role="row"
+      // A mouse convenience only: the Open link is the row's keyboard-reachable way in.
       onClick={onOpen}
       className={cn(ROW_GRID, "cursor-pointer border-b border-u-border py-[11px] last:border-b-0 hover:bg-u-sunken")}
     >
@@ -144,15 +145,16 @@ function PromptRow({ prompt, onOpen }: { prompt: PromptOverview; onOpen: () => v
         {changedLabel(prompt.lastChangedAt, prompt.lastChangedBy)}
       </span>
       <span role="cell" className="flex justify-end">
-        <button
-          type="button"
-          onClick={onOpen}
+        <Link
+          to={promptPath(prompt.id)}
+          // The row would navigate again on the bubbled click, pushing a second history entry.
+          onClick={(event) => event.stopPropagation()}
           aria-label={`Open ${prompt.name}`}
           className="flex items-center gap-1.5 rounded-md border border-u-border-strong px-2.5 py-1 text-xs font-medium text-u-text2 hover:text-u-text"
         >
           Open
           <Icon d={ICONS.arrowRight} size={13} />
-        </button>
+        </Link>
       </span>
     </div>
   );

@@ -97,9 +97,7 @@ describe("PromptPage", () => {
     expect(screen.getByText("Differs from default")).toBeInTheDocument();
     expect(screen.getByText(/Above 0, answers vary/)).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Save as new version" }));
-    expect(await screen.findByText("Add a change note first")).toBeInTheDocument();
-    expect(promptApi.savePromptVersion).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "Save as new version" })).toBeDisabled();
 
     await user.type(screen.getByPlaceholderText("What changed and why"), "Warmer");
     await user.click(screen.getByRole("button", { name: "Save as new version" }));
@@ -127,6 +125,52 @@ describe("PromptPage", () => {
 
     expect(await screen.findByText("Temperature must be 0 to 1")).toBeInTheDocument();
     expect(promptApi.savePromptVersion).not.toHaveBeenCalled();
+  });
+
+  it("refuses a decimal comma rather than reading 0,2 as 2", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.type(await screen.findByRole("textbox", { name: "Temperature" }), "0,2");
+    await user.type(screen.getByRole("textbox", { name: "Max output tokens" }), "1.5");
+    await user.type(screen.getByPlaceholderText("What changed and why"), "Cooler");
+    await user.click(screen.getByRole("button", { name: "Save as new version" }));
+
+    expect(await screen.findByText("Temperature must be a number, with a point for decimals")).toBeInTheDocument();
+    expect(screen.getByText("Max output tokens must be a whole number")).toBeInTheDocument();
+    expect(promptApi.savePromptVersion).not.toHaveBeenCalled();
+  });
+
+  it("holds no range of its own under Default model when the configured model is not listed", async () => {
+    vi.mocked(promptApi.getPrompt).mockResolvedValue(detail({ defaultModelId: "gemini-unlisted" }));
+    vi.mocked(promptApi.savePromptVersion).mockResolvedValue(detail());
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.selectOptions(await screen.findByRole("combobox", { name: "Model" }), "");
+    expect(screen.queryByText("0 to 1")).not.toBeInTheDocument();
+    await user.type(screen.getByRole("textbox", { name: "Temperature" }), "1.5");
+    await user.type(screen.getByPlaceholderText("What changed and why"), "Left to the server");
+    await user.click(screen.getByRole("button", { name: "Save as new version" }));
+
+    await waitFor(() => expect(promptApi.savePromptVersion).toHaveBeenCalled());
+    expect(vi.mocked(promptApi.savePromptVersion).mock.calls[0][1].settings.temperature).toBe(1.5);
+  });
+
+  it("puts a model's refusal under the model, and clears it when another model is picked", async () => {
+    vi.mocked(promptApi.savePromptVersion).mockRejectedValue(
+      refusal("PROMPT_MODEL_UNAVAILABLE", { modelId: "Gemini 3.8 Flash cannot answer this prompt." }),
+    );
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.selectOptions(await screen.findByRole("combobox", { name: "Model" }), "gemini-3.8-flash");
+    await user.type(screen.getByPlaceholderText("What changed and why"), "Newer model");
+    await user.click(screen.getByRole("button", { name: "Save as new version" }));
+    expect(await screen.findByText("Gemini 3.8 Flash cannot answer this prompt.")).toBeInTheDocument();
+
+    await user.selectOptions(screen.getByRole("combobox", { name: "Model" }), "gemini-3.5-flash");
+    expect(screen.queryByText("Gemini 3.8 Flash cannot answer this prompt.")).not.toBeInTheDocument();
   });
 
   it("shows the server's contract error under the text, and clears it on the next edit", async () => {
@@ -173,7 +217,7 @@ describe("PromptPage", () => {
     await waitFor(() =>
       expect(promptApi.putPromptLive).toHaveBeenCalledWith("candidate-scorecard-draft", 3, "Reads better"),
     );
-    expect(await screen.findByText("Assessment draft now runs on version 3 on every instance")).toBeInTheDocument();
+    expect(await screen.findByText("Assessment draft now runs on version 3 in every workspace")).toBeInTheDocument();
     expect(screen.getByText("Live: v3")).toBeInTheDocument();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
@@ -248,6 +292,21 @@ describe("PromptPage", () => {
     expect(screen.getByLabelText("Answer as the model returned it")).toHaveTextContent('"score":8');
     expect(screen.getByText("Answered in 2.1 s · 3,480 tokens in, 412 out · finished normally")).toBeInTheDocument();
     expect(promptApi.tryPromptVersion).toHaveBeenCalledWith("candidate-scorecard-draft", 2);
+  });
+
+  it("keeps a failed run's error with the version that ran", async () => {
+    vi.mocked(promptApi.tryPromptVersion).mockRejectedValue(refusal("AI_UNAVAILABLE"));
+    const user = userEvent.setup();
+    renderPage();
+    await editor();
+
+    await user.click(screen.getByRole("tab", { name: "Try it" }));
+    await user.click(screen.getByRole("button", { name: "Run v2" }));
+    expect(await screen.findByRole("alert")).toBeInTheDocument();
+
+    await user.click(within(screen.getByRole("region", { name: "Version history" })).getAllByRole("button")[0]);
+    expect(await screen.findByRole("button", { name: "Run v3" })).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
   it("says when the live version's model can no longer answer it, and that the default model is", async () => {

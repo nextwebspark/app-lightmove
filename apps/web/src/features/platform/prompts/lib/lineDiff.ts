@@ -50,11 +50,12 @@ function collapsed(lines: DiffLine[]): DiffLine[] {
       .slice(Math.max(0, index - CONTEXT_LINES), index + CONTEXT_LINES + 1)
       .some((neighbour) => neighbour.kind !== "same"),
   );
+  const lastNear = nearAChange.lastIndexOf(true);
   const shown: DiffLine[] = [];
   lines.forEach((line, index) => {
     if (line.kind !== "same" || nearAChange[index]) {
       shown.push(line);
-    } else if (shown.length > 0 && shown[shown.length - 1].kind !== "gap" && nearAChange.slice(index).some(Boolean)) {
+    } else if (shown.length > 0 && shown[shown.length - 1].kind !== "gap" && index < lastNear) {
       shown.push({ kind: "gap", text: "" });
     }
   });

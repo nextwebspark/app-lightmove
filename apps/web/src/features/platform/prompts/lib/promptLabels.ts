@@ -1,7 +1,8 @@
 import { formatDate } from "../../../../lib/datetime/format";
+import { formatNumber } from "../../../../lib/format";
 import type {
   AiModel,
-  GenerationSettings,
+  AiProvider,
   ModelCapability,
   PromptOverview,
   PromptVersionSummary,
@@ -15,15 +16,15 @@ export const promptPath = (promptId: string) => `${PROMPTS_PATH}/${encodeURIComp
 /** How long before a model's stated retirement the console starts warning, as the server's list does. */
 export const RETIREMENT_WARNING_DAYS = 60;
 
-export const SETTINGS: readonly { key: SettingKey; label: string; unit: string }[] = [
-  { key: "temperature", label: "Temperature", unit: "" },
-  { key: "thinkingBudget", label: "Thinking budget", unit: " tokens" },
-  { key: "maxOutputTokens", label: "Max output tokens", unit: "" },
+export const SETTINGS: readonly { key: SettingKey; label: string; unit: string; integer: boolean }[] = [
+  { key: "temperature", label: "Temperature", unit: "", integer: false },
+  { key: "thinkingBudget", label: "Thinking budget", unit: " tokens", integer: true },
+  { key: "maxOutputTokens", label: "Max output tokens", unit: "", integer: true },
 ];
 
-export const UNSET_SETTINGS: GenerationSettings = { temperature: null, thinkingBudget: null, maxOutputTokens: null };
-
-const whole = new Intl.NumberFormat("en-GB");
+export const PROVIDER_LABEL: Record<AiProvider, string> = {
+  VERTEX_GEMINI: "Vertex AI",
+};
 
 export function versionLabel(version: number): string {
   return `v${version}`;
@@ -52,12 +53,12 @@ export const MODEL_UNAVAILABLE_HINT =
   "This version's model is retired, no longer offered or cannot answer this prompt. The default model answers it instead.";
 
 export function rangeLabel(range: SettingRange, unit: string): string {
-  return `${whole.format(range.min)} to ${whole.format(range.max)}${unit}`;
+  return `${formatNumber(range.min)} to ${formatNumber(range.max)}${unit}`;
 }
 
 export function settingLabel(value: number | null, fallback: number | null): string {
-  if (value !== null) return whole.format(value);
-  return fallback === null ? "Default" : `Default (${whole.format(fallback)})`;
+  if (value !== null) return formatNumber(value);
+  return fallback === null ? "Default" : `Default (${formatNumber(fallback)})`;
 }
 
 /** "Gemini 3.5 Flash · temperature 0.3", as a version's history line names what it ran on. */
@@ -80,10 +81,15 @@ export function modelOptionLabel(model: AiModel, needs: ModelCapability | null):
   return `${model.displayName} · retires ${formatDate(model.retiresOn)}${reason ? ` · ${reason}` : ""}`;
 }
 
-/** A setting's field as typed: empty is "not set", anything else must read as a number. */
-export function parseSetting(text: string): number | null | "invalid" {
-  const trimmed = text.trim().replace(/,/g, "");
+const WHOLE_NUMBER = /^\d+$/;
+const DECIMAL = /^(\d+(\.\d*)?|\.\d+)$/;
+
+/**
+ * A setting's field as typed: empty is "not set", anything else must read as a number, and a whole one where the
+ * server binds an integer. A comma is refused, never stripped: "0,2" typed on a decimal-comma keyboard once saved as 2.
+ */
+export function parseSetting(text: string, integer: boolean): number | null | "invalid" {
+  const trimmed = text.trim();
   if (trimmed === "") return null;
-  const value = Number(trimmed);
-  return Number.isFinite(value) ? value : "invalid";
+  return (integer ? WHOLE_NUMBER : DECIMAL).test(trimmed) ? Number(trimmed) : "invalid";
 }

@@ -102,7 +102,7 @@ describe("PromptListPage", () => {
     const user = userEvent.setup();
     renderPage();
 
-    await user.click(await screen.findByRole("button", { name: "Open Assistant" }));
+    await user.click(await screen.findByRole("link", { name: "Open Assistant" }));
 
     expect(screen.getByTestId("pathname").textContent).toBe("/platform/prompts/assistant-core");
   });

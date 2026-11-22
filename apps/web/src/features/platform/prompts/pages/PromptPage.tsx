@@ -9,6 +9,7 @@ import { cn } from "../../../../lib/cn";
 import { codeOf, messageFor } from "../../../../lib/errorCodes";
 import { useAuth } from "../../../auth/AuthProvider";
 import { PlatformTwoFactorRequired } from "../../components/PlatformTwoFactorRequired";
+import { usePlatformPageCrumb } from "../../platformCrumb";
 import * as promptApi from "../api/promptApi";
 import type { PromptDetail, PromptVersionSummary } from "../api/types";
 import { PromptEditorTab } from "../components/PromptEditorTab";
@@ -40,6 +41,8 @@ export default function PromptPage() {
     queryKey: promptApi.AI_MODELS_KEY,
     queryFn: ({ signal }) => promptApi.listAiModels(signal),
   });
+
+  usePlatformPageCrumb(detail?.prompt.name ?? null);
 
   const openNumber = openedVersion ?? detail?.prompt.liveVersion ?? null;
   const open = detail?.versions.find((version) => version.version === openNumber) ?? null;
@@ -194,7 +197,7 @@ export default function PromptPage() {
           onDone={(updated) => {
             keep(updated);
             setMoving(null);
-            toast.success(`${prompt.name} now runs on version ${updated.prompt.liveVersion} on every instance`);
+            toast.success(`${prompt.name} now runs on version ${updated.prompt.liveVersion} in every workspace`);
           }}
         />
       )}
