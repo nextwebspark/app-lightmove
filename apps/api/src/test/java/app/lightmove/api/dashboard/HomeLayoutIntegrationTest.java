@@ -91,6 +91,14 @@ class HomeLayoutIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("a tab opened before the start page still saves Home, its landing ignored")
+    void aTabFromBeforeTheStartPageStillSaves() throws Exception {
+        String admin = firm("Home Old Tab Firm");
+        save(admin, "{\"tiles\":[%s],\"landing\":\"POSITIONS\"}".formatted(NEEDS)).andExpect(status().isOk());
+        assertThat(read(admin).get("layout").has("landing")).isFalse();
+    }
+
+    @Test
     @DisplayName("a save opened before another window's save, or before a reset, is refused rather than lost")
     void aStaleWindowCannotOverwrite() throws Exception {
         String admin = firm("Home Stale Firm");

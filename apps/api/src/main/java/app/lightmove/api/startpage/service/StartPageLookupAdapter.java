@@ -3,7 +3,7 @@ package app.lightmove.api.startpage.service;
 import app.lightmove.api.core.security.dto.StartPageResponse;
 import app.lightmove.api.core.security.service.StartPageLookup;
 import app.lightmove.api.core.tenant.WorkspaceScope;
-import java.util.UUID;
+import app.lightmove.api.workspace.model.WorkspaceMember;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -15,7 +15,7 @@ class StartPageLookupAdapter implements StartPageLookup {
     private final StartPageService startPages;
 
     @Override
-    public StartPageResponse startPageOf(UUID userId, UUID workspaceId) {
-        return WorkspaceScope.call(workspaceId, () -> startPages.read(userId, workspaceId));
+    public StartPageResponse startPageOf(WorkspaceMember membership) {
+        return WorkspaceScope.call(membership.getWorkspaceId(), () -> startPages.read(membership));
     }
 }

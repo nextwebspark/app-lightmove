@@ -98,7 +98,8 @@ export function SettingsProfilePage() {
         />
       </div>
 
-      <StartPageSection />
+      {/* Keyed on what is saved, so a switch of workspace or a change made elsewhere starts the choice over. */}
+      <StartPageSection key={`${user.workspace?.id}:${JSON.stringify(user.startPage)}`} />
 
       <AccountDataCards />
     </>

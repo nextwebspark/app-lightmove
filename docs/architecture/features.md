@@ -487,8 +487,8 @@ response carries it as `startPage` (`AuthResponseAssembler` asks `StartPageLooku
 reads no feature), checked against the member's access on every read: a dashboard deleted or unshared, a seat lost
 (`WORK_VIEW`, `WORK_EXECUTE` for Outreach) reads `available: false`, and Home opens with a notice (Choose another, Open
 on Home). It applies on a sign-in (`homeFor`; a remembered destination still wins, the bare root excepted) and when the
-SPA is opened at its bare root as the tab's first entry (`OpenAtStartPage`); Home reached from inside the app stays
-Home. A save of a page the member cannot open is one `START_PAGE_UNAVAILABLE`, whatever the reason. A pure client's Home
+SPA is opened at its bare root as the tab's first entry (`OpenAtStartPage`), a reload of `/` included, on purpose;
+Home reached from inside the app stays Home. The extension's auth response carries no start page. A save of a page the member cannot open is one `START_PAGE_UNAVAILABLE`, whatever the reason. A pure client's Home
 is the positions shared with them, with no queue and nothing staff-only; an admin of a workspace with no position
 sees the four set-up steps. The AI cards the mockup draws (Since you were last here, drafted replies, meeting prep
 and recaps, positions at risk) are the next steps, not built.

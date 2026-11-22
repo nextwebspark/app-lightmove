@@ -1,5 +1,6 @@
 package app.lightmove.api.dashboard.dto;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -8,8 +9,10 @@ import java.util.Map;
 
 /**
  * A member's Home: its tiles, which Needs you groups show (by {@code ConversationGroup}), and the version it was read
- * at. A save sends back the version it opened, null when it opened the default.
+ * at. A save sends back the version it opened, null when it opened the default. {@code landing} is accepted and
+ * ignored while a tab opened before the start page (V237) may still send it.
  */
+@JsonIgnoreProperties("landing")
 public record HomeLayoutDto(
         @NotNull @Size(max = 20) List<@Valid @NotNull HomeTileDto> tiles,
         @Size(max = 8) Map<String, Boolean> needs,

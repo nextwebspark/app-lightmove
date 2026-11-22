@@ -1,7 +1,8 @@
 -- A member's start page (docs/architecture/features.md, Start page): where Uncava opens in one workspace on a sign-in
 -- and when it is opened with no link. One row per member per workspace, absent for Home. A dashboard or a position is
 -- named by id and checked again on every read, so a page the member has since lost opens Home instead; deleting the
--- dashboard or the position takes the row with it. Replaces V233's landing column, whose Positions choices move here.
+-- dashboard or the position takes the row with it. Replaces V233's landing column, whose Positions choices move here;
+-- the column itself stays until every revision has stopped reading it (expand now, contract in a later migration).
 CREATE TABLE app_lm_start_page (
     id           uuid         PRIMARY KEY DEFAULT gen_random_uuid(),
     workspace_id uuid         NOT NULL REFERENCES app_lm_workspace (id) ON DELETE CASCADE,
@@ -37,5 +38,3 @@ CREATE POLICY app_lm_tenant ON app_lm_start_page
 
 INSERT INTO app_lm_start_page (workspace_id, user_id, kind)
 SELECT workspace_id, user_id, 'POSITIONS' FROM app_lm_home_layout WHERE landing = 'POSITIONS';
-
-ALTER TABLE app_lm_home_layout DROP COLUMN landing;

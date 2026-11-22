@@ -11,7 +11,4 @@ public record StartPageTarget(
         @Nullable UUID dashboardId,
         @Nullable UUID projectId,
         @Nullable PositionSection section
-) {
-
-    public static final StartPageTarget HOME = new StartPageTarget(StartPageKind.HOME, null, null, null);
-}
+) {}

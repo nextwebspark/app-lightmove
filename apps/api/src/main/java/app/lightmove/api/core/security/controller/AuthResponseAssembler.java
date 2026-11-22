@@ -66,6 +66,15 @@ public class AuthResponseAssembler {
 
     /** @param membership the workspace this <i>session</i> is in, or null — never "the user's", of several */
     public UserResponse user(User user, WorkspaceMember membership) {
+        return user(user, membership, true);
+    }
+
+    /** {@link #user} for the extension, which never opens a start page and so does not pay for reading one. */
+    public UserResponse extensionUser(User user, WorkspaceMember membership) {
+        return user(user, membership, false);
+    }
+
+    private UserResponse user(User user, WorkspaceMember membership, boolean withStartPage) {
         List<WorkspaceMember> memberships = selection.all(user.getId());
         Map<UUID, Workspace> byId = workspacesOf(memberships);
         Workspace current = membership == null || !membership.isActive() ? null : byId.get(membership.getWorkspaceId());
@@ -89,7 +98,7 @@ public class AuthResponseAssembler {
                         current == null ? null : DateTimeChoiceResponse.of(dateTimePreferences.forWorkspace(current))),
                 user.getLocale(),
                 currentSummary(membership, byId),
-                current == null ? null : startPages.startPageOf(user.getId(), current.getId()),
+                current == null || !withStartPage ? null : startPages.startPageOf(membership),
                 memberships.stream()
                         .filter(member -> byId.containsKey(member.getWorkspaceId()))
                         .map(member -> toSummary(byId.get(member.getWorkspaceId()), member))

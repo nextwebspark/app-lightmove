@@ -14,7 +14,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.jspecify.annotations.Nullable;
 
-/** A member's start page in one workspace (V237) when it is not Home. */
+/** A member's start page in one workspace (V237) when it is not Home. Read here, written by the repository's upsert. */
 @Entity
 @Table(name = "app_lm_start_page")
 @Getter
@@ -40,20 +40,6 @@ public class StartPage extends BaseEntity {
     @Enumerated(EnumType.STRING)
     @Column(name = "section", length = 16)
     private @Nullable PositionSection section;
-
-    public static StartPage startFor(UUID workspaceId, UUID userId) {
-        StartPage page = new StartPage();
-        page.workspaceId = workspaceId;
-        page.userId = userId;
-        return page;
-    }
-
-    public void pointAt(StartPageTarget target) {
-        this.kind = target.kind();
-        this.dashboardId = target.dashboardId();
-        this.projectId = target.projectId();
-        this.section = target.section();
-    }
 
     public StartPageTarget target() {
         return new StartPageTarget(kind, dashboardId, projectId, section);
