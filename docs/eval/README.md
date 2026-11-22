@@ -15,6 +15,7 @@ here and share one scoring code:
 | `assistant-eval.md` | `AssistantEval` | `eval/assistant-cases.json` |
 | `interview-copilot-eval.md` | `InterviewCopilotEval` | fixtures in the suite |
 | `mcp-eval.md` | `ops/eval/mcp/run.mjs` | `ops/eval/mcp/cases.json` |
+| `assessment-draft-eval.md` | `AssessmentDraftEval` | `eval/candidate-scorecard-draft-pack-v1.json` |
 
 Run one with Application Default Credentials:
 
@@ -32,10 +33,14 @@ The scoring is main code, so a suite and the console cannot drift apart:
 - `EvalSubject` (`core/llm`): one per prompt that can be run, beside its caller. It checks a case's shape and asks the
   model with a case's input **through the feature's own code**, so the user message, the redaction, the injection
   guard, the schema check and the repair are production's. A subject reads no table.
+- `EvalCheck` (`core/llm`): one deterministic rule an answer is held to (passed, failed, or nothing to judge on this
+  case). A subject lists its checks, how many times a case is answered at the least, and whether its cases have been
+  reviewed well enough for a run to count when a version is put live (`isGateReady`).
 - `prompteval`: datasets, cases, the import and the seed.
 
-Subjects today: `candidate-nationality` and `candidate-ai-enrich` (seniority). A prompt without one lists its
-dataset but takes no import and cannot be run (`EVAL_SUBJECT_UNAVAILABLE`).
+Subjects today: `candidate-nationality`, `candidate-ai-enrich` (seniority) and `candidate-scorecard-draft` (the
+assessment draft, `assessment-draft-eval.md`). A prompt without one lists its dataset but takes no import and cannot
+be run (`EVAL_SUBJECT_UNAVAILABLE`).
 
 ## Datasets, cases and splits
 
@@ -93,3 +98,5 @@ Per prompt:
 - `candidate-nationality`: `input.profile` is the golden row's profile (`eval/golden-row.schema.json`), nothing
   else; `expected.nationality` is a nationality group or `Unknown`.
 - `candidate-ai-enrich`: the same `input.profile`; `expected.seniority` is `Board`, `C-Suite`, `N-1`, `N-2` or `N-3`.
+- `candidate-scorecard-draft`: a profile, notes, transcripts, documents and a brief, with a band for every
+  competency. See `assessment-draft-eval.md`.

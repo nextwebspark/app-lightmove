@@ -732,6 +732,16 @@ if it has an `EvalSubject` (`core/llm`, beside its caller like its `PromptTrial`
 asks the model with it through the feature's own code; nationality and seniority have one. The scoring the offline
 `@Tag("eval")` suites use is the same main code (`GoldenRowScorer`, `LooseTextMatch`). No run exists yet (#1320), so
 this calls no model. `docs/eval/README.md` has the splits, case authoring and why real data stays offline.
+The **assessment draft** has its subject, checks and pack (#1326, `enrichment/candidate`): a case is a fictional
+profile with dated notes, call transcripts, documents and a brief, and `CandidateScorecardEvalSubject` hands it to
+`CandidateScorecardDrafter` after `CandidateMaterialReader.written` / `withCalls` have written the material out, the
+same code that writes a real person's (contacts removed, the team marked, long material cut). A subject lists its
+`EvalCheck`s, each a deterministic verdict on the model's own answer; the assessment draft has eight
+(`AssessmentDraftChecks`: ids, score range, source named, evidence found in the input, no contact, nothing from a
+colleague or an unidentified speaker, score inside the labelled band, self-report capped at 7), and is answered three
+times a case. Pack v1 (30 cases, 12 held out) is seeded; `isGateReady` is false until a consultant has reviewed it,
+so no run on it will let a version go live unexplained. `docs/eval/assessment-draft-eval.md` has the case shape, the
+labels and the first real-model runs.
 
 
 ## Layout
