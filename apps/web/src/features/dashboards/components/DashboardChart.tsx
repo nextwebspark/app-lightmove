@@ -13,9 +13,6 @@ const HUES = [
 
 const hue = (index: number) => HUES[index % HUES.length];
 
-/** The label the server folds a breakdown's tail into (`ChartShaping.OTHER`). */
-const OTHER_LABEL = "Other";
-
 /** Labels repeat — two positions with one title, a week-ending date a year apart — so a key needs the place too. */
 const keyOf = (label: string, index: number) => `${index}:${label}`;
 
@@ -42,10 +39,7 @@ export function DashboardChart({ result, chart }: { result: ChartResult; chart: 
       {result.note && <p className="mt-3 text-meta italic text-u-text3">{result.note}</p>}
       {result.truncated && (
         <p className="mt-2 text-meta text-u-text3">
-          {/* A median or a rate has no Other to fold the rest into: its tail is left off. */}
-          {result.labels.includes(OTHER_LABEL)
-            ? "Showing the largest groups; the rest are folded into Other."
-            : "Showing the largest groups only."}
+          {result.folded ? "Showing the largest groups; the rest are folded into Other." : "Showing the largest groups only."}
         </p>
       )}
     </div>

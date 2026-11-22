@@ -38,9 +38,11 @@ class ChartShapingTest {
         assertThat(top.labels()).containsExactly("B", "C", "D", "Other");
         assertThat(top.values()).containsExactly(5d, 3d, 2d, 1d);
         assertThat(top.truncated()).isFalse();
+        assertThat(top.folded()).isTrue();
 
         ChartResult medians = ChartShaping.shape(breakdown(true), raw, Map.of("top", "3"));
         assertThat(medians.labels()).containsExactly("B", "C", "D");
+        assertThat(medians.folded()).isFalse();
     }
 
     @Test

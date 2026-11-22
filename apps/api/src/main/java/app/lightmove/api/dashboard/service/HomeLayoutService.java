@@ -58,10 +58,7 @@ public class HomeLayoutService {
     @Transactional
     public HomeLayoutResponse save(UUID userId, UUID workspaceId, HomeLayoutDto request) {
         Optional<HomeLayout> stored = layouts.findByWorkspaceIdAndUserId(workspaceId, userId);
-        Long storedVersion = stored.map(HomeLayout::getVersion).orElse(null);
-        if (!Objects.equals(storedVersion, request.version())) {
-            throw ApiException.of(ErrorCode.HOME_LAYOUT_STALE);
-        }
+        requireOpenedAt(stored, request.version());
         HomeLayout layout = stored.orElseGet(() -> HomeLayout.startFor(workspaceId, userId));
         layout.record(tilesOf(request.tiles(), layout.charts()), needsOf(request.needs()),
                 ApiValueEnum.require(HomeLanding.class, request.landing(), "landing page"));
@@ -81,7 +78,8 @@ public class HomeLayoutService {
     /**
      * Back to the default everyone starts from, which keeps following the default as it changes. Like a save, only
      * over the layout the request was opened at: a window opened on the default, or on an older save, sending the
-     * default back would otherwise delete a layout another window saved since.
+     * default back would otherwise delete a layout another window saved since. With no layout stored the person is
+     * already on the default, so there is nothing stale to refuse, whatever version was sent.
      */
     @Transactional
     public void reset(UUID userId, UUID workspaceId, Long openedVersion) {
@@ -89,13 +87,18 @@ public class HomeLayoutService {
         if (stored.isEmpty()) {
             return;
         }
-        if (!Objects.equals(stored.get().getVersion(), openedVersion)) {
-            throw ApiException.of(ErrorCode.HOME_LAYOUT_STALE);
-        }
+        requireOpenedAt(stored, openedVersion);
         try {
             layouts.delete(stored.get());
             layouts.flush();
         } catch (ObjectOptimisticLockingFailureException raced) {
+            throw ApiException.of(ErrorCode.HOME_LAYOUT_STALE);
+        }
+    }
+
+    /** A write goes over the layout it was opened at and no other: null opened the default, so no row may exist. */
+    private static void requireOpenedAt(Optional<HomeLayout> stored, Long openedVersion) {
+        if (!Objects.equals(stored.map(HomeLayout::getVersion).orElse(null), openedVersion)) {
             throw ApiException.of(ErrorCode.HOME_LAYOUT_STALE);
         }
     }

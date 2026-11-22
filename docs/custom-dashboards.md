@@ -91,7 +91,8 @@ workspace library, and **Customize** is Edit layout on Home (`DashboardGrid`, `C
 - **Endpoints** — `GET /api/v1/me/home` (`{layout}` with its `version`, null without a row), `PUT` (the whole layout
   and the `version` it was opened at, null when it opened the default; any other → `HOME_LAYOUT_STALE`, so a stale
   window never overwrites a newer save or a reset), `DELETE ?version=` (reset, over the version it was opened at —
-  none when it opened the default — so a stale window saving the default never deletes a newer layout). `@workspaceAuthorizer.staffOnly`: a pure client's Home
+  none when it opened the default — so a stale window saving the default never deletes a newer layout; with no row
+  stored it answers 204 whatever version was sent, since the person is already on the default). `@workspaceAuthorizer.staffOnly`: a pure client's Home
   has nothing to arrange.
 - **Checks** (`HomeLayoutService`) — exactly one `NEEDS`, at most one `TODAY` and `POSITIONS`, every tile on the
   grid and a section at least its minimum (`HomeTileKind`), at most 12 charts, each one a workspace library chart checked by `DashboardWidgetValidator` (a retired query

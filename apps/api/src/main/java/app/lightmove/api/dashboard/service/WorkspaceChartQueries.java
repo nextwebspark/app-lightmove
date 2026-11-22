@@ -40,6 +40,8 @@ import org.springframework.stereotype.Component;
 class WorkspaceChartQueries {
 
     static final int WEEKS_SHOWN = 12;
+    /** "Since kickoff" reaches back at most two years: a start date years back (an import, a typo) is not a scan. */
+    static final int MAX_WEEKS_SHOWN = 104;
     static final int RESEARCH_DAYS = 30;
 
     private final ProjectService projects;
@@ -196,7 +198,7 @@ class WorkspaceChartQueries {
 
     private ChartResult executivesFiledPerWeek(ChartQueryContext context, Map<String, String> options) {
         LocalDate today = LocalDate.now(clock);
-        int weeks = Math.max(WEEKS_SHOWN, weeksSinceKickoff(open(context), today));
+        int weeks = Math.min(Math.max(WEEKS_SHOWN, weeksSinceKickoff(open(context), today)), MAX_WEEKS_SHOWN);
         LocalDate firstDay = today.minusWeeks(weeks).plusDays(1);
         Map<String, Long> perDay = new LinkedHashMap<>();
         data.executivesFiledPerDay(context.workspaceId(), openIds(context),

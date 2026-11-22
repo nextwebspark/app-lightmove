@@ -77,6 +77,7 @@ final class ChartShaping {
         if (foldRest && rest > 0) {
             labels.add(OTHER);
             values.add(rest);
+            return raw.withLabelsAndValuesFolded(labels, values, capped);
         }
         return raw.withLabelsAndValues(labels, values, capped);
     }

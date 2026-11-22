@@ -27,6 +27,7 @@ const result = (labels: string[], values: number[]): ChartResult => ({
   note: null,
   percent: false,
   truncated: false,
+  folded: false,
 });
 
 const scope = { kind: "workspace" } as const;
