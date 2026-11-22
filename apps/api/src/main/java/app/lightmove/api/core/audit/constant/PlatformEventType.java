@@ -23,7 +23,10 @@ public enum PlatformEventType implements AuditEventType {
     PROMPT_VERSION_SAVED,
     PROMPT_TRIED,
     PROMPT_PUT_LIVE,
-    PROMPT_ROLLED_BACK;
+    PROMPT_ROLLED_BACK,
+
+    EVAL_CASES_IMPORTED,
+    EVAL_CASE_RETIRED;
 
     @Override
     public String code() {
