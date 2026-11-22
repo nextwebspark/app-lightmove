@@ -250,6 +250,20 @@ describe("PromptPage", () => {
     expect(promptApi.tryPromptVersion).toHaveBeenCalledWith("candidate-scorecard-draft", 2);
   });
 
+  it("says when the live version's model can no longer answer it, and that the default model is", async () => {
+    vi.mocked(promptApi.getPrompt).mockResolvedValue(
+      detail({
+        prompt: overview({ modelId: "gemini-1.0-pro", modelName: "gemini-1.0-pro", modelRetiresInDays: null, modelUnavailable: true }),
+      }),
+    );
+    renderPage();
+    await editor();
+
+    expect(screen.getByRole("note")).toHaveTextContent(
+      "Version 2 names gemini-1.0-pro, which is retired, no longer offered or cannot answer this prompt.",
+    );
+  });
+
   it("draws no Try it for a prompt that has none", async () => {
     vi.mocked(promptApi.getPrompt).mockResolvedValue(detail({ trial: null, userMessageTemplate: null }));
     renderPage();

@@ -12,6 +12,7 @@ export const overview = (overrides: Partial<PromptOverview> = {}): PromptOvervie
   modelId: "gemini-3.5-flash",
   modelName: "Gemini 3.5 Flash",
   modelRetiresInDays: 179,
+  modelUnavailable: false,
   shippedChanged: false,
   lastChangedAt: "2026-11-04T10:00:00Z",
   lastChangedBy: "Noor Rahman",

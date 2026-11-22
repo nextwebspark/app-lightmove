@@ -18,7 +18,11 @@ export interface SettingRange {
   max: number;
 }
 
-/** `modelId` null is the configured model; `lastChangedBy` null means a release shipped the live version. */
+/**
+ * `modelId` null is the configured model; `lastChangedBy` null means a release shipped the live version.
+ * `modelUnavailable`: the live version's model is retired, no longer offered or cannot answer this prompt, so the
+ * default model is answering it.
+ */
 export interface PromptOverview {
   id: string;
   name: string;
@@ -30,6 +34,7 @@ export interface PromptOverview {
   modelId: string | null;
   modelName: string | null;
   modelRetiresInDays: number | null;
+  modelUnavailable: boolean;
   shippedChanged: boolean;
   lastChangedAt: string;
   lastChangedBy: string | null;

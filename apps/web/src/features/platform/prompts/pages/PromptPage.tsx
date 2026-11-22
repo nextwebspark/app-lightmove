@@ -105,6 +105,16 @@ export default function PromptPage() {
         </div>
       </div>
 
+      {prompt.modelUnavailable && (
+        <div role="note" className="mb-4 flex gap-2.5 rounded-lg border border-u-border bg-u-offlimits-tint px-3.5 py-[11px] text-xs text-u-text">
+          <Icon d={ICONS.info} size={15} className="mt-0.5 flex-none text-u-offlimits" />
+          <span>
+            Version {prompt.liveVersion} names {prompt.modelName ?? "a model"}, which is retired, no longer offered or
+            cannot answer this prompt. The default model answers it until a version on an available model is put live.
+          </span>
+        </div>
+      )}
+
       {prompt.shippedChanged && detail.newestShippedVersion !== null && (
         <div role="note" className="mb-4 flex gap-2.5 rounded-lg border border-u-border bg-u-accent-tint px-3.5 py-[11px] text-xs text-u-text">
           <Icon d={ICONS.info} size={15} className="mt-0.5 flex-none text-u-accent" />

@@ -35,7 +35,7 @@ export function changedLabel(at: string, by: string | null): string {
 }
 
 export function needsAttention(prompt: PromptOverview): boolean {
-  return prompt.shippedChanged || isRetiringSoon(prompt.modelRetiresInDays);
+  return prompt.shippedChanged || prompt.modelUnavailable || isRetiringSoon(prompt.modelRetiresInDays);
 }
 
 export function isRetiringSoon(retiresInDays: number | null): boolean {
@@ -46,6 +46,10 @@ export function retirementLabel(retiresInDays: number): string {
   if (retiresInDays <= 0) return "Model retired";
   return `Model retires in ${retiresInDays} ${retiresInDays === 1 ? "day" : "days"}`;
 }
+
+/** Said wherever a live version's model can no longer answer it. */
+export const MODEL_UNAVAILABLE_HINT =
+  "This version's model is retired, no longer offered or cannot answer this prompt. The default model answers it instead.";
 
 export function rangeLabel(range: SettingRange, unit: string): string {
   return `${whole.format(range.min)} to ${whole.format(range.max)}${unit}`;

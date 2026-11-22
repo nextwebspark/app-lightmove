@@ -17,6 +17,7 @@ import {
   isRetiringSoon,
   needsAttention,
   promptPath,
+  MODEL_UNAVAILABLE_HINT,
   retirementLabel,
   versionLabel,
 } from "../lib/promptLabels";
@@ -120,7 +121,12 @@ function PromptRow({ prompt, onOpen }: { prompt: PromptOverview; onOpen: () => v
               Shipped prompt changed
             </PromptPill>
           )}
-          {prompt.modelRetiresInDays !== null && isRetiringSoon(prompt.modelRetiresInDays) && (
+          {prompt.modelUnavailable && (
+            <PromptPill tone="danger" title={MODEL_UNAVAILABLE_HINT}>
+              Model unavailable
+            </PromptPill>
+          )}
+          {!prompt.modelUnavailable && prompt.modelRetiresInDays !== null && isRetiringSoon(prompt.modelRetiresInDays) && (
             <PromptPill tone="danger">{retirementLabel(prompt.modelRetiresInDays)}</PromptPill>
           )}
         </span>

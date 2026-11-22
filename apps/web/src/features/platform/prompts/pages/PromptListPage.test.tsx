@@ -45,6 +45,14 @@ const PROMPTS = [
     lastChangedBy: null,
   }),
   overview({ id: "meeting-summary", name: "Meeting summary", modelRetiresInDays: 12 }),
+  overview({
+    id: "call-changes",
+    name: "Call changes",
+    modelId: "gemini-1.0-pro",
+    modelName: "gemini-1.0-pro",
+    modelRetiresInDays: null,
+    modelUnavailable: true,
+  }),
 ];
 
 describe("PromptListPage", () => {
@@ -69,7 +77,9 @@ describe("PromptListPage", () => {
     expect(within(assistant).getByText(/· Shipped$/)).toBeInTheDocument();
 
     expect(screen.getByText("Model retires in 12 days")).toBeInTheDocument();
-    expect(screen.getByText("3 of 3 prompts")).toBeInTheDocument();
+    const callChanges = screen.getByText("Call changes").closest('[role="row"]') as HTMLElement;
+    expect(within(callChanges).getByText("Model unavailable")).toBeInTheDocument();
+    expect(screen.getByText("4 of 4 prompts")).toBeInTheDocument();
   });
 
   it("narrows by search and by what needs attention", async () => {
@@ -80,7 +90,8 @@ describe("PromptListPage", () => {
 
     await user.click(screen.getByRole("radio", { name: "Needs attention" }));
     expect(screen.queryByText("Assistant")).not.toBeInTheDocument();
-    expect(screen.getByText("2 of 3 prompts")).toBeInTheDocument();
+    expect(screen.getByText("Call changes")).toBeInTheDocument();
+    expect(screen.getByText("3 of 4 prompts")).toBeInTheDocument();
 
     await user.type(screen.getByLabelText("Search prompts"), "assistant-core");
     expect(screen.getByText("No prompts match. Clear the search or pick another filter.")).toBeInTheDocument();
