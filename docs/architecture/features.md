@@ -465,7 +465,11 @@ card on the list are gone. The list is the server's answer: every position for a
 (V232, ADMIN), only the ones the caller holds a seat on for anyone else. A staff member's Home is **Needs you** —
 their outreach To do across the positions they work (`GET /me/outreach/needs`, `MyOutreachQueueService`, each
 position's own `ConversationService.list`; **Team** for a lead reads the whole queue of the positions they lead) and
-their overdue and today's tasks, a task a row already carries never drawn twice — beside **Today** (today's calls
+their overdue and today's tasks, a task a row already carries never drawn twice. It draws two blocks: **Outreach**
+— a reply or a delivery problem — as cards (who, why, the words waiting, and Reply into the position's queue), and
+**Tasks** as one-line rows (tick, kind, title, executive, due), a Follow-up or Before first email row drawn as the
+task it carries; either opens the position's In universe table with the executive's panel open —
+beside **Today** (today's calls
 and meetings), **Your positions** and charts from the workspace dashboard library — every one a tile on the
 dashboard's twelve-column grid (`DashboardGrid`). **Customize** is the dashboard's edit mode on Home: drag a tile to
 move it, its edge or corner to resize it, **Add chart** (any library chart, up to 12), × to take a tile off (never

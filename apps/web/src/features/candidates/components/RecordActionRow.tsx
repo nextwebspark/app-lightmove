@@ -2,6 +2,7 @@ import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Button, buttonClassName } from "../../../components/ui";
 import { ActionMenu, MenuItem, MenuSeparator } from "../../../components/ui/ActionMenu";
 import { Popover } from "../../../components/ui/Popover";
+import { cn } from "../../../lib/cn";
 import type { PersonNoteKind } from "../api/types";
 import { NoteKindMark } from "./NoteKindMark";
 
@@ -15,8 +16,9 @@ const LOGS: readonly { kind: LoggedKind; label: string }[] = [
 ];
 
 /**
- * The record full page's actions under the header (`PositionExecutiveDrawer.dc.html`, page): what a researcher does
- * most, out of the peek's footer ⋯ and its Outreach tab, one click away. Write email shows why it is held.
+ * The record full page's actions (`PositionExecutiveDrawer.dc.html`, page): what a researcher does most, out of the
+ * peek's footer ⋯ and its Outreach tab, one click away. Write email shows why it is held. `rail` stacks them in two
+ * lines for the Details rail's fixed foot: Write email across, then the rest.
  */
 export function RecordActionRow({
   emailHeldBy,
@@ -28,6 +30,8 @@ export function RecordActionRow({
   sequenceHeldBy,
   onSetNextAction,
   onRemove,
+  layout = "row",
+  className,
 }: {
   /** Why Write email cannot be pressed (Do not contact, no address); absent when it can. */
   emailHeldBy?: string;
@@ -41,23 +45,38 @@ export function RecordActionRow({
   sequenceHeldBy?: string | null;
   onSetNextAction: () => void;
   onRemove?: () => void;
+  layout?: "row" | "rail";
+  className?: string;
 }) {
+  const isRail = layout === "rail";
   const closingThen = (close: () => void, act: () => void) => () => {
     close();
     act();
   };
   return (
-    <div role="group" aria-label="Actions" className="mt-3.5 flex flex-wrap items-center gap-2">
+    <div
+      role="group"
+      aria-label="Actions"
+      className={cn(
+        isRail ? "grid grid-cols-[1fr_1fr_auto] items-center gap-2" : "mt-3.5 flex flex-wrap items-center gap-2",
+        className,
+      )}
+    >
       {onWriteEmail && (
         // A disabled button shows no tooltip, so the reason sits on its wrapper.
-        <span title={emailHeldBy}>
-          <Button size="xs" disabled={emailHeldBy !== undefined} onClick={onWriteEmail}>
+        <span title={emailHeldBy} className={isRail ? "col-span-3" : undefined}>
+          <Button
+            size="xs"
+            className={isRail ? "w-full" : undefined}
+            disabled={emailHeldBy !== undefined}
+            onClick={onWriteEmail}
+          >
             <Icon d={ICONS.mail} size={13} />
             Write email
           </Button>
         </span>
       )}
-      <Button variant="secondary" size="xs" onClick={onAddNote}>
+      <Button variant="secondary" size="xs" className={isRail ? "w-full" : undefined} onClick={onAddNote}>
         <Icon d={ICONS.noteBubble} size={13} />
         Add note
       </Button>
@@ -66,7 +85,10 @@ export function RecordActionRow({
         hasPopup="menu"
         width={200}
         placement="auto"
-        triggerClassName={buttonClassName("secondary", "gap-1.5 py-[6px] text-note aria-expanded:text-u-text")}
+        triggerClassName={buttonClassName(
+          "secondary",
+          cn("gap-1.5 py-[6px] text-note aria-expanded:text-u-text", isRail && "w-full"),
+        )}
         trigger={() => (
           <>
             <Icon d={ICONS.phoneCall} size={13} />
