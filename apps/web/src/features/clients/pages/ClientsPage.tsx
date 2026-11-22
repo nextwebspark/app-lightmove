@@ -8,7 +8,8 @@ import { ListToolbar } from "../../../components/ui/ListToolbar";
 import { PaginationBar } from "../../../components/ui/PaginationBar";
 import { useColumnVisibility } from "../../../lib/useColumnVisibility";
 import { EMPTY_GRID_LAYOUT, layoutColumnsOf, useGridLayout } from "../../../lib/useGridLayout";
-import { useGridPaging } from "../../../lib/useGridPaging";
+import { useAddressedGridPaging } from "../../../lib/useGridPaging";
+import { useAddressedPanel } from "../../../lib/useAddressedPanel";
 import { useGridSort, WORKSPACE_SCOPE } from "../../../lib/useGridSort";
 import { NewProjectModal } from "../../projects/components/NewProjectModal";
 import { useWorkspaceVocabulary } from "../../workspace/lib/vocabulary";
@@ -24,7 +25,6 @@ import {
 } from "../lib/clientColumns";
 import { chipsFor, CLIENT_CHIP_KEYS, filterClients, liveClients, type ChipKey } from "../lib/filtering";
 import { useAddressedSearch } from "../../../lib/useAddressedSearch";
-import { useSearchParams } from "react-router-dom";
 
 
 const DEFAULT_CLIENT_SORT = { field: "name", direction: "asc" } as const;
@@ -40,18 +40,8 @@ export function ClientsPage() {
   const hideableColumns = useMemo(() => hideableColumnsOf(columns), [columns]);
   // In the address, with the open record, so the way back from a position opened here finds the page as left.
   const { query, setQuery, flushQuery, chip, setChip } = useAddressedSearch<ChipKey>("show", CLIENT_CHIP_KEYS, "all");
-  const [searchParams, setSearchParams] = useSearchParams();
-  const openClientId = searchParams.get("client");
-  const setOpenClientId = (id: string | null) =>
-    setSearchParams(
-      (current) => {
-        const next = new URLSearchParams(current);
-        if (id) next.set("client", id);
-        else next.delete("client");
-        return next;
-      },
-      { replace: true },
-    );
+  const drawer = useAddressedPanel("client");
+  const openClientId = drawer.value;
   const [newClientOpen, setNewClientOpen] = useState(false);
   const [newMandateOpen, setNewMandateOpen] = useState(false);
   const [sort, setSort] = useGridSort<ClientSortField>(
@@ -66,7 +56,7 @@ export function ClientsPage() {
     CLIENT_COLUMN_VISIBILITY,
   );
   const [layout, setLayout] = useGridLayout("clients", layoutColumns);
-  const paging = useGridPaging();
+  const paging = useAddressedGridPaging();
 
   const { data: clients = [], isPending, isError } = useQuery({
     queryKey: clientsApi.CLIENTS_KEY,
@@ -93,9 +83,10 @@ export function ClientsPage() {
   useEffect(() => {
     resetPage();
   }, [resetPage, chip, query, sort]);
+  const loaded = !isPending && !isError;
   useEffect(() => {
-    clampTo(rows.length);
-  }, [clampTo, rows.length]);
+    if (loaded) clampTo(rows.length);
+  }, [clampTo, loaded, rows.length]);
 
   const newClientButton = (
     <Button onClick={() => setNewClientOpen(true)} size="sm">
@@ -183,7 +174,7 @@ export function ClientsPage() {
               onLayoutChange={setLayout}
               pagination={paging.pagination}
               onPaginationChange={paging.onPaginationChange}
-              onOpen={setOpenClientId}
+              onOpen={drawer.open}
             />
             <PaginationBar
               page={paging.page}
@@ -199,7 +190,7 @@ export function ClientsPage() {
 
       <ClientDrawer
         clientId={openClientId}
-        onClose={() => setOpenClientId(null)}
+        onClose={drawer.close}
         onNewMandate={() => setNewMandateOpen(true)}
       />
 
@@ -208,7 +199,7 @@ export function ClientsPage() {
           open
           onClose={() => setNewClientOpen(false)}
           clients={clients}
-          onCreated={(client) => setOpenClientId(client.id)}
+          onCreated={(client) => drawer.open(client.id)}
         />
       )}
 

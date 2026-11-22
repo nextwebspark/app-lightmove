@@ -82,8 +82,8 @@ vi.mock("../../tasks/api/tasksApi", async (importOriginal) => ({
 }));
 
 vi.mock("../../candidates/components/CandidateDrawerById", () => ({
-  CandidateDrawerById: ({ candidateId }: { candidateId: string | null }) =>
-    candidateId ? <div role="dialog" aria-label={`Drawer for ${candidateId}`} /> : null,
+  CandidateDrawerById: ({ candidateId, focusTab }: { candidateId: string | null; focusTab?: string | null }) =>
+    candidateId ? <div role="dialog" aria-label={`Drawer for ${candidateId}`} data-tab={focusTab ?? ""} /> : null,
 }));
 
 const PROJECT = { id: "p1", positionTitle: "Group CFO", archivedAt: null };
@@ -280,9 +280,10 @@ function Where() {
   );
 }
 
-function renderPage(path = "/projects/p1/outreach") {
+function renderPage(path: string | string[] = "/projects/p1/outreach") {
+  const entries = typeof path === "string" ? [path] : path;
   return render(
-    <MemoryRouter initialEntries={[path]}>
+    <MemoryRouter initialEntries={entries} initialIndex={entries.length - 1}>
       <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
         <ToastProvider>
           <Routes>
@@ -363,6 +364,78 @@ describe("OutreachPage", () => {
     await new Promise((settle) => setTimeout(settle, 0));
     expect(screen.getByLabelText("Location")).not.toHaveTextContent("candidate=");
     expect(conversationApi.getConversation).not.toHaveBeenCalled();
+  });
+
+  it("moves between conversations in place, so Back leaves the page rather than walking everyone read", async () => {
+    renderPage(["/projects/p1/outreach?view=sent", "/projects/p1/outreach"]);
+    await waitFor(() => expect(screen.getByLabelText("Location")).toHaveTextContent("candidate=c1"));
+    const list = screen.getByRole("region", { name: "Conversations" });
+    await userEvent.click(within(list).getByRole("button", { name: /Noura Al Thani/ }));
+    await waitFor(() => expect(screen.getByLabelText("Location")).toHaveTextContent("candidate=c2"));
+
+    await userEvent.click(screen.getByRole("button", { name: "Browser back" }));
+
+    await waitFor(() => expect(screen.getByLabelText("Location")).toHaveTextContent("view=sent"));
+  });
+
+  it("on a phone, opens a conversation as a step, so Back lands on the list again", async () => {
+    vi.stubGlobal("matchMedia", (query: string) => ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      addListener: () => {},
+      removeListener: () => {},
+      dispatchEvent: () => false,
+    }));
+    renderPage();
+    const list = await screen.findByRole("region", { name: "Conversations" });
+    await userEvent.click(await within(list).findByRole("button", { name: /Fatima Al Mazrouei/ }));
+    await waitFor(() => expect(screen.getByLabelText("Location")).toHaveTextContent("candidate=c1"));
+
+    await userEvent.click(screen.getByRole("button", { name: "Browser back" }));
+
+    await waitFor(() => expect(screen.getByLabelText("Location")).not.toHaveTextContent("candidate="));
+  });
+
+  it("opens the record as a step in the address, so Back closes it and leaves the conversation open", async () => {
+    renderPage(OPEN);
+    await screen.findByRole("heading", { name: "Fatima Al Mazrouei" });
+    await userEvent.click(screen.getAllByRole("button", { name: /Open persistent candidate record/ })[0]);
+
+    expect(await screen.findByRole("dialog", { name: "Drawer for c1" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Location")).toHaveTextContent("profile=c1");
+
+    await userEvent.click(screen.getByRole("button", { name: "Browser back" }));
+
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Drawer for c1" })).not.toBeInTheDocument());
+    expect(screen.getByLabelText("Location")).toHaveTextContent("candidate=c1");
+  });
+
+  it("opens the record on Activity from View history once, without making Activity every later record's tab", async () => {
+    sessionStorage.clear();
+    vi.mocked(conversationApi.getConversation).mockResolvedValue({
+      ...conversation(),
+      currentRun: {
+        run: {
+          id: "r1",
+          sequenceId: "s1",
+          sequenceName: "CFO approach",
+          status: "COMPLETED",
+          sentCount: 3,
+          stepCount: 3,
+          nextSendAt: null,
+          endedAt: null,
+        } as never,
+        steps: [],
+      },
+    });
+    renderPage(OPEN);
+    await userEvent.click((await screen.findAllByRole("button", { name: "View history" }))[0]);
+
+    expect(await screen.findByRole("dialog", { name: "Drawer for c1" })).toHaveAttribute("data-tab", "activity");
+    expect(sessionStorage.getItem("lm.person-drawer.tab.position")).toBeNull();
   });
 
   it("narrows to To do, grouped by what each person is waiting on", async () => {
@@ -510,14 +583,10 @@ describe("OutreachPage", () => {
   });
 
   it("brings the search back with the address on Back, and never writes the old one over it", async () => {
-    renderPage();
+    renderPage(["/projects/p1/outreach?q=Noura&candidate=c2", "/projects/p1/outreach?candidate=c2"]);
     const search = await screen.findByRole("searchbox", { name: "Search people or emails" });
-    await userEvent.type(search, "Noura");
-    await waitFor(() => expect(screen.getByLabelText("Location")).toHaveTextContent("q=Noura"));
-    await userEvent.click(await screen.findByRole("button", { name: /Noura Al Thani/ }));
-    await waitFor(() => expect(screen.getByLabelText("Location")).toHaveTextContent("candidate=c2"));
-    await userEvent.clear(search);
-    await waitFor(() => expect(screen.getByLabelText("Location")).not.toHaveTextContent("q="));
+    await screen.findByRole("heading", { name: "Fatima Al Mazrouei" });
+    expect(search).toHaveValue("");
 
     await userEvent.click(screen.getByRole("button", { name: "Browser back" }));
 

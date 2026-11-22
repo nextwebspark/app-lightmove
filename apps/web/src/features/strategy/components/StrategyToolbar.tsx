@@ -40,6 +40,7 @@ export function StrategyToolbar({
   onToggleFilters,
   query,
   onQuery,
+  onQueryBlur,
   onSaveSearch,
   onLoadSearch,
   onRenameSearch,
@@ -64,6 +65,8 @@ export function StrategyToolbar({
   onToggleFilters: () => void;
   query: string;
   onQuery: (query: string) => void;
+  /** Leaving the box writes the search to the address at once, so a row opened straight after carries it into Back. */
+  onQueryBlur: () => void;
   onSaveSearch: (name: string, visibility: SearchVisibility) => void;
   onLoadSearch: (filter: StrategyFilter) => void;
   onRenameSearch: (searchId: string, name: string) => void;
@@ -81,7 +84,9 @@ export function StrategyToolbar({
   return (
     <div className={TOOLBAR_ROW}>
       {leading}
-      <ToolbarSearch value={query} onChange={onQuery} label="Search companies" placeholder="Search companies..." />
+      <div className="contents" onBlur={onQueryBlur}>
+        <ToolbarSearch value={query} onChange={onQuery} label="Search companies" placeholder="Search companies..." />
+      </div>
 
       <SaveSearchMenu
         searches={searches}

@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter, useLocation } from "react-router-dom";
+import { MemoryRouter, useLocation, useNavigate } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../../../components/ui";
 import { AuthProvider } from "../../auth/AuthProvider";
@@ -18,6 +18,7 @@ vi.mock("../api/projectsApi", async (importOriginal) => ({
   // Keys are real; only the calls are mocked.
   ...(await importOriginal<typeof import("../api/projectsApi")>()),
   projects: vi.fn(),
+  projectActivity: vi.fn(),
 }));
 vi.mock("../../clients/api/clientsApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../clients/api/clientsApi")>()),
@@ -462,6 +463,45 @@ describe("ProjectsPage — first use, no results, and a client with nothing shar
     await waitFor(() => expect(screen.getByTestId("address")).toHaveTextContent("?q=coo&stage=DELIVERED"));
   });
 
+  it("opens a position on page 2 as a step in the address, and Back closes it onto page 2", async () => {
+    vi.mocked(authApi.me).mockResolvedValue(staff());
+    vi.mocked(workspaceApi.members).mockResolvedValue([me] as never);
+    vi.mocked(projectsApi.projectActivity).mockResolvedValue({ entries: [], nextCursor: null });
+    vi.mocked(projectsApi.projects).mockResolvedValue(
+      Array.from({ length: 55 }, (_, index) =>
+        position(`p${index + 1}`, `Search ${String(index + 1).padStart(2, "0")}`, [seatOf("m-me", "u1")]),
+      ),
+    );
+    const user = userEvent.setup();
+
+    render(
+      <MemoryRouter initialEntries={["/positions?page=2"]}>
+        <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+          <AuthProvider>
+            <ToastProvider>
+              <ProjectsPage />
+              <Address />
+              <BrowserBack />
+            </ToastProvider>
+          </AuthProvider>
+        </QueryClientProvider>
+      </MemoryRouter>,
+    );
+    const [title] = await screen.findAllByText(/^Search \d\d$/);
+    expect(screen.getByTestId("address")).toHaveTextContent("?page=2");
+    const name = title.textContent ?? "";
+    await user.click(title);
+
+    expect(await screen.findByRole("dialog", { name: `${name} — Beta Client` })).toBeInTheDocument();
+    expect(screen.getByTestId("address")).toHaveTextContent("page=2");
+    expect(screen.getByTestId("address")).toHaveTextContent("position=");
+
+    await user.click(screen.getByRole("button", { name: "Browser back" }));
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(screen.getByTestId("address")).toHaveTextContent(/^\?page=2$/);
+  });
+
   it("says when everything of theirs is delivered or closed, and offers every stage", async () => {
     vi.mocked(authApi.me).mockResolvedValue(staff());
     vi.mocked(workspaceApi.members).mockResolvedValue([me] as never);
@@ -502,4 +542,13 @@ describe("ProjectsPage — first use, no results, and a client with nothing shar
 function Address() {
   const { search } = useLocation();
   return <div data-testid="address">{search}</div>;
+}
+
+function BrowserBack() {
+  const navigate = useNavigate();
+  return (
+    <button type="button" onClick={() => navigate(-1)}>
+      Browser back
+    </button>
+  );
 }

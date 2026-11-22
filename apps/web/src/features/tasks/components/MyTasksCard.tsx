@@ -6,7 +6,7 @@ import {
   type InfiniteData,
 } from "@tanstack/react-query";
 import { useEffect, useId, useRef, useState, type UIEvent } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation, useSearchParams } from "react-router-dom";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { LinesSkeleton, useToast } from "../../../components/ui";
 import { Avatar } from "../../../components/ui/Avatar";
@@ -39,6 +39,13 @@ const COLLAPSED_KEY = "lm-my-tasks-collapsed";
 const COLUMNS = "grid-cols-[18px_26px_minmax(200px,1.4fr)_minmax(160px,1fr)_minmax(140px,1fr)_188px]";
 const COLUMNS_WITH_ASSIGNEE =
   "grid-cols-[18px_26px_minmax(200px,1.4fr)_minmax(160px,1fr)_minmax(140px,1fr)_188px_112px]";
+
+/** The tab a reader picked, in the address so a return finds it; absent, the card opens where the work is. */
+const VIEW_PARAM = "tasks";
+
+function viewOf(raw: string | null): MyTasksView | null {
+  return TABS.find((candidate) => candidate.view === raw)?.view ?? null;
+}
 
 function firstTabWithTasks(counts: Counts): MyTasksView {
   if (counts.today > 0) return "today";
@@ -86,8 +93,11 @@ export function MyTasksCard({ page = false }: {
   const toast = useToast();
   const tasksChanged = useTasksChanged();
   const bodyId = useId();
-  const [chosen, setChosen] = useState<MyTasksView | null>(null);
-  const view = chosen ?? "today";
+  const [searchParams, setSearchParams] = useSearchParams();
+  const location = useLocation();
+  const chosen = viewOf(searchParams.get(VIEW_PARAM));
+  const [firstWithTasks, setFirstWithTasks] = useState<MyTasksView | null>(null);
+  const view = chosen ?? firstWithTasks ?? "today";
   const [expanded, setExpanded] = useState(page);
   const [collapsed, setCollapsed] = useState(() => !page && readCollapsed());
   const [asCards] = useState(isBelowTableWidth);
@@ -102,8 +112,8 @@ export function MyTasksCard({ page = false }: {
       last.hasMore ? rowsOf(slices).filter((task) => task.status === "open").length : undefined,
     placeholderData: keepPreviousData,
   });
-  if (chosen === null && mine.data && !mine.isPlaceholderData) {
-    setChosen(firstTabWithTasks(mine.data.pages[0].counts));
+  if (chosen === null && firstWithTasks === null && mine.data && !mine.isPlaceholderData) {
+    setFirstWithTasks(firstTabWithTasks(mine.data.pages[0].counts));
   }
   // The tab travels with the tick: the reader may move to another before the answer comes back. Every tab read so
   // far carries the counts, so each is told; only the tab ticked on holds the row.
@@ -143,7 +153,16 @@ export function MyTasksCard({ page = false }: {
     rememberCollapsed(next);
   };
   const pick = (next: MyTasksView) => {
-    setChosen(next);
+    if (next !== view) {
+      setSearchParams(
+        (current) => {
+          const params = new URLSearchParams(current);
+          params.set(VIEW_PARAM, next);
+          return params;
+        },
+        { replace: true, state: location.state },
+      );
+    }
     setExpanded(page);
     if (collapsed) fold(false);
   };

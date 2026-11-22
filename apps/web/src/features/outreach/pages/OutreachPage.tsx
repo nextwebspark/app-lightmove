@@ -6,10 +6,11 @@ import type { ProjectOutletContext } from "../../../components/layout/ProjectLay
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { buttonClassName, EmptyState, ToolbarSearch } from "../../../components/ui";
 import { cn } from "../../../lib/cn";
+import { useAddressedPanel } from "../../../lib/useAddressedPanel";
 import { useProjectStream } from "../../../lib/useProjectStream";
 import { hasRoomForRails } from "../../../lib/viewport";
 import { CandidateDrawerById } from "../../candidates/components/CandidateDrawerById";
-import { rememberDrawerTab } from "../../candidates/lib/drawerTabs";
+import type { DrawerTab } from "../../candidates/lib/drawerTabs";
 import { TASKS_KEY_PREFIX } from "../../tasks/api/tasksApi";
 import * as conversationApi from "../api/conversationApi";
 import type { ConversationList, ConversationScope, ConversationView } from "../api/conversationApi";
@@ -43,13 +44,15 @@ export function OutreachPage() {
   const view = viewOf(params.get("view"));
   const who: ConversationScope = params.get("who") === "mine" ? "mine" : "team";
   const query = params.get("q") ?? "";
-  const candidateId = params.get("candidate");
+  const conversation = useAddressedPanel("candidate");
+  const candidateId = conversation.value;
+  const record = useAddressedPanel("profile");
 
   const mailbox = useMailbox();
   const mailboxState = mailboxStateOf(mailbox);
   const connector = useMailboxConnect();
   const [searchText, setSearchText] = useState(query);
-  const [recordId, setRecordId] = useState<string | null>(null);
+  const [recordTab, setRecordTab] = useState<DrawerTab | null>(null);
   // Whom New email opened, so their composer takes the caret; a row click opens someone to read.
   const [writingTo, setWritingTo] = useState<string | null>(null);
 
@@ -69,14 +72,14 @@ export function OutreachPage() {
   });
   const rows = list.data?.rows ?? [];
 
-  const changeParams = (change: (next: URLSearchParams) => void, replace = false) =>
+  const changeParams = (change: (next: URLSearchParams) => void) =>
     setParams(
       (current) => {
         const next = new URLSearchParams(current);
         change(next);
         return next;
       },
-      { replace },
+      { replace: true },
     );
 
   // The address can move without the box — Back, Forward, the nav's link — and the box follows it. A timer the old text
@@ -88,7 +91,7 @@ export function OutreachPage() {
   useEffect(() => {
     if (searchText === query) return;
     const timer = window.setTimeout(
-      () => changeParams((next) => (searchText.trim() ? next.set("q", searchText) : next.delete("q")), true),
+      () => changeParams((next) => (searchText.trim() ? next.set("q", searchText) : next.delete("q"))),
       SEARCH_DELAY_MS,
     );
     return () => window.clearTimeout(timer);
@@ -101,21 +104,18 @@ export function OutreachPage() {
   const firstCandidateId = list.isFetching ? null : (rows[0]?.candidateId ?? null);
   useEffect(() => {
     if (candidateId || !firstCandidateId || !hasRoomForRails()) return;
-    changeParams((next) => next.set("candidate", firstCandidateId), true);
+    conversation.step(firstCandidateId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [candidateId, firstCandidateId]);
 
-  const select = (next: string | null) =>
-    changeParams((params) => (next ? params.set("candidate", next) : params.delete("candidate")));
-
   const openToRead = (next: string) => {
     setWritingTo(null);
-    select(next);
+    conversation.open(next);
   };
 
   const openToWrite = (next: string) => {
     setWritingTo(next);
-    select(next);
+    conversation.open(next);
   };
 
   const showView = (next: ConversationView) =>
@@ -142,12 +142,14 @@ export function OutreachPage() {
     if (view !== "needs") return;
     const index = rows.findIndex((row) => row.candidateId === candidateId);
     const following = rows[index + 1] ?? rows[index - 1] ?? null;
-    select(following && following.candidateId !== candidateId ? following.candidateId : null);
+    if (following && following.candidateId !== candidateId) conversation.step(following.candidateId);
+    else conversation.close();
   };
 
   const openRecord = (tab: "activity" | null) => {
-    if (tab) rememberDrawerTab("position", tab);
-    setRecordId(candidateId);
+    if (!candidateId) return;
+    setRecordTab(tab);
+    record.open(candidateId);
   };
 
   return (
@@ -205,7 +207,7 @@ export function OutreachPage() {
             connector={connector}
             onHandled={selectNextAfterHandled}
             onOpenRecord={openRecord}
-            onBack={() => select(null)}
+            onBack={conversation.close}
             focusComposer={writingTo === candidateId}
             refreshMs={refreshMs}
           />
@@ -231,8 +233,9 @@ export function OutreachPage() {
 
       <CandidateDrawerById
         project={project}
-        candidateId={recordId}
-        onClose={() => setRecordId(null)}
+        candidateId={record.value}
+        focusTab={recordTab}
+        onClose={record.close}
         onChanged={() => void queryClient.invalidateQueries({ queryKey: ["outreach", project.id] })}
       />
     </div>

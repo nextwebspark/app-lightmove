@@ -10,7 +10,8 @@ import { ListToolbar } from "../../../components/ui/ListToolbar";
 import { PaginationBar } from "../../../components/ui/PaginationBar";
 import { useColumnVisibility } from "../../../lib/useColumnVisibility";
 import { EMPTY_GRID_LAYOUT, layoutColumnsOf, useGridLayout } from "../../../lib/useGridLayout";
-import { useGridPaging } from "../../../lib/useGridPaging";
+import { useAddressedGridPaging } from "../../../lib/useGridPaging";
+import { useAddressedPanel } from "../../../lib/useAddressedPanel";
 import { useGridSort, WORKSPACE_SCOPE } from "../../../lib/useGridSort";
 import { filterSpec, useLocalGridFilters, type LocalGridFilter } from "../../../lib/useLocalGridFilters";
 import { useAuth } from "../../auth/AuthProvider";
@@ -79,7 +80,7 @@ export function ProjectsPage() {
     CHIP_KEYS,
     DEFAULT_CHIP,
   );
-  const [openProjectId, setOpenProjectId] = useState<string | null>(null);
+  const drawer = useAddressedPanel("position");
   const [modalOpen, setModalOpen] = useState(false);
   const [sort, setSort] = useGridSort<ProjectSortField>(
     "projects",
@@ -93,7 +94,7 @@ export function ProjectsPage() {
     PROJECT_COLUMN_VISIBILITY,
   );
   const [layout, setLayout] = useGridLayout("projects", PROJECT_LAYOUT_COLUMNS);
-  const paging = useGridPaging();
+  const paging = useAddressedGridPaging();
 
   const { data: projects = [], isPending, isError } = useQuery({
     queryKey: projectsApi.PROJECTS_KEY,
@@ -126,11 +127,12 @@ export function ProjectsPage() {
   useEffect(() => {
     resetPage();
   }, [resetPage, chip, query, sort, columnFilterKey]);
+  const loaded = !isPending && !isError;
   useEffect(() => {
-    clampTo(rows.length);
-  }, [clampTo, rows.length]);
+    if (loaded) clampTo(rows.length);
+  }, [clampTo, loaded, rows.length]);
 
-  const openProject = projects.find((p) => p.id === openProjectId) ?? null;
+  const openProject = projects.find((p) => p.id === drawer.value) ?? null;
   const filtered = query.trim() !== "" || chip !== DEFAULT_CHIP || columnFiltered;
   const unfilteredCount = useMemo(
     () => filterProjects(projects, { chip: "allstages", query: "" }).length,
@@ -286,7 +288,7 @@ export function ProjectsPage() {
             pagination={paging.pagination}
             onPaginationChange={paging.onPaginationChange}
             emptyMessage="No positions match."
-            onOpen={setOpenProjectId}
+            onOpen={drawer.open}
             columnFilters={columnFilters}
           />
           <PaginationBar
@@ -300,7 +302,7 @@ export function ProjectsPage() {
         </div>
       )}
 
-      <ProjectDrawer project={openProject} onClose={() => setOpenProjectId(null)} />
+      <ProjectDrawer project={openProject} onClose={drawer.close} />
 
       {modalOpen && (
         <NewProjectModal open onClose={() => setModalOpen(false)} clients={liveClients(clients)} />

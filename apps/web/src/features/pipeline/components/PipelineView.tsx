@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { LinesSkeleton } from "../../../components/ui";
 import { messageFor } from "../../../lib/errorCodes";
+import { useAddressedPanel } from "../../../lib/useAddressedPanel";
 import { CandidateDrawerById } from "../../candidates/components/CandidateDrawerById";
 import { AskShareConsentDialog } from "../../candidates/components/consent/AskShareConsentDialog";
 import { ShareConsentBadge } from "../../candidates/components/consent/ShareConsentBadge";
@@ -23,6 +24,9 @@ import { useBoardMove, useClientVisibility } from "../lib/usePipelineWrites";
 import { PipelineBoard } from "./PipelineBoard";
 import type { CardActionKind, CardActionsUnavailable } from "./PipelineCardActions";
 import { ScheduleCallLauncher } from "./ScheduleCallLauncher";
+
+/** Where a link lands inside the open executive: these live and die with `?candidate=`. */
+const OPEN_EXECUTIVE_COMPANIONS = ["note", "section", "tab"] as const;
 
 /**
  * In universe read as the position's pipeline (`Position.dc.html`, `view=pipeline`): every executive on the position
@@ -47,7 +51,8 @@ export function PipelineView({
 }) {
   const queryClient = useQueryClient();
   const { catalog } = usePipelineCatalog();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
+  const openPanel = useAddressedPanel("candidate", OPEN_EXECUTIVE_COMPANIONS);
   const [nextActionFor, setNextActionFor] = useState<NextActionTarget | null>(null);
   const [cardAction, setCardAction] = useState<{ kind: CardActionKind; row: PipelineRow } | null>(null);
   const [sharePrompt, setSharePrompt] = useState<PipelineRow | null>(null);
@@ -55,22 +60,13 @@ export function PipelineView({
   const share = useShareConsents(project.id);
   const mailbox = useMailbox();
 
-  const openCandidateId = searchParams.get("candidate");
+  const openCandidateId = openPanel.value;
   const focusNoteId = searchParams.get("note");
   const focusSection = drawerSectionOf(searchParams.get("section"));
   const requestedTab = searchParams.get("tab");
   const focusTab = POSITION_STAFF_TABS.find((tab) => tab === requestedTab) ?? null;
-  const setOpenCandidateId = (candidateId: string | null, section: DrawerSection | null = null) =>
-    setSearchParams((current) => {
-      const next = new URLSearchParams(current);
-      if (candidateId) next.set("candidate", candidateId);
-      else next.delete("candidate");
-      next.delete("note");
-      next.delete("tab");
-      if (section) next.set("section", section);
-      else next.delete("section");
-      return next;
-    });
+  const openCandidate = (candidateId: string, section: DrawerSection | null = null) =>
+    openPanel.open(candidateId, section ? { section } : undefined);
 
   const query = { q: search, pipelineStage: "" };
   const queryKey = pipelineApi.PIPELINE_KEY(project.id, query);
@@ -93,7 +89,7 @@ export function PipelineView({
     setCardAction(null);
     refreshPipeline();
   };
-  const openContact = (row: PipelineRow) => setOpenCandidateId(row.candidateId, "contact");
+  const openContact = (row: PipelineRow) => openCandidate(row.candidateId, "contact");
   const showToClient = (row: PipelineRow, clientVisible: boolean) =>
     visibility.mutate({ candidateId: row.candidateId, clientVisible });
   // Turning someone visible with no consent to share asks first (#1267); warn, never block.
@@ -138,7 +134,7 @@ export function PipelineView({
             selectedIds={selectedIds}
             onToggleSelected={onToggleSelected}
             actionsUnavailable={actionsUnavailable}
-            onOpen={(candidateId) => setOpenCandidateId(candidateId)}
+            onOpen={(candidateId) => openCandidate(candidateId)}
             onMove={(placement) => boardMove.mutate(placement)}
             onToggleVisible={toggleVisible}
             onOpenNextAction={openNextAction}
@@ -221,7 +217,7 @@ export function PipelineView({
         focusNoteId={focusNoteId}
         focusSection={focusSection}
         focusTab={focusTab}
-        onClose={() => setOpenCandidateId(null)}
+        onClose={openPanel.close}
         onChanged={refreshPipeline}
         onExpand={onExpand}
       />

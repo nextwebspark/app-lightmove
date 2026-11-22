@@ -12,9 +12,10 @@ import { PaginationBar } from "../../../components/ui/PaginationBar";
 import { useToast } from "../../../components/ui/Toast";
 import { cn } from "../../../lib/cn";
 import { codeOf, messageFor } from "../../../lib/errorCodes";
-import { DEFAULT_PAGE_SIZE } from "../../../lib/paging";
 import { useProjectRowsChanged } from "../../../lib/projectRows";
+import { useAddressedPanel } from "../../../lib/useAddressedPanel";
 import { useColumnVisibility } from "../../../lib/useColumnVisibility";
+import { useAddressedGridPaging } from "../../../lib/useGridPaging";
 import { EMPTY_GRID_LAYOUT, layoutColumnsOf, useGridLayout } from "../../../lib/useGridLayout";
 import { FULLSCREEN_PANEL, useFullscreen } from "../../../lib/useFullscreen";
 import { sortableFieldsOf, useGridSort, type GridSort } from "../../../lib/useGridSort";
@@ -74,7 +75,7 @@ import { awaitingResearch, type TriageCompanyRow } from "../lib/triageRows";
 import { OFFERED_TRIAGE_STAGES, offeredStageBySlug } from "../lib/triageStages";
 import { COMPANIES_VIEW_LABELS, resolveCompaniesView, useCompaniesViews } from "../lib/useCompaniesViews";
 import { useLineSelection } from "../lib/useLineSelection";
-import { useOpenRecord } from "../lib/useOpenRecord";
+import { OPEN_RECORD_COMPANIONS, useOpenRecord } from "../lib/useOpenRecord";
 import { executivesOf } from "../lib/triageVocabulary";
 import { useProjectStream, type ProjectStreamKind } from "../../../lib/useProjectStream";
 
@@ -141,11 +142,10 @@ function TriageStage() {
   const stage = offeredStageBySlug(stageSlug!)!;
   const canWrite = canExecuteProjectWork(project, user?.id, user?.workspace?.roles);
 
-  const [page, setPage] = useState(0);
-  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
+  const paging = useAddressedGridPaging();
+  const { page, size: pageSize } = paging;
   /** The toolbar's search, the same in every view: the server matches it, so the three views agree. */
-  const [search, setSearch] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const { search, setSearch, debouncedSearch } = useAddressedToolbarSearch();
   /** The Company column's own header filter: the company's name alone. */
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
@@ -178,7 +178,19 @@ function TriageStage() {
       next.delete(id);
       return next;
     });
-  const [openCompany, setOpenCompany] = useState<OpenCompany | null>(null);
+  const companyPanel = useAddressedPanel("company");
+  /** "Add company", which has no company to address. */
+  const [addingCompany, setAddingCompany] = useState(false);
+  const [heldCompany, setHeldCompany] = useState<OpenCompany | null>(null);
+  const [companyAfterRecord, setCompanyAfterRecord] = useState<TriageCompany | null>(null);
+  const openCompany = (company: TriageCompany, tab?: CompanyDrawerTab) => {
+    setHeldCompany({ company, tab });
+    companyPanel.open(company.id);
+  };
+  const closeCompany = () => {
+    setAddingCompany(false);
+    companyPanel.close();
+  };
   const [pendingRemoval, setPendingRemoval] = useState<TriageCompany | null>(null);
   const [pendingDecline, setPendingDecline] = useState<PendingDecline | null>(null);
   const [pendingCandidateRemoval, setPendingCandidateRemoval] = useState<Candidate | null>(null);
@@ -200,7 +212,7 @@ function TriageStage() {
     // Who may write is read off the signed-in user, so the request waits for them rather than being dropped.
     if (!user) return;
     if (canWrite) {
-      if (addRequest === "company") setOpenCompany({ company: null });
+      if (addRequest === "company") setAddingCompany(true);
       else setProfile({ candidate: null, company: null });
     }
     setSearchParams(
@@ -230,32 +242,37 @@ function TriageStage() {
     lineSelection.clear();
     setPipelineSelection(new Set());
   }
+  const location = useLocation();
+  const navigate = useNavigate();
   // Only the switch remembers a view: a link that names one, a notification's opening the pipeline, is a visit.
   const handleViewChange = (next: CompaniesView) => {
     setMapPreferences({ view: next });
-    setSearchParams(
-      (current) => {
-        const params = new URLSearchParams(current);
-        params.set("view", next);
-        params.delete("candidate");
-        params.delete("record");
-        params.delete("note");
-        params.delete("section");
-        params.delete("tab");
-        return params;
-      },
-      { replace: true },
-    );
+    // The entry left is named for its view first: unnamed, Back would land on it reading the view just remembered.
+    if (!searchParams.has("view")) {
+      setSearchParams(
+        (current) => {
+          const params = new URLSearchParams(current);
+          params.set("view", view);
+          params.delete("record");
+          return params;
+        },
+        { replace: true, state: location.state },
+      );
+    }
+    setSearchParams((current) => {
+      const params = new URLSearchParams(current);
+      params.set("view", next);
+      for (const key of ["candidate", "record", ...OPEN_RECORD_COMPANIONS, "company"]) params.delete(key);
+      return params;
+    });
   };
 
-  const { profile, setProfile, focusTab } = useOpenRecord(project.id, !isBoard);
+  const { profile, setProfile, stepProfile, focusTab } = useOpenRecord(project.id, !isBoard);
 
   /**
    * Open full page is a visit, not a choice of view: a step in history, so Back returns to the grid or the board
    * with the person open, and the remembered view stays as it was.
    */
-  const location = useLocation();
-  const navigate = useNavigate();
   const executivesEntry = isRecordView ? ((location.state as ExecutivesEntry | null) ?? null) : null;
   const enterExecutives = (from: ExecutivesEntry["from"], candidateId: string) =>
     setSearchParams(
@@ -362,13 +379,6 @@ function TriageStage() {
     setSort(DEFAULT_SORT);
   }, [customColumnsQuery.isSuccess, sortableFields, sort.field, setSort]);
 
-  // A keystroke should narrow the list, not fire a request per character.
-  useEffect(() => {
-    // Trimmed once here, so a trailing space neither refetches the same page under a new key nor reads as a search.
-    const timer = setTimeout(() => setDebouncedSearch(search.trim()), 300);
-    return () => clearTimeout(timer);
-  }, [search]);
-
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedQuery(query), 300);
     return () => clearTimeout(timer);
@@ -383,7 +393,7 @@ function TriageStage() {
   // now matches two companies shows an empty grid over a non-empty result.
   useEffect(
     () => {
-      setPage(0);
+      paging.reset();
       // A tick made on one reading of the stage must not ride silently into another.
       lineSelection.clear();
       setPipelineSelection(new Set());
@@ -542,7 +552,7 @@ function TriageStage() {
     view === "table" || isRecordView,
     visiblePeople.current,
     profile?.candidate ?? null,
-    (candidate) => setProfile({ candidate, company: null }),
+    stepProfile,
     isRecordView ? "page" : "peek",
     isRecordView
       ? executivesEntry
@@ -613,6 +623,32 @@ function TriageStage() {
     );
   }, [polledLocations, queryClient, project.id, stage.status, debouncedSearch]);
 
+  /**
+   * The company panel's company: as it was opened and saved since, else found among the rows on screen for a link, a
+   * refresh or Forward. One on neither closes the panel, once the rows it could have been among have arrived.
+   */
+  const addressedCompanyId = companyPanel.value;
+  const addressedHeld = addressedCompanyId !== null && heldCompany?.company.id === addressedCompanyId ? heldCompany : null;
+  const shownCompany =
+    addressedCompanyId === null
+      ? null
+      : (addressedHeld?.company ??
+        lines.data?.lines.find((line) => line.company?.id === addressedCompanyId)?.company ??
+        talentMap.data?.companies.find((company) => company.id === addressedCompanyId) ??
+        null);
+  const drawnCompany = addingCompany ? null : shownCompany;
+  const companyRowsRead = view === "map" ? talentMap : view === "table" || isRecordView ? lines : null;
+  const addressedCompanyGone =
+    addressedCompanyId !== null &&
+    shownCompany === null &&
+    (companyRowsRead === null ||
+      companyRowsRead.isError ||
+      (companyRowsRead.isSuccess && !companyRowsRead.isPlaceholderData));
+  useEffect(() => {
+    if (addressedCompanyGone) companyPanel.close();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [addressedCompanyGone]);
+
   const rows = useMemo(() => {
     const addedBy = lines.data?.addedBy ?? {};
     return (lines.data?.lines ?? []).flatMap((line): TriageCompanyRow[] => {
@@ -625,13 +661,25 @@ function TriageStage() {
     () => rows.flatMap((row) => (row.candidate ? [{ candidate: row.candidate, companyLogo: row.company?.logoUrl ?? null }] : [])),
     [rows],
   );
-  // The Executives view always shows someone: the first of the page, until a link or a click names another.
+  // The Executives view always shows someone: the first of the page, until a link or a click names another, and the
+  // first of the next page once its list turns. In place, never a step: Back leaves the view rather than this pick.
   const firstOnPage = lines.isPlaceholderData ? undefined : recordEntries[0]?.candidate;
   const namedExecutive = searchParams.get("candidate");
+  // One panel at a time: one write cannot close the executive's and open the company's, so the company waits for it.
   useEffect(() => {
-    if (isRecordView && !namedExecutive && firstOnPage) setProfile({ candidate: firstOnPage, company: null });
+    if (!companyAfterRecord || namedExecutive) return;
+    setCompanyAfterRecord(null);
+    openCompany(companyAfterRecord);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isRecordView, namedExecutive, firstOnPage?.id]);
+  }, [companyAfterRecord, namedExecutive]);
+  const [recordListTurnedTo, setRecordListTurnedTo] = useState<number | null>(null);
+  const recordListTurned = recordListTurnedTo === page;
+  useEffect(() => {
+    if (!isRecordView || !firstOnPage || (namedExecutive && !recordListTurned)) return;
+    if (recordListTurned) setRecordListTurnedTo(null);
+    stepProfile(firstOnPage);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isRecordView, namedExecutive, firstOnPage?.id, recordListTurned]);
 
   /**
    * A company's move carries the people still where it stood, and someone moved on their own stays put (#903). The
@@ -970,8 +1018,8 @@ function TriageStage() {
   // A page that outlives its rows — the last company on page 3 was moved away — would otherwise sit
   // on an empty grid with no way back but the pager.
   useEffect(() => {
-    if (page > lastPage) setPage(lastPage);
-  }, [page, lastPage]);
+    if (totalCount !== undefined && !lines.isPlaceholderData) paging.clampTo(totalCount);
+  }, [totalCount, lines.isPlaceholderData, paging]);
 
   const columnFilters: Record<string, DataGridColumnFilter> = {
     name: {
@@ -1066,7 +1114,7 @@ function TriageStage() {
           canWrite && !isBoard && !declinedStage
             ? {
                 onAddExecutive: () => setProfile({ candidate: null, company: null }),
-                onAddCompany: () => setOpenCompany({ company: null }),
+                onAddCompany: () => setAddingCompany(true),
               }
             : undefined
         }
@@ -1136,7 +1184,7 @@ function TriageStage() {
           stageLabel={stage.label}
           entries={recordEntries}
           openId={profile.candidate.id}
-          onOpen={(candidate) => setProfile({ candidate, company: null })}
+          onOpen={stepProfile}
           onLeave={executivesEntry ? leaveExecutives : undefined}
           footer={
             lastPage > 0 && (
@@ -1144,8 +1192,8 @@ function TriageStage() {
                 page={page}
                 lastPage={lastPage}
                 onPage={(next) => {
-                  setPage(next);
-                  setProfile(null);
+                  setRecordListTurnedTo(next);
+                  paging.setPage(next);
                 }}
               />
             )
@@ -1157,7 +1205,7 @@ function TriageStage() {
               open
               frame="page"
               stepper={stepper && { ...stepper, lead: listButton }}
-              onOpenCompany={profileCompanyRow ? () => setOpenCompany({ company: profileCompanyRow }) : undefined}
+              onOpenCompany={profileCompanyRow ? () => openCompany(profileCompanyRow) : undefined}
               clientVisibility={(candidate, onSaved) => (
                 <ClientVisibleSwitch
                   projectId={project.id}
@@ -1191,7 +1239,7 @@ function TriageStage() {
           error={talentMap.isError}
           preferences={mapPreferences}
           onPreferences={setMapPreferences}
-          onOpenCompany={(company) => setOpenCompany({ company })}
+          onOpenCompany={(company) => openCompany(company)}
           onOpenCandidate={(candidate) => setProfile({ candidate, company: null })}
           onAddExecutive={(company) =>
             setProfile({
@@ -1249,7 +1297,7 @@ function TriageStage() {
               company: { triageCompanyId: company.id, companyName: company.companyName },
             })
           }
-          onOpenCompanyNotes={(company) => setOpenCompany({ company, tab: "notes" })}
+          onOpenCompanyNotes={(company) => openCompany(company, "notes")}
           onChangeCandidateStatus={(candidate, status) => {
             markBusy(candidate.id);
             changeCandidateStatus.mutate(
@@ -1263,7 +1311,7 @@ function TriageStage() {
             markBusy(candidate.id);
             moveCandidate.mutate({ candidate, status });
           }}
-          onOpenCompany={(company) => setOpenCompany({ company })}
+          onOpenCompany={(company) => openCompany(company)}
           onFindExecutives={
             findExecutivesOffered ? (company) => setFindingAt({ scope: [company.id], search: true }) : undefined
           }
@@ -1287,8 +1335,8 @@ function TriageStage() {
           page={page}
           size={pageSize}
           totalCount={totalCount}
-          onPage={setPage}
-          onSize={setPageSize}
+          onPage={paging.setPage}
+          onSize={paging.setSize}
           trailing={<FullscreenButton active={isFullscreen} onToggle={toggleFullscreen} />}
         />
       </div>
@@ -1304,33 +1352,31 @@ function TriageStage() {
       )}
 
       <CompanyDrawer
-        open={openCompany !== null}
+        open={addingCompany || shownCompany !== null}
         projectId={project.id}
-        company={openCompany?.company ?? null}
-        initialTab={openCompany?.tab ?? "overview"}
+        company={drawnCompany}
+        initialTab={addressedHeld?.tab ?? "overview"}
         landingStatus={stage.status}
         customColumns={companyColumns}
         canWrite={canWrite}
-        onClose={() => setOpenCompany(null)}
+        onClose={closeCompany}
         onSaved={(saved) => {
-          if (saved) {
-            setOpenCompany((held) =>
-              held?.company?.id === saved.id ? { ...held, company: withSavedFacts(held.company, saved) } : held,
-            );
+          if (saved && drawnCompany?.id === saved.id) {
+            setHeldCompany({ company: withSavedFacts(drawnCompany, saved), tab: addressedHeld?.tab });
           }
           refreshEverything();
         }}
         onMove={(company, status) => {
-          setOpenCompany(null);
+          closeCompany();
           void requestMove(company, status);
         }}
         onDelete={(company) => {
-          setOpenCompany(null);
+          closeCompany();
           setPendingRemoval(company);
         }}
         // One panel at a time: the company's closes as the new executive's opens on it.
         onAddExecutive={(company) => {
-          setOpenCompany(null);
+          closeCompany();
           setProfile({
             candidate: null,
             company: { triageCompanyId: company.id, companyName: company.companyName },
@@ -1340,11 +1386,11 @@ function TriageStage() {
           markBusy(company.id);
           markNoExecutiveFound.mutate(company);
         }}
-        markingNoExecutiveFound={!!openCompany?.company && busyIds.has(openCompany.company.id)}
+        markingNoExecutiveFound={!!drawnCompany && busyIds.has(drawnCompany.id)}
         onFindExecutives={
           findExecutivesOffered
             ? (company) => {
-                setOpenCompany(null);
+                closeCompany();
                 setFindingAt({ scope: [company.id], search: false });
               }
             : undefined
@@ -1358,7 +1404,7 @@ function TriageStage() {
           profileCompanyRow
             ? () => {
                 setProfile(null);
-                setOpenCompany({ company: profileCompanyRow });
+                setCompanyAfterRecord(profileCompanyRow);
               }
             : undefined
         }
@@ -1399,6 +1445,48 @@ function TriageStage() {
       {changeCandidateStatus.dialog}
     </div>
   );
+}
+
+/**
+ * The toolbar's search held in the address (`?q=`), as `useAddressedSearch` holds a list's: written in place once
+ * typing pauses, and an address moved elsewhere, by Back, is followed. The entry's state is kept on each write, since
+ * the Executives view's way back rides on it. `debouncedSearch` is trimmed, so a trailing space neither refetches the
+ * same page under a new key nor reads as a search.
+ */
+function useAddressedToolbarSearch() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const location = useLocation();
+  const addressed = searchParams.get("q") ?? "";
+  const [search, setSearch] = useState(addressed);
+  const [seenAddressed, setSeenAddressed] = useState(addressed);
+  // What this hook last wrote and the address has yet to show; anything else arriving there is someone else's.
+  const [pending, setPending] = useState<string | null>(null);
+
+  if (addressed !== seenAddressed) {
+    setSeenAddressed(addressed);
+    if (addressed === pending) setPending(null);
+    else setSearch(addressed);
+  }
+
+  useEffect(() => {
+    const next = search.trim();
+    if (next === addressed) return;
+    const timer = window.setTimeout(() => {
+      setPending(next);
+      setSearchParams(
+        (current) => {
+          const params = new URLSearchParams(current);
+          if (next === "") params.delete("q");
+          else params.set("q", next);
+          return params;
+        },
+        { replace: true, state: location.state },
+      );
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [search, addressed, setSearchParams, location.state]);
+
+  return { search, setSearch, debouncedSearch: addressed.trim() };
 }
 
 /** The Executives view's list runs a page of the grid at a time; this turns it. */
@@ -1482,11 +1570,6 @@ interface CompanyMove {
 }
 
 /**
- * What the company panel is open on. A wrapper rather than a bare `TriageCompany | null`, because
- * "closed" and "open on a new company" are both null on their own and the panel has to tell them
- * apart — one shows nothing, the other shows the Add form.
- */
-/**
  * The panel's company after its own save. Kept rather than reread from the grid, it went on showing the facts it
  * opened with, and the next edit, a full replace, wrote them back. A write's answer carries none of the staff reads'
  * fields, so those stay as the panel had them.
@@ -1502,8 +1585,9 @@ function withSavedFacts(held: TriageCompany, saved: TriageCompany): TriageCompan
   };
 }
 
+/** The company the panel was opened on, as saved since. */
 interface OpenCompany {
-  company: TriageCompany | null;
+  company: TriageCompany;
   /** The panel's tab to open on; its Overview when not said. */
   tab?: CompanyDrawerTab;
 }

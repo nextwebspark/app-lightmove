@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
-import { MemoryRouter, useLocation } from "react-router-dom";
+import { MemoryRouter, useLocation, useNavigationType } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../../../components/ui";
 import { ApiRequestError } from "../../../lib/apiClient";
@@ -216,7 +216,12 @@ const rows: PipelineRow[] = [
 ];
 
 function LocationProbe() {
-  return <output aria-label="Location">{useLocation().search}</output>;
+  return (
+    <>
+      <output aria-label="Location">{useLocation().search}</output>
+      <output aria-label="Last navigation">{useNavigationType()}</output>
+    </>
+  );
 }
 
 function View({ search }: { search: string }) {
@@ -465,6 +470,18 @@ describe("PipelineView", () => {
 
     expect(await screen.findByRole("dialog", { name: "Executive a" })).toBeInTheDocument();
     expect(screen.getByRole("status", { name: "Location" })).toHaveTextContent("?view=pipeline&candidate=a");
+    expect(screen.getByRole("status", { name: "Last navigation" })).toHaveTextContent("PUSH");
+  });
+
+  it("closes an executive it opened by stepping back, so Back never reopens them", async () => {
+    renderView();
+
+    await userEvent.click(await screen.findByRole("article", { name: "Amal Haddad" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Close drawer" }));
+
+    expect(screen.queryByRole("dialog", { name: "Executive a" })).not.toBeInTheDocument();
+    expect(screen.getByRole("status", { name: "Location" })).toHaveTextContent(/^\?view=pipeline$/);
+    expect(screen.getByRole("status", { name: "Last navigation" })).toHaveTextContent("POP");
   });
 
   it("flips client visibility at once and puts it back when the server refuses", async () => {

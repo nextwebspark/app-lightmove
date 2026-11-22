@@ -1,6 +1,6 @@
 import { useMutation } from "@tanstack/react-query";
-import { useCallback, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useState } from "react";
+import { useLocation, useSearchParams } from "react-router-dom";
 import { useToast } from "../../../components/ui";
 import { SegmentedControl } from "../../../components/ui/SegmentedControl";
 import { messageFor } from "../../../lib/errorCodes";
@@ -11,7 +11,8 @@ import { ActivityView } from "../components/pool/ActivityView";
 import { PeopleView } from "../components/pool/PeopleView";
 import { NO_POOL_FILTERS } from "../lib/poolFilters";
 import { PersonDrawer } from "../components/pool/PersonDrawer";
-import { drawerTabOf, rememberDrawerTab, rememberedDrawerTab, WORKSPACE_TABS } from "../lib/drawerTabs";
+import { drawerTabOf, rememberDrawerTab, rememberedDrawerTab, WORKSPACE_TABS, type DrawerTab } from "../lib/drawerTabs";
+import { useAddressedPanel } from "../../../lib/useAddressedPanel";
 
 const VIEWS = [
   { value: "people", label: "People" },
@@ -25,24 +26,34 @@ const VIEWS = [
 export function CandidatesPage() {
   const toast = useToast();
   const [params, setParams] = useSearchParams();
+  const location = useLocation();
   const [filters, setFilters] = useState<PoolFilters>(NO_POOL_FILTERS);
+  const drawer = useAddressedPanel("person", ["tab"]);
   const activity = params.get("view") === "activity";
-  const personId = params.get("person");
+  const personId = drawer.value;
   const tabParam = params.get("tab");
   const tab = tabParam ? drawerTabOf(tabParam, WORKSPACE_TABS) : rememberedDrawerTab("workspace", WORKSPACE_TABS);
 
-  const navigate = useCallback(
-    (change: Record<string, string | null>) =>
-      setParams((current) => {
-        const next = new URLSearchParams(current);
-        for (const [key, value] of Object.entries(change)) {
-          if (value === null) next.delete(key);
-          else next.set(key, value);
-        }
-        return next;
-      }),
-    [setParams],
-  );
+  // An Activity line opens its person on Activity in the address, without making it where every later drawer opens.
+  const openPerson = (id: string, on: DrawerTab | null) => drawer.open(id, on ? { tab: on } : undefined);
+  const changeTab = (next: DrawerTab) => {
+    rememberDrawerTab("workspace", next);
+    setParams(
+      (current) => {
+        const updated = new URLSearchParams(current);
+        updated.set("tab", next);
+        return updated;
+      },
+      { replace: true, state: location.state },
+    );
+  };
+  const switchView = (view: string) =>
+    setParams((current) => {
+      const updated = new URLSearchParams(current);
+      if (view === "activity") updated.set("view", "activity");
+      else updated.delete("view");
+      return updated;
+    });
 
   const exporting = useMutation({
     mutationFn: async (personIds: string[]) => {
@@ -64,20 +75,20 @@ export function CandidatesPage() {
       label="Candidates view"
       options={VIEWS}
       value={activity ? "activity" : "people"}
-      onChange={(view) => navigate({ view: view === "activity" ? "activity" : null })}
+      onChange={switchView}
     />
   );
 
   return (
     <>
       {activity ? (
-        <ActivityView toggle={toggle} onOpen={(id) => navigate({ person: id, tab: "activity" })} />
+        <ActivityView toggle={toggle} onOpen={(id) => openPerson(id, "activity")} />
       ) : (
         <PeopleView
           toggle={toggle}
           filters={filters}
           onFiltersChange={setFilters}
-          onOpen={(id) => navigate({ person: id, tab: null })}
+          onOpen={(id) => openPerson(id, null)}
           onExport={(personIds) => exporting.mutate(personIds)}
           exporting={exporting.isPending}
         />
@@ -86,11 +97,8 @@ export function CandidatesPage() {
       <PersonDrawer
         personId={personId}
         tab={tab}
-        onTabChange={(next) => {
-          rememberDrawerTab("workspace", next);
-          navigate({ tab: next });
-        }}
-        onClose={() => navigate({ person: null, tab: null })}
+        onTabChange={changeTab}
+        onClose={drawer.close}
       />
     </>
   );
