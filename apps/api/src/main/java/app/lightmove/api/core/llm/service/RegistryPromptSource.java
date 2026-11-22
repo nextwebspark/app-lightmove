@@ -1,9 +1,7 @@
 package app.lightmove.api.core.llm.service;
 
 import app.lightmove.api.core.config.LightMoveProperties;
-import app.lightmove.api.core.llm.constant.ModelCapability;
 import app.lightmove.api.core.llm.constant.PromptKind;
-import app.lightmove.api.core.llm.model.AiModel;
 import app.lightmove.api.core.llm.model.BundledPrompt;
 import app.lightmove.api.core.llm.model.GenerationSettings;
 import app.lightmove.api.core.llm.model.RecordedBundledPrompt;
@@ -133,7 +131,8 @@ public class RegistryPromptSource implements PromptSource, PlatformConfigListene
         if (served.modelId() == null) {
             return served;
         }
-        Optional<String> unusable = whyUnusable(models.find(served.provider(), served.modelId()), kind);
+        Optional<String> unusable = models.unusableBecause(served.provider(), served.modelId(), kind,
+                LocalDate.now(clock.withZone(ZoneOffset.UTC)));
         if (unusable.isEmpty()) {
             return served;
         }
@@ -142,20 +141,6 @@ public class RegistryPromptSource implements PromptSource, PlatformConfigListene
                     served.promptId(), served.version(), served.modelId(), unusable.get());
         }
         return served.onTheConfiguredModel();
-    }
-
-    private Optional<String> whyUnusable(Optional<AiModel> model, PromptKind kind) {
-        if (model.isEmpty()) {
-            return Optional.of("not in the model catalogue");
-        }
-        if (model.get().isRetiredOn(LocalDate.now(clock.withZone(ZoneOffset.UTC)))) {
-            return Optional.of("past its retirement date");
-        }
-        ModelCapability needed = kind.needs();
-        if (needed != null && !model.get().can(needed)) {
-            return Optional.of("not able to answer a " + kind + " prompt");
-        }
-        return Optional.empty();
     }
 
     private static String keyOf(RecordedBundledPrompt recorded) {

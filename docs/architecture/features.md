@@ -691,7 +691,10 @@ call path on the tried version's model and settings; `LlmBudget.PROMPT_TRIAL`). 
 two-factor code moves `production` (`PUT …/production`, a reason required until the eval gate of #1320), which is also
 how a rollback is made, and reloads every instance. Saving never changes what serves. Every act is audited
 (`PROMPT_VERSION_SAVED`, `PROMPT_TRIED`, `PROMPT_PUT_LIVE`, `PROMPT_ROLLED_BACK`) with the prompt id, version, model
-and note, never the text. The assistant and the shortlist prompt have no Try it.
+and note, never the text. The assistant and the shortlist prompt have no Try it. A list row flags
+`shippedChanged` (a release shipped a newer text than the live edit) and `modelUnavailable` (the live version's model
+is retired, no longer listed or unable to answer the prompt, `AiModelCatalog.unusableBecause`, so the configured
+model answers it).
 
 
 ## Layout

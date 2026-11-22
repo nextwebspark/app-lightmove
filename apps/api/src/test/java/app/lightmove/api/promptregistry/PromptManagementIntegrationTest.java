@@ -29,6 +29,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
+import org.springframework.transaction.support.TransactionTemplate;
 import tools.jackson.databind.JsonNode;
 
 /** #1317: the prompts a super admin reads, saves, tries, puts live and rolls back, with the registry serving. */
@@ -50,6 +51,7 @@ class PromptManagementIntegrationTest extends PositionTemplateFlowSupport {
     @Autowired List<PromptTrial> trials;
     @Autowired PromptTrialRunner runner;
     @Autowired PromptRegistryStore store;
+    @Autowired TransactionTemplate transactions;
 
     @AfterEach
     void serveTheShippedPromptsAgain() {
@@ -71,6 +73,7 @@ class PromptManagementIntegrationTest extends PositionTemplateFlowSupport {
         assertThat(assessment.get("name").asString()).isEqualTo("Assessment draft");
         assertThat(assessment.get("origin").asString()).isEqualTo("BUNDLED");
         assertThat(assessment.get("shippedChanged").asBoolean()).isFalse();
+        assertThat(assessment.get("modelUnavailable").asBoolean()).isFalse();
         assertThat(assessment.get("modelId").isNull()).isTrue();
 
         JsonNode page = getJson(admin, ASSESSMENT);
@@ -207,6 +210,33 @@ class PromptManagementIntegrationTest extends PositionTemplateFlowSupport {
                 SELECT reason FROM app_lm_platform_prompt_label_move
                 WHERE prompt_id = 'recruiter-shortlist' ORDER BY id DESC LIMIT 1
                 """, String.class)).isEqualTo("Answers got longer");
+    }
+
+    @Test
+    @DisplayName("a live version on a model the catalogue no longer lists is flagged in the list, and answered anyway")
+    void aLiveVersionOnAnUnlistedModelIsFlagged() throws Exception {
+        String admin = superAdmin();
+        int shipped = store.productionOf("recruiter-shortlist").orElseThrow().version();
+        int edited = shipped + 300;
+        db.update("""
+                INSERT INTO app_lm_platform_prompt_version
+                    (prompt_id, version, body, provider, model_id, origin, change_note)
+                VALUES ('recruiter-shortlist', ?, 'Weigh the candidate, on an old model.', 'VERTEX_GEMINI',
+                        'gemini-1.0-retired', 'EDITED', 'tested')
+                """, edited);
+        transactions.executeWithoutResult(status -> {
+            store.moveProduction("recruiter-shortlist", shipped, edited, null, "tested");
+            reload.bump(RegistryPromptSource.SCOPE);
+        });
+        reload.recheck();
+
+        JsonNode shortlistRow = promptIn(getJson(admin, PROMPTS), "recruiter-shortlist");
+        assertThat(shortlistRow.get("modelUnavailable").asBoolean()).isTrue();
+        assertThat(shortlistRow.get("modelRetiresInDays").isNull()).isTrue();
+
+        shortlist.shortlist("a brief", "a profile");
+        assertThat(model.lastPrompt().getSystemMessage().getText()).isEqualTo("Weigh the candidate, on an old model.");
+        assertThat(model.lastPrompt().getOptions().getModel()).isNotEqualTo("gemini-1.0-retired");
     }
 
     @Test
