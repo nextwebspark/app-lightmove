@@ -177,6 +177,8 @@ public class PromptCatalogService {
                 live.modelId(),
                 model.map(AiModel::displayName).orElse(live.modelId()),
                 model.map(named -> (int) ChronoUnit.DAYS.between(today(), named.retiresOn())).orElse(null),
+                live.modelId() != null && models.unusableBecause(live.provider(), live.modelId(), prompt.getKind(),
+                        today()).isPresent(),
                 livePrompt.shippedChangedSinceTheEdit(),
                 live.createdAt(),
                 live.origin() == PromptOrigin.BUNDLED ? null : live.authorName());

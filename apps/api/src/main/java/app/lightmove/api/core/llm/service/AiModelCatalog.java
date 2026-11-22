@@ -2,6 +2,7 @@ package app.lightmove.api.core.llm.service;
 
 import app.lightmove.api.core.llm.constant.AiProvider;
 import app.lightmove.api.core.llm.constant.ModelCapability;
+import app.lightmove.api.core.llm.constant.PromptKind;
 import app.lightmove.api.core.llm.model.AiModel;
 import app.lightmove.api.core.llm.model.SettingRange;
 import java.time.LocalDate;
@@ -44,6 +45,25 @@ public class AiModelCatalog {
         return MODELS.stream()
                 .filter(model -> model.provider() == provider && model.modelId().equals(modelId))
                 .findFirst();
+    }
+
+    /**
+     * Why a version naming this model cannot be answered by it on {@code day}, for a prompt of {@code kind}: the
+     * configured model answers instead. Empty when the model will do.
+     */
+    public Optional<String> unusableBecause(AiProvider provider, String modelId, PromptKind kind, LocalDate day) {
+        Optional<AiModel> model = find(provider, modelId);
+        if (model.isEmpty()) {
+            return Optional.of("not in the model catalogue");
+        }
+        if (model.get().isRetiredOn(day)) {
+            return Optional.of("past its retirement date");
+        }
+        ModelCapability needed = kind.needs();
+        if (needed != null && !model.get().can(needed)) {
+            return Optional.of("not able to answer a " + kind + " prompt");
+        }
+        return Optional.empty();
     }
 
     private static AiModel gemini(String modelId, String displayName, LocalDate retiresOn) {
