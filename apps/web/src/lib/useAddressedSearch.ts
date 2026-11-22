@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useLocation, useSearchParams } from "react-router-dom";
 
 /**
  * A list's search and chip kept in its address (`?q=` and the chip's key) so a return finds it as left. The address lags
@@ -7,6 +7,7 @@ import { useSearchParams } from "react-router-dom";
  */
 export function useAddressedSearch<Chip extends string>(chipKey: string, chips: readonly Chip[], defaultChip: Chip) {
   const [searchParams, setSearchParams] = useSearchParams();
+  const { state } = useLocation();
   const addressQuery = searchParams.get("q") ?? "";
   const addressChip = searchParams.get(chipKey);
   const chip = chips.find((candidate) => candidate === addressChip) ?? defaultChip;
@@ -30,9 +31,9 @@ export function useAddressedSearch<Chip extends string>(chipKey: string, chips: 
           else next.set(key, value);
           return next;
         },
-        { replace: true },
+        { replace: true, state },
       ),
-    [setSearchParams],
+    [setSearchParams, state],
   );
 
   const writeQuery = useCallback(() => {
@@ -57,7 +58,7 @@ export function useAddressedSearch<Chip extends string>(chipKey: string, chips: 
         next.delete(chipKey);
         return next;
       },
-      { replace: true },
+      { replace: true, state },
     );
   };
 

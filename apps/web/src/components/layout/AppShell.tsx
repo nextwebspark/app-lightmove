@@ -1,6 +1,7 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useLocation } from "react-router-dom";
 import { cn } from "../../lib/cn";
+import { useScrollMemory } from "../../lib/useScrollMemory";
 import { useAssistant } from "../../features/assistant/AssistantProvider";
 import { AssistantDock } from "../../features/assistant/components/AssistantDock";
 import { HelpProvider } from "../../features/help/HelpProvider";
@@ -54,6 +55,8 @@ export function AppShell({
 }) {
   const { pathname } = useLocation();
   const [moreOpen, setMoreOpen] = useState(false);
+  const mainRef = useRef<HTMLElement>(null);
+  useScrollMemory(mainRef, "main");
   const { isOpenFor } = useAssistant();
 
   useEffect(() => setMoreOpen(false), [pathname]);
@@ -76,7 +79,10 @@ export function AppShell({
             assistantOpen={!!assistantProjectId && isOpenFor(assistantProjectId)}
           />
 
-          <main className="min-w-0 flex-1 overflow-y-auto rounded-[10px] border border-u-border-strong bg-u-surface">
+          <main
+            ref={mainRef}
+            className="min-w-0 flex-1 overflow-y-auto rounded-[10px] border border-u-border-strong bg-u-surface"
+          >
             <div className={cn(contentClassName)}>{children}</div>
           </main>
 
