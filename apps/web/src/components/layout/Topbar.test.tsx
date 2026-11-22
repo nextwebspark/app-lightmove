@@ -312,7 +312,7 @@ describe("Topbar — account menu", () => {
         <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
           <AuthProvider>
             <ToastProvider>
-              <Topbar breadcrumb={<PlatformBreadcrumb section="Templates" />} workspaceChrome={false} />
+              <Topbar breadcrumb={<PlatformBreadcrumb section={{ label: "Templates", to: "/platform/templates" }} />} workspaceChrome={false} />
             </ToastProvider>
           </AuthProvider>
         </QueryClientProvider>

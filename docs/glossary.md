@@ -83,6 +83,7 @@ changes. Copy no mockup draws — toasts, errors, banners, empty states — foll
 | **Call logged** / **WhatsApp logged** | the toast once a log that says how it went is saved (from the tray or the composer); "Call logged · Wrong number" for that outcome | note saved, call saved |
 | **12d** | a trial's days left, where a phone has room for nothing longer (the topbar chip; its spoken name is "Trial · 12 days left") | — |
 | **Platform** | the area only Uncava's own staff reach, from the avatar menu: what every workspace shares. Its header reads **Uncava platform** · Staff only | admin console, back office, super admin |
+| **Put live** / **Roll back** / **Version** / **Shipped** / **Edited** / **Try it** | Platform → Prompts: making a version of a prompt the one every workspace runs on, going back to an earlier one, one saved text with its model and settings, a version a release brought, a version saved in the console, and one run on a fictional input | promote, deploy, production, revert, bundled, playground |
 
 ## Never on screen
 

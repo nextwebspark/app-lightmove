@@ -10,6 +10,8 @@ import { AuthProvider } from "../features/auth/AuthProvider";
 import * as authApi from "../features/auth/api/authApi";
 import * as clientsApi from "../features/clients/api/clientsApi";
 import * as consentApi from "../features/oauth/api/oauthConsentApi";
+import * as promptApi from "../features/platform/prompts/api/promptApi";
+import { detail as promptDetail, model as aiModel } from "../features/platform/prompts/pages/promptFixtures";
 import * as projectsApi from "../features/projects/api/projectsApi";
 import * as templateAdminApi from "../features/templates/api/templateAdminApi";
 import * as triageApi from "../features/triage/api/triageApi";
@@ -35,6 +37,12 @@ vi.mock("../features/templates/api/templateAdminApi", async (importOriginal) => 
   ...(await importOriginal<typeof import("../features/templates/api/templateAdminApi")>()),
   listTemplates: vi.fn(),
   getTemplate: vi.fn(),
+}));
+vi.mock("../features/platform/prompts/api/promptApi", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../features/platform/prompts/api/promptApi")>()),
+  getPrompt: vi.fn(),
+  getPromptBody: vi.fn(),
+  listAiModels: vi.fn(),
 }));
 vi.mock("../features/workspace/api/workspaceApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../features/workspace/api/workspaceApi")>()),
@@ -394,6 +402,38 @@ describe("routes — the platform gate", () => {
     expect(screen.getAllByRole("link", { name: "Back to workspace" })[0]).toHaveAttribute("href", "/");
     // The console belongs to no workspace: no workspace menu in its header.
     expect(screen.queryByRole("button", { name: /^Workspace:/ })).not.toBeInTheDocument();
+  });
+
+  it("keeps someone who holds only the template library out of Prompts", async () => {
+    vi.mocked(authApi.me).mockResolvedValue(superAdmin());
+
+    renderAt("/platform/prompts");
+
+    await waitFor(() => expect(screen.getByTestId("pathname").textContent).toBe("/platform/templates"));
+    expect(screen.queryByRole("link", { name: "Prompts" })).not.toBeInTheDocument();
+  });
+
+  it("asks for no prompt on behalf of someone who may not open one", async () => {
+    vi.mocked(authApi.me).mockResolvedValue(superAdmin());
+
+    renderAt("/platform/prompts/candidate-scorecard-draft");
+
+    await waitFor(() => expect(screen.getByTestId("pathname").textContent).toBe("/platform/templates"));
+    expect(promptApi.getPrompt).not.toHaveBeenCalled();
+  });
+
+  it("names the open prompt in the console's breadcrumb, under a link back to Prompts", async () => {
+    vi.mocked(authApi.me).mockResolvedValue({ ...superAdmin(), platformActions: ["PROMPT_MANAGE" as const] });
+    vi.mocked(promptApi.getPrompt).mockResolvedValue(promptDetail());
+    vi.mocked(promptApi.getPromptBody).mockResolvedValue({ version: 2, body: "Score each competency." });
+    vi.mocked(promptApi.listAiModels).mockResolvedValue([aiModel()]);
+
+    renderAt("/platform/prompts/candidate-scorecard-draft");
+
+    expect(await screen.findByRole("heading", { name: "Assessment draft" })).toBeInTheDocument();
+    const header = screen.getByText("Staff only").parentElement as HTMLElement;
+    await waitFor(() => expect(within(header).getByText("Assessment draft")).toBeInTheDocument());
+    expect(within(header).getByRole("link", { name: "Prompts" })).toHaveAttribute("href", "/platform/prompts");
   });
 
   it("redirects the library's old address to the console", async () => {
