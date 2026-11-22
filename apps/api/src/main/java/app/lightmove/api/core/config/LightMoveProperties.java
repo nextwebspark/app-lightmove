@@ -37,10 +37,12 @@ public record LightMoveProperties(
         AvatarSettings avatars,
         RetentionSettings retention,
         DataProtectionSettings dataProtection,
-        LegalSettings legal
+        LegalSettings legal,
+        PlatformSecuritySettings platform
 ) {
 
     public LightMoveProperties {
         legal = legal == null ? LegalSettings.none() : legal;
+        platform = platform == null ? PlatformSecuritySettings.defaults() : platform;
     }
 }

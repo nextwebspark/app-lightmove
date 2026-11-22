@@ -610,7 +610,12 @@ one takes that title and redrafts the brief from its template (`GET /position-te
 `POST .../position/template`). Templates are edited in two places (V57/V58; **Settings → Templates** for a
 firm's admin, **Platform → Templates** for a super admin): a LightMove **super admin** — a *platform* role granted only by
 `ops/cloudsql/grant-platform-role.sh`, reading no tenant's data — edits the shared library, and a
-workspace admin customises, hides, adds, exports and imports the firm's own. A firm's copy **shadows**
+workspace admin customises, hides, adds, exports and imports the firm's own. Where a deployment sets
+`lightmove.platform.require-two-factor` (#1313, off by default), that role also needs two-factor: without a factor every
+`/api/v1/platform/**` route answers `PLATFORM_TWO_FACTOR_REQUIRED` and the library draws **Set up two-factor to use the
+platform console**; a credit grant or an invoiced subscription also needs a code entered in the last ten minutes
+(`PLATFORM_STEP_UP_REQUIRED`), which the SPA asks for in **Confirm it's you** from any screen and then sends the request
+again (`apiClient`'s `onStepUpRequired`, `PlatformStepUp`). A firm's copy **shadows**
 the library template of the same `code`, so a library edit reaches every firm that never customised
 it; neither ever touches a brief already drafted. The file format is JSON with a published schema, so
 a template can be written outside the app, AI included, and previewed before anything is written.

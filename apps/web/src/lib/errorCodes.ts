@@ -35,6 +35,8 @@ export type ApiErrorCode =
   | "MFA_SETUP_NOT_STARTED"
   | "MFA_UNAVAILABLE"
   | "MFA_SIGN_IN_AGAIN"
+  | "PLATFORM_TWO_FACTOR_REQUIRED"
+  | "PLATFORM_STEP_UP_REQUIRED"
   | "ACCOUNT_SIGN_IN_AGAIN"
   | "ACCOUNT_HANDOVER_REQUIRED"
   | "SESSION_NOT_FOUND"
@@ -87,6 +89,7 @@ export type ApiErrorCode =
   | "CHART_QUERY_NOT_FOUND"
   | "CHART_TYPE_NOT_ALLOWED"
   | "CHART_OPTION_INVALID"
+  | "CHART_UNAVAILABLE"
   | "RANKING_BRIEF_CHANGED"
   | "AI_UNAVAILABLE"
   | "PIPELINE_STAGE_NOT_EMPTY"
@@ -300,6 +303,8 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   MFA_SETUP_NOT_STARTED: "That setup has ended. Start again to get a new QR code.",
   MFA_UNAVAILABLE: "Two-factor authentication is not available yet.",
   MFA_SIGN_IN_AGAIN: "Sign out and back in, then turn on two-factor authentication within 10 minutes.",
+  PLATFORM_TWO_FACTOR_REQUIRED: "Set up two-factor authentication to use the platform console.",
+  PLATFORM_STEP_UP_REQUIRED: "Enter a code from your authenticator app to continue.",
   ACCOUNT_SIGN_IN_AGAIN: "Sign in again to show it's you, then delete your account within 10 minutes.",
   ACCOUNT_HANDOVER_REQUIRED: "Hand over the workspaces and positions only you run first.",
   SESSION_NOT_FOUND: "That session has already ended.",
@@ -340,6 +345,7 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   CHART_QUERY_NOT_FOUND: "That chart is no longer available. Remove it, or pick a replacement from the library.",
   CHART_TYPE_NOT_ALLOWED: "That chart type doesn't fit this data. Pick another way to show it.",
   CHART_OPTION_INVALID: "That option isn't available for this chart.",
+  CHART_UNAVAILABLE: "That chart couldn't be answered just now. Try again in a moment.",
   CANDIDATE_ASSESSMENT_NO_CRITERIA:
     "The brief has no competencies to assess against yet. Add them in the position's Assessment Criteria step.",
   CANDIDATE_ASSESSMENT_NOTHING_OPEN:

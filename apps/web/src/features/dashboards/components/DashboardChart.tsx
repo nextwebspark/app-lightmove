@@ -13,6 +13,9 @@ const HUES = [
 
 const hue = (index: number) => HUES[index % HUES.length];
 
+/** Labels repeat — two positions with one title, a week-ending date a year apart — so a key needs the place too. */
+const keyOf = (label: string, index: number) => `${index}:${label}`;
+
 const plain = new Intl.NumberFormat("en-GB", { maximumFractionDigits: 1 });
 const compact = new Intl.NumberFormat("en-GB", { notation: "compact", maximumFractionDigits: 1 });
 
@@ -35,7 +38,9 @@ export function DashboardChart({ result, chart }: { result: ChartResult; chart: 
       {chart === "table" && <ResultTable result={result} />}
       {result.note && <p className="mt-3 text-meta italic text-u-text3">{result.note}</p>}
       {result.truncated && (
-        <p className="mt-2 text-meta text-u-text3">Showing the largest groups; the rest are folded into Other.</p>
+        <p className="mt-2 text-meta text-u-text3">
+          {result.folded ? "Showing the largest groups; the rest are folded into Other." : "Showing the largest groups only."}
+        </p>
       )}
     </div>
   );
@@ -66,7 +71,7 @@ function BarRows({ result }: { result: ChartResult }) {
     <ul className="mt-4 flex flex-col gap-2.5">
       {result.labels.map((label, index) => (
         <li
-          key={label}
+          key={keyOf(label, index)}
           title={`${label}: ${formatFigure(result.values[index], result.unit)}`}
           className="grid grid-cols-[minmax(80px,34%)_minmax(0,1fr)_auto] items-center gap-2.5 text-note"
         >
@@ -92,7 +97,7 @@ function Columns({ result }: { result: ChartResult }) {
          className="mt-4 flex min-h-28 flex-[1_1_10rem] items-end gap-2">
       {result.labels.map((label, index) => (
         <div
-          key={label}
+          key={keyOf(label, index)}
           title={`${label}: ${formatFigure(result.values[index], result.unit)}`}
           className="flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-1.5"
         >
@@ -127,7 +132,7 @@ function Pie({ result, donut }: { result: ChartResult; donut: boolean }) {
             used += length;
             return (
               <circle
-                key={result.labels[index]}
+                key={keyOf(result.labels[index], index)}
                 cx="80"
                 cy="80"
                 r={radius}
@@ -151,7 +156,7 @@ function Pie({ result, donut }: { result: ChartResult; donut: boolean }) {
       </div>
       <ul className="flex min-w-[140px] flex-1 flex-col gap-1.5">
         {result.labels.map((label, index) => (
-          <li key={label} className="flex items-center gap-2 text-note">
+          <li key={keyOf(label, index)} className="flex items-center gap-2 text-note">
             <i className="size-2.5 flex-none rounded-sm" style={{ background: hue(index) }} />
             <span className="min-w-0 flex-1 truncate text-u-text2">{label}</span>
             <span className="font-u-num font-semibold">{formatFigure(result.values[index])}</span>
@@ -193,7 +198,7 @@ function LineChart({ result, area }: { result: ChartResult; area: boolean }) {
         <polyline points={points} fill="none" strokeLinejoin="round" strokeLinecap="round"
                   className="stroke-u-accent" strokeWidth={2} />
         {result.values.map((value, index) => (
-          <circle key={result.labels[index]} cx={x(index)} cy={y(value)} r={3.2}
+          <circle key={keyOf(result.labels[index], index)} cx={x(index)} cy={y(value)} r={3.2}
                   className="fill-u-accent stroke-u-surface" strokeWidth={1.5}>
             <title>{`${result.labels[index]}: ${formatFigure(value)}`}</title>
           </circle>
@@ -207,7 +212,7 @@ function LineChart({ result, area }: { result: ChartResult; area: boolean }) {
       ))}
       {result.labels.map((label, index) =>
         count <= 10 || index % 2 === 0 ? (
-          <span key={label} className="absolute -translate-x-1/2 whitespace-nowrap font-u-num text-eyebrow text-u-text3"
+          <span key={keyOf(label, index)} className="absolute -translate-x-1/2 whitespace-nowrap font-u-num text-eyebrow text-u-text3"
                 style={{ left: `${(x(index) / WIDTH) * 100}%`, top: `${((BASE + 8) / 200) * 100}%` }}>
             {label}
           </span>
@@ -225,7 +230,7 @@ function StackedRows({ result }: { result: ChartResult }) {
     <div>
       <ul className="mt-3 flex flex-wrap gap-x-3.5 gap-y-1.5 text-meta text-u-text2">
         {result.series.map((series, index) => (
-          <li key={series.name} className="inline-flex items-center gap-1.5">
+          <li key={keyOf(series.name, index)} className="inline-flex items-center gap-1.5">
             <i className="size-2.5 rounded-sm" style={{ background: hue(index) }} />
             {series.name}
           </li>
@@ -235,7 +240,7 @@ function StackedRows({ result }: { result: ChartResult }) {
         {result.labels.map((label, row) => {
           const hidden = result.suppressed[row];
           return (
-            <li key={label}>
+            <li key={keyOf(label, row)}>
               <div className="flex justify-between gap-2.5 text-note">
                 <span className="font-semibold">{label}</span>
                 <span className="text-u-text3">
@@ -249,7 +254,7 @@ function StackedRows({ result }: { result: ChartResult }) {
                   <div className="flex h-full overflow-hidden rounded-full"
                        style={{ width: result.percent ? "100%" : `${(totals[row] / max) * 100}%` }}>
                     {result.series.map((series, index) => (
-                      <div key={series.name} title={`${series.name}: ${formatFigure(series.values[row])}`}
+                      <div key={keyOf(series.name, index)} title={`${series.name}: ${formatFigure(series.values[row])}`}
                            className="h-full"
                            style={{
                              background: hue(index),
@@ -304,7 +309,7 @@ function ResultTable({ result }: { result: ChartResult }) {
         <thead>
           <tr>
             {columns.map((column, index) => (
-              <th key={column} scope="col"
+              <th key={keyOf(column, index)} scope="col"
                   className={cn("type-micro-label whitespace-nowrap border-b border-u-border-strong px-2 py-1.5",
                     index === 0 ? "text-left" : "text-right")}>
                 {column}
