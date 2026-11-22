@@ -35,6 +35,15 @@ class MeetingSummariser {
     private static final int LONGEST_TRANSCRIPT = 400_000;
     private static final int LONGEST_ITEM = 600;
 
+    /** What is sent beside the instructions: the same text for every call, filled from the brief and the transcript. */
+    static final String USER_MESSAGE = """
+            THE POSITION
+            {position}
+
+            THE TRANSCRIPT (time into the call, speaker, words)
+            {transcript}
+            """;
+
     private final StructuredPrompt prompt;
 
     MeetingSummariser(StructuredPromptFactory prompts) {
@@ -44,13 +53,7 @@ class MeetingSummariser {
     /** {@code brief} is null for a call about no position. Throws when nothing usable comes back. */
     MeetingSummary summarise(List<TranscriptLine> transcript, Instant callStart, AssessmentBrief brief) {
         Map<String, BriefCompetency> competencyById = brief == null ? Map.of() : idsOf(brief);
-        ModelAnswer answer = prompt.ask(ModelAnswer.class, user -> user.text("""
-                THE POSITION
-                {position}
-
-                THE TRANSCRIPT (time into the call, speaker, words)
-                {transcript}
-                """)
+        ModelAnswer answer = prompt.ask(ModelAnswer.class, user -> user.text(USER_MESSAGE)
                 .param("position", brief == null ? "None: the call was about no position. Leave the brief fields empty."
                         : positionOf(brief, competencyById))
                 .param("transcript", transcriptText(transcript, callStart)));

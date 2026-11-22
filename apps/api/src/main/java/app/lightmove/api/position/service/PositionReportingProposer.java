@@ -46,6 +46,12 @@ public class PositionReportingProposer {
      */
     private static final int DIRECT_REPORT_MAX_COUNT = 40;
 
+    /** What is sent beside the instructions: the same text for every call, filled from the document. */
+    static final String USER_MESSAGE = """
+            Position description text:
+            {text}
+            """;
+
     private final PositionDocumentRedactor redactor;
     private final ExtractedFieldReader fieldReader;
     private final StructuredPrompt prompt;
@@ -66,26 +72,28 @@ public class PositionReportingProposer {
 
         try {
             Redaction redaction = redactor.redact(documentText, clientId, workspaceId);
-            ModelReportingAnswer answered = ask(redaction.text());
-            if (answered == null || wasBlocked(answered)) {
-                if (answered != null) {
-                    log.warn("Reporting extraction blocked before reaching the model: the document "
-                            + "matched the injection word list.");
-                }
-                return finish(empty());
-            }
-            return finish(reconcile(answered, redaction.pseudonyms(), documentText));
+            return read(redaction.text(), redaction.pseudonyms(), documentText);
         } catch (RuntimeException e) {
             log.warn("Reporting extraction found nothing to propose: {}", e.toString());
             return finish(empty());
         }
     }
 
+    /** The model call and what follows it, on a document already redacted: no budget, no table. */
+    ProposedReportingStructure read(String redactedText, Pseudonyms pseudonyms, String originalText) {
+        ModelReportingAnswer answered = ask(redactedText);
+        if (answered == null || wasBlocked(answered)) {
+            if (answered != null) {
+                log.warn("Reporting extraction blocked before reaching the model: the document "
+                        + "matched the injection word list.");
+            }
+            return finish(empty());
+        }
+        return finish(reconcile(answered, pseudonyms, originalText));
+    }
+
     private ModelReportingAnswer ask(String redactedText) {
-        return prompt.ask(ModelReportingAnswer.class, user -> user.text("""
-                Position description text:
-                {text}
-                """)
+        return prompt.ask(ModelReportingAnswer.class, user -> user.text(USER_MESSAGE)
                 .param("text", redactedText));
     }
 

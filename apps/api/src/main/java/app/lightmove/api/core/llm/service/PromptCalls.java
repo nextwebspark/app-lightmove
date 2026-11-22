@@ -18,13 +18,21 @@ public class PromptCalls {
     private final PromptSource prompts;
     private final ChatModelProvider provider;
     private final PromptCallCounter counter;
+    private final PromptTrialRunner trials;
 
     public PreparedPrompt prepare(PromptCallSpec spec) {
-        ServedPrompt served = prompts.current(spec.promptId(), spec.kind());
+        ServedPrompt underTrial = trials.versionUnderTrial(spec.promptId());
+        ServedPrompt served = underTrial != null ? underTrial : prompts.current(spec.promptId(), spec.kind());
         String model = served.modelId() != null ? served.modelId() : spec.defaultModel();
         PromptCallOptions call = new PromptCallOptions(spec.callLabel(), served.version(), spec.kind(), model,
                 served.settings().orElse(spec.defaults()));
         return new PreparedPrompt(served.body(), model, provider.optionsFor(call),
-                counter.attributing(served, provider.provider()));
+                counter.attributing(served, provider.provider()).andThen(trials.recording()));
+    }
+
+    /** Hands a bound answer to a running trial, and back to the caller unchanged. */
+    public <T> T bound(T answer) {
+        trials.bound(answer);
+        return answer;
     }
 }

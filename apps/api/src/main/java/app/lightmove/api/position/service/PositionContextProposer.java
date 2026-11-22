@@ -41,6 +41,13 @@ public class PositionContextProposer {
     private static final int PRIORITY_NAME_MAX_LENGTH = 120;
     private static final int PRIORITY_MAX_COUNT = 5;
     private static final String LABEL = "Mandate context extraction";
+
+    /** What is sent beside the instructions: the same text for every call, filled from the document. */
+    static final String USER_MESSAGE = """
+            Position description text:
+            {text}
+            """;
+
     private static final Pattern NEW_ROLE_WORDING = reasonWording(
             "new ([a-z]+ )?(role|position|post|seat)", "newly[- ](created|established|formed)",
             "created (this|the) role");
@@ -76,15 +83,7 @@ public class PositionContextProposer {
 
         try {
             Redaction redaction = redactor.redact(documentText, clientId, workspaceId);
-            ModelContextAnswer answered = ask(redaction.text());
-            if (answered == null || wasBlocked(answered)) {
-                if (answered != null) {
-                    log.warn("Mandate context extraction blocked before reaching the model: the "
-                            + "document matched the injection word list.");
-                }
-                return finish(empty());
-            }
-            return finish(reconcile(answered, redaction.pseudonyms(), documentText));
+            return read(redaction.text(), redaction.pseudonyms(), documentText);
         } catch (RuntimeException e) {
             // Deliberately broad: every failure has the same right answer, an empty reading.
             log.warn("Mandate context extraction found nothing to propose", e);
@@ -92,11 +91,21 @@ public class PositionContextProposer {
         }
     }
 
+    /** The model call and what follows it, on a document already redacted: no budget, no table. */
+    ProposedMandateContext read(String redactedText, Pseudonyms pseudonyms, String originalText) {
+        ModelContextAnswer answered = ask(redactedText);
+        if (answered == null || wasBlocked(answered)) {
+            if (answered != null) {
+                log.warn("Mandate context extraction blocked before reaching the model: the "
+                        + "document matched the injection word list.");
+            }
+            return finish(empty());
+        }
+        return finish(reconcile(answered, pseudonyms, originalText));
+    }
+
     private ModelContextAnswer ask(String redactedText) {
-        return prompt.ask(ModelContextAnswer.class, user -> user.text("""
-                Position description text:
-                {text}
-                """)
+        return prompt.ask(ModelContextAnswer.class, user -> user.text(USER_MESSAGE)
                 .param("text", redactedText));
     }
 

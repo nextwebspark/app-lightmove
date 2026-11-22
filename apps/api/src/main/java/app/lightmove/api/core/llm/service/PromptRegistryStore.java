@@ -5,8 +5,10 @@ import app.lightmove.api.core.llm.constant.FinishKind;
 import app.lightmove.api.core.llm.constant.PromptOrigin;
 import app.lightmove.api.core.llm.model.BundledPrompt;
 import app.lightmove.api.core.llm.model.GenerationSettings;
+import app.lightmove.api.core.llm.model.LivePrompt;
 import app.lightmove.api.core.llm.model.ProductionVersion;
 import app.lightmove.api.core.llm.model.PromptCallCount;
+import app.lightmove.api.core.llm.model.PromptVersion;
 import app.lightmove.api.core.llm.model.RecordedBundledPrompt;
 import app.lightmove.api.core.llm.model.ServedPrompt;
 import java.sql.ResultSet;
@@ -27,6 +29,11 @@ public class PromptRegistryStore {
     public static final String PRODUCTION = "production";
 
     private static final String SYNC_LOCK = "prompt-registry-sync";
+
+    private static final String VERSION_COLUMNS = """
+            SELECT v.prompt_id, v.version, v.origin, v.provider, v.model_id, v.settings::text AS settings,
+                   v.change_note, v.created_at, author.full_name AS author_name
+            """;
 
     private final JdbcClient jdbc;
     private final ObjectMapper json;
@@ -156,19 +163,104 @@ public class PromptRegistryStore {
                 .update();
     }
 
+    /** Every prompt's production version, with the newest version a release shipped for it. */
+    public List<LivePrompt> livePrompts() {
+        return jdbc.sql(VERSION_COLUMNS + """
+                        , (SELECT coalesce(max(b.version), 0) FROM app_lm_platform_prompt_version b
+                           WHERE b.prompt_id = v.prompt_id AND b.origin = 'BUNDLED') AS newest_bundled
+                        FROM app_lm_platform_prompt_label l
+                        JOIN app_lm_platform_prompt_version v ON v.prompt_id = l.prompt_id AND v.version = l.version
+                        LEFT JOIN app_lm_user author ON author.id = v.created_by
+                        WHERE l.label = :label
+                        """)
+                .param("label", PRODUCTION)
+                .query((row, index) -> new LivePrompt(promptVersion(row, index), row.getInt("newest_bundled")))
+                .list();
+    }
+
+    public List<PromptVersion> versionsOf(String promptId) {
+        return jdbc.sql(VERSION_COLUMNS + """
+                        FROM app_lm_platform_prompt_version v
+                        LEFT JOIN app_lm_user author ON author.id = v.created_by
+                        WHERE v.prompt_id = :promptId
+                        ORDER BY v.version DESC
+                        """)
+                .param("promptId", promptId)
+                .query(this::promptVersion)
+                .list();
+    }
+
+    /** One version as a call would be served it: its text, model and settings. */
+    public Optional<ServedPrompt> version(String promptId, int version) {
+        return jdbc.sql("""
+                        SELECT v.prompt_id, v.version, v.body, v.provider, v.model_id, v.settings::text AS settings
+                        FROM app_lm_platform_prompt_version v
+                        WHERE v.prompt_id = :promptId AND v.version = :version
+                        """)
+                .param("promptId", promptId)
+                .param("version", version)
+                .query(this::servedPrompt)
+                .optional();
+    }
+
+    /** Held to the end of the transaction, so two saves or two moves of one prompt happen one after the other. */
+    public void lockPrompt(String promptId) {
+        jdbc.sql("SELECT pg_advisory_xact_lock(hashtextextended(:key, 0))")
+                .param("key", "prompt:" + promptId)
+                .query(row -> { });
+    }
+
+    public int insertEdited(String promptId, String body, AiProvider provider, String modelId,
+                            GenerationSettings settings, String changeNote, UUID createdBy) {
+        return jdbc.sql("""
+                        INSERT INTO app_lm_platform_prompt_version
+                            (prompt_id, version, body, provider, model_id, settings, origin, change_note, created_by)
+                        SELECT :promptId, coalesce(max(version), 0) + 1, :body, :provider, :modelId,
+                               CAST(:settings AS jsonb), 'EDITED', :changeNote, :createdBy
+                        FROM app_lm_platform_prompt_version WHERE prompt_id = :promptId
+                        RETURNING version
+                        """)
+                .param("promptId", promptId)
+                .param("body", body)
+                .param("provider", provider == null ? null : provider.name())
+                .param("modelId", modelId)
+                .param("settings", json.writeValueAsString(settings))
+                .param("changeNote", changeNote)
+                .param("createdBy", createdBy)
+                .query(Integer.class)
+                .single();
+    }
+
+    private PromptVersion promptVersion(ResultSet row, int index) throws SQLException {
+        String provider = row.getString("provider");
+        return new PromptVersion(
+                row.getString("prompt_id"),
+                row.getInt("version"),
+                PromptOrigin.valueOf(row.getString("origin")),
+                provider == null ? null : AiProvider.valueOf(provider),
+                row.getString("model_id"),
+                settingsOf(row.getString("settings")),
+                row.getString("change_note"),
+                row.getTimestamp("created_at").toInstant(),
+                row.getString("author_name"));
+    }
+
+    private GenerationSettings settingsOf(String settings) {
+        return settings == null ? GenerationSettings.UNSET : json.readValue(settings, GenerationSettings.class);
+    }
+
     private static int oneIf(PromptCallCount count, FinishKind kind) {
         return count.finish() == kind ? 1 : 0;
     }
 
     private ServedPrompt servedPrompt(ResultSet row, int index) throws SQLException {
         String provider = row.getString("provider");
-        String settings = row.getString("settings");
         return new ServedPrompt(
                 row.getString("prompt_id"),
                 row.getString("body"),
                 row.getInt("version"),
                 provider == null ? null : AiProvider.valueOf(provider),
                 row.getString("model_id"),
-                settings == null ? GenerationSettings.UNSET : json.readValue(settings, GenerationSettings.class));
+                settingsOf(row.getString("settings")));
     }
 }

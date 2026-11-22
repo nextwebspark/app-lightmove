@@ -38,6 +38,12 @@ public class PositionDetailsProposer {
     /** The guard's answer when it blocks a call; binds to {@link ModelDetailsAnswer}'s one required field. */
     private static final String BLOCKED = "{\"roleTitle\":\"" + BlockedAnswer.MARKER + "\"}";
 
+    /** What is sent beside the instructions: the same text for every call, filled from the document. */
+    static final String USER_MESSAGE = """
+            Position description text:
+            {text}
+            """;
+
     private static final int ROLE_TITLE_MAX_LENGTH = 160;
     private static final int DEPARTMENT_MAX_LENGTH = 160;
     private static final int LOCATION_MAX_LENGTH = 120;
@@ -71,16 +77,7 @@ public class PositionDetailsProposer {
 
         try {
             Redaction redaction = redactor.redact(documentText, clientId, workspaceId);
-            ModelDetailsAnswer answered = ask(redaction.text());
-            if (answered == null) {
-                return finish(heuristic);
-            }
-            if (wasBlocked(answered)) {
-                log.warn("Position extraction blocked before reaching the model: the document matched "
-                        + "the injection word list. Falling back to the heuristic reader.");
-                return finish(heuristic);
-            }
-            return finish(reconcile(answered, redaction.pseudonyms(), documentText, heuristic));
+            return read(redaction.text(), redaction.pseudonyms(), documentText, heuristic);
         } catch (RuntimeException e) {
             // Deliberately broad: every failure has the same right answer, the heuristic's reading.
             log.warn("Position extraction fell back to the heuristic reader: {}", e.toString());
@@ -88,11 +85,23 @@ public class PositionDetailsProposer {
         }
     }
 
+    /** The model call and what follows it, on a document already redacted and read once: no budget, no table. */
+    ProposedPositionDetails read(String redactedText, Pseudonyms pseudonyms, String originalText,
+                                 ProposedPositionDetails heuristic) {
+        ModelDetailsAnswer answered = ask(redactedText);
+        if (answered == null) {
+            return finish(heuristic);
+        }
+        if (wasBlocked(answered)) {
+            log.warn("Position extraction blocked before reaching the model: the document matched "
+                    + "the injection word list. Falling back to the heuristic reader.");
+            return finish(heuristic);
+        }
+        return finish(reconcile(answered, pseudonyms, originalText, heuristic));
+    }
+
     private ModelDetailsAnswer ask(String redactedText) {
-        return prompt.ask(ModelDetailsAnswer.class, user -> user.text("""
-                Position description text:
-                {text}
-                """)
+        return prompt.ask(ModelDetailsAnswer.class, user -> user.text(USER_MESSAGE)
                 .param("text", redactedText));
     }
 

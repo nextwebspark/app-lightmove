@@ -18,7 +18,13 @@ export const WORKSPACE_MODES = ["AGENCY", "COMPANY"] as const;
 export type WorkspaceMode = (typeof WORKSPACE_MODES)[number];
 
 /** Mirrors the API's `PlatformAction`: what a user may do outside any workspace. */
-export type PlatformAction = "TEMPLATE_LIBRARY_MANAGE" | "CREDIT_GRANT" | "SUBSCRIPTION_MANAGE";
+export type PlatformAction =
+  | "TEMPLATE_LIBRARY_MANAGE"
+  | "CREDIT_GRANT"
+  | "SUBSCRIPTION_MANAGE"
+  | "WORKSPACE_LIFECYCLE_MANAGE"
+  | "PROMPT_MANAGE"
+  | "PROMPT_PROMOTE";
 
 export interface WorkspaceSummary {
   id: string;

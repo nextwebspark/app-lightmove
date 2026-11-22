@@ -15,7 +15,6 @@ import app.lightmove.api.position.model.ModelAssessmentAnswer.ModelCompetency;
 import app.lightmove.api.position.model.ModelAssessmentAnswer.ModelCriterion;
 import app.lightmove.api.position.model.ModelAssessmentAnswer;
 import app.lightmove.api.position.model.ProposedAssessment;
-import app.lightmove.api.positiontemplate.model.PositionTemplate;
 import app.lightmove.api.positiontemplate.model.PositionTemplateCompetency;
 import app.lightmove.api.positiontemplate.service.PositionTemplateService;
 import java.math.BigDecimal;
@@ -58,6 +57,13 @@ public class PositionAssessmentProposer {
     /** Digits only, so a model steered into "1E999999999" never reaches {@code BigDecimal.setScale}. */
     private static final Pattern STATED_WEIGHT = Pattern.compile("(\\d{1,3}(?:\\.\\d{1,6})?)\\s*%?");
 
+    /** What is sent beside the instructions: the same text for every call, filled from the document and a template. */
+    static final String USER_MESSAGE = """
+            Position description text:
+            {text}
+            {vocabulary}
+            """;
+
     private final PositionDocumentRedactor redactor;
     private final PositionTemplateService templates;
     private final ExtractedFieldReader fieldReader;
@@ -83,27 +89,28 @@ public class PositionAssessmentProposer {
         try {
             Redaction redaction = redactor.redact(documentText, clientId, workspaceId);
             String vocabulary = vocabularyParagraph(workspaceId, roleTitle);
-            ModelAssessmentAnswer answered = ask(redaction.text(), vocabulary);
-            if (answered == null || wasBlocked(answered)) {
-                if (answered != null) {
-                    log.warn("Assessment extraction blocked before reaching the model: the document "
-                            + "matched the injection word list.");
-                }
-                return finish(empty());
-            }
-            return finish(reconcile(answered, redaction.pseudonyms(), documentText));
+            return read(redaction.text(), vocabulary, redaction.pseudonyms(), documentText);
         } catch (RuntimeException e) {
             log.warn("Assessment extraction found nothing to propose: {}", e.toString());
             return finish(empty());
         }
     }
 
+    /** The model call and what follows it, on a document already redacted: no budget, no table. */
+    ProposedAssessment read(String redactedText, String vocabulary, Pseudonyms pseudonyms, String originalText) {
+        ModelAssessmentAnswer answered = ask(redactedText, vocabulary);
+        if (answered == null || wasBlocked(answered)) {
+            if (answered != null) {
+                log.warn("Assessment extraction blocked before reaching the model: the document "
+                        + "matched the injection word list.");
+            }
+            return finish(empty());
+        }
+        return finish(reconcile(answered, pseudonyms, originalText));
+    }
+
     private ModelAssessmentAnswer ask(String redactedText, String vocabulary) {
-        return prompt.ask(ModelAssessmentAnswer.class, user -> user.text("""
-                Position description text:
-                {text}
-                {vocabulary}
-                """)
+        return prompt.ask(ModelAssessmentAnswer.class, user -> user.text(USER_MESSAGE)
                 .param("text", redactedText)
                 .param("vocabulary", vocabulary));
     }
@@ -116,11 +123,12 @@ public class PositionAssessmentProposer {
         if (roleTitle == null || roleTitle.isBlank()) {
             return "";
         }
-        return templates.matchingByTitle(workspaceId, roleTitle).map(this::vocabularyOf).orElse("");
+        return templates.matchingByTitle(workspaceId, roleTitle)
+                .map(template -> vocabularyOf(template.getBody().competencies()))
+                .orElse("");
     }
 
-    private String vocabularyOf(PositionTemplate template) {
-        List<PositionTemplateCompetency> competencies = template.getBody().competencies();
+    static String vocabularyOf(List<PositionTemplateCompetency> competencies) {
         String technicalNames = namesOf(competencies, CompetencyPanel.TECHNICAL);
         String behaviouralNames = namesOf(competencies, CompetencyPanel.BEHAVIOURAL);
         if (technicalNames.isEmpty() && behaviouralNames.isEmpty()) {

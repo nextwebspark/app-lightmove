@@ -48,6 +48,24 @@ class InterviewCoach {
     private static final String OTHER_MARK = " (not the executive)";
     private static final Pattern CALL_TIME = Pattern.compile("\\b\\d{1,2}:\\d{2}(:\\d{2})?\\b");
 
+    /** What is sent beside the instructions: the same text for every reading of a live call. */
+    static final String USER_MESSAGE = """
+            THE POSITION
+            {position}
+
+            PREPARED QUESTIONS (id: question)
+            {plan}
+
+            FACTS THE RECORD IS MISSING (gap name: what it is)
+            {gaps}
+
+            FOUND EARLIER IN THE CALL
+            {found}
+
+            THE TRANSCRIPT SO FAR (time into the call, speaker, words)
+            {transcript}
+            """;
+
     private final StructuredPrompt prompt;
 
     InterviewCoach(StructuredPromptFactory prompts) {
@@ -73,22 +91,7 @@ class InterviewCoach {
         Map<String, BriefCompetency> competencyById = MeetingSummariser.idsOf(brief);
         Map<String, InterviewQuestion> questionById = questionIdsOf(plan);
         LiveCoaching start = withEveryCompetency(before, competencyById);
-        CoachAnswer answer = prompt.ask(CoachAnswer.class, user -> user.text("""
-                THE POSITION
-                {position}
-
-                PREPARED QUESTIONS (id: question)
-                {plan}
-
-                FACTS THE RECORD IS MISSING (gap name: what it is)
-                {gaps}
-
-                FOUND EARLIER IN THE CALL
-                {found}
-
-                THE TRANSCRIPT SO FAR (time into the call, speaker, words)
-                {transcript}
-                """)
+        CoachAnswer answer = prompt.ask(CoachAnswer.class, user -> user.text(USER_MESSAGE)
                 .param("position", MeetingSummariser.positionOf(brief, competencyById))
                 .param("plan", questionById.isEmpty() ? "none" : questionById.entrySet().stream()
                         .map(entry -> "- %s: %s".formatted(entry.getKey(), entry.getValue().text()))

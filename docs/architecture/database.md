@@ -539,6 +539,9 @@ per finish reason for each prompt version, provider, model and UTC day, raised b
 scope (`prompts` today), raised in the transaction that changes platform configuration and watched by every
 instance (`PlatformConfigReload`).
 
+V236 seeds the platform actions `PROMPT_MANAGE` (read the prompts, save a version, try it) and `PROMPT_PROMOTE` (move
+the production label), both granted to `SUPER_ADMIN` (#1317). No table changes.
+
 V231 adds `app_lm_dashboard` (docs/custom-dashboards.md): a member's custom dashboard on a position (`project_id`, composite key to the project's workspace) or across the workspace (null) — `owner_user_id` (cascade with the account), `name` (≤ 80, never blank), `shared`, and `widgets` jsonb, an array of `{queryId, chart, options, title, layout: {x, y, w, h}}` (twelve-column grid; rows saved before it carry `size` instead, flowed into place by the SPA) naming charts of the server's query library. The choice only, never a figure: every chart is answered live. Forced RLS on its `workspace_id`. Staff-only.
 
 V230 cancels the open tasks an executive's removal orphaned before #1402 (`candidate_id` null and an `UNMAPPED` activity line for the person on the position at or after the task's creation; a rule task filed for someone never mapped has no such line and stays open), releasing a rule task's key as `Task.releaseRuleKey` does. Data only.

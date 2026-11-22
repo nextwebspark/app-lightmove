@@ -173,6 +173,11 @@ gets the system text, the provider's options and the wiring that counts the call
 The answer schema (`-schema.json`), the answer format and the user message stay in code: code parses the
 answer against the first two, and the third decides which data reaches the model.
 
+**Try it** (#1317) runs one version without serving it: `PromptTrialRunner` binds the version to the calling
+thread, `PromptCalls.prepare` answers that prompt with it for the length of the run, and the model's answer and
+the bound record are kept. A `PromptTrial` sits beside its caller and hands it a fictional input written in
+code, so the user message, the guard, the schema check and the repair are production's own. It reads no table.
+
 Rollout: ship off; turn `AI_PROMPT_REGISTRY_ENABLED` on per environment, check the per-version counts, then
 default it on (#1324).
 

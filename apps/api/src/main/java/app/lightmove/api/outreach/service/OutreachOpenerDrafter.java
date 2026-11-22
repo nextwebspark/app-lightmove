@@ -29,6 +29,30 @@ public class OutreachOpenerDrafter {
     private static final String NOT_STATED = "not stated";
     private static final int MAX_OPENER_LENGTH = 600;
 
+    /** What is sent beside the instructions: the same text for every call, filled from the dossier and the brief. */
+    static final String USER_MESSAGE = """
+            THE EXECUTIVE (their LinkedIn profile)
+            Name: {name}
+            Current title: {title}
+            Current employer: {company}
+            Location: {location}
+            About: {about}
+
+            Career history, most recent first:
+            {career}
+
+            Education:
+            {education}
+
+            Skills: {skills}
+
+            THE ROLE
+            Title: {roleTitle}
+            Level: {seniority}
+            Sector: {sector}
+            Location: {roleLocation}
+            """;
+
     private final StructuredPrompt prompt;
 
     public OutreachOpenerDrafter(StructuredPromptFactory prompts) {
@@ -51,28 +75,7 @@ public class OutreachOpenerDrafter {
     }
 
     private ModelAnswer ask(CandidateDossier dossier, OpenerBrief brief) {
-        return prompt.ask(ModelAnswer.class, user -> user.text("""
-                THE EXECUTIVE (their LinkedIn profile)
-                Name: {name}
-                Current title: {title}
-                Current employer: {company}
-                Location: {location}
-                About: {about}
-
-                Career history, most recent first:
-                {career}
-
-                Education:
-                {education}
-
-                Skills: {skills}
-
-                THE ROLE
-                Title: {roleTitle}
-                Level: {seniority}
-                Sector: {sector}
-                Location: {roleLocation}
-                """)
+        return prompt.ask(ModelAnswer.class, user -> user.text(USER_MESSAGE)
                 .param("name", orNotStated(dossier.fullName()))
                 .param("title", orNotStated(dossier.title()))
                 .param("company", orNotStated(dossier.companyName()))

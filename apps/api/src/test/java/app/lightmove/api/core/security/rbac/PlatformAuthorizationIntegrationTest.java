@@ -57,7 +57,7 @@ class PlatformAuthorizationIntegrationTest extends PositionTemplateFlowSupport {
             JsonNode actions = getJson(owner, "/api/v1/auth/me").get("platformActions");
             assertThat(actions.valueStream().map(JsonNode::asText).toList())
                     .containsExactly("TEMPLATE_LIBRARY_MANAGE", "CREDIT_GRANT", "SUBSCRIPTION_MANAGE",
-                            "WORKSPACE_LIFECYCLE_MANAGE");
+                            "WORKSPACE_LIFECYCLE_MANAGE", "PROMPT_MANAGE", "PROMPT_PROMOTE");
         } finally {
             db.update("delete from app_lm_role_action where action_id in "
                     + "(select id from app_lm_action where name = 'FROM_A_NEWER_BUILD')");

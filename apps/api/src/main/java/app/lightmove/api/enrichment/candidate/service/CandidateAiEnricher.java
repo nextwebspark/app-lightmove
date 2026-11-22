@@ -37,6 +37,21 @@ public class CandidateAiEnricher {
     static final Set<BackgroundField> INFERRED = Set.of(
             BackgroundField.GENDER, BackgroundField.YEARS_EXPERIENCE, BackgroundField.SENIORITY);
 
+    /** What is sent beside the instructions: the same text for every call, filled from the dossier and the material. */
+    static final String USER_MESSAGE = """
+            THE CANDIDATE (their LinkedIn profile)
+            {profile}
+
+            NOTES ON FILE (the team's own, newest first)
+            {notes}
+
+            DOCUMENTS ON FILE
+            {documents}
+
+            Background fields still to propose: {missing}
+            Today's date: {today}
+            """;
+
     private final StructuredPrompt prompt;
 
     public CandidateAiEnricher(StructuredPromptFactory prompts) {
@@ -78,19 +93,7 @@ public class CandidateAiEnricher {
     }
 
     private ModelAnswer ask(CandidateDossier dossier, MaterialText material, Set<BackgroundField> asked) {
-        return prompt.ask(ModelAnswer.class, user -> user.text("""
-                THE CANDIDATE (their LinkedIn profile)
-                {profile}
-
-                NOTES ON FILE (the team's own, newest first)
-                {notes}
-
-                DOCUMENTS ON FILE
-                {documents}
-
-                Background fields still to propose: {missing}
-                Today's date: {today}
-                """)
+        return prompt.ask(ModelAnswer.class, user -> user.text(USER_MESSAGE)
                 .param("profile", DossierText.of(dossier))
                 .param("notes", material.notes())
                 .param("documents", material.documents())
