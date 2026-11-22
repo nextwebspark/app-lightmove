@@ -482,6 +482,58 @@ export function CandidateProfile({
     />
   );
 
+  const statusControls = (pickerClassName: string) => (
+    <>
+      {canWrite ? (
+        <StatusPicker
+          value={candidate.status}
+          currentLabel={candidate.statusLabel}
+          aria-label="Status"
+          size="sm"
+          disabled={changeStatus.isPending}
+          onChange={(status) =>
+            changeStatus.mutate({ candidateId: candidate.id, name: candidate.fullName, status, previous: candidate.status })
+          }
+          className={pickerClassName}
+        />
+      ) : (
+        <DetailPill
+          label={statusStyle(candidate.status, candidate).label}
+          className={statusStyle(candidate.status, candidate).className}
+        />
+      )}
+      {canWrite && isOutOfProcess(candidate.status, catalog) ? (
+        <ExitReasonPill
+          projectId={projectId}
+          candidateId={candidate.id}
+          name={candidate.fullName}
+          statusKey={candidate.status}
+          given={exitReasons.data?.find((given) => given.candidateId === candidate.id) ?? null}
+          className="min-w-0"
+        />
+      ) : (
+        <StageLine candidate={candidate} />
+      )}
+    </>
+  );
+  const recordActions = (layout: "row" | "rail", className?: string) => (
+    <RecordActionRow
+      layout={layout}
+      className={className}
+      emailHeldBy={
+        doNotContact ? "Do not contact is set" : candidate.contacts.emails.length === 0 ? "No email address yet" : undefined
+      }
+      onWriteEmail={mailbox.data?.offered === true ? () => setContactWindow("email") : undefined}
+      onAddNote={startNote}
+      onLog={(kind) => setLog({ kind, meetingId: null })}
+      onBookCall={startCall}
+      onAddToSequence={mailbox.data?.offered === true ? () => setEnrolling(true) : undefined}
+      sequenceHeldBy={sequenceHeldBy}
+      onSetNextAction={() => openNextAction(null)}
+      onRemove={onRemove && (() => onRemove(candidate))}
+    />
+  );
+
   const recordHeader = (
     <div className="relative flex-none border-b border-u-border px-5 pt-4">
       {!onPage && <RecordCornerControls stepper={stepper} held={stepHeld} onClose={onClose} />}
@@ -499,40 +551,8 @@ export function CandidateProfile({
         linkedinUrl={candidate.linkedinUrl}
         nameAction={pencil("identity", "details")}
         title={candidate.title}
-        processLine={
-          <>
-            {canWrite ? (
-              <StatusPicker
-                value={candidate.status}
-                currentLabel={candidate.statusLabel}
-                aria-label="Status"
-                size="sm"
-                disabled={changeStatus.isPending}
-                onChange={(status) =>
-                  changeStatus.mutate({ candidateId: candidate.id, name: candidate.fullName, status, previous: candidate.status })
-                }
-                className="min-w-[140px] max-w-[60%]"
-              />
-            ) : (
-              <DetailPill
-                label={statusStyle(candidate.status, candidate).label}
-                className={statusStyle(candidate.status, candidate).className}
-              />
-            )}
-            {canWrite && isOutOfProcess(candidate.status, catalog) ? (
-              <ExitReasonPill
-                projectId={projectId}
-                candidateId={candidate.id}
-                name={candidate.fullName}
-                statusKey={candidate.status}
-                given={exitReasons.data?.find((given) => given.candidateId === candidate.id) ?? null}
-                className="min-w-0"
-              />
-            ) : (
-              <StageLine candidate={candidate} />
-            )}
-          </>
-        }
+        processLine={statusControls("min-w-[140px] max-w-[60%]")}
+        processLineClassName={takenByRail}
         contacts={candidate.contacts}
         onEditContacts={canWrite ? () => setContactWindow("details") : undefined}
         onShowContacts={() => setContactWindow("read")}
@@ -551,25 +571,7 @@ export function CandidateProfile({
         location={[candidate.locationCity, candidate.locationCountry].filter(Boolean).join(" · ")}
       >
         {personRecord.data && <PersonTagsSection person={personRecord.data} className={cn("mt-3", takenByRail)} />}
-        {onPage && canWrite && (
-          <RecordActionRow
-            emailHeldBy={
-              doNotContact
-                ? "Do not contact is set"
-                : candidate.contacts.emails.length === 0
-                  ? "No email address yet"
-                  : undefined
-            }
-            onWriteEmail={mailbox.data?.offered === true ? () => setContactWindow("email") : undefined}
-            onAddNote={startNote}
-            onLog={(kind) => setLog({ kind, meetingId: null })}
-            onBookCall={startCall}
-            onAddToSequence={mailbox.data?.offered === true ? () => setEnrolling(true) : undefined}
-            sequenceHeldBy={sequenceHeldBy}
-            onSetNextAction={() => openNextAction(null)}
-            onRemove={onRemove && (() => onRemove(candidate))}
-          />
-        )}
+        {onPage && canWrite && recordActions("row", takenByRail)}
         {canWrite && <DoNotContactStrip personId={candidate.personId} />}
         {canWrite && <ProcessingRestrictedStrip personId={candidate.personId} />}
       </PersonHeaderLayout>
@@ -1092,6 +1094,8 @@ export function CandidateProfile({
               candidate={candidate}
               canWrite={canWrite}
               person={personRecord.data}
+              status={statusControls("w-full")}
+              actions={canWrite ? recordActions("rail") : undefined}
               nextAction={canWrite ? nextActionBar("w-full") : undefined}
               clientVisibility={canWrite ? clientVisibility?.(candidate, onSaved) : undefined}
               reach={canWrite ? phoneReach : undefined}

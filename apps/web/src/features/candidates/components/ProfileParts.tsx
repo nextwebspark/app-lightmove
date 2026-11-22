@@ -60,6 +60,7 @@ export function PersonHeaderLayout({
   children,
   cornerButtons = 1,
   contactsClassName,
+  processLineClassName,
 }: {
   avatar: ReactNode;
   fullName: string;
@@ -88,6 +89,8 @@ export function PersonHeaderLayout({
   cornerButtons?: number;
   /** Hides the contacts where a rail beside the record lists them instead. */
   contactsClassName?: string;
+  /** Hides the status line where a rail beside the record carries it instead. */
+  processLineClassName?: string;
 }) {
   return (
     <div className="group flex items-start gap-3">
@@ -104,7 +107,7 @@ export function PersonHeaderLayout({
           </p>
           <HeaderEmployerLine employer={employer} location={location} />
           {processLine !== undefined && (
-            <div className="mt-2.5 flex h-7 min-w-0 items-center gap-2">{processLine}</div>
+            <div className={cn("mt-2.5 flex h-7 min-w-0 items-center gap-2", processLineClassName)}>{processLine}</div>
           )}
           <div className={contactsClassName}>
             <HeaderContacts
