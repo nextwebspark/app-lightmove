@@ -1,0 +1,206 @@
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
+import { Link, useParams } from "react-router-dom";
+import { Icon, ICONS } from "../../../../components/layout/Icon";
+import { Button, CardsSkeleton, FormError, LinesSkeleton, useToast } from "../../../../components/ui";
+import { TabList, type TabOption } from "../../../../components/ui/TabList";
+import { tabPanelProps } from "../../../../components/ui/tabPanelProps";
+import { cn } from "../../../../lib/cn";
+import { codeOf, messageFor } from "../../../../lib/errorCodes";
+import { useAuth } from "../../../auth/AuthProvider";
+import { PlatformTwoFactorRequired } from "../../components/PlatformTwoFactorRequired";
+import { usePlatformPageCrumb } from "../../platformCrumb";
+import * as promptApi from "../api/promptApi";
+import type { PromptDetail, PromptVersionSummary } from "../api/types";
+import { PromptEditorTab } from "../components/PromptEditorTab";
+import { OriginPill, PromptPill } from "../components/PromptPill";
+import { PutLiveDialog } from "../components/PutLiveDialog";
+import { TrialTab } from "../components/TrialTab";
+import { VersionCompareTab } from "../components/VersionCompareTab";
+import { changedLabel, PROMPTS_PATH, versionLabel, versionModelLine } from "../lib/promptLabels";
+
+type PromptTab = "editor" | "compare" | "try";
+
+const TAB_ID = "prompt";
+
+/** Platform → Prompts → one prompt: its versions, the editor, a comparison of any two, and Try it. */
+export default function PromptPage() {
+  const { promptId = "" } = useParams();
+  const { user } = useAuth();
+  const toast = useToast();
+  const queryClient = useQueryClient();
+  const [openedVersion, setOpenedVersion] = useState<number | null>(null);
+  const [tab, setTab] = useState<PromptTab>("editor");
+  const [moving, setMoving] = useState<PromptVersionSummary | null>(null);
+
+  const { data: detail, isPending, error } = useQuery({
+    queryKey: promptApi.PROMPT_KEY(promptId),
+    queryFn: ({ signal }) => promptApi.getPrompt(promptId, signal),
+  });
+  const { data: models } = useQuery({
+    queryKey: promptApi.AI_MODELS_KEY,
+    queryFn: ({ signal }) => promptApi.listAiModels(signal),
+  });
+
+  usePlatformPageCrumb(detail?.prompt.name ?? null);
+
+  const openNumber = openedVersion ?? detail?.prompt.liveVersion ?? null;
+  const open = detail?.versions.find((version) => version.version === openNumber) ?? null;
+
+  const body = useQuery({
+    queryKey: promptApi.PROMPT_BODY_KEY(promptId, openNumber ?? 0),
+    queryFn: ({ signal }) => promptApi.getPromptBody(promptId, openNumber ?? 0, signal),
+    enabled: openNumber !== null,
+    staleTime: Infinity,
+  });
+
+  if (codeOf(error) === "PLATFORM_TWO_FACTOR_REQUIRED") return <PlatformTwoFactorRequired />;
+  if (isPending) return <CardsSkeleton cards={2} />;
+  if (!detail || !open) return <FormError message={error ? messageFor(error) : "This prompt could not be opened."} />;
+
+  const { prompt } = detail;
+  const canPromote = user?.platformActions.includes("PROMPT_PROMOTE") ?? false;
+  const openIsLive = open.version === prompt.liveVersion;
+  const tabs: TabOption<PromptTab>[] = [
+    { value: "editor", label: "Editor" },
+    { value: "compare", label: "Compare versions" },
+    ...(detail.trial ? [{ value: "try" as const, label: "Try it" }] : []),
+  ];
+
+  const keep = (updated: PromptDetail) => {
+    queryClient.setQueryData(promptApi.PROMPT_KEY(promptId), updated);
+    void queryClient.invalidateQueries({ queryKey: promptApi.PROMPTS_KEY, exact: true });
+  };
+
+  return (
+    <div>
+      <Link to={PROMPTS_PATH} className="mb-3 inline-flex items-center gap-1.5 text-xs font-medium text-u-text3 hover:text-u-text">
+        <Icon d={ICONS.back} size={13} />
+        Prompts
+      </Link>
+
+      <div className="mb-4 flex flex-wrap items-start gap-x-4 gap-y-2.5">
+        <div className="min-w-0 flex-[1_1_320px]">
+          <div className="flex flex-wrap items-center gap-2.5">
+            <h1 className="text-title font-semibold">{prompt.name}</h1>
+            <PromptPill tone="live">Live: {versionLabel(prompt.liveVersion)}</PromptPill>
+          </div>
+          <div className="mt-1 text-body text-u-text2">{prompt.description}</div>
+          <div className="mt-0.5 font-u-num text-xs text-u-text3">{prompt.id}</div>
+        </div>
+        <div className="flex flex-none flex-wrap items-center gap-2">
+          {openIsLive && <span className="text-xs text-u-text3">Version {open.version} is live</span>}
+          {!openIsLive && !canPromote && (
+            <span title="Putting a version live needs its own permission" className="text-xs text-u-text3">
+              You can save versions, not put them live
+            </span>
+          )}
+          {!openIsLive && canPromote && open.version < prompt.liveVersion && (
+            <Button type="button" size="sm" variant="secondary" onClick={() => setMoving(open)}>
+              Roll back to version {open.version}
+            </Button>
+          )}
+          {!openIsLive && canPromote && open.version > prompt.liveVersion && (
+            <Button type="button" size="sm" onClick={() => setMoving(open)}>
+              Put version {open.version} live
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {prompt.modelUnavailable && (
+        <div role="note" className="mb-4 flex gap-2.5 rounded-lg border border-u-border bg-u-offlimits-tint px-3.5 py-[11px] text-xs text-u-text">
+          <Icon d={ICONS.info} size={15} className="mt-0.5 flex-none text-u-offlimits" />
+          <span>
+            Version {prompt.liveVersion} names {prompt.modelName ?? "a model"}, which is retired, no longer offered or
+            cannot answer this prompt. The default model answers it until a version on an available model is put live.
+          </span>
+        </div>
+      )}
+
+      {prompt.shippedChanged && detail.newestShippedVersion !== null && (
+        <div role="note" className="mb-4 flex gap-2.5 rounded-lg border border-u-border bg-u-accent-tint px-3.5 py-[11px] text-xs text-u-text">
+          <Icon d={ICONS.info} size={15} className="mt-0.5 flex-none text-u-accent" />
+          <span>
+            The shipped prompt changed since the live edit. Version {detail.newestShippedVersion} came with a release;
+            version {prompt.liveVersion}, an edit, still serves. Compare the two and carry over what the release
+            changed.
+          </span>
+        </div>
+      )}
+
+      <div className="flex flex-wrap items-start gap-5">
+        <section
+          aria-label="Version history"
+          className="min-w-[220px] max-w-[300px] flex-[1_1_240px] overflow-hidden rounded-lg border border-u-border-strong bg-u-surface"
+        >
+          <div className="px-3 pb-2 pt-3 type-micro-label font-mono text-u-text3">Versions</div>
+          {detail.versions.map((version) => (
+            <button
+              key={version.version}
+              type="button"
+              aria-current={version.version === open.version}
+              onClick={() => setOpenedVersion(version.version)}
+              className={cn(
+                "block w-full border-l-2 border-t border-t-u-border px-3 py-2.5 text-left hover:bg-u-sunken",
+                version.version === open.version ? "border-l-u-accent bg-u-sunken" : "border-l-transparent",
+              )}
+            >
+              <span className="flex flex-wrap items-center gap-1.5">
+                <span className="font-u-num text-body text-u-text">{versionLabel(version.version)}</span>
+                {version.live && <PromptPill tone="live">Live</PromptPill>}
+                <OriginPill origin={version.origin} />
+              </span>
+              <span className="mt-1 block text-xs text-u-text2">
+                {version.changeNote ?? (version.origin === "BUNDLED" ? "Shipped with a release." : "")}
+              </span>
+              <span className="mt-0.5 block text-xs text-u-text3">
+                {changedLabel(version.createdAt, version.origin === "BUNDLED" ? null : version.author)}
+              </span>
+              <span className="block text-xs text-u-text3">{versionModelLine(version)}</span>
+            </button>
+          ))}
+        </section>
+
+        <div className="min-w-0 flex-[3_1_520px]">
+          <TabList label="Prompt" idPrefix={TAB_ID} tabs={tabs} value={tab} onChange={setTab} className="mb-3.5" />
+          <div {...tabPanelProps(TAB_ID, tab)}>
+            {tab === "editor" &&
+              (body.isError ? (
+                <FormError message={messageFor(body.error)} />
+              ) : !body.data || !models ? (
+                <LinesSkeleton lines={10} />
+              ) : (
+                <PromptEditorTab
+                  key={open.version}
+                  detail={detail}
+                  models={models}
+                  version={open}
+                  body={body.data.body}
+                  onSaved={(updated) => {
+                    keep(updated);
+                    setOpenedVersion(updated.versions[0].version);
+                  }}
+                />
+              ))}
+            {tab === "compare" && <VersionCompareTab key={open.version} detail={detail} openVersion={open.version} />}
+            {tab === "try" && <TrialTab detail={detail} version={open.version} />}
+          </div>
+        </div>
+      </div>
+
+      {moving && (
+        <PutLiveDialog
+          detail={detail}
+          target={moving}
+          onClose={() => setMoving(null)}
+          onDone={(updated) => {
+            keep(updated);
+            setMoving(null);
+            toast.success(`${prompt.name} now runs on version ${updated.prompt.liveVersion} in every workspace`);
+          }}
+        />
+      )}
+    </div>
+  );
+}
