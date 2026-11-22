@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { LeaveGuard } from "../../../components/layout/LeaveGuard";
 import { PageHeader } from "../../../components/layout/PageHeader";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Button, buttonClassName, CardsSkeleton, EmptyState, useToast } from "../../../components/ui";
@@ -30,7 +31,7 @@ import { PositionsSection, TodaySection } from "../components/HomeSections";
 import { HomeGrid } from "../components/HomeGrid";
 import { HomeOptions } from "../components/HomeOptions";
 import { NeedsYou } from "../components/NeedsYou";
-import { MAX_HOME_CHARTS, type ChartTile, type HomeTile } from "../lib/homeLayout";
+import { MAX_HOME_CHARTS, sameLayout, type ChartTile, type HomeTile } from "../lib/homeLayout";
 import { useHomeEditor } from "../lib/useHomeEditor";
 import { useHomeLayout } from "../lib/useHomeLayout";
 import { isAgendaTask, needsYouOf } from "../lib/needsYou";
@@ -217,7 +218,7 @@ function StaffHome({ projects, header }: { projects: Project[]; header: HeaderFn
         query={library.isPending ? undefined : queryOf(tile.queryId)}
         answer={answers.data?.[chartIndex]}
         isPending={answers.isPending || library.isPending}
-        isError={answers.isError}
+        isError={answers.isError || library.isError}
         className="border-u-border-strong"
       />
     );
@@ -273,6 +274,7 @@ function StaffHome({ projects, header }: { projects: Project[]; header: HeaderFn
         />
       )}
 
+      <LeaveGuard hasUnsavedChanges={editor.draft !== null && !sameLayout(editor.draft, home.layout)} />
       {editing && (
         <HomeOptions open={optionsOpen} onClose={() => setOptionsOpen(false)} layout={layout} onChange={editor.update} />
       )}

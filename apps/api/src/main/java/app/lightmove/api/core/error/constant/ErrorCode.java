@@ -333,6 +333,9 @@ public enum ErrorCode {
     /** An option the query does not offer, or a value it does not allow. */
     CHART_OPTION_INVALID(HttpStatus.BAD_REQUEST, "That option is not available for this chart"),
 
+    /** One chart of a dashboard's batch failed to answer (a query past its time limit); the rest still draw. */
+    CHART_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "That chart could not be answered just now. Try again in a moment"),
+
     /** The brief's competencies changed after the ranking was opened, so the scenario names the wrong ones. */
     RANKING_BRIEF_CHANGED(HttpStatus.CONFLICT,
             "The brief's competencies changed since you opened this. Reload to see them"),
