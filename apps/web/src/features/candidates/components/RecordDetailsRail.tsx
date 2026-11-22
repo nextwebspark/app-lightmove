@@ -14,13 +14,16 @@ import { PersonTagsSection } from "./PersonTagsSection";
 
 /**
  * The record full page's Details rail (`PositionExecutiveRail.dc.html`): what holds on every tab, so the header keeps
- * who they are and the tabs keep the work. Drawn from 1280px wide; narrower, the header and footer carry it.
+ * who they are and the tabs keep the work: the status first, the actions held in a fixed foot. Drawn from 1280px wide;
+ * narrower, the header and footer carry it.
  */
 export function RecordDetailsRail({
   projectId,
   candidate,
   canWrite,
   person,
+  status,
+  actions,
   nextAction,
   clientVisibility,
   reach,
@@ -32,6 +35,10 @@ export function RecordDetailsRail({
   canWrite: boolean;
   /** The workspace's person, read for staff only: tags, who added them, their other positions. */
   person: PersonRecord | undefined;
+  /** The header's status and stage, moved here. */
+  status: ReactNode;
+  /** The header's actions, moved to the foot. */
+  actions?: ReactNode;
   /** The footer's next action bar, moved here. */
   nextAction?: ReactNode;
   /** The Client visible switch, which the host draws. */
@@ -45,9 +52,13 @@ export function RecordDetailsRail({
   return (
     <aside
       aria-label="Details"
-      className="hidden w-80 flex-none overflow-y-auto border-s border-u-border bg-u-bg xl:block"
+      className="hidden w-80 flex-none flex-col border-s border-u-border bg-u-bg xl:flex"
     >
-      <div className="flex flex-col gap-5 px-5 pb-6 pt-1 [&>section:first-child]:border-t-0">
+      <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-5 pb-6 pt-1 [&>section:first-child]:border-t-0">
+        <DetailBlock title="Status">
+          <div className="flex min-w-0 flex-col items-start gap-1.5">{status}</div>
+        </DetailBlock>
+
         {nextAction && <DetailBlock title="Next action">{nextAction}</DetailBlock>}
 
         <DetailBlock
@@ -136,6 +147,7 @@ export function RecordDetailsRail({
           )}
         </DetailBlock>
       </div>
+      {actions && <div className="flex-none border-t border-u-border bg-u-bg px-5 py-3">{actions}</div>}
     </aside>
   );
 }

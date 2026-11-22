@@ -287,7 +287,9 @@ function ShowAs({
         <Button variant="secondary" type="button" onClick={onBack}>
           Back
         </Button>
-        <Button type="button" onClick={() => onCommit({ ...draft, chart })}>
+        {/* Before the preview answers, a pie still looks allowed; added then, a breakdown past eight slices was saved
+            as a pie that could never draw. A refused preview still lets the chart be added. */}
+        <Button type="button" disabled={isPending} onClick={() => onCommit({ ...draft, chart })}>
           {draft.index === null ? addLabel : "Update chart"}
         </Button>
       </DrawerFooter>

@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Button, EmptyState, useToast } from "../../../components/ui";
 import { LinesSkeleton } from "../../../components/ui/Skeleton";
@@ -105,7 +105,7 @@ export function WorkspaceDashboardsPage() {
         sharedWith="the workspace team"
         onOpen={open}
         onDeleted={() => setSearchParams({})}
-        tabs={<DashboardTabs dashboards={dashboards} activeId={current.id} onOpen={open} onNew={() => setNaming(true)} />}
+        tabs={<DashboardTabs dashboards={dashboards} activeId={current.id} onNew={() => setNaming(true)} />}
       />
       {dialog}
     </>
@@ -115,12 +115,10 @@ export function WorkspaceDashboardsPage() {
 function DashboardTabs({
   dashboards,
   activeId,
-  onOpen,
   onNew,
 }: {
   dashboards: Dashboard[];
   activeId: string;
-  onOpen: (id: string) => void;
   onNew: () => void;
 }) {
   return (
@@ -128,12 +126,11 @@ function DashboardTabs({
       {dashboards.map((dashboard) => {
         const isActive = dashboard.id === activeId;
         return (
-          <button
+          <Link
             key={dashboard.id}
-            type="button"
+            to={{ search: `?${DASHBOARD_PARAM}=${dashboard.id}` }}
             aria-current={isActive ? "page" : undefined}
             title={dashboard.name}
-            onClick={() => onOpen(dashboard.id)}
             className={cn(
               "inline-flex max-w-[220px] flex-none items-center gap-1.5 whitespace-nowrap rounded-t-u-chip border px-4 text-body transition-colors",
               isActive
@@ -145,7 +142,7 @@ function DashboardTabs({
             {dashboard.shared && (
               <Icon d={ICONS.team} size={13} className={cn("flex-none", isActive ? "text-u-accent" : "text-u-text3")} />
             )}
-          </button>
+          </Link>
         );
       })}
       <button

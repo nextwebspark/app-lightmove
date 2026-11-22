@@ -24,7 +24,8 @@ export interface MyOutreachQueue {
 /** Home's task reads: under every task write's invalidation, and apart from My tasks' infinite lists. */
 export const HOME_TASKS_KEY = (view: MyTasksView) => [...TASKS_KEY_PREFIX, "home", view] as const;
 
-export const MY_OUTREACH_NEEDS_KEY = (who: ConversationScope) => ["outreach", "me", "needs", who] as const;
+export const MY_OUTREACH_NEEDS_PREFIX = ["outreach", "me", "needs"] as const;
+export const MY_OUTREACH_NEEDS_KEY = (who: ConversationScope) => [...MY_OUTREACH_NEEDS_PREFIX, who] as const;
 
 export function getMyOutreachNeeds(who: ConversationScope, signal?: AbortSignal): Promise<MyOutreachQueue> {
   return request<MyOutreachQueue>(`/me/outreach/needs?who=${who}`, { signal });
@@ -108,7 +109,10 @@ export async function saveHomeLayout(layout: HomeLayout, version: number | null)
   return toSavedHome(saved.layout);
 }
 
-/** Forget the saved Home: the person draws the default again, and follows it as it changes. */
-export async function resetHomeLayout(): Promise<void> {
-  await request<void>("/me/home", { method: "DELETE" });
+/**
+ * Forget the saved Home: the person draws the default again, and follows it as it changes. Over the version it was
+ * opened at, as a save is; a layout saved elsewhere since answers HOME_LAYOUT_STALE rather than being deleted.
+ */
+export async function resetHomeLayout(version: number | null): Promise<void> {
+  await request<void>(version === null ? "/me/home" : `/me/home?version=${version}`, { method: "DELETE" });
 }

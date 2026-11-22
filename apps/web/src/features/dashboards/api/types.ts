@@ -109,4 +109,6 @@ export interface ChartResult {
   percent: boolean;
   /** The answer was cut to the bucket cap. */
   truncated: boolean;
+  /** The smallest groups were folded into Other; a median's tail is left off instead. */
+  folded: boolean;
 }

@@ -1822,7 +1822,7 @@ describe("TriageStagePage", () => {
 
       const list = await screen.findByRole("navigation", { name: "In universe executives" });
       await within(list).findByRole("button", { name: /Yasmin El-Sayed/ });
-      await pickStatus(/^Status: /, "Interested");
+      await pickStatus(/^Status: /, "Interested", screen.getByRole("complementary", { name: "Details" }));
 
       await waitFor(() => expect(within(list).queryByRole("button", { name: /Yasmin El-Sayed/ })).not.toBeInTheDocument());
       const record = screen.getByRole("region", { name: "Executive record" });
@@ -1839,7 +1839,7 @@ describe("TriageStagePage", () => {
       expect(row).toHaveAccessibleName(expect.stringMatching(/Omar Saleh.*CFO · ACWA Power.+/));
     });
 
-    it("lays the record beside its Details rail, with the actions under the header and where it sits in the list", async () => {
+    it("lays the record beside its Details rail, with the status on top, the actions at its foot and where it sits in the list", async () => {
       vi.mocked(mailboxApi.getMailbox).mockResolvedValue(CONNECTED_MAILBOX);
       render(stageTree("universe", project, `?candidate=${yasmin.id}&record=page`));
 
@@ -1853,12 +1853,12 @@ describe("TriageStagePage", () => {
       await waitFor(() => expect(bar()).toHaveTextContent("1 of 2"));
 
       const details = within(record).getByRole("complementary", { name: "Details" });
-      for (const block of ["Next action", "Contact", "Process", "Record"]) {
+      for (const block of ["Status", "Next action", "Contact", "Process", "Record"]) {
         expect(within(details).getByRole("region", { name: block })).toBeInTheDocument();
       }
       expect(within(details).getByRole("switch", { name: "Client visible" })).toBeInTheDocument();
 
-      const actions = within(record).getByRole("group", { name: "Actions" });
+      const actions = within(details).getByRole("group", { name: "Actions" });
       // Yasmin has no address on record, so Write email is held and says why.
       expect(within(actions).getByRole("button", { name: "Write email" })).toBeDisabled();
       expect(within(actions).getByRole("button", { name: "Write email" }).parentElement).toHaveAttribute(
@@ -1867,8 +1867,7 @@ describe("TriageStagePage", () => {
       );
       expect(within(actions).getByRole("button", { name: "Add note" })).toBeEnabled();
       expect(within(actions).getByRole("button", { name: "Log" })).toBeInTheDocument();
-      // The ⋯ moved up from the footer: one More actions on the page, under the header.
-      expect(within(record).getAllByRole("button", { name: "More actions" })).toHaveLength(1);
+      expect(within(details).getAllByRole("button", { name: "More actions" })).toHaveLength(1);
 
       await userEvent.click(within(actions).getByRole("button", { name: "Log" }));
       expect(await screen.findByRole("menuitem", { name: "Log call" })).toBeInTheDocument();
