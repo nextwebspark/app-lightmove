@@ -2,6 +2,7 @@ package app.lightmove.api.core.llm.service;
 
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.llm.constant.PromptKind;
+import app.lightmove.api.core.llm.constant.UnusableModelReason;
 import app.lightmove.api.core.llm.model.BundledPrompt;
 import app.lightmove.api.core.llm.model.GenerationSettings;
 import app.lightmove.api.core.llm.model.RecordedBundledPrompt;
@@ -131,13 +132,13 @@ public class RegistryPromptSource implements PromptSource, PlatformConfigListene
         if (served.modelId() == null) {
             return served;
         }
-        Optional<String> unusable = models.unusableBecause(served.provider(), served.modelId(), kind,
+        Optional<UnusableModelReason> unusable = models.unusableBecause(served.provider(), served.modelId(), kind,
                 LocalDate.now(clock.withZone(ZoneOffset.UTC)));
         if (unusable.isEmpty()) {
             return served;
         }
         if (reportedModelFallbacks.add(served.promptId() + ":" + served.version())) {
-            log.warn("Prompt {} version {} names model {}, which is {}; the configured model answers instead",
+            log.warn("Prompt {} version {} names model {}, unusable ({}); the configured model answers instead",
                     served.promptId(), served.version(), served.modelId(), unusable.get());
         }
         return served.onTheConfiguredModel();

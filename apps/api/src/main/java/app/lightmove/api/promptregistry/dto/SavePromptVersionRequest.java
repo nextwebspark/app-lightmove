@@ -7,7 +7,8 @@ import jakarta.validation.constraints.Size;
 
 /**
  * A new version: the text, the model (both of {@code provider} and {@code modelId}, or neither for the configured
- * model), the settings it fixes (null or a null field: the feature's default) and why.
+ * model, never the previous version's: the editor sends the model it opened on), the settings it fixes (null or a
+ * null field: the feature's default) and why.
  */
 public record SavePromptVersionRequest(
         @NotBlank @Size(max = SavePromptVersionRequest.LONGEST_BODY) String body,

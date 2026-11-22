@@ -44,7 +44,11 @@ public class PromptTrialRunner implements CallAdvisor {
         try {
             trial.run();
         } catch (ApiException refused) {
-            throw refused;
+            if (run.rawAnswer == null) {
+                throw refused;
+            }
+            log.warn("Trial of prompt {} version {} ended in its feature refusing the answer: {}",
+                    version.promptId(), version.version(), refused.getCode());
         } catch (RuntimeException failure) {
             // A feature that cannot use an answer throws: what the model said is still what Try it is asked to show.
             log.warn("Trial of prompt {} version {} ended in its feature refusing the answer: {}",
@@ -62,8 +66,12 @@ public class PromptTrialRunner implements CallAdvisor {
         return run != null && run.version.promptId().equals(promptId) ? run.version : null;
     }
 
+    /** Records the answer, and names the version on the call's log line; the call counter is never attached. */
     Consumer<ChatClient.AdvisorSpec> recording() {
-        return RUNNING.get() == null ? advisors -> { } : advisors -> advisors.advisors(this);
+        Run run = RUNNING.get();
+        return run == null ? advisors -> { } : advisors -> advisors
+                .param(ChatCallLog.PROMPT_VERSION_ATTRIBUTE, run.version.version())
+                .advisors(this);
     }
 
     /** What the feature bound the answer to. A no-op outside a trial. */

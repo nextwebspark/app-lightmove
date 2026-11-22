@@ -19,7 +19,8 @@ public final class TestPromptCalls {
     public static PromptCalls bundledOnly() {
         BundledPrompts bundled = new BundledPrompts();
         return new PromptCalls((promptId, kind) -> ServedPrompt.bundled(promptId, bundled.bodyOf(promptId)),
-                new VertexGeminiChatModelProvider(), new PromptCallCounter(new UncountedCalls()), new PromptTrialRunner(null));
+                new VertexGeminiChatModelProvider(null, null, null), new PromptCallCounter(new UncountedCalls()),
+                new PromptTrialRunner(null));
     }
 
     private static final class UncountedCalls extends PromptCallCountWriter {

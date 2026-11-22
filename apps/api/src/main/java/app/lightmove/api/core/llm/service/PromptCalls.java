@@ -26,8 +26,11 @@ public class PromptCalls {
         String model = served.modelId() != null ? served.modelId() : spec.defaultModel();
         PromptCallOptions call = new PromptCallOptions(spec.callLabel(), served.version(), spec.kind(), model,
                 served.settings().orElse(spec.defaults()));
-        return new PreparedPrompt(served.body(), model, provider.optionsFor(call),
-                counter.attributing(served, provider.provider()).andThen(trials.recording()));
+        // A trial is a console experiment, not a workspace served: counted, it would put calls on a version never
+        // live and mix experiments into the live version's error and token rates.
+        return new PreparedPrompt(served.body(), model, provider.optionsFor(call), underTrial != null
+                ? trials.recording()
+                : counter.attributing(served, provider.provider()));
     }
 
     /** Hands a bound answer to a running trial, and back to the caller unchanged. */

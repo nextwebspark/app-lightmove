@@ -240,6 +240,29 @@ class PromptManagementIntegrationTest extends PositionTemplateFlowSupport {
     }
 
     @Test
+    @DisplayName("a version whose model has left the catalogue since it was saved cannot be put live or rolled back to")
+    void aVersionOnAnUnusableModelCannotGoLive() throws Exception {
+        String admin = superAdmin();
+        int shipped = store.productionOf("recruiter-shortlist").orElseThrow().version();
+        int stale = db.queryForObject(
+                "SELECT max(version) + 1 FROM app_lm_platform_prompt_version WHERE prompt_id = 'recruiter-shortlist'",
+                Integer.class);
+        db.update("""
+                INSERT INTO app_lm_platform_prompt_version
+                    (prompt_id, version, body, provider, model_id, origin, change_note)
+                VALUES ('recruiter-shortlist', ?, 'Weigh the candidate, on an old model.', 'VERTEX_GEMINI',
+                        'gemini-1.0-retired', 'EDITED', 'tested')
+                """, stale);
+
+        JsonNode problem = refused(400, "PROMPT_MODEL_UNAVAILABLE", putJson(admin, SHORTLIST + "/production",
+                "{\"version\":" + stale + ",\"reason\":\"Roll back to the old text\"}"));
+
+        assertThat(problem.get("detail").asString()).contains("Save a new version on another model");
+        assertThat(store.productionOf("recruiter-shortlist").orElseThrow().version()).isEqualTo(shipped);
+        assertThat(audited("PROMPT_PUT_LIVE") + audited("PROMPT_ROLLED_BACK")).isZero();
+    }
+
+    @Test
     @DisplayName("an older release's text put live by a person serves, until a release's sync moves production again")
     void anOlderShippedVersionPutLiveServes() throws Exception {
         String admin = superAdmin();
@@ -285,6 +308,7 @@ class PromptManagementIntegrationTest extends PositionTemplateFlowSupport {
         assertThat(sent).contains("Layla Haddad").contains("Capital markets");
         assertThat(model.lastPrompt().getSystemMessage().getText()).endsWith("TRIED-VERSION-MARKER");
         assertThat(audited("PROMPT_TRIED")).isEqualTo(1);
+        assertThat(callsCounted("candidate-scorecard-draft", edited)).as("a trial is not a call served").isZero();
 
         assertThat(registry.current("candidate-scorecard-draft", PromptKind.STRUCTURED).body()).isEqualTo(shipped);
         refused(409, "PROMPT_TRIAL_UNAVAILABLE", postJson(admin, ASSISTANT + "/versions/1/trial", "{}"));
@@ -384,6 +408,12 @@ class PromptManagementIntegrationTest extends PositionTemplateFlowSupport {
                 SELECT count(*) FROM app_lm_audit_event
                 WHERE event_type = ? AND actor_user_id = (SELECT id FROM app_lm_user WHERE email = ?)
                 """, Integer.class, eventType, "owner@" + domain);
+    }
+
+    private long callsCounted(String promptId, int version) {
+        return db.queryForObject("""
+                SELECT coalesce(sum(calls), 0) FROM app_lm_platform_prompt_call_daily WHERE prompt_id = ? AND version = ?
+                """, Long.class, promptId, version);
     }
 
     private int auditMentions(String text) {

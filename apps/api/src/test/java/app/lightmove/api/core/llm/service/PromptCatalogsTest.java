@@ -64,7 +64,7 @@ class PromptCatalogsTest {
     @Test
     @DisplayName("a structured call asks for JSON and carries the prompt and its version as labels")
     void theVertexAdapterMapsACall() {
-        GoogleGenAiChatOptions options = (GoogleGenAiChatOptions) new VertexGeminiChatModelProvider()
+        GoogleGenAiChatOptions options = (GoogleGenAiChatOptions) new VertexGeminiChatModelProvider(null, null, null)
                 .optionsFor(new PromptCallOptions("call-changes", 7, PromptKind.STRUCTURED, "gemini-3.8-flash",
                         new GenerationSettings(0.0, 0, 2048)))
                 .build();
@@ -80,7 +80,7 @@ class PromptCatalogsTest {
     @Test
     @DisplayName("a prose call from the bundled file asks for no answer format and carries no version label")
     void aProseCallFromTheBundledFileNamesOnlyItsPrompt() {
-        GoogleGenAiChatOptions options = (GoogleGenAiChatOptions) new VertexGeminiChatModelProvider()
+        GoogleGenAiChatOptions options = (GoogleGenAiChatOptions) new VertexGeminiChatModelProvider(null, null, null)
                 .optionsFor(new PromptCallOptions("recruiter-shortlist", null, PromptKind.PROSE, null,
                         GenerationSettings.UNSET))
                 .build();

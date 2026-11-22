@@ -2,7 +2,9 @@ package app.lightmove.api.core.llm.service;
 
 import app.lightmove.api.core.llm.constant.AiProvider;
 import app.lightmove.api.core.llm.constant.ModelCapability;
+import app.lightmove.api.core.llm.constant.ModelLaunchStage;
 import app.lightmove.api.core.llm.constant.PromptKind;
+import app.lightmove.api.core.llm.constant.UnusableModelReason;
 import app.lightmove.api.core.llm.model.AiModel;
 import app.lightmove.api.core.llm.model.SettingRange;
 import java.time.LocalDate;
@@ -49,25 +51,27 @@ public class AiModelCatalog {
 
     /**
      * Why a version naming this model cannot be answered by it on {@code day}, for a prompt of {@code kind}: the
-     * configured model answers instead. Empty when the model will do.
+     * configured model answers instead. Empty when the model will do. The one rule for saving a version, putting
+     * one live and serving it, so the three cannot disagree.
      */
-    public Optional<String> unusableBecause(AiProvider provider, String modelId, PromptKind kind, LocalDate day) {
-        Optional<AiModel> model = find(provider, modelId);
+    public Optional<UnusableModelReason> unusableBecause(AiProvider provider, String modelId, PromptKind kind,
+                                                         LocalDate day) {
+        Optional<AiModel> model = provider == null || modelId == null ? Optional.empty() : find(provider, modelId);
         if (model.isEmpty()) {
-            return Optional.of("not in the model catalogue");
+            return Optional.of(UnusableModelReason.NOT_IN_CATALOGUE);
         }
         if (model.get().isRetiredOn(day)) {
-            return Optional.of("past its retirement date");
+            return Optional.of(UnusableModelReason.RETIRED);
         }
         ModelCapability needed = kind.needs();
         if (needed != null && !model.get().can(needed)) {
-            return Optional.of("not able to answer a " + kind + " prompt");
+            return Optional.of(UnusableModelReason.LACKS_CAPABILITY);
         }
         return Optional.empty();
     }
 
     private static AiModel gemini(String modelId, String displayName, LocalDate retiresOn) {
-        return new AiModel(AiProvider.VERTEX_GEMINI, modelId, displayName, retiresOn, VERTEX_DATA_TERMS,
-                ANSWERS_AND_TOOLS, TEMPERATURE, THINKING_BUDGET, MAX_OUTPUT_TOKENS);
+        return new AiModel(AiProvider.VERTEX_GEMINI, modelId, displayName, ModelLaunchStage.GA, retiresOn,
+                VERTEX_DATA_TERMS, ANSWERS_AND_TOOLS, TEMPERATURE, THINKING_BUDGET, MAX_OUTPUT_TOKENS);
     }
 }

@@ -4,7 +4,6 @@ import app.lightmove.api.assistant.model.AssistantTurn;
 import app.lightmove.api.assistant.tool.AssistantToolContext;
 import app.lightmove.api.core.config.AssistantSettings;
 import app.lightmove.api.core.config.LightMoveProperties;
-import app.lightmove.api.core.llm.model.GenerationSettings;
 import app.lightmove.api.core.llm.model.PreparedPrompt;
 import app.lightmove.api.core.llm.model.PromptCallSpec;
 import app.lightmove.api.core.llm.service.ChatCallLog;
@@ -54,7 +53,7 @@ public class AssistantModelCall {
         this.settings = properties.assistant();
         this.prompts = prompts;
         this.corePrompt = PromptCallSpec.toolCalling(CORE_PROMPT, PROMPT_ID, settings.model(),
-                new GenerationSettings(settings.temperature(), settings.thinkingBudget(), null));
+                settings.generationDefaults());
         ToolCallingManager oneAtATime = toolCalling.getIfAvailable(() -> ToolCallingManager.builder().build());
         this.toolLoop = ToolCallingAdvisor.builder()
                 .toolCallingManager(new ParallelToolCalls(oneAtATime, threads.tools(),
