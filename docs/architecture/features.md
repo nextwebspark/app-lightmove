@@ -473,12 +473,22 @@ beside **Today** (today's calls
 and meetings), **Your positions** and charts from the workspace dashboard library — every one a tile on the
 dashboard's twelve-column grid (`DashboardGrid`). **Customize** is the dashboard's edit mode on Home: drag a tile to
 move it, its edge or corner to resize it, **Add chart** (any library chart, up to 12), × to take a tile off (never
-Needs you), and **Options** for which sections show, which To do groups Needs you carries and where Uncava opens
-(Home or Positions); nothing is kept until **Save layout**, and **Reset to the default** puts back the layout everyone
-starts from. The layout is the person's own, per workspace, on the server (V233, `GET/PUT/DELETE /me/home`,
-`HomeLayoutService`; saving the default deletes the row so they keep following it); the landing choice is also
-remembered on the browser (`lm-landing:{userId}:{workspaceId}`) because `homeFor` decides before any request, and a
-layout kept on the browser before V233 (`lm-home:…`) is carried over on the first save. A pure client's Home
+Needs you), and **Options** for which sections show and which To do groups Needs you carries, naming the start page
+with a link to change it; nothing is kept until **Save layout**, and **Reset to the default** puts back the layout
+everyone starts from. The layout is the person's own, per workspace, on the server (V233, `GET/PUT/DELETE /me/home`,
+`HomeLayoutService`; saving the default deletes the row so they keep following it), and a layout kept on the browser
+before V233 (`lm-home:…`) is carried over on the first save.
+
+**Start page** (`startpage`, Settings → Profile → Start page, `uncava-design` `Settings.dc.html?startPage=…`) is where
+Uncava opens in a workspace: Home (the default, no row), Positions, Candidates, Tasks, one of the member's workspace
+dashboards, or a position on one tab (Brief, Strategy, In universe, Outreach, Dashboard); a pure client is offered Home,
+Positions and a position, never Outreach. It is per member per workspace (V237, `PUT /me/start-page`), and every auth
+response carries it as `startPage` (`AuthResponseAssembler` asks `StartPageLookup`, which `startpage` answers, so core
+reads no feature), checked against the member's access on every read: a dashboard deleted or unshared, a seat lost
+(`WORK_VIEW`, `WORK_EXECUTE` for Outreach) reads `available: false`, and Home opens with a notice (Choose another, Open
+on Home). It applies on a sign-in (`homeFor`; a remembered destination still wins, the bare root excepted) and when the
+SPA is opened at its bare root as the tab's first entry (`OpenAtStartPage`); Home reached from inside the app stays
+Home. A save of a page the member cannot open is one `START_PAGE_UNAVAILABLE`, whatever the reason. A pure client's Home
 is the positions shared with them, with no queue and nothing staff-only; an admin of a workspace with no position
 sees the four set-up steps. The AI cards the mockup draws (Since you were last here, drafted replies, meeting prep
 and recaps, positions at risk) are the next steps, not built.

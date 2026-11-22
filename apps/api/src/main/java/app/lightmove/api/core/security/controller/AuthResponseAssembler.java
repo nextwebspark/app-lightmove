@@ -14,6 +14,7 @@ import app.lightmove.api.core.security.rbac.PlatformAccess;
 import app.lightmove.api.core.security.rbac.Role;
 import app.lightmove.api.core.security.rbac.WorkspaceRole;
 import app.lightmove.api.core.security.repository.UserRepository;
+import app.lightmove.api.core.security.service.StartPageLookup;
 import app.lightmove.api.core.security.service.WorkspaceSelection;
 import app.lightmove.api.core.security.token.TokenPair;
 import app.lightmove.api.core.tenant.ResolvedRow;
@@ -54,6 +55,7 @@ public class AuthResponseAssembler {
     private final PlatformAccess platform;
     private final DateTimePreferenceService dateTimePreferences;
     private final TenantResolvers resolvers;
+    private final StartPageLookup startPages;
 
     public AuthResponse assemble(TokenPair tokens, User user, WorkspaceMember membership) {
         return new AuthResponse(
@@ -87,6 +89,7 @@ public class AuthResponseAssembler {
                         current == null ? null : DateTimeChoiceResponse.of(dateTimePreferences.forWorkspace(current))),
                 user.getLocale(),
                 currentSummary(membership, byId),
+                current == null ? null : startPages.startPageOf(user.getId(), current.getId()),
                 memberships.stream()
                         .filter(member -> byId.containsKey(member.getWorkspaceId()))
                         .map(member -> toSummary(byId.get(member.getWorkspaceId()), member))

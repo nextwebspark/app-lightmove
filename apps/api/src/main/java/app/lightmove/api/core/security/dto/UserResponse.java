@@ -40,6 +40,9 @@ public record UserResponse(
         /** The session's workspace — the token's {@code wsId} — or null; the frontend routes on it. */
         WorkspaceSummary workspace,
 
+        /** Where Uncava opens in that workspace; null with no workspace. */
+        StartPageResponse startPage,
+
         /** Every active membership, oldest first — what the switcher lists. */
         List<WorkspaceSummary> workspaces,
 

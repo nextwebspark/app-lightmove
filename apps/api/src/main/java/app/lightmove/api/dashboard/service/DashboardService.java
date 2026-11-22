@@ -37,6 +37,11 @@ public class DashboardService {
         return found.stream().map(dashboard -> toResponse(dashboard, userId)).toList();
     }
 
+    @Transactional(readOnly = true)
+    public boolean isVisibleOnWorkspace(UUID userId, UUID workspaceId, UUID dashboardId) {
+        return dashboards.isVisibleOnWorkspace(dashboardId, workspaceId, userId);
+    }
+
     @Transactional
     public DashboardResponse create(UUID userId, UUID workspaceId, UUID projectId, SaveDashboardRequest request) {
         Dashboard dashboard = Dashboard.startFor(workspaceId, projectId, userId);

@@ -318,6 +318,12 @@ public enum ErrorCode {
     /** The dashboard was saved elsewhere after it was opened here. */
     DASHBOARD_STALE(HttpStatus.CONFLICT, "This dashboard was changed since you opened it. Reload to see the changes"),
 
+    /**
+     * A start page the member may not open: a dashboard or position that is gone, not theirs, or another workspace's,
+     * and the staff pages for a pure client. One answer for all of them, so a guessed id learns nothing.
+     */
+    START_PAGE_UNAVAILABLE(HttpStatus.UNPROCESSABLE_CONTENT, "That page is not available to you. Choose another"),
+
     /** The member's Home was saved in another tab or device after it was opened here. */
     HOME_LAYOUT_STALE(HttpStatus.CONFLICT, "Your Home was changed in another window. Reload to see it"),
 

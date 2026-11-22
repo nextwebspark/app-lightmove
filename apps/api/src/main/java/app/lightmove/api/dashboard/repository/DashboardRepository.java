@@ -28,4 +28,12 @@ public interface DashboardRepository extends JpaRepository<Dashboard, UUID> {
     List<Dashboard> findVisibleOnWorkspace(@Param("workspaceId") UUID workspaceId, @Param("userId") UUID userId);
 
     Optional<Dashboard> findByIdAndWorkspaceId(UUID id, UUID workspaceId);
+
+    /** Whether the member may open this workspace dashboard: their own, or one shared with the workspace's staff. */
+    @Query("""
+            SELECT COUNT(d) > 0 FROM Dashboard d
+            WHERE d.id = :id AND d.workspaceId = :workspaceId AND d.projectId IS NULL
+              AND (d.ownerUserId = :userId OR d.shared = true)""")
+    boolean isVisibleOnWorkspace(@Param("id") UUID id, @Param("workspaceId") UUID workspaceId,
+                                 @Param("userId") UUID userId);
 }

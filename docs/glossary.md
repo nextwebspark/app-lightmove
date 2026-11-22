@@ -40,7 +40,8 @@ changes. Copy no mockup draws — toasts, errors, banners, empty states — foll
 | **Home** | the page after sign-in: Needs you, Today, Your positions and charts, each a tile in the person's own layout; a client's Home is the positions shared with them | dashboard, landing page, My work |
 | **Needs you** | Home's one list of what is owed today: executives waiting in outreach and the person's own tasks; Mine or, for a lead, Team | inbox, action queue, feed |
 | **Positions** | the one list of positions: every one for an admin, the ones a person is on for anyone else | My positions, All positions, projects |
-| **Customize** / **Save layout** / **Reset to the default** | Home's edit mode, as a dashboard's Edit layout: drag and resize tiles, Add chart, × to take a tile off, Options for sections, Needs you and landing; kept on Save layout, and Reset puts back the layout everyone starts from | personalize, configure, pin |
+| **Customize** / **Save layout** / **Reset to the default** | Home's edit mode, as a dashboard's Edit layout: drag and resize tiles, Add chart, × to take a tile off, Options for sections and Needs you; kept on Save layout, and Reset puts back the layout everyone starts from | personalize, configure, pin |
+| **Start page** | where Uncava opens in a workspace on a sign-in or when opened without a link: Home, Positions, Candidates, Tasks, one of your dashboards, or a position on a chosen tab; set in Settings → Profile | landing page, default view, homepage |
 | **Fallback** | what a variable says for an executive with no value, written after a bar: `{{firstName\|there}}` | default value |
 | **Daily email limit** | the most one mailbox sends through Uncava in a day | quota |
 | **Synced email** | a reply read back from the consultant's own mailbox, as the history tags it | imported, fetched |

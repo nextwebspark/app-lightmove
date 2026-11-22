@@ -36,7 +36,7 @@ class HomeLayoutIntegrationTest extends FlowTestSupport {
                   {"kind":"TODAY","layout":{"x":8,"y":0,"w":4,"h":5}},
                   {"kind":"CHART","queryId":"positionsBy","chart":"bar","options":{"group":"stage"},"title":"By stage",
                    "layout":{"x":0,"y":10,"w":6,"h":7}}],
-                 "needs":{"ATTENTION":false},"landing":"POSITIONS"}""".formatted(NEEDS))
+                 "needs":{"ATTENTION":false}}""".formatted(NEEDS))
                 .andExpect(status().isOk()).andReturn()).get("layout");
         assertThat(saved.get("tiles")).hasSize(3);
         JsonNode chart = saved.get("tiles").get(2);
@@ -46,7 +46,6 @@ class HomeLayoutIntegrationTest extends FlowTestSupport {
         assertThat(chart.get("layout").get("w").asInt()).isEqualTo(6);
         assertThat(saved.get("needs").get("ATTENTION").asBoolean()).isFalse();
         assertThat(saved.get("needs").get("NEEDS_REPLY").asBoolean()).isTrue();
-        assertThat(saved.get("landing").asText()).isEqualTo("POSITIONS");
 
         assertThat(read(admin).get("layout").get("tiles")).hasSize(3);
         assertThat(read(colleague).get("layout").isNull()).isTrue();
@@ -65,31 +64,29 @@ class HomeLayoutIntegrationTest extends FlowTestSupport {
         String admin = firm("Home Rules Firm");
         String today = "{\"kind\":\"TODAY\",\"layout\":{\"x\":8,\"y\":0,\"w\":4,\"h\":5}}";
 
-        assertThat(codeOf(save(admin, "{\"tiles\":[%s],\"landing\":\"HOME\"}".formatted(today))
+        assertThat(codeOf(save(admin, "{\"tiles\":[%s]}".formatted(today))
                 .andExpect(status().isBadRequest()).andReturn())).isEqualTo("VALIDATION_FAILED");
-        assertThat(codeOf(save(admin, "{\"tiles\":[%s,%s,%s],\"landing\":\"HOME\"}".formatted(NEEDS, today, today))
+        assertThat(codeOf(save(admin, "{\"tiles\":[%s,%s,%s]}".formatted(NEEDS, today, today))
                 .andExpect(status().isBadRequest()).andReturn())).isEqualTo("VALIDATION_FAILED");
-        assertThat(codeOf(save(admin, "{\"tiles\":[%s,{\"kind\":\"INBOX\",\"layout\":{\"x\":0,\"y\":0,\"w\":4,\"h\":4}}],\"landing\":\"HOME\"}"
+        assertThat(codeOf(save(admin, "{\"tiles\":[%s,{\"kind\":\"INBOX\",\"layout\":{\"x\":0,\"y\":0,\"w\":4,\"h\":4}}]}"
                 .formatted(NEEDS)).andExpect(status().isBadRequest()).andReturn())).isEqualTo("VALIDATION_FAILED");
-        assertThat(codeOf(save(admin, "{\"tiles\":[%s,{\"kind\":\"TODAY\",\"layout\":{\"x\":10,\"y\":0,\"w\":4,\"h\":4}}],\"landing\":\"HOME\"}"
+        assertThat(codeOf(save(admin, "{\"tiles\":[%s,{\"kind\":\"TODAY\",\"layout\":{\"x\":10,\"y\":0,\"w\":4,\"h\":4}}]}"
                 .formatted(NEEDS)).andExpect(status().isBadRequest()).andReturn())).isEqualTo("VALIDATION_FAILED");
-        assertThat(codeOf(save(admin, "{\"tiles\":[{\"kind\":\"NEEDS\",\"layout\":{\"x\":0,\"y\":0,\"w\":1,\"h\":1}}],\"landing\":\"HOME\"}")
+        assertThat(codeOf(save(admin, "{\"tiles\":[{\"kind\":\"NEEDS\",\"layout\":{\"x\":0,\"y\":0,\"w\":1,\"h\":1}}]}")
                 .andExpect(status().isBadRequest()).andReturn())).isEqualTo("VALIDATION_FAILED");
-        assertThat(codeOf(save(admin, "{\"tiles\":[%s],\"needs\":{\"GOSSIP\":true},\"landing\":\"HOME\"}".formatted(NEEDS))
+        assertThat(codeOf(save(admin, "{\"tiles\":[%s],\"needs\":{\"GOSSIP\":true}}".formatted(NEEDS))
                 .andExpect(status().isBadRequest()).andReturn())).isEqualTo("VALIDATION_FAILED");
-        assertThat(codeOf(save(admin, "{\"tiles\":[%s],\"landing\":\"TASKS\"}".formatted(NEEDS))
-                .andExpect(status().isBadRequest()).andReturn())).isEqualTo("VALIDATION_FAILED");
-        assertThat(codeOf(save(admin, "{\"tiles\":[%s,%s],\"landing\":\"HOME\"}".formatted(NEEDS,
+        assertThat(codeOf(save(admin, "{\"tiles\":[%s,%s]}".formatted(NEEDS,
                         chart("executivesIdentified", "kpi"))) // a position's query, not the workspace's
                 .andExpect(status().isNotFound()).andReturn())).isEqualTo("CHART_QUERY_NOT_FOUND");
-        assertThat(codeOf(save(admin, "{\"tiles\":[%s,%s],\"landing\":\"HOME\"}".formatted(NEEDS,
+        assertThat(codeOf(save(admin, "{\"tiles\":[%s,%s]}".formatted(NEEDS,
                         chart("openPositions", "pie")))
                 .andExpect(status().isBadRequest()).andReturn())).isEqualTo("CHART_TYPE_NOT_ALLOWED");
         String thirteen = String.join(",", java.util.Collections.nCopies(13, chart("openPositions", "kpi")));
-        assertThat(codeOf(save(admin, "{\"tiles\":[%s,%s],\"landing\":\"HOME\"}".formatted(NEEDS, thirteen))
+        assertThat(codeOf(save(admin, "{\"tiles\":[%s,%s]}".formatted(NEEDS, thirteen))
                 .andExpect(status().isBadRequest()).andReturn())).isEqualTo("VALIDATION_FAILED");
 
-        save(admin, "{\"tiles\":[%s,%s],\"landing\":\"HOME\"}".formatted(NEEDS, chart("openPositions", "kpi")))
+        save(admin, "{\"tiles\":[%s,%s]}".formatted(NEEDS, chart("openPositions", "kpi")))
                 .andExpect(status().isOk());
     }
 
@@ -97,19 +94,19 @@ class HomeLayoutIntegrationTest extends FlowTestSupport {
     @DisplayName("a save opened before another window's save, or before a reset, is refused rather than lost")
     void aStaleWindowCannotOverwrite() throws Exception {
         String admin = firm("Home Stale Firm");
-        String body = "{\"tiles\":[%s],\"landing\":\"%s\",\"version\":%s}";
+        String body = "{\"tiles\":[%s],\"needs\":{\"ATTENTION\":%s},\"version\":%s}";
 
-        long first = body(save(admin, body.formatted(NEEDS, "HOME", "null")).andExpect(status().isOk()).andReturn())
+        long first = body(save(admin, body.formatted(NEEDS, "true", "null")).andExpect(status().isOk()).andReturn())
                 .get("layout").get("version").asLong();
-        assertThat(codeOf(save(admin, body.formatted(NEEDS, "POSITIONS", "null"))
+        assertThat(codeOf(save(admin, body.formatted(NEEDS, "false", "null"))
                 .andExpect(status().isConflict()).andReturn())).isEqualTo("HOME_LAYOUT_STALE");
 
-        long second = body(save(admin, body.formatted(NEEDS, "POSITIONS", first)).andExpect(status().isOk()).andReturn())
+        long second = body(save(admin, body.formatted(NEEDS, "false", first)).andExpect(status().isOk()).andReturn())
                 .get("layout").get("version").asLong();
         assertThat(second).isGreaterThan(first);
-        assertThat(codeOf(save(admin, body.formatted(NEEDS, "HOME", first))
+        assertThat(codeOf(save(admin, body.formatted(NEEDS, "true", first))
                 .andExpect(status().isConflict()).andReturn())).isEqualTo("HOME_LAYOUT_STALE");
-        assertThat(read(admin).get("layout").get("landing").asText()).isEqualTo("POSITIONS");
+        assertThat(read(admin).get("layout").get("needs").get("ATTENTION").asBoolean()).isFalse();
 
         // A window opened before the second save sends the default back: refused, not a delete of the newer save.
         assertThat(codeOf(mvc.perform(delete(HOME).param("version", String.valueOf(first))
@@ -117,20 +114,20 @@ class HomeLayoutIntegrationTest extends FlowTestSupport {
                 .andExpect(status().isConflict()).andReturn())).isEqualTo("HOME_LAYOUT_STALE");
         mvc.perform(delete(HOME).param("version", String.valueOf(second)).header("Authorization", "Bearer " + admin))
                 .andExpect(status().isNoContent());
-        assertThat(codeOf(save(admin, body.formatted(NEEDS, "HOME", second))
+        assertThat(codeOf(save(admin, body.formatted(NEEDS, "true", second))
                 .andExpect(status().isConflict()).andReturn())).isEqualTo("HOME_LAYOUT_STALE");
-        save(admin, body.formatted(NEEDS, "HOME", "null")).andExpect(status().isOk());
+        save(admin, body.formatted(NEEDS, "true", "null")).andExpect(status().isOk());
     }
 
     @Test
     @DisplayName("a pure client has no Home layout to read or save, and a layout is never another firm's")
     void clientsAndOtherFirmsAreRefused() throws Exception {
         String admin = firm("Home Gate Firm");
-        save(admin, "{\"tiles\":[%s],\"landing\":\"HOME\"}".formatted(NEEDS)).andExpect(status().isOk());
+        save(admin, "{\"tiles\":[%s]}".formatted(NEEDS)).andExpect(status().isOk());
 
         String pureClient = clientRepresentative(admin, "Sami Haddad", "sami@client-" + domain);
         mvc.perform(get(HOME).header("Authorization", "Bearer " + pureClient)).andExpect(status().isNotFound());
-        save(pureClient, "{\"tiles\":[%s],\"landing\":\"HOME\"}".formatted(NEEDS)).andExpect(status().isNotFound());
+        save(pureClient, "{\"tiles\":[%s]}".formatted(NEEDS)).andExpect(status().isNotFound());
 
         String outsiderEmail = "omar@other-" + domain;
         createWorkspace(verifiedUser("Omar Khoury", outsiderEmail), "Another Firm");
