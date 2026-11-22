@@ -1,7 +1,9 @@
-package app.lightmove.api.eval;
+package app.lightmove.api.enrichment.candidate.service;
 
 import app.lightmove.api.common.constant.NationalityGroup;
 import app.lightmove.api.common.constant.Seniority;
+import app.lightmove.api.enrichment.candidate.model.GoldenRow;
+import app.lightmove.api.enrichment.candidate.model.GoldenRowPrediction;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -18,24 +20,24 @@ import java.util.stream.Stream;
  * the arithmetic is tested without a model; the report names categories and counts only — never a
  * person or a line of their profile.
  */
-final class EvalScorer {
+public final class GoldenRowScorer {
 
-    static final String UNKNOWN = "Unknown";
+    public static final String UNKNOWN = "Unknown";
     private static final String HIGH = "high";
     private static final String MEDIUM = "medium";
 
-    private EvalScorer() {
+    private GoldenRowScorer() {
     }
 
-    static EvalScore score(List<GoldenRow> rows, List<EvalPrediction> predictions) {
-        Map<String, EvalPrediction> byRow = predictions.stream()
-                .collect(Collectors.toMap(EvalPrediction::rowId, Function.identity()));
+    public static EvalScore score(List<GoldenRow> rows, List<GoldenRowPrediction> predictions) {
+        Map<String, GoldenRowPrediction> byRow = predictions.stream()
+                .collect(Collectors.toMap(GoldenRowPrediction::rowId, Function.identity()));
         List<Pair> nationality = new ArrayList<>();
         List<Pair> seniority = new ArrayList<>();
         List<String> confidences = new ArrayList<>();
         Map<String, Integer> labelSources = new TreeMap<>();
         for (GoldenRow row : rows) {
-            EvalPrediction predicted = byRow.get(row.id());
+            GoldenRowPrediction predicted = byRow.get(row.id());
             labelSources.merge(row.labelSource() == null ? "unstated" : row.labelSource(), 1, Integer::sum);
             if (row.expected() != null && row.expected().nationality() != null) {
                 nationality.add(new Pair(canonical(row.expected().nationality()),
@@ -50,51 +52,51 @@ final class EvalScorer {
     }
 
     /** Our spelling of a group, or Unknown for anything no group carries — the same fold the classifier makes. */
-    static String canonical(String label) {
+    public static String canonical(String label) {
         NationalityGroup group = NationalityGroup.ofLabel(label);
         return group == null ? UNKNOWN : group.value();
     }
 
-    static boolean isGcc(String label) {
+    public static boolean isGcc(String label) {
         NationalityGroup group = NationalityGroup.ofLabel(label);
         return group != null && group.isGcc();
     }
 
-    record Pair(String expected, String predicted) {
+    public record Pair(String expected, String predicted) {
 
-        boolean isHit() {
+        public boolean isHit() {
             return Objects.equals(expected, predicted);
         }
     }
 
-    record CategoryScore(String category, int support, int predicted, int hits) {
+    public record CategoryScore(String category, int support, int predicted, int hits) {
 
-        Double precision() {
+        public Double precision() {
             return predicted == 0 ? null : (double) hits / predicted;
         }
 
-        Double recall() {
+        public Double recall() {
             return support == 0 ? null : (double) hits / support;
         }
     }
 
-    record EvalScore(List<Pair> nationality, List<String> confidences, List<Pair> seniority,
+    public record EvalScore(List<Pair> nationality, List<String> confidences, List<Pair> seniority,
                      Map<String, Integer> labelSources) {
 
-        int rows() {
+        public int rows() {
             return nationality.size();
         }
 
-        Double accuracy() {
+        public Double accuracy() {
             return share(nationality.stream().filter(Pair::isHit).count(), rows());
         }
 
-        boolean statesConfidence() {
+        public boolean statesConfidence() {
             return confidences.stream().anyMatch(Objects::nonNull);
         }
 
         /** Of the answers made at high confidence, naming a group, the share that were right — what auto-fills. */
-        Double precisionAtHigh() {
+        public Double precisionAtHigh() {
             long answered = 0;
             long right = 0;
             for (int index = 0; index < nationality.size(); index++) {
@@ -107,7 +109,7 @@ final class EvalScorer {
             return share(right, answered);
         }
 
-        int highAnswers() {
+        public int highAnswers() {
             int answered = 0;
             for (int index = 0; index < nationality.size(); index++) {
                 if (HIGH.equals(confidences.get(index)) && !UNKNOWN.equals(nationality.get(index).predicted())) {
@@ -118,24 +120,24 @@ final class EvalScorer {
         }
 
         /** Rows that are not a GCC national — an expat or genuinely Unknown — that were called one. */
-        long gccFalsePositives() {
+        public long gccFalsePositives() {
             return nationality.stream().filter(pair -> !isGcc(pair.expected()) && isGcc(pair.predicted())).count();
         }
 
-        long nonGccRows() {
+        public long nonGccRows() {
             return nationality.stream().filter(pair -> !isGcc(pair.expected())).count();
         }
 
-        Double gccFalsePositiveRate() {
+        public Double gccFalsePositiveRate() {
             return share(gccFalsePositives(), nonGccRows());
         }
 
-        Double unknownRate() {
+        public Double unknownRate() {
             return share(nationality.stream().filter(pair -> UNKNOWN.equals(pair.predicted())).count(), rows());
         }
 
         /** Share answered with a group at high or medium confidence; null for a subject that states none. */
-        Double coverage() {
+        public Double coverage() {
             if (!statesConfidence()) {
                 return null;
             }
@@ -150,7 +152,7 @@ final class EvalScorer {
             return share(covered, rows());
         }
 
-        List<CategoryScore> byCategory() {
+        public List<CategoryScore> byCategory() {
             return categories().stream()
                     .map(category -> new CategoryScore(category,
                             (int) nationality.stream().filter(pair -> pair.expected().equals(category)).count(),
@@ -161,7 +163,7 @@ final class EvalScorer {
         }
 
         /** Every label seen on either side, in the vocabulary's own order and Unknown last. */
-        List<String> categories() {
+        public List<String> categories() {
             List<String> seen = nationality.stream()
                     .flatMap(pair -> Stream.of(pair.expected(), pair.predicted()))
                     .distinct()
@@ -178,7 +180,7 @@ final class EvalScorer {
             return ordered;
         }
 
-        Map<String, Map<String, Integer>> confusion() {
+        public Map<String, Map<String, Integer>> confusion() {
             Map<String, Map<String, Integer>> matrix = new LinkedHashMap<>();
             for (String expected : categories()) {
                 Map<String, Integer> row = new LinkedHashMap<>();
@@ -192,20 +194,20 @@ final class EvalScorer {
             return matrix;
         }
 
-        boolean proposesSeniority() {
+        public boolean proposesSeniority() {
             return seniority.stream().anyMatch(pair -> pair.predicted() != null);
         }
 
-        int seniorityRows() {
+        public int seniorityRows() {
             return seniority.size();
         }
 
-        Double seniorityExact() {
+        public Double seniorityExact() {
             return share(seniority.stream().filter(Pair::isHit).count(), seniorityRows());
         }
 
         /** Right, or one level away — "N-1" for "N-2", "C-Suite" for "N-1". */
-        Double seniorityWithinOne() {
+        public Double seniorityWithinOne() {
             return share(seniority.stream().filter(pair -> levelDistance(pair) <= 1).count(), seniorityRows());
         }
 
@@ -221,7 +223,7 @@ final class EvalScorer {
         }
     }
 
-    static String markdown(String subject, String goldenSource, String runDate, EvalScore score) {
+    public static String markdown(String subject, String goldenSource, String runDate, EvalScore score) {
         StringBuilder out = new StringBuilder();
         out.append("## ").append(subject).append(" — ").append(runDate).append("\n\n");
         out.append("Golden set: ").append(goldenSource).append(", ").append(score.rows())
@@ -270,7 +272,7 @@ final class EvalScorer {
         return out.append('\n').toString();
     }
 
-    static String percent(Double share) {
+    public static String percent(Double share) {
         return share == null ? "n/a" : String.format(Locale.ROOT, "%.1f%%", share * 100);
     }
 }

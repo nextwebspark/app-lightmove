@@ -1,14 +1,16 @@
-package app.lightmove.api.eval;
+package app.lightmove.api.enrichment.candidate.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import app.lightmove.api.eval.EvalScorer.EvalScore;
+import app.lightmove.api.enrichment.candidate.model.GoldenRow;
+import app.lightmove.api.enrichment.candidate.model.GoldenRowPrediction;
+import app.lightmove.api.enrichment.candidate.service.GoldenRowScorer.EvalScore;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /** The eval's arithmetic, over the committed synthetic rows and canned predictions — no model. */
-class EvalScorerTest {
+class GoldenRowScorerTest {
 
     private static final List<GoldenRow> ROWS = List.of(
             row("r1", "Western expat", "C-Suite"),
@@ -20,12 +22,12 @@ class EvalScorerTest {
     @Test
     @DisplayName("accuracy, precision at high, the GCC false positive and coverage are counted as defined")
     void metricsAreCounted() {
-        EvalScore score = EvalScorer.score(ROWS, List.of(
-                new EvalPrediction("r1", "western expat", "high", "C-Suite"),
-                new EvalPrediction("r2", "Saudi", "high", "N-2"),
-                new EvalPrediction("r3", "Emirati", "medium", "N-3"),
-                new EvalPrediction("r4", "Turkish", "low", null),
-                new EvalPrediction("r5", "Asian", "high", "N-1")));
+        EvalScore score = GoldenRowScorer.score(ROWS, List.of(
+                new GoldenRowPrediction("r1", "western expat", "high", "C-Suite"),
+                new GoldenRowPrediction("r2", "Saudi", "high", "N-2"),
+                new GoldenRowPrediction("r3", "Emirati", "medium", "N-3"),
+                new GoldenRowPrediction("r4", "Turkish", "low", null),
+                new GoldenRowPrediction("r5", "Asian", "high", "N-1")));
 
         assertThat(score.rows()).isEqualTo(5);
         assertThat(score.accuracy()).isEqualTo(3 / 5.0);
@@ -47,11 +49,11 @@ class EvalScorerTest {
     @Test
     @DisplayName("a subject that states no confidence reports n/a rather than a precision it never claimed")
     void aBaselineWithoutConfidenceIsNotApplicable() {
-        EvalScore score = EvalScorer.score(ROWS, List.of(new EvalPrediction("r1", "Western expat", null, null)));
+        EvalScore score = GoldenRowScorer.score(ROWS, List.of(new GoldenRowPrediction("r1", "Western expat", null, null)));
 
         assertThat(score.statesConfidence()).isFalse();
         assertThat(score.coverage()).isNull();
-        assertThat(EvalScorer.markdown("baseline", "synthetic", "2026-09-27", score))
+        assertThat(GoldenRowScorer.markdown("baseline", "synthetic", "2026-09-27", score))
                 .contains("n/a — states no confidence")
                 .doesNotContain("r1");
     }
@@ -59,12 +61,12 @@ class EvalScorerTest {
     @Test
     @DisplayName("the committed synthetic fixtures parse and every label is in the vocabulary")
     void syntheticFixturesAreWellFormed() {
-        List<GoldenRow> synthetic = NationalityEval.readGolden(NationalityEval.SYNTHETIC);
+        List<GoldenRow> synthetic = GoldenRows.read(GoldenRows.SYNTHETIC);
 
         assertThat(synthetic).hasSizeGreaterThanOrEqualTo(10);
         assertThat(synthetic).allSatisfy(golden -> {
-            assertThat(golden.expected().nationality().equals(EvalScorer.UNKNOWN)
-                    || !EvalScorer.canonical(golden.expected().nationality()).equals(EvalScorer.UNKNOWN)).isTrue();
+            assertThat(golden.expected().nationality().equals(GoldenRowScorer.UNKNOWN)
+                    || !GoldenRowScorer.canonical(golden.expected().nationality()).equals(GoldenRowScorer.UNKNOWN)).isTrue();
             assertThat(golden.profile().fullName()).isNotBlank();
         });
     }
