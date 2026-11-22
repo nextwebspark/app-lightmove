@@ -1,11 +1,12 @@
 package app.lightmove.api.candidate.service;
 
+import app.lightmove.api.core.llm.model.PreparedPrompt;
+import app.lightmove.api.core.llm.model.PromptCallSpec;
 import app.lightmove.api.core.llm.model.PromptGuardSpec;
 import app.lightmove.api.core.llm.service.LlmCallPolicy;
+import app.lightmove.api.core.llm.service.PromptCalls;
 import java.util.function.Consumer;
 import org.springframework.ai.chat.client.ChatClient;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
 
 /**
@@ -18,25 +19,26 @@ public class CandidateShortlistService {
     /** Names this feature in the shared client's log line. */
     private static final String PROMPT_ID = "recruiter-shortlist";
 
+    private static final PromptCallSpec SYSTEM_PROMPT = PromptCallSpec.prose(PROMPT_ID);
+
     private final ChatClient chatClient;
-    private final Resource systemPrompt;
+    private final PromptCalls prompts;
     private final LlmCallPolicy llmCalls;
     private final Consumer<ChatClient.AdvisorSpec> guardedAdvisors;
 
-    // Hand-written: Lombok cannot put @Value on a generated constructor parameter.
-    public CandidateShortlistService(ChatClient chatClient,
-                                     @Value("classpath:prompts/recruiter-shortlist-system.st") Resource systemPrompt,
-                                     LlmCallPolicy llmCalls) {
+    public CandidateShortlistService(ChatClient chatClient, PromptCalls prompts, LlmCallPolicy llmCalls) {
         this.chatClient = chatClient;
-        this.systemPrompt = systemPrompt;
+        this.prompts = prompts;
         this.llmCalls = llmCalls;
         this.guardedAdvisors = llmCalls.forPrompt(PromptGuardSpec.prose(PROMPT_ID));
     }
 
     public String shortlist(String jobBrief, String candidateProfile) {
+        PreparedPrompt prompt = prompts.prepare(SYSTEM_PROMPT);
         String answer = chatClient.prompt()
-                .advisors(guardedAdvisors)
-                .system(systemPrompt)
+                .advisors(guardedAdvisors.andThen(prompt.attribution()))
+                .options(prompt.options())
+                .system(prompt.systemText())
                 .user(user -> user.text("""
                         Job brief:
                         {jobBrief}

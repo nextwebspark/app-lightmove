@@ -75,7 +75,8 @@ Spring AI has two that look alike:
 
 So model, temperature, `max-output-tokens` and the billing label live in `application.yml`, and
 `ChatClientConfig` sets no options at all — it contributes the logging advisor and nothing else.
-`ColumnMappingProposer` names only its three deltas and inherits the rest.
+A call names only what its prompt fixes (a structured prompt: temperature 0, no thinking, JSON) and inherits
+the rest; `VertexGeminiChatModelProvider` sets a field only when the call names it, for that reason.
 
 One trap if a default is ever put back on the bean: it must be typed `GoogleGenAiChatOptions`.
 `combineWith` reads the provider half of a builder only when the builder handed to it is one of its
@@ -133,15 +134,59 @@ more, but no trust decision may rest on it.
   what the model actually throws, and deciding what is safe to retry when everything arrives as the
   same exception type. That is its own change, not a property file.
 
+### Where a call's prompt, model and settings come from (#1316)
+
+No caller reads a prompt file or names a vendor class. Each asks `PromptCalls.prepare(spec)` **per call** and
+gets the system text, the provider's options and the wiring that counts the call:
+
+- **`PromptSource.current(promptId, kind)`** answers the version serving now (`RegistryPromptSource`, its one
+  implementation). With `lightmove.ai.prompt-registry.enabled` off it is the bundled `prompts/*.st`
+  (`BundledPrompts`), today's path. On, **only an `EDITED` production version overrides the build's file**:
+  while production is a `BUNDLED` version, each instance serves its own bundled text and looks up that text's
+  version by its SHA-256. The `production` label is one row for every revision running, so during a rollout or
+  a traffic split it cannot say which shipped text an instance should answer with; the build can. Held in
+  memory per instance. It is never the reason a call fails: a registry that cannot be read serves the bundled
+  file and logs it, and a text the sync has not recorded yet is served with no version (and so not counted).
+- **The boot sync** (`PromptRegistrySync`) records each bundled text as a `BUNDLED` version once, under an
+  advisory lock. Production follows the build's own text unless an `EDITED` version is live, which stays live.
+  For shipped texts that label is the record the console reads, not what serves, so two revisions moving it
+  between them change no answer. A sync that recorded or moved anything bumps the reload, for an instance that
+  served before it.
+- **The model and settings are the version's.** `provider` + `model_id` null means the configured model
+  (`LLM_CHAT_MODEL`, or `ASSISTANT_MODEL` for the assistant). A setting left unset is the calling feature's own
+  default, declared in its `PromptCallSpec`, so a version that sets nothing behaves as the code always has.
+  A version naming a model past its retirement date, one `AiModelCatalog` no longer lists, or one that lacks
+  what the prompt's kind needs (`PromptKind.needs()`: tool calling for the assistant) is answered by the
+  configured model and logged once.
+- **`ChatModelProvider`** is the one seam to a vendor: `VertexGeminiChatModelProvider` owns the JSON mime type,
+  the thinking budget and the labels (`prompt`, and `prompt_version` when the registry served the text). A
+  second provider is a second implementation and catalogue entries.
+- **The reload** is `PlatformConfigReload`: the transaction that moves `production` bumps the `prompts` counter
+  and notifies on `lm_platform_config` through `core/stream`'s listener; every instance drops its cache. Each
+  also re-reads the counters every `lightmove.platform.config-reload-check` (30 s), for a notification it
+  missed. The channel is generic (`core/reload`), so its key is the platform's, not the registry's.
+- **Every call is counted** against the version and model that answered, in
+  `app_lm_platform_prompt_call_daily` (`PromptCallCounter`, innermost advisor: a schema repair's second ask and
+  each round of the assistant's tool loop are each a call). The write is off the calling thread and a failed
+  one is logged, never thrown. That table is the record; the label and the log line are secondary.
+
+The answer schema (`-schema.json`), the answer format and the user message stay in code: code parses the
+answer against the first two, and the third decides which data reaches the model.
+
+Rollout: ship off; turn `AI_PROMPT_REGISTRY_ENABLED` on per environment, check the per-version counts, then
+default it on (#1324).
+
 ### What every call logs
 
 `SimpleLoggerAdvisor`'s formatters live in `ChatCallLog`, because the defaults dump prompt
 and response in full and both are client and candidate PII. What is logged is metadata:
 
 ```
-chat request  prompt=recruiter-shortlist model=gemini-2.5-flash temperature=0.8
+chat request  prompt=recruiter-shortlist promptVersion=3 model=gemini-3.5-flash temperature=0.4
 chat response id=… model=… inputTokens=1200 outputTokens=340 totalTokens=1540 finish=STOP
 ```
+
+`promptVersion` appears only when the registry served the text.
 
 `finish` is the field separating a good answer from a silently truncated one: a `MAX_TOKENS` or
 `SAFETY` stop returns a partial body over an otherwise successful call. A zero input count means the
@@ -178,7 +223,16 @@ deterministic matcher.
   this bean does not honour (`api-key`, `credentials-uri`, `vertex-ai`) is refused rather than ignored.
 - `ChatClientLoggingTest` — the log line carries prompt id, token counts and finish reason, and carries
   **no** prompt or response content.
-- `CandidateShortlistServiceTest` — both fields reach the prompt. The blocked and empty cases are
+- `CandidateShortlistServiceTest` — both fields reach the prompt, and a call naming only its prompt still
+  inherits the configured model, temperature and ceiling. The blocked and empty cases are
   pinned on `LlmCallPolicy.requireModelAnswer`, which owns that translation for every caller.
+- `PromptRegistryIntegrationTest` (registry on) — every prompt served equals its shipped file; a changed
+  shipped prompt moves production and an edited live one stays; another revision's shipped text is never
+  served here; a sync that changed something bumps the reload; two boots record one version; a version put
+  live serves, model included, after the backstop check alone, and after the notification alone; calls are
+  counted per version; a failed count does not fail the call; versions and moves cannot be rewritten.
+- `RegistryPromptSourceTest`, `PromptCatalogsTest` — off and unreadable serve the bundled file; two revisions
+  on one registry each serve their own text; a read a reload overtook is not kept; a retired, unlisted or
+  unable model falls back; every catalogue entry is fully described; the Vertex adapter's options.
 - The whole suite must stay green **with no GCP credentials**, which is the real check on the
   conditional wiring: `cd apps/api && ./mvnw test`.

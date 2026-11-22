@@ -686,6 +686,11 @@ holder of a platform action sees. The whole tree is one lazy chunk (`PlatformRou
 `RequirePlatformStaff`, so nobody else downloads it, and a chunk that will not load (a tab left open across a deploy) draws
 `PlatformUnavailable` in its place rather than blanking the app; the guards are presentation and `@platformAuthorizer` is the
 boundary. `/settings/template-library` and a template's address under it redirect to `/platform/templates`.
+Behind it, every AI system prompt is served through the **prompt registry** (#1316, `core/llm`: `PromptCalls`,
+`PromptSource`, `AiModelCatalog`, `ChatModelProvider`; V235): immutable versions with their model and generation
+settings, a `production` label, a cross-instance reload (`core/reload`) and a daily count of the calls each version
+answered. Behind `lightmove.ai.prompt-registry.enabled`, off by default: off, the bundled `prompts/*.st` serve as
+before. No screen yet; `docs/llm-guardrails.md` has the call path.
 
 
 **Back navigation** is one rule across the SPA. Opening something — a drawer, a side panel, a record, another view — is a

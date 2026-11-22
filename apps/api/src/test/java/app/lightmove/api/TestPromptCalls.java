@@ -1,0 +1,34 @@
+package app.lightmove.api;
+
+import app.lightmove.api.core.llm.model.PromptCallCount;
+import app.lightmove.api.core.llm.model.ServedPrompt;
+import app.lightmove.api.core.llm.service.BundledPrompts;
+import app.lightmove.api.core.llm.service.PromptCallCountWriter;
+import app.lightmove.api.core.llm.service.PromptCallCounter;
+import app.lightmove.api.core.llm.service.PromptCalls;
+import app.lightmove.api.core.llm.service.VertexGeminiChatModelProvider;
+
+/** {@link PromptCalls} for the unit tests that build a model-calling service by hand. */
+public final class TestPromptCalls {
+
+    private TestPromptCalls() {
+    }
+
+    /** The bundled files and nothing else: no registry, so no call carries a version and nothing is counted. */
+    public static PromptCalls bundledOnly() {
+        BundledPrompts bundled = new BundledPrompts();
+        return new PromptCalls((promptId, kind) -> ServedPrompt.bundled(promptId, bundled.bodyOf(promptId)),
+                new VertexGeminiChatModelProvider(), new PromptCallCounter(new UncountedCalls()));
+    }
+
+    private static final class UncountedCalls extends PromptCallCountWriter {
+
+        private UncountedCalls() {
+            super(null);
+        }
+
+        @Override
+        public void add(PromptCallCount count) {
+        }
+    }
+}
