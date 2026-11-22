@@ -39,9 +39,17 @@ public class ProjectAccess {
         if (projectIds.isEmpty()) {
             return Set.of();
         }
-        WorkspaceMember member = workspaceAccess.requireActiveMember(userId, workspaceId);
+        return projectsWithAction(workspaceAccess.requireActiveMember(userId, workspaceId), projectIds, action);
+    }
+
+    /** {@link #allows} for an active membership already in hand, as the auth response holds one: no second read of it. */
+    public boolean allows(WorkspaceMember member, UUID projectId, ProjectAction action) {
+        return !projectsWithAction(member, List.of(projectId), action).isEmpty();
+    }
+
+    private Set<UUID> projectsWithAction(WorkspaceMember member, Collection<UUID> projectIds, ProjectAction action) {
         if (workspaceAccess.isAdmin(member) && adminBypasses(action)) {
-            return projects.findIdsInWorkspace(workspaceId, projectIds);
+            return projects.findIdsInWorkspace(member.getWorkspaceId(), projectIds);
         }
         return seats.findProjectIdsWithAction(member.getId(), projectIds, action.name());
     }

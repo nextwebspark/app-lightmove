@@ -1,5 +1,4 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect } from "react";
 import { codeOf } from "../../../lib/errorCodes";
 import * as homeApi from "../api/homeApi";
 import {
@@ -7,7 +6,6 @@ import {
   forgetLegacyLayout,
   isDefaultLayout,
   legacyLayout,
-  rememberLanding,
   type HomeLayout,
   type HomeOwner,
 } from "./homeLayout";
@@ -28,12 +26,7 @@ export function useHomeLayout(owner: HomeOwner) {
   // A failed read draws the default rather than holding Home back: the layout is a preference, not the content.
   const layout: HomeLayout = read.data?.layout ?? legacyLayout(owner) ?? DEFAULT_HOME_LAYOUT;
   const version = read.data?.version ?? null;
-  const known = read.isSuccess;
-
   const { userId, workspaceId } = owner;
-  useEffect(() => {
-    if (known) rememberLanding({ userId, workspaceId }, layout.landing);
-  }, [known, layout.landing, userId, workspaceId]);
 
   const save = useMutation({
     mutationFn: async (next: HomeLayout) => {
@@ -43,9 +36,8 @@ export function useHomeLayout(owner: HomeOwner) {
       }
       return homeApi.saveHomeLayout(next, version);
     },
-    onSuccess: (saved, next) => {
+    onSuccess: (saved) => {
       queryClient.setQueryData(homeApi.HOME_LAYOUT_KEY, saved);
-      rememberLanding({ userId, workspaceId }, next.landing);
       forgetLegacyLayout({ userId, workspaceId });
     },
     onError: (error) => {

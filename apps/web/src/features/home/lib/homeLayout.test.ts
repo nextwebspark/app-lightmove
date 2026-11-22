@@ -4,9 +4,7 @@ import {
   forgetLegacyLayout,
   hasSection,
   isDefaultLayout,
-  landingPath,
   legacyLayout,
-  rememberLanding,
   tileLimits,
   withSection,
 } from "./homeLayout";
@@ -32,13 +30,6 @@ describe("homeLayout", () => {
       .toMatchObject({ minW: 3, minH: 5 });
   });
 
-  it("lands on Positions only for someone who chose it in this workspace", () => {
-    expect(landingPath(owner)).toBe("/");
-    rememberLanding(owner, "positions");
-    expect(landingPath(owner)).toBe("/positions");
-    expect(landingPath({ userId: "u1", workspaceId: "w2" })).toBe("/");
-  });
-
   it("carries a layout kept on this browser before Home was saved on the server", () => {
     localStorage.setItem(
       "lm-home:u1:w1",
@@ -46,15 +37,12 @@ describe("homeLayout", () => {
         sections: [{ key: "positions", on: true }, { key: "today", on: false }, { key: "charts", on: true }],
         kinds: { ATTENTION: false },
         charts: ["openPositions"],
-        landing: "positions",
       }),
     );
 
     const carried = legacyLayout(owner);
     expect(carried?.tiles.map((tile) => tile.kind)).toEqual(["NEEDS", "POSITIONS", "CHART"]);
     expect(carried?.kinds.ATTENTION).toBe(false);
-    expect(carried?.landing).toBe("positions");
-    expect(landingPath(owner)).toBe("/positions");
 
     forgetLegacyLayout(owner);
     expect(legacyLayout(owner)).toBeNull();
@@ -64,7 +52,6 @@ describe("homeLayout", () => {
     expect(isDefaultLayout(structuredClone(DEFAULT_HOME_LAYOUT))).toBe(true);
     // The same layout rebuilt with its keys in another order, as a tile spread or the server's answer leaves it.
     const reordered = {
-      landing: DEFAULT_HOME_LAYOUT.landing,
       kinds: { ATTENTION: true, PREPARATION: true, FOLLOW_UP: true, NEEDS_REPLY: true },
       tiles: DEFAULT_HOME_LAYOUT.tiles.map(({ layout, ...rest }) => ({
         key: "tile-9",

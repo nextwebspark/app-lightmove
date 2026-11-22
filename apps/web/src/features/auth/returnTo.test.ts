@@ -48,4 +48,10 @@ describe("landingAfterSignIn", () => {
       "/signup/verify-email",
     );
   });
+
+  it("takes the bare root for no destination, so Uncava opened signed out lands on the start page", () => {
+    const startPage = { kind: "TASKS", dashboardId: null, projectId: null, section: null, available: true } as const;
+    expect(landingAfterSignIn({ ...member, startPage }, "/")).toBe("/tasks");
+    expect(landingAfterSignIn({ ...member, startPage }, "/candidates?owner=me")).toBe("/candidates?owner=me");
+  });
 });

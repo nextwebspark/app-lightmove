@@ -39,6 +39,7 @@ const verifiedUser: User = {
   locale: "en",
   platformActions: [],
   pendingInvitations: [],
+  startPage: null,
   termsUpdateRequired: false,
   termsVersion: "2026-07-01",
   workspaces: [],

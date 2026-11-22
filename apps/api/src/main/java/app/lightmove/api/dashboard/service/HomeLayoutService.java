@@ -4,7 +4,6 @@ import app.lightmove.api.common.constant.ApiValueEnum;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.dashboard.constant.DashboardScope;
-import app.lightmove.api.dashboard.constant.HomeLanding;
 import app.lightmove.api.dashboard.constant.HomeTileKind;
 import app.lightmove.api.dashboard.dto.DashboardWidgetDto;
 import app.lightmove.api.dashboard.dto.HomeLayoutDto;
@@ -32,7 +31,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * A member's own Home in the workspace: absent until they first save, then their tiles, Needs you groups and landing.
+ * A member's own Home in the workspace: absent until they first save, then their tiles and Needs you groups.
  * Home's charts are workspace library charts, checked as a workspace dashboard's are ({@code DashboardWidgetValidator}).
  */
 @Service
@@ -60,8 +59,7 @@ public class HomeLayoutService {
         Optional<HomeLayout> stored = layouts.findByWorkspaceIdAndUserId(workspaceId, userId);
         requireOpenedAt(stored, request.version());
         HomeLayout layout = stored.orElseGet(() -> HomeLayout.startFor(workspaceId, userId));
-        layout.record(tilesOf(request.tiles(), layout.charts()), needsOf(request.needs()),
-                ApiValueEnum.require(HomeLanding.class, request.landing(), "landing page"));
+        layout.record(tilesOf(request.tiles(), layout.charts()), needsOf(request.needs()));
         try {
             return new HomeLayoutResponse(toDto(layouts.saveAndFlush(layout)));
         } catch (ObjectOptimisticLockingFailureException raced) {
@@ -167,6 +165,6 @@ public class HomeLayoutService {
 
     private static HomeLayoutDto toDto(HomeLayout layout) {
         return new HomeLayoutDto(layout.getTiles().stream().map(HomeTileDto::from).toList(), layout.getNeeds(),
-                layout.getLanding().value(), layout.getVersion());
+                layout.getVersion());
     }
 }

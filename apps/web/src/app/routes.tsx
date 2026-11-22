@@ -6,6 +6,7 @@ import { WorkspaceLayout } from "../components/layout/WorkspaceLayout";
 import { Logo, Spinner } from "../components/ui";
 import { useAuth } from "../features/auth/AuthProvider";
 import { homeFor } from "../features/auth/homeFor";
+import { OpenAtStartPage } from "../features/startpage/components/OpenAtStartPage";
 import { landingAfterSignIn, safeReturnTo } from "../features/auth/returnTo";
 import { hasPendingSignupRestart } from "../features/auth/signupRestart";
 import { AcceptInvitePage } from "../features/auth/pages/AcceptInvitePage";
@@ -137,7 +138,7 @@ export function AppRoutes() {
       <Route element={<RequireWorkspace><WorkspaceLayout /></RequireWorkspace>}>
         {/* Home and the Positions list are everyone's, portal guests included: the server answers each
             person only the positions they may see. The registry and the roster are staff surfaces. */}
-        <Route path="/" element={<HomePage />} />
+        <Route path="/" element={<OpenAtStartPage><HomePage /></OpenAtStartPage>} />
         <Route path="/positions" element={<ProjectsPage />} />
         <Route path="/all" element={<PositionsRedirect />} />
         <Route element={<RequireStaff><Outlet /></RequireStaff>}>

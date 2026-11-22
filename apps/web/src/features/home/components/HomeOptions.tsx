@@ -1,14 +1,15 @@
+import { Link } from "react-router-dom";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Button, Toggle } from "../../../components/ui";
 import { Drawer, DrawerFooter } from "../../../components/ui/Drawer";
-import { cn } from "../../../lib/cn";
+import { useAuth } from "../../auth/AuthProvider";
+import { startPageLabel } from "../../startpage/lib/startPage";
 import {
   DEFAULT_HOME_LAYOUT,
   hasSection,
   isDefaultLayout,
   withSection,
   type HomeLayout,
-  type Landing,
   type NeedsKind,
 } from "../lib/homeLayout";
 
@@ -24,14 +25,10 @@ const KIND_TEXT: [NeedsKind, string, string][] = [
   ["ATTENTION", "Delivery problems", "A bounced email or a stopped sequence"],
 ];
 
-const LANDINGS: [Landing, string, string][] = [
-  ["home", "Home", "What needs you today"],
-  ["positions", "Positions", "The list of positions"],
-];
-
 /**
- * Home options, beside the grid while Home is being edited: which sections are on it, what Needs you shows and where
- * to land. Like every change in edit mode it waits for Save layout; Reset brings back the default everyone starts from.
+ * Home options, beside the grid while Home is being edited: which sections are on it and what Needs you shows. Like
+ * every change in edit mode it waits for Save layout; Reset brings back the default everyone starts from. Where Uncava
+ * opens is Settings → Profile's, which this only names.
  */
 export function HomeOptions({
   open,
@@ -44,6 +41,7 @@ export function HomeOptions({
   layout: HomeLayout;
   onChange: (next: HomeLayout) => void;
 }) {
+  const { user } = useAuth();
   return (
     <Drawer open={open} onClose={onClose} label="Home options">
       <div className="flex items-start gap-3 border-b border-u-border px-5 py-4">
@@ -85,30 +83,15 @@ export function HomeOptions({
         </Group>
 
         <Group title="Open Uncava on">
-          <div role="radiogroup" aria-label="Open Uncava on" className="flex flex-col gap-1.5 p-1.5">
-            {LANDINGS.map(([key, label, sub]) => {
-              const on = layout.landing === key;
-              return (
-                <button
-                  key={key}
-                  type="button"
-                  role="radio"
-                  aria-checked={on}
-                  onClick={() => onChange({ ...layout, landing: key })}
-                  className={cn(
-                    "flex items-center gap-2.5 rounded-u-chip border px-3 py-2 text-left",
-                    on ? "border-u-accent bg-u-accent-tint" : "border-u-border hover:border-u-text3",
-                  )}
-                >
-                  <span className={cn("grid size-3.5 place-items-center rounded-full border-[1.5px]", on ? "border-u-accent" : "border-u-border-strong")}>
-                    {on && <span className="size-1.5 rounded-full bg-u-accent" />}
-                  </span>
-                  <span className="text-body font-medium">{label}</span>
-                  <span className="ml-auto text-meta text-u-text3">{sub}</span>
-                </button>
-              );
-            })}
-          </div>
+          <Row
+            label={startPageLabel(user?.startPage)}
+            sub="Your start page in this workspace"
+            trailing={
+              <Link to="/settings/profile#start-page" className="shrink-0 text-note font-medium text-u-accent hover:underline">
+                Change in Settings
+              </Link>
+            }
+          />
         </Group>
       </div>
 

@@ -1,11 +1,8 @@
 package app.lightmove.api.dashboard.model;
 
 import app.lightmove.api.core.persistence.model.BaseEntity;
-import app.lightmove.api.dashboard.constant.HomeLanding;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -18,7 +15,7 @@ import lombok.NoArgsConstructor;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
-/** A member's own Home in one workspace (V233): its tiles, what Needs you shows, and where they land. */
+/** A member's own Home in one workspace (V233): its tiles and what Needs you shows. */
 @Entity
 @Table(name = "app_lm_home_layout")
 @Getter
@@ -41,10 +38,6 @@ public class HomeLayout extends BaseEntity {
     @Column(name = "needs", nullable = false)
     private Map<String, Boolean> needs = new LinkedHashMap<>();
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "landing", nullable = false, length = 16)
-    private HomeLanding landing = HomeLanding.HOME;
-
     public static HomeLayout startFor(UUID workspaceId, UUID userId) {
         HomeLayout layout = new HomeLayout();
         layout.workspaceId = workspaceId;
@@ -52,10 +45,9 @@ public class HomeLayout extends BaseEntity {
         return layout;
     }
 
-    public void record(List<HomeTile> newTiles, Map<String, Boolean> newNeeds, HomeLanding newLanding) {
+    public void record(List<HomeTile> newTiles, Map<String, Boolean> newNeeds) {
         this.tiles = new ArrayList<>(newTiles);
         this.needs = new LinkedHashMap<>(newNeeds);
-        this.landing = newLanding;
     }
 
     public List<DashboardWidget> charts() {
