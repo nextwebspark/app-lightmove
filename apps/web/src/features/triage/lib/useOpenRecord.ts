@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { useLocation, useSearchParams } from "react-router-dom";
 import { useToast } from "../../../components/ui/Toast";
 import { messageFor } from "../../../lib/errorCodes";
 import * as candidatesApi from "../../candidates/api/candidatesApi";
@@ -17,30 +17,21 @@ export interface OpenProfile {
   company: CandidateCompanyContext | null;
 }
 
-interface RecordEntry {
-  recordEnteredFor: string | null;
-}
-
 export interface OpenRecord {
   profile: OpenProfile | null;
   /** Opens the panel on an executive (into the URL) or on the add form, or closes it with null. */
   setProfile: (next: OpenProfile | null) => void;
   focusTab: DrawerTab | null;
-  /** The record full page, `?record=page`. */
-  recordPage: boolean;
-  setRecordPage: (onPage: boolean) => void;
 }
 
 /**
- * A stage's open executive, held in the URL (`?candidate=`, `?tab=` from a link, `?record=page` for the full page) so
- * a refresh, Back or a shared link reopens it; the add form stays local. `offered` is false where another panel reads
- * the same `?candidate=` (the board); `fullPageOffered` where the full page can be drawn (the grid).
+ * A stage's open executive, held in the URL (`?candidate=`, `?tab=` from a link) so a refresh, Back or a shared link
+ * reopens it; the add form stays local. `offered` is false where another panel reads the same `?candidate=` (the board).
  */
-export function useOpenRecord(projectId: string, offered: boolean, fullPageOffered: boolean): OpenRecord {
+export function useOpenRecord(projectId: string, offered: boolean): OpenRecord {
   const queryClient = useQueryClient();
   const toast = useToast();
   const location = useLocation();
-  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [adding, setAdding] = useState<OpenProfile | null>(null);
 
@@ -57,17 +48,14 @@ export function useOpenRecord(projectId: string, offered: boolean, fullPageOffer
       (current) => {
         const params = new URLSearchParams(current);
         if (candidateId) params.set("candidate", candidateId);
-        else {
-          params.delete("candidate");
-          params.delete("record");
-        }
+        else params.delete("candidate");
         params.delete("note");
         params.delete("section");
         params.delete("tab");
         return params;
       },
-      // A save re-opens the same person and keeps how the page was entered; a step does not.
-      { replace: true, state: candidateId === openCandidateId ? location.state : undefined },
+      // Kept across a step, so the Executives view still knows where it was entered from.
+      { replace: true, state: location.state },
     );
 
   const profile: OpenProfile | null =
@@ -75,27 +63,6 @@ export function useOpenRecord(projectId: string, offered: boolean, fullPageOffer
     (openCandidateId !== null && openCandidate.data?.id === openCandidateId
       ? { candidate: openCandidate.data, company: null }
       : null);
-  const recordPage = fullPageOffered && searchParams.get("record") === "page" && profile?.candidate != null;
-
-  // Going in pushes, so Back returns to the peek. Coming out pops that entry while it still holds the person it was
-  // pushed for, rather than leaving the same peek twice in history; after a step, or on a loaded link, it replaces.
-  const enteredRecordFor = (location.state as RecordEntry | null)?.recordEnteredFor ?? null;
-  const setRecordPage = (onPage: boolean) => {
-    if (!onPage && enteredRecordFor !== null && enteredRecordFor === openCandidateId) {
-      navigate(-1);
-      return;
-    }
-    setSearchParams(
-      (current) => {
-        const params = new URLSearchParams(current);
-        if (onPage) params.set("record", "page");
-        else params.delete("record");
-        return params;
-      },
-      onPage ? { state: { recordEnteredFor: openCandidateId } satisfies RecordEntry } : { replace: true },
-    );
-  };
-
   const setProfile = (next: OpenProfile | null) => {
     if (next?.candidate) {
       queryClient.setQueryData(candidatesApi.CANDIDATE_KEY(projectId, next.candidate.id), next.candidate);
@@ -117,5 +84,5 @@ export function useOpenRecord(projectId: string, offered: boolean, fullPageOffer
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [openCandidateFailed]);
 
-  return { profile, setProfile, focusTab, recordPage, setRecordPage };
+  return { profile, setProfile, focusTab };
 }

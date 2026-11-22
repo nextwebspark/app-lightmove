@@ -54,10 +54,10 @@ export function ToolbarDivider({ className }: { className?: string }) {
 }
 
 /**
- * Conversations | Sequences, the longest pair, gets 240px when the row has it and gives way to 180px before the
- * search does; below `sm` the switch takes a line of its own.
+ * One width on every page, so a switch reads the same wherever it is: Table | Pipeline | Executives, the longest set,
+ * whole. Below `sm` the switch takes a line of its own.
  */
-const VIEW_SWITCH_WIDTH = "min-w-[180px] flex-[0_1_240px] max-sm:w-full max-sm:flex-none";
+const VIEW_SWITCH_WIDTH = "w-[320px] flex-none max-sm:w-full";
 
 /**
  * Where the rule between a page's views and its search is drawn: from `sm`, from `lg` beside a search shown only

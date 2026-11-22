@@ -14,6 +14,7 @@ import {
 } from "@tanstack/react-table";
 import {
   Fragment,
+  useEffect,
   useLayoutEffect,
   useRef,
   useState,
@@ -141,6 +142,7 @@ export function DataGrid<TFeatures extends TableFeatures, TData extends RowData>
   fit = "fill",
   renderCard,
   onRowClick,
+  activeRowId,
   onEditColumn,
   onDeleteColumn,
   columnFilters,
@@ -179,6 +181,8 @@ export function DataGrid<TFeatures extends TableFeatures, TData extends RowData>
    * inside a cell keeps its own click: a button or link in a row is never also the row.
    */
   onRowClick?: (row: TData) => void;
+  /** The row whose record is open, or was just open: tinted, and scrolled into view when it changes. */
+  activeRowId?: string | null;
   /**
    * Opens a mandate's own column for rename, from its header menu's "Edit field" — left out entirely
    * by a caller with no custom columns, which is what keeps the item off every built-in column's menu
@@ -397,6 +401,11 @@ export function DataGrid<TFeatures extends TableFeatures, TData extends RowData>
   };
 
   const rows = grid.getRowModel().rows;
+  const activeRowRef = useRef<HTMLDivElement>(null);
+  const activeRowDrawn = rows.some((row) => row.id === activeRowId);
+  useEffect(() => {
+    if (activeRowDrawn) activeRowRef.current?.scrollIntoView?.({ block: "nearest" });
+  }, [activeRowId, activeRowDrawn]);
 
   const refreshing = loading && rows.length > 0;
 
@@ -405,7 +414,9 @@ export function DataGrid<TFeatures extends TableFeatures, TData extends RowData>
   const renderRow = (row: GridRow<TData>) => (
     <div
       key={row.id}
+      ref={row.id === activeRowId ? activeRowRef : undefined}
       role="row"
+      aria-current={row.id === activeRowId ? "true" : undefined}
       style={track}
       tabIndex={onRowClick ? 0 : undefined}
       onClick={
@@ -430,6 +441,7 @@ export function DataGrid<TFeatures extends TableFeatures, TData extends RowData>
       }
       className={cn(
         "group grid h-[52px] items-center gap-3 border-b border-u-border transition hover:bg-u-raised",
+        row.id === activeRowId && "bg-u-accent-tint hover:bg-u-accent-tint",
         onRowClick &&
           "cursor-pointer focus-visible:outline focus-visible:-outline-offset-2 focus-visible:outline-u-accent",
       )}
@@ -449,6 +461,10 @@ export function DataGrid<TFeatures extends TableFeatures, TData extends RowData>
               "min-w-0",
               // The row paints the hover tint and the pinned cell covers it, so it has to repaint it.
               pinned === "start" && `${PINNED_FILL} ${PINNED_START}`,
+              // The tint is translucent, so the pinned cell lays it over its own opaque fill as an inset shadow.
+              pinned === "start" &&
+                row.id === activeRowId &&
+                "shadow-[1px_0_0_0_var(--color-u-border),inset_0_0_0_999px_var(--color-u-accent-tint)]",
               !pinned && "first:ps-4 last:pe-4",
             )}
           >
