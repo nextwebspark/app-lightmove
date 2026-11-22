@@ -1,0 +1,35 @@
+package app.lightmove.api.core.llm.service;
+
+import app.lightmove.api.core.llm.model.PreparedPrompt;
+import app.lightmove.api.core.llm.model.PromptCallOptions;
+import app.lightmove.api.core.llm.model.PromptCallSpec;
+import app.lightmove.api.core.llm.model.ServedPrompt;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Component;
+
+/**
+ * What every model call asks before it is made: the prompt version serving now, turned into the system text, the
+ * provider's options and the wiring that counts the call. Asked per call, so a version put live serves at once.
+ */
+@Component
+@RequiredArgsConstructor
+public class PromptCalls {
+
+    private final PromptSource prompts;
+    private final ChatModelProvider provider;
+    private final PromptCallCounter counter;
+
+    /** The bundled files and nothing else, for a service built by hand: no registry, so nothing is counted. */
+    public static PromptCalls bundledOnly() {
+        return new PromptCalls(new BundledPrompts(), new VertexGeminiChatModelProvider(), new PromptCallCounter(null));
+    }
+
+    public PreparedPrompt prepare(PromptCallSpec spec) {
+        ServedPrompt served = prompts.current(spec.promptId());
+        String model = served.modelId() != null ? served.modelId() : spec.defaultModel();
+        PromptCallOptions call = new PromptCallOptions(spec.callLabel(), served.version(), spec.kind(), model,
+                served.settings().orElse(spec.defaults()));
+        return new PreparedPrompt(served.body(), model, provider.optionsFor(call),
+                counter.attributing(served, provider.provider()));
+    }
+}

@@ -524,6 +524,21 @@ action, one row per user, overwritten by each right code (`PlatformStepUpStore`)
 tables: no `workspace_id` and no reference into a tenant table, so `TenantTableGuard` never reaches it; it goes with
 the account (`ON DELETE CASCADE`). Read only while `lightmove.platform.require-two-factor` is on.
 
+V235 adds the prompt registry (#1316), four platform tables with no `workspace_id` and no reference into a tenant
+table. `app_lm_platform_prompt_version`: one immutable row per text of a prompt (`prompt_id`, `version` 1, 2, 3 …),
+`origin` `BUNDLED` (recorded at boot from `prompts/*.st`, with the file's `bundled_sha256`, unique per prompt) or
+`EDITED` (saved in the console, #1317), with `provider` + `model_id` (both null: the deployment's configured model)
+and `settings` jsonb (`temperature`, `thinkingBudget`, `maxOutputTokens`; a key left out is the calling feature's
+default). `app_lm_platform_prompt_label`: which version serves, one `production` row per prompt, and
+`app_lm_platform_prompt_label_move`, every move of it with its reason. Versions and moves are append-only: a trigger
+refuses UPDATE and DELETE (letting through only an erased account's author column going null), and `harden.sql`
+step 2d takes the privilege from `lm_app`, so **re-run `harden.sql` after V235 deploys**; like the audit trail, a
+later migration cannot alter those two. `app_lm_platform_prompt_call_daily`: calls, tokens in and out and a count
+per finish reason for each prompt version, provider, model and UTC day, raised by an upsert from the call path
+(`PromptCallCounter`); counts only, never a prompt or an answer. `app_lm_platform_config_version`: one counter per
+scope (`prompts` today), raised in the transaction that changes platform configuration and watched by every
+instance (`PlatformConfigReload`).
+
 V231 adds `app_lm_dashboard` (docs/custom-dashboards.md): a member's custom dashboard on a position (`project_id`, composite key to the project's workspace) or across the workspace (null) — `owner_user_id` (cascade with the account), `name` (≤ 80, never blank), `shared`, and `widgets` jsonb, an array of `{queryId, chart, options, title, layout: {x, y, w, h}}` (twelve-column grid; rows saved before it carry `size` instead, flowed into place by the SPA) naming charts of the server's query library. The choice only, never a figure: every chart is answered live. Forced RLS on its `workspace_id`. Staff-only.
 
 V230 cancels the open tasks an executive's removal orphaned before #1402 (`candidate_id` null and an `UNMAPPED` activity line for the person on the position at or after the task's creation; a rule task filed for someone never mapped has no such line and stays open), releasing a rule task's key as `Task.releaseRuleKey` does. Data only.

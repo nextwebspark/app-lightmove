@@ -6,6 +6,7 @@ import app.lightmove.api.TestLlmCallPolicy;
 import app.lightmove.api.candidate.service.CandidateShortlistService;
 import app.lightmove.api.core.llm.config.ChatClientConfig;
 import app.lightmove.api.core.llm.service.ChatCallLog;
+import app.lightmove.api.core.llm.service.PromptCalls;
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
@@ -25,7 +26,6 @@ import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.Generation;
 import org.springframework.ai.chat.prompt.Prompt;
-import org.springframework.core.io.ByteArrayResource;
 
 /**
  * What the shared {@link ChatClient} writes to the log for every call.
@@ -92,6 +92,20 @@ class ChatClientLoggingTest {
     }
 
     @Test
+    @DisplayName("names the prompt version a call was asked with, when the registry served one")
+    void namesThePromptVersion() {
+        chatClientOver(new FixedChatModel())
+                .prompt()
+                .advisors(advisor -> advisor.param(ChatCallLog.PROMPT_ID_ATTRIBUTE, "import-column-mapping")
+                        .param(ChatCallLog.PROMPT_VERSION_ATTRIBUTE, 7))
+                .user("anything")
+                .call()
+                .content();
+
+        assertThat(lineContaining("chat request")).contains("prompt=import-column-mapping promptVersion=7");
+    }
+
+    @Test
     @DisplayName("a call site that names no feature is reported as such, never as an error")
     void toleratesAnUnattributedCall() {
         chatClientOver(new FixedChatModel()).prompt().user("anything").call().content();
@@ -142,7 +156,7 @@ class ChatClientLoggingTest {
 
     private CandidateShortlistService shortlistService() {
         return new CandidateShortlistService(chatClientOver(new FixedChatModel()),
-                new ByteArrayResource("system".getBytes()), TestLlmCallPolicy.asShipped());
+                PromptCalls.bundledOnly(), TestLlmCallPolicy.asShipped());
     }
 
     private ChatClient chatClientOver(ChatModel model) {

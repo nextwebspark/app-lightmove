@@ -59,6 +59,21 @@ BEGIN
     END IF;
 END $$;
 
+-- 2d. The prompt registry's versions and label moves (V235, #1316) are append-only on the same terms: which text
+--     served, and who put it live, must not be rewritable from a foothold in the app. V235's trigger refuses UPDATE
+--     and DELETE; this takes the privilege away besides. A later migration cannot alter these two, as with the others.
+DO $$
+BEGIN
+    IF to_regclass('public.app_lm_platform_prompt_version') IS NOT NULL THEN
+        EXECUTE 'ALTER TABLE app_lm_platform_prompt_version OWNER TO postgres';
+        EXECUTE 'REVOKE ALL ON app_lm_platform_prompt_version FROM lm_app';
+        EXECUTE 'GRANT  INSERT, SELECT ON app_lm_platform_prompt_version TO lm_app';
+        EXECUTE 'ALTER TABLE app_lm_platform_prompt_label_move OWNER TO postgres';
+        EXECUTE 'REVOKE ALL ON app_lm_platform_prompt_label_move FROM lm_app';
+        EXECUTE 'GRANT  INSERT, SELECT ON app_lm_platform_prompt_label_move TO lm_app';
+    END IF;
+END $$;
+
 -- 2c. Row-level security on the two tables this file owns (V190, #1085). Where they were already postgres's when V190
 --     ran, it skipped them with a warning; where they were still lm_app's it applied the same policies, which the
 --     ownership change keeps. Either way this leaves both forced with their policies; until it has, every API boot
