@@ -4,7 +4,7 @@ import { Link, MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import { LeaveGuard } from "./LeaveGuard";
 
-const renderGuarded = (hasUnsavedChanges: boolean, flush: () => Promise<void>) =>
+const renderGuarded = (hasUnsavedChanges: boolean, flush: () => Promise<void>, guardSearch = false) =>
   render(
     <MemoryRouter initialEntries={["/brief"]}>
       <Routes>
@@ -12,7 +12,7 @@ const renderGuarded = (hasUnsavedChanges: boolean, flush: () => Promise<void>) =
           path="/brief"
           element={
             <>
-              <LeaveGuard hasUnsavedChanges={hasUnsavedChanges} flush={flush} />
+              <LeaveGuard hasUnsavedChanges={hasUnsavedChanges} flush={flush} guardSearch={guardSearch} />
               <Link to="/projects">Positions</Link>
               <Link to="/brief?step=review">Review</Link>
             </>
@@ -69,5 +69,30 @@ describe("LeaveGuard", () => {
 
     expect(await screen.findByRole("heading", { name: "Positions page" })).toBeInTheDocument();
     expect(flush).not.toHaveBeenCalled();
+  });
+  it("asks before a link that changes only the query string when told to guard it", async () => {
+    const flush = vi.fn().mockRejectedValue(new Error("unsaved"));
+    renderGuarded(true, flush, true);
+
+    await userEvent.click(screen.getByRole("link", { name: "Review" }));
+
+    expect(await screen.findByRole("dialog", { name: "Leave without saving?" })).toBeInTheDocument();
+  });
+});
+
+describe("LeaveGuard without a flush", () => {
+  it("asks before leaving, since nothing saves on the way out", async () => {
+    render(
+      <MemoryRouter initialEntries={["/brief"]}>
+        <Routes>
+          <Route path="/brief" element={<><LeaveGuard hasUnsavedChanges /><Link to="/projects">Positions</Link></>} />
+          <Route path="/projects" element={<h1>Positions page</h1>} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    await userEvent.click(screen.getByRole("link", { name: "Positions" }));
+
+    expect(await screen.findByRole("dialog", { name: "Leave without saving?" })).toBeInTheDocument();
   });
 });

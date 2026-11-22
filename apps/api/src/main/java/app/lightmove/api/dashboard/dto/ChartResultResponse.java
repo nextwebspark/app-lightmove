@@ -7,7 +7,8 @@ import java.util.Map;
 
 /**
  * A library query's answer as the SPA draws it: the shape's fields filled, the rest empty. {@code allowedCharts}
- * are the types that may draw this very answer; {@code options} the values it was answered with.
+ * are the types that may draw this very answer; {@code options} the values it was answered with;
+ * {@code folded} that the smallest groups were folded into Other.
  */
 public record ChartResultResponse(
         String queryId,
@@ -26,5 +27,6 @@ public record ChartResultResponse(
         List<List<String>> rows,
         String note,
         boolean percent,
-        boolean truncated
+        boolean truncated,
+        boolean folded
 ) {}

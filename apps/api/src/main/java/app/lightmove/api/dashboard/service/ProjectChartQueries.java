@@ -22,6 +22,7 @@ import app.lightmove.api.report.dto.MarketCellDto;
 import app.lightmove.api.report.dto.MarketShapeDto;
 import app.lightmove.api.report.dto.RemunerationDto;
 import app.lightmove.api.report.dto.ReportResponse;
+import app.lightmove.api.report.dto.TalentHubDto;
 import app.lightmove.api.report.dto.TeamPerformanceDto;
 import app.lightmove.api.report.dto.WeeklyCountDto;
 import app.lightmove.api.report.service.ReportService;
@@ -171,7 +172,11 @@ class ProjectChartQueries {
             case "source" -> countBy("Source", found.candidates(), executive -> sourceLabel(executive.source()), null);
             default -> countBy("Stage", found.candidates(), ProjectChartQueries::stageLabel, stageOrder(found));
         };
-        return result.withLabelsAndValues(result.labels(), result.values(), found.totalCount() > EXECUTIVE_CAP);
+        // Past the cap the counts cover a sample, which is no top-N cut: the chart says so in words of its own.
+        return found.totalCount() > EXECUTIVE_CAP
+                ? result.withNoteAppended("Counted over the first " + grouped(EXECUTIVE_CAP) + " executives of "
+                        + grouped(found.totalCount()) + ".")
+                : result;
     }
 
     private ChartResult stageByLevel(ChartQueryContext context, Map<String, String> options) {
@@ -200,10 +205,40 @@ class ProjectChartQueries {
     }
 
     private ChartResult talentHubs(ChartQueryContext context, Map<String, String> options) {
-        MarketShapeDto market = report(context).market();
-        return ChartResult.categorical("Country", "Executives", "",
-                market.hubs().stream().map(hub -> hub.country()).toList(),
-                market.hubs().stream().map(hub -> (double) hub.count()).toList());
+        return countriesOf(report(context).market());
+    }
+
+    /**
+     * Every mapped executive by country: the report's leading hubs, the rest as Other and the unlocated as Not
+     * recorded, so a pie's shares are of the whole talent. Held to a pie's slices, the smallest hubs folded into Other,
+     * so a chart saved as a pie or donut still fits.
+     */
+    static ChartResult countriesOf(MarketShapeDto market) {
+        int unlocatedSlices = market.unlocated() > 0 ? 1 : 0;
+        int hubRoom = ChartRules.MAX_PIE_SLICES - unlocatedSlices;
+        boolean needsOther = market.elsewhere() > 0 || market.hubs().size() > hubRoom;
+        int kept = Math.min(market.hubs().size(), needsOther ? hubRoom - 1 : hubRoom);
+        List<String> labels = new ArrayList<>();
+        List<Double> values = new ArrayList<>();
+        double other = market.elsewhere();
+        for (int index = 0; index < market.hubs().size(); index++) {
+            TalentHubDto hub = market.hubs().get(index);
+            if (index < kept) {
+                labels.add(hub.country());
+                values.add((double) hub.count());
+            } else {
+                other += hub.count();
+            }
+        }
+        if (other > 0) {
+            labels.add(ChartShaping.OTHER);
+            values.add(other);
+        }
+        if (unlocatedSlices > 0) {
+            labels.add(ChartLabels.NOT_RECORDED);
+            values.add((double) market.unlocated());
+        }
+        return ChartResult.categorical("Country", "Executives", "", labels, values);
     }
 
     private ChartResult sectorByLevel(ChartQueryContext context, Map<String, String> options) {
@@ -380,6 +415,10 @@ class ProjectChartQueries {
     }
 
 
+
+    private static String grouped(long count) {
+        return String.format(Locale.UK, "%,d", count);
+    }
 
     private static double median(List<Long> values) {
         List<Long> sorted = values.stream().sorted().toList();

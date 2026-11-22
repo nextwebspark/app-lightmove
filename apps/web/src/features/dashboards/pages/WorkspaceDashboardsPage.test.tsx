@@ -78,6 +78,7 @@ function result(overrides: Partial<ChartResult>): ChartResult {
     note: null,
     percent: false,
     truncated: false,
+    folded: false,
     ...overrides,
   };
 }
@@ -201,5 +202,41 @@ describe("WorkspaceDashboardsPage", () => {
     vi.mocked(dashboardsApi.listDashboards).mockResolvedValue([]);
     renderPage();
     expect(await screen.findByText("No dashboards yet")).toBeInTheDocument();
+  });
+});
+
+describe("WorkspaceDashboardsPage leaving Edit layout", () => {
+  const second: Dashboard = { ...pipeline, id: "d2", name: "Research pace", widgets: [] };
+
+  beforeEach(() => {
+    vi.mocked(dashboardsApi.listDashboards).mockReset().mockResolvedValue([pipeline, second]);
+    vi.mocked(dashboardsApi.getChartLibrary).mockReset().mockResolvedValue([positionsBy, perWeek]);
+    vi.mocked(dashboardsApi.getChartAnswers).mockReset().mockImplementation(async (_scope, widgets) =>
+      widgets.map((widget) => ({ queryId: widget.queryId, result: result({}), code: null })),
+    );
+  });
+
+  it("opens another dashboard without asking while nothing has changed", async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByRole("region", { name: "Open positions by health" });
+
+    await user.click(screen.getByRole("button", { name: "Edit layout" }));
+    await user.click(screen.getByRole("link", { name: /Research pace/ }));
+
+    expect(await screen.findByText("Nothing on this dashboard yet")).toBeInTheDocument();
+    expect(screen.queryByRole("dialog", { name: "Leave without saving?" })).not.toBeInTheDocument();
+  });
+
+  it("asks before opening another dashboard once a chart was removed", async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByRole("region", { name: "Open positions by health" });
+
+    await user.click(screen.getByRole("button", { name: "Edit layout" }));
+    await user.click(screen.getByRole("button", { name: "Remove chart" }));
+    await user.click(screen.getByRole("link", { name: /Research pace/ }));
+
+    expect(await screen.findByRole("dialog", { name: "Leave without saving?" })).toBeInTheDocument();
   });
 });

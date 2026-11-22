@@ -3,7 +3,7 @@ import { Icon, ICONS } from "../../../components/layout/Icon";
 import { LinesSkeleton } from "../../../components/ui/Skeleton";
 import { cn } from "../../../lib/cn";
 import type { ChartAnswer, ChartQueryDef, DashboardScope, DashboardWidget } from "../api/types";
-import { defaultTitle, optionSummary } from "../lib/chartRules";
+import { CHART_LABELS, defaultTitle, optionSummary } from "../lib/chartRules";
 import { useRelabel } from "../lib/useRelabel";
 import { DashboardChart } from "./DashboardChart";
 
@@ -48,7 +48,9 @@ export function ChartCard({
         </div>
         {actions && <div className="flex flex-none items-center gap-1">{actions}</div>}
       </div>
-      {query === undefined || answer?.code === "CHART_QUERY_NOT_FOUND" ? (
+      {/* An unknown query is retired only once the reads have settled: a library that failed to load knows no query,
+          and told the reader to remove charts that were fine. */}
+      {answer?.code === "CHART_QUERY_NOT_FOUND" || (query === undefined && !isPending && !isError) ? (
         <Unavailable>This chart is no longer available. Remove it, or pick a replacement from the library.</Unavailable>
       ) : isPending ? (
         <div className="mt-4">
@@ -57,7 +59,7 @@ export function ChartCard({
       ) : isError || !result ? (
         <Unavailable>{`Couldn't load this chart. Reload the page, and ask ${askWhom} if it keeps happening.`}</Unavailable>
       ) : !fits ? (
-        <Unavailable>This data no longer fits a {widget.chart} chart. Use the pencil to pick another way to show it.</Unavailable>
+        <Unavailable>{`This data no longer fits the ${CHART_LABELS[widget.chart]} chart type. Use the pencil to pick another way to show it.`}</Unavailable>
       ) : (
         <div className="flex min-h-0 flex-1 flex-col overflow-auto">
           <DashboardChart result={{ ...result, dimension: relabel(result.dimension) }} chart={widget.chart} />

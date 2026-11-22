@@ -51,7 +51,11 @@ class HomeLayoutIntegrationTest extends FlowTestSupport {
         assertThat(read(admin).get("layout").get("tiles")).hasSize(3);
         assertThat(read(colleague).get("layout").isNull()).isTrue();
 
-        mvc.perform(delete(HOME).header("Authorization", "Bearer " + admin)).andExpect(status().isNoContent());
+        long version = saved.get("version").asLong();
+        assertThat(codeOf(mvc.perform(delete(HOME).header("Authorization", "Bearer " + admin))
+                .andExpect(status().isConflict()).andReturn())).isEqualTo("HOME_LAYOUT_STALE");
+        mvc.perform(delete(HOME).param("version", String.valueOf(version)).header("Authorization", "Bearer " + admin))
+                .andExpect(status().isNoContent());
         assertThat(read(admin).get("layout").isNull()).isTrue();
     }
 
@@ -107,7 +111,12 @@ class HomeLayoutIntegrationTest extends FlowTestSupport {
                 .andExpect(status().isConflict()).andReturn())).isEqualTo("HOME_LAYOUT_STALE");
         assertThat(read(admin).get("layout").get("landing").asText()).isEqualTo("POSITIONS");
 
-        mvc.perform(delete(HOME).header("Authorization", "Bearer " + admin)).andExpect(status().isNoContent());
+        // A window opened before the second save sends the default back: refused, not a delete of the newer save.
+        assertThat(codeOf(mvc.perform(delete(HOME).param("version", String.valueOf(first))
+                        .header("Authorization", "Bearer " + admin))
+                .andExpect(status().isConflict()).andReturn())).isEqualTo("HOME_LAYOUT_STALE");
+        mvc.perform(delete(HOME).param("version", String.valueOf(second)).header("Authorization", "Bearer " + admin))
+                .andExpect(status().isNoContent());
         assertThat(codeOf(save(admin, body.formatted(NEEDS, "HOME", second))
                 .andExpect(status().isConflict()).andReturn())).isEqualTo("HOME_LAYOUT_STALE");
         save(admin, body.formatted(NEEDS, "HOME", "null")).andExpect(status().isOk());
