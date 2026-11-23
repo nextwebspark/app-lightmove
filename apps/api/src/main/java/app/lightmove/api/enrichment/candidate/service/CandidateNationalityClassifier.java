@@ -32,7 +32,7 @@ import org.springframework.stereotype.Service;
 @Slf4j
 public class CandidateNationalityClassifier {
 
-    private static final String PROMPT_ID = "candidate-nationality";
+    static final String PROMPT_ID = "candidate-nationality";
     private static final String BLOCKED = "{\"category\":\"" + BlockedAnswer.MARKER + "\"}";
 
     private static final int MAX_EVIDENCE_PER_SIDE = 5;

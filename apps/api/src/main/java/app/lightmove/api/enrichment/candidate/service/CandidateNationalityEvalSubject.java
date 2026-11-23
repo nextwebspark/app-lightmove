@@ -35,7 +35,7 @@ class CandidateNationalityEvalSubject implements EvalSubject {
 
     @Override
     public String promptId() {
-        return "candidate-nationality";
+        return CandidateNationalityClassifier.PROMPT_ID;
     }
 
     @Override

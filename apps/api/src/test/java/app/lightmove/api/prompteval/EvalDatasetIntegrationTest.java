@@ -238,6 +238,16 @@ class EvalDatasetIntegrationTest extends PositionTemplateFlowSupport {
         assertThatThrownBy(() -> db.update("DELETE FROM app_lm_eval_case WHERE id = ?", id))
                 .rootCause().hasMessageContaining("add-and-retire only");
 
+        firm("Second Firm", "second");
+        UUID someoneElse = db.queryForObject(
+                "SELECT id FROM app_lm_user WHERE id <> (SELECT created_by FROM app_lm_eval_case WHERE id = ?) LIMIT 1",
+                UUID.class, id);
+        assertThatThrownBy(() -> db.update("UPDATE app_lm_eval_case SET created_by = ? WHERE id = ?", someoneElse, id))
+                .rootCause().hasMessageContaining("add-and-retire only");
+        assertThatThrownBy(() -> db.update("UPDATE app_lm_eval_case SET retired_by = ? WHERE id = ?", someoneElse, id))
+                .rootCause().hasMessageContaining("add-and-retire only");
+        db.update("UPDATE app_lm_eval_case SET created_by = NULL, retired_by = NULL WHERE id = ?", id);
+
         JsonNode again = expect(200, uploadCases(admin, dataset + "/cases/import/preview", file));
         assertThat(again.get("added").asInt()).isZero();
         assertThat(again.get("alreadyPresent").asInt()).isEqualTo(1);
