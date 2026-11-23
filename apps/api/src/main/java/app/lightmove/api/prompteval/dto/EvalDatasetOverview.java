@@ -5,7 +5,8 @@ import java.util.UUID;
 
 /**
  * A dataset as the list shows it. The three counts leave retired cases out. {@code importable} is false for a
- * prompt with no eval subject, whose cases can be read but not added to or run.
+ * prompt with no eval subject, whose cases can be read but not added to or run. {@code rubric} is null for a
+ * dataset no judge scores.
  */
 public record EvalDatasetOverview(
         UUID id,
@@ -17,6 +18,7 @@ public record EvalDatasetOverview(
         int dev,
         int holdout,
         Instant updatedAt,
-        boolean importable
+        boolean importable,
+        EvalRubricSummary rubric
 ) {
 }

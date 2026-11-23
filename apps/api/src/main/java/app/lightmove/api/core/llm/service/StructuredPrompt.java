@@ -18,11 +18,11 @@ public final class StructuredPrompt {
     private final PromptCallSpec spec;
     private final Consumer<ChatClient.AdvisorSpec> guarded;
 
-    StructuredPrompt(ChatClient chatClient, PromptCalls prompts, String promptId,
+    StructuredPrompt(ChatClient chatClient, PromptCalls prompts, PromptCallSpec spec,
                      Consumer<ChatClient.AdvisorSpec> guarded) {
         this.chatClient = chatClient;
         this.prompts = prompts;
-        this.spec = PromptCallSpec.structured(promptId);
+        this.spec = spec;
         this.guarded = guarded;
     }
 

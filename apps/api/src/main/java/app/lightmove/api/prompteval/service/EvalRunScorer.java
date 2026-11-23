@@ -6,15 +6,22 @@ import app.lightmove.api.core.llm.service.EvalCheck;
 import app.lightmove.api.core.llm.service.EvalSubject;
 import app.lightmove.api.prompteval.constant.EvalCaseOutcome;
 import app.lightmove.api.prompteval.constant.EvalRunSide;
+import app.lightmove.api.prompteval.constant.EvalRunVerdict;
+import app.lightmove.api.prompteval.dto.EvalCaseJudgedCriterion;
+import app.lightmove.api.prompteval.dto.EvalCaseProse;
 import app.lightmove.api.prompteval.dto.EvalCaseCheckChange;
 import app.lightmove.api.prompteval.dto.EvalReadingComparison;
 import app.lightmove.api.prompteval.dto.EvalReadingSide;
 import app.lightmove.api.prompteval.dto.EvalRunCaseComparison;
 import app.lightmove.api.prompteval.model.EvalCheckScore;
+import app.lightmove.api.prompteval.model.EvalJudgement;
+import app.lightmove.api.prompteval.model.EvalRubric;
 import app.lightmove.api.prompteval.model.EvalRunAnswer;
 import app.lightmove.api.prompteval.model.EvalRunCase;
+import app.lightmove.api.prompteval.model.EvalRunJudged;
 import app.lightmove.api.prompteval.model.EvalRunSummary;
 import app.lightmove.api.prompteval.model.EvalSideStability;
+import app.lightmove.api.prompteval.model.JudgedCriterionScore;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.EnumMap;
@@ -28,8 +35,8 @@ import java.util.Set;
 import java.util.UUID;
 
 /**
- * Turns a run's stored answers into what it found. It reads the verdicts stored with them and asks the model
- * nothing, so the same answers always score the same.
+ * Turns a run's stored answers into what it found. It reads the verdicts and the judge's picks stored with them
+ * and asks the model nothing, so the same answers always score the same.
  */
 final class EvalRunScorer {
 
@@ -41,6 +48,12 @@ final class EvalRunScorer {
     }
 
     static EvalRunSummary summarise(EvalSubject subject, List<EvalRunCase> cases, List<EvalRunAnswer> answers) {
+        return summarise(subject, cases, answers, null, List.of(), null);
+    }
+
+    /** {@code rubric} and {@code judged} are null, and {@code judgements} empty, for a dataset with no rubric. */
+    static EvalRunSummary summarise(EvalSubject subject, List<EvalRunCase> cases, List<EvalRunAnswer> answers,
+                                    EvalRubric rubric, List<EvalJudgement> judgements, EvalRunJudged judged) {
         Map<UUID, Map<EvalRunSide, List<EvalRunAnswer>>> byCase = byCaseAndSide(answers);
         double tolerance = subject.tolerancePoints();
         List<EvalCheckScore> scores = new ArrayList<>();
@@ -55,31 +68,52 @@ final class EvalRunScorer {
         int regressed = 0;
         int better = 0;
         for (EvalRunCase evalCase : cases) {
-            EvalCaseOutcome outcome = outcomeOf(changesOf(subject, byCase.get(evalCase.id())));
+            EvalCaseOutcome outcome = outcomeOf(subject, changesOf(subject, byCase.get(evalCase.id())),
+                    judgedOn(evalCase, rubric, judgements));
             regressed += outcome == EvalCaseOutcome.REGRESSION ? 1 : 0;
             better += outcome == EvalCaseOutcome.BETTER ? 1 : 0;
         }
         return new EvalRunSummary(tolerance, scores, stabilityOf(subject, EvalRunSide.CANDIDATE, cases, byCase),
                 stabilityOf(subject, EvalRunSide.BASELINE, cases, byCase), regressed, better,
-                cases.size() - regressed - better);
+                cases.size() - regressed - better, judged);
     }
 
-    static boolean isNoWorse(EvalRunSummary summary) {
-        return summary.checks().stream().noneMatch(EvalCheckScore::worseBeyondTolerance);
+    /**
+     * Whether the candidate was no worse on everything that counts: its checks, and its judged criteria while their
+     * rubric counts. Null when nothing counts, so the run gives no result: a prompt with no checks whose judged
+     * criteria are shown only.
+     */
+    static EvalRunVerdict verdictOf(EvalSubject subject, EvalRunSummary summary) {
+        boolean judgedCounts = summary.judged() != null && summary.judged().counted();
+        if (subject.checks().isEmpty() && !judgedCounts) {
+            return null;
+        }
+        boolean worse = summary.checks().stream().anyMatch(EvalCheckScore::worseBeyondTolerance)
+                || judgedCounts && summary.judged().criteria().stream()
+                        .anyMatch(JudgedCriterionScore::worseBeyondTolerance);
+        return worse ? EvalRunVerdict.FAIL : EvalRunVerdict.PASS;
     }
 
     /** The cases the two versions did differently on, regressions first, then by key. */
     static List<EvalRunCaseComparison> changedCases(EvalSubject subject, List<EvalRunCase> cases,
                                                     List<EvalRunAnswer> answers) {
+        return changedCases(subject, cases, answers, null, List.of());
+    }
+
+    static List<EvalRunCaseComparison> changedCases(EvalSubject subject, List<EvalRunCase> cases,
+                                                    List<EvalRunAnswer> answers, EvalRubric rubric,
+                                                    List<EvalJudgement> judgements) {
         Map<UUID, Map<EvalRunSide, List<EvalRunAnswer>>> byCase = byCaseAndSide(answers);
         List<EvalRunCaseComparison> changed = new ArrayList<>();
         for (EvalRunCase evalCase : cases) {
             Map<EvalRunSide, List<EvalRunAnswer>> bySide = byCase.get(evalCase.id());
             List<EvalCaseCheckChange> changes = changesOf(subject, bySide);
-            EvalCaseOutcome outcome = outcomeOf(changes);
+            List<EvalCaseJudgedCriterion> judged = judgedOn(evalCase, rubric, judgements);
+            EvalCaseOutcome outcome = outcomeOf(subject, changes, judged);
             if (outcome != null) {
                 changed.add(new EvalRunCaseComparison(evalCase.id(), evalCase.key(), evalCase.name(), evalCase.tag(),
-                        outcome, changes, readingsOf(subject, evalCase, bySide)));
+                        outcome, changes, readingsOf(subject, evalCase, bySide), proseOf(subject, bySide), judged,
+                        JudgedScorer.orderOf(JudgedScorer.judgementsOn(evalCase.id(), judgements))));
             }
         }
         changed.sort(Comparator.comparing((EvalRunCaseComparison compared) ->
@@ -123,6 +157,29 @@ final class EvalRunScorer {
             }
         }
         return changes;
+    }
+
+    /** By its checks where the prompt has any; a prompt with none is scored by the judge alone. */
+    private static EvalCaseOutcome outcomeOf(EvalSubject subject, List<EvalCaseCheckChange> changes,
+                                             List<EvalCaseJudgedCriterion> judged) {
+        return subject.checks().isEmpty() ? JudgedScorer.outcomeOf(judged) : outcomeOf(changes);
+    }
+
+    private static List<EvalCaseJudgedCriterion> judgedOn(EvalRunCase evalCase, EvalRubric rubric,
+                                                          List<EvalJudgement> judgements) {
+        return rubric == null ? List.of()
+                : JudgedScorer.ofCase(rubric, JudgedScorer.judgementsOn(evalCase.id(), judgements));
+    }
+
+    /** Each version's first answer as written. Null for a prompt whose answer is not read as words. */
+    private static EvalCaseProse proseOf(EvalSubject subject, Map<EvalRunSide, List<EvalRunAnswer>> bySide) {
+        String candidate = firstProseOf(subject, answersOf(bySide, EvalRunSide.CANDIDATE));
+        String baseline = firstProseOf(subject, answersOf(bySide, EvalRunSide.BASELINE));
+        return candidate == null && baseline == null ? null : new EvalCaseProse(candidate, baseline);
+    }
+
+    private static String firstProseOf(EvalSubject subject, List<EvalRunAnswer> answers) {
+        return answers.isEmpty() ? null : subject.proseOf(answers.getFirst().answer());
     }
 
     /** A case that lost on any check regressed, whatever it gained elsewhere. Null: nothing changed. */

@@ -1,0 +1,22 @@
+[
+  {
+    "key": "specific",
+    "name": "Evidence is specific and names its source",
+    "better": "Each claim points at a dated note, a call or a document, and says what happened."
+  },
+  {
+    "key": "balanced",
+    "name": "Strengths and concerns are balanced",
+    "better": "The concerns the material holds get the same weight as the strengths."
+  },
+  {
+    "key": "selfReport",
+    "name": "Nothing over-claimed from self-report",
+    "better": "What the executive says about themselves is kept apart from what someone else confirms."
+  },
+  {
+    "key": "invented",
+    "name": "No invented facts",
+    "better": "Nothing is stated that the case does not hold."
+  }
+]

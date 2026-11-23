@@ -46,6 +46,9 @@ export type ApiErrorCode =
   | "EVAL_RUN_IN_PROGRESS"
   | "EVAL_RUN_TOO_LARGE"
   | "EVAL_NO_CASES"
+  | "EVAL_CALIBRATION_NO_PAIRS"
+  | "EVAL_CALIBRATION_INCOMPLETE"
+  | "EVAL_JUDGE_CHECK_IN_PROGRESS"
   | "ACCOUNT_SIGN_IN_AGAIN"
   | "ACCOUNT_HANDOVER_REQUIRED"
   | "SESSION_NOT_FOUND"
@@ -324,6 +327,9 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   EVAL_RUN_IN_PROGRESS: "Another run is going. Wait for it to end, or cancel it.",
   EVAL_RUN_TOO_LARGE: "That run would make more calls than one run may.",
   EVAL_NO_CASES: "That dataset has no cases in that split.",
+  EVAL_CALIBRATION_NO_PAIRS: "Finish a run on this dataset's dev cases first.",
+  EVAL_CALIBRATION_INCOMPLETE: "Label every pair before checking the judge.",
+  EVAL_JUDGE_CHECK_IN_PROGRESS: "The judge is being checked already.",
   ACCOUNT_SIGN_IN_AGAIN: "Sign in again to show it's you, then delete your account within 10 minutes.",
   ACCOUNT_HANDOVER_REQUIRED: "Hand over the workspaces and positions only you run first.",
   SESSION_NOT_FOUND: "That session has already ended.",

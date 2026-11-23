@@ -3,6 +3,7 @@ package app.lightmove.api.prompteval.service;
 import app.lightmove.api.prompteval.constant.EvalCaseSplit;
 import app.lightmove.api.prompteval.model.EvalSeedPack;
 import app.lightmove.api.prompteval.model.NewEvalCase;
+import app.lightmove.api.prompteval.model.RubricCriterion;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
@@ -11,6 +12,7 @@ import java.util.ArrayList;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
+import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.node.ObjectNode;
@@ -26,6 +28,11 @@ public class EvalSeedPacks {
     static final String NATIONALITY_ROWS = "eval/nationality-synthetic.jsonl";
     static final String ASSISTANT_CASES = "eval/assistant-cases.json";
     static final String ASSESSMENT_PACK = "eval/candidate-scorecard-draft-pack-v1.json";
+    static final String ASSESSMENT_RUBRIC = "eval/candidate-scorecard-draft-rubric.json";
+    static final String OPENER_PACK = "eval/outreach-opener-pack-v1.json";
+    static final String OPENER_RUBRIC = "eval/outreach-opener-rubric.json";
+
+    private static final TypeReference<List<RubricCriterion>> CRITERIA = new TypeReference<>() { };
 
     private static final int MAX_NAME = 200;
 
@@ -43,7 +50,11 @@ public class EvalSeedPacks {
                 new EvalSeedPack("candidate-scorecard-draft", "Assessment draft: pack v1",
                         "Invented executives with notes, calls and documents on file, each labelled with the "
                                 + "band a consultant expects for every competency of its brief.",
-                        casesIn(ASSESSMENT_PACK)),
+                        casesIn(ASSESSMENT_PACK), rubricIn(ASSESSMENT_RUBRIC)),
+                new EvalSeedPack("outreach-opener", "Outreach opener: pack v1",
+                        "Invented profiles, each with a few facts about a role. An opener has no label: a judge "
+                                + "compares the two versions' openers against the rubric.",
+                        casesIn(OPENER_PACK), rubricIn(OPENER_RUBRIC)),
                 new EvalSeedPack("assistant-core", "Assistant: synthetic conversations",
                         "Invented conversations about an invented retail position. Its offline suite runs them in "
                                 + "a workspace built for the run, so they are listed here and cannot be run.",
@@ -62,6 +73,11 @@ public class EvalSeedPacks {
                     expected == null || expected.isNull() ? null : expected));
         }
         return cases;
+    }
+
+    /** The criteria a judge compares two answers to a pack's cases on. Changing the file ships a new version. */
+    private List<RubricCriterion> rubricIn(String resource) {
+        return json.readValue(textOf(resource), CRITERIA);
     }
 
     /** A golden row as a case of one prompt: its profile, and the one label that prompt is scored on. */

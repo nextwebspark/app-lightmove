@@ -24,13 +24,14 @@ import {
   STATUS_LABEL,
   versionsLabel,
 } from "../lib/evalLabels";
+import { rubricCellLabel } from "../lib/judgeLabels";
 
 const RUNS_REFRESH_MS = 4_000;
 
 const HEAD = "border-b border-u-border-strong bg-u-sunken py-2.5";
 const ROW = "cursor-pointer border-b border-u-border py-3 last:border-b-0 hover:bg-u-sunken";
 const DATASET_GRID =
-  "grid min-w-[860px] grid-cols-[minmax(220px,2fr)_minmax(140px,1.1fr)_70px_minmax(150px,1.1fr)_96px_minmax(110px,.9fr)] items-center gap-3.5 px-4";
+  "grid min-w-[980px] grid-cols-[minmax(220px,2fr)_minmax(140px,1.1fr)_70px_minmax(150px,1.1fr)_minmax(130px,.9fr)_96px_minmax(110px,.9fr)] items-center gap-3.5 px-4";
 const RUN_GRID =
   "grid min-w-[1020px] grid-cols-[78px_minmax(160px,1.4fr)_minmax(150px,1.1fr)_84px_minmax(170px,1.3fr)_minmax(170px,1.3fr)_minmax(150px,1.1fr)] items-center gap-3.5 px-4";
 
@@ -117,7 +118,7 @@ function DatasetTable({
       <div className="overflow-hidden rounded-lg border border-u-border-strong bg-u-surface">
         <div role="table" aria-label="Datasets" className="overflow-x-auto">
           <div role="row" className={cn(DATASET_GRID, HEAD)}>
-            {["Dataset", "Prompt", "Cases", "Split", "Source", "Updated"].map((heading) => (
+            {["Dataset", "Prompt", "Cases", "Split", "Rubric", "Source", "Updated"].map((heading) => (
               <span key={heading} role="columnheader" className="type-micro-label font-mono text-u-text3">
                 {heading}
               </span>
@@ -145,6 +146,9 @@ function DatasetTable({
               <span role="cell" className="truncate text-body text-u-text2">
                 {dataset.dev} dev · {dataset.holdout} holdout
               </span>
+              <span role="cell" className={cn("truncate text-body", dataset.rubric ? "text-u-text2" : "text-u-text3")}>
+                {rubricCellLabel(dataset.rubric)}
+              </span>
               <span role="cell">
                 <PromptPill tone="plain">Synthetic</PromptPill>
               </span>
@@ -157,7 +161,8 @@ function DatasetTable({
       </div>
       <p className="mx-0.5 mt-3 max-w-[700px] font-mono text-xs text-u-text3">
         Dev cases are for working on a prompt. Holdout cases are kept back: the check before a version goes live
-        scores on them, so a prompt cannot be tuned to pass it.
+        scores on them, so a prompt cannot be tuned to pass it. A rubric's criteria are judged on every run, and count
+        only while the judge agrees with a person's labels.
       </p>
     </>
   );
@@ -197,7 +202,7 @@ function RunTable({ runs, onOpen }: { runs: EvalRunOverview[]; onOpen: (run: Eva
             </span>
             <span role="cell" className="flex flex-wrap items-center gap-2">
               <span className="text-body text-u-text2">{STATUS_LABEL[run.status]}</span>
-              <VerdictPill verdict={run.verdict} />
+              <VerdictPill verdict={run.verdict} status={run.status} />
             </span>
             <span role="cell" className="truncate text-body text-u-text2">
               {costLabel(run)}

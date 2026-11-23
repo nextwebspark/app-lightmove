@@ -13,11 +13,18 @@ public record PlatformEvalSettings(
          * How long a running run may go without a sign of life before another instance takes it over. Longer than
          * one answer can take, its retries and repair included.
          */
-        @DefaultValue(PlatformEvalSettings.DEFAULT_STALE_AFTER) Duration staleAfter
+        @DefaultValue(PlatformEvalSettings.DEFAULT_STALE_AFTER) Duration staleAfter,
+
+        /**
+         * The model a version of the eval judge naming none is answered by. Blank: the deployment's own, as for
+         * any other prompt.
+         */
+        @DefaultValue(PlatformEvalSettings.DEFAULT_JUDGE_MODEL) String judgeModel
 ) {
 
     static final String DEFAULT_MAX_CALLS_PER_RUN = "200";
     static final String DEFAULT_STALE_AFTER = "10m";
+    static final String DEFAULT_JUDGE_MODEL = "gemini-3.8-flash";
 
     public PlatformEvalSettings {
         if (maxCallsPerRun < 2) {
@@ -29,6 +36,11 @@ public record PlatformEvalSettings(
 
     public static PlatformEvalSettings defaults() {
         return new PlatformEvalSettings(Integer.parseInt(DEFAULT_MAX_CALLS_PER_RUN),
-                DurationStyle.detectAndParse(DEFAULT_STALE_AFTER));
+                DurationStyle.detectAndParse(DEFAULT_STALE_AFTER), DEFAULT_JUDGE_MODEL);
+    }
+
+    /** Null where {@code judge-model} is blank. */
+    public String pinnedJudgeModel() {
+        return judgeModel == null || judgeModel.isBlank() ? null : judgeModel.strip();
     }
 }

@@ -7,5 +7,7 @@ package app.lightmove.api.promptregistry.constant;
 public enum PromotionGateState {
     PASSED,
     FAILED,
+    /** A run finished and nothing it measured counts: a prompt only a judge scores, whose rubric does not count. */
+    NO_RESULT,
     NONE
 }

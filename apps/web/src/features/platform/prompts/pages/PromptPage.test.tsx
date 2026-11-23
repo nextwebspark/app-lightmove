@@ -68,6 +68,8 @@ const gate = (overrides: Partial<PromotionGate> = {}): PromotionGate => ({
   checksWorse: 0,
   regressedCases: 1,
   failedChecks: [],
+  datasetId: "d1",
+  judged: null,
   ...overrides,
 });
 
@@ -274,6 +276,57 @@ describe("PromptPage", () => {
     await user.click(within(dialog).getByRole("button", { name: "Put live" }));
 
     await waitFor(() => expect(promptApi.putPromptLive).toHaveBeenCalledWith("candidate-scorecard-draft", 3, null));
+  });
+
+  it("asks why over a run that gave no result, and sends to the rubric that would make it count", async () => {
+    vi.mocked(promptApi.getPrompt).mockResolvedValue(
+      gated(
+        gate({
+          state: "NO_RESULT",
+          runNumber: 39,
+          checksBetter: 0,
+          checksSame: 0,
+          checksWorse: 0,
+          datasetId: "d5",
+          judged: { counted: false, state: "UNLABELLED", criteria: 3, forCandidate: 1, forBaseline: [] },
+        }),
+      ),
+    );
+    const user = userEvent.setup();
+    renderPage();
+
+    const dialog = await openPutLive(user);
+
+    expect(within(dialog).getByText("Run R-0039 on the holdout cases gave no result")).toBeInTheDocument();
+    expect(
+      within(dialog).getByText(
+        "Assessment draft has no checks, and its judged criteria do not count until a person has labelled 20 pairs and the judge has been checked against them. Nothing yet shows this version is no worse than the live one.",
+      ),
+    ).toBeInTheDocument();
+    expect(within(dialog).getByRole("link", { name: "Open the rubric" })).toHaveAttribute(
+      "href",
+      "/platform/evals/datasets/d5?view=rubric",
+    );
+    expect(within(dialog).getByRole("textbox", { name: "Why put it live anyway" })).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "Put live" })).toBeDisabled();
+  });
+
+  it("names what the judge found beside the checks, and warns when the prompt is the judge itself", async () => {
+    vi.mocked(promptApi.getPrompt).mockResolvedValue({
+      ...gated(gate({ judged: { counted: true, state: "COUNTS", criteria: 4, forCandidate: 2, forBaseline: [] } })),
+      prompt: overview({ id: "eval-judge", name: "Eval judge" }),
+    });
+    const user = userEvent.setup();
+    renderPage();
+
+    const dialog = await openPutLive(user);
+
+    expect(
+      within(dialog).getByText(/The judge prefers the candidate on 2 of the 4 judged criteria and the live version on none\./),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).getByText(/This prompt is the judge\. Once its live version changes, every rubric's judged criteria are shown only/),
+    ).toBeInTheDocument();
   });
 
   it("asks why over a run that found the version worse, naming the checks it fell on", async () => {

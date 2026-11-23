@@ -9,8 +9,9 @@ import java.util.UUID;
 
 /**
  * One run as stored. {@code candidateModel} and {@code baselineModel} are what answered, null until one has;
- * {@code summary} and {@code verdict} are null until the run finishes; {@code startedBy} is null once the account
- * is gone.
+ * {@code summary} is null until the run finishes, and {@code verdict} until then and for a finished run that gave
+ * no result; {@code rubricId} is null for a dataset with no rubric; {@code startedBy} is null once the account is
+ * gone.
  */
 public record EvalRun(
         UUID id,
@@ -35,6 +36,9 @@ public record EvalRun(
         long inputTokens,
         long outputTokens,
         EvalRunSummary summary,
+        UUID rubricId,
+        Integer judgeVersion,
+        String judgeModel,
         UUID startedBy,
         String startedByName,
         Instant createdAt,
