@@ -21,6 +21,9 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * Serves each prompt from the registry, held in memory until a platform change drops it. Only a version a person
@@ -47,14 +50,19 @@ public class RegistryPromptSource implements PromptSource, PlatformConfigListene
     private final ReloadableSnapshot<Map<String, ServedPrompt>> serving;
 
     public RegistryPromptSource(LightMoveProperties properties, BundledPrompts bundled, PromptRegistryStore store,
-                                AiModelCatalog models, Clock clock) {
+                                AiModelCatalog models, PlatformTransactionManager transactionManager, Clock clock) {
         this.enabled = properties.ai().promptRegistry().enabled();
         this.bundled = bundled;
         this.store = store;
         this.models = models;
         this.clock = clock;
-        this.serving = new ReloadableSnapshot<>("prompt registry", "bundled prompts", this::readRegistry, Map.of(),
-                RETRY_AFTER_FAILED_READ, clock);
+        // On its own connection: a failed statement aborts the Postgres transaction it ran in, so read on the
+        // caller's it would serve the bundled prompt into a request whose every later statement then fails (25P02).
+        TransactionTemplate ownTransaction = new TransactionTemplate(transactionManager);
+        ownTransaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        ownTransaction.setReadOnly(true);
+        this.serving = new ReloadableSnapshot<>("prompt registry", "bundled prompts",
+                () -> ownTransaction.execute(status -> readRegistry()), Map.of(), RETRY_AFTER_FAILED_READ, clock);
     }
 
     @Override
