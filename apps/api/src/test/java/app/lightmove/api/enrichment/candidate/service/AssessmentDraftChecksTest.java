@@ -7,6 +7,7 @@ import static app.lightmove.api.enrichment.candidate.service.AssessmentCaseFixtu
 import static org.assertj.core.api.Assertions.assertThat;
 
 import app.lightmove.api.core.llm.constant.EvalCheckVerdict;
+import app.lightmove.api.core.llm.model.EvalReading;
 import app.lightmove.api.core.llm.service.EvalCheck;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -177,6 +178,28 @@ class AssessmentDraftChecksTest {
     @DisplayName("a competency evidenced by self-report alone fails above 7")
     void selfReportStaysCapped() {
         assertFails("self-report-cap", answer -> scoreOf(answer, "B2").put("score", 8));
+    }
+
+    @Test
+    @DisplayName("a run reads each competency off an answer: its name, the label in words, the score and evidence")
+    void anAnswerIsReadCompetencyByCompetency() {
+        List<EvalReading> readings = AssessmentDraftChecks.readingsOf(input(), expected(),
+                changed(answer -> scoreOf(answer, "B1").put("score", 3)));
+
+        assertThat(readings).extracting(EvalReading::key).containsExactly("T1", "T2", "B1", "B2");
+        EvalReading capitalMarkets = readings.getFirst();
+        assertThat(capitalMarkets.label()).isEqualTo("Capital markets");
+        assertThat(capitalMarkets.expected()).isEqualTo("7 to 9");
+        assertThat(capitalMarkets.score()).isEqualTo(8.0);
+        assertThat(capitalMarkets.text()).startsWith("A call note of 14 Oct 2026");
+        assertThat(capitalMarkets.outside()).isFalse();
+        assertThat(readings.get(1).expected()).isEqualTo("No evidence");
+        assertThat(readings.get(1).score()).isNull();
+        assertThat(readings.get(1).outside()).isFalse();
+        assertThat(readings.get(2).outside()).as("3 is below the band of 6 to 8 and its tolerance").isTrue();
+        assertThat(AssessmentDraftChecks.readingsOf(input(), expected(), null))
+                .as("an answer that could not be read scores nothing, which a band counts as outside")
+                .extracting(EvalReading::outside).containsExactly(true, false, true, true);
     }
 
     private static void assertFails(String checkId, Consumer<ObjectNode> worsened) {

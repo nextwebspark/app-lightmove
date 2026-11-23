@@ -1,5 +1,6 @@
 package app.lightmove.api.enrichment.candidate.service;
 
+import app.lightmove.api.core.llm.model.EvalReading;
 import app.lightmove.api.core.llm.service.EvalCheck;
 import app.lightmove.api.core.llm.service.EvalSubject;
 import java.util.List;
@@ -18,6 +19,9 @@ import tools.jackson.databind.ObjectMapper;
 class CandidateScorecardEvalSubject implements EvalSubject {
 
     static final int REPEATS = 3;
+
+    /** Three answers to a dozen held-back cases move a check's pass rate by about this much on their own. */
+    static final double TOLERANCE_POINTS = 3;
 
     private final CandidateScorecardDrafter drafter;
     private final ObjectMapper json;
@@ -47,6 +51,16 @@ class CandidateScorecardEvalSubject implements EvalSubject {
     @Override
     public int minimumRepeats() {
         return REPEATS;
+    }
+
+    @Override
+    public double tolerancePoints() {
+        return TOLERANCE_POINTS;
+    }
+
+    @Override
+    public List<EvalReading> readingsOf(JsonNode input, JsonNode expected, JsonNode answer) {
+        return AssessmentDraftChecks.readingsOf(input, expected, answer);
     }
 
     /** Pack v1 is drafted and waits for a consultant's review (#1326); until then a run reports and gates nothing. */
