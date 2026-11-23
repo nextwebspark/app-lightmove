@@ -36,7 +36,7 @@ class PromptCatalogServiceTest {
                         model("retired", TODAY.minusDays(3)), model("undated", null));
             }
         };
-        PromptCatalogService service = new PromptCatalogService(null, null, catalog, List.of(), null, null, null,
+        PromptCatalogService service = new PromptCatalogService(null, null, catalog, List.of(), null, null, null, null,
                 Clock.fixed(Instant.parse("2027-01-10T12:00:00Z"), ZoneOffset.UTC));
 
         Map<String, AiModelResponse> listed = service.models().stream()

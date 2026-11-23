@@ -55,6 +55,7 @@ class PromptManagementIntegrationTest extends PositionTemplateFlowSupport {
 
     @AfterEach
     void serveTheShippedPromptsAgain() {
+        forgetShortlistCounts();
         db.update("DELETE FROM app_lm_platform_prompt_label WHERE prompt_id IN (?, ?, ?)",
                 "recruiter-shortlist", "assistant-core", "candidate-scorecard-draft");
         sync.sync(bundled.all());
@@ -170,6 +171,93 @@ class PromptManagementIntegrationTest extends PositionTemplateFlowSupport {
         refused(400, "VALIDATION_FAILED", postJson(admin, SHORTLIST + "/versions", """
                 {"body":"Weigh the candidate.","changeNote":" "}
                 """));
+    }
+
+    @Test
+    @DisplayName("a prompt's page counts each version's calls by model, with what people did with its answers")
+    void usageIsReadPerVersionAndModel() throws Exception {
+        forgetShortlistCounts();
+        String admin = superAdmin();
+        int live = getJson(admin, SHORTLIST).get("prompt").get("liveVersion").asInt();
+        counted("recruiter-shortlist", live, "gemini-3.5-flash", 0, 40, 2);
+        counted("recruiter-shortlist", live, "gemini-3.8-flash", 3, 10, 0);
+        counted("recruiter-shortlist", live, "gemini-3.8-flash", 45, 500, 9);
+        decided("recruiter-shortlist", live, 0, 6, 2);
+
+        JsonNode usage = getJson(admin, SHORTLIST + "/usage?days=30");
+
+        assertThat(usage.get("days").asInt()).isEqualTo(30);
+        JsonNode version = usage.get("versions").get(0);
+        assertThat(version.get("version").asInt()).isEqualTo(live);
+        assertThat(version.get("live").asBoolean()).isTrue();
+        assertThat(version.get("accepted").asLong()).isEqualTo(6);
+        assertThat(version.get("changed").asLong()).isEqualTo(2);
+        assertThat(version.get("models")).hasSize(2);
+        JsonNode busiest = version.get("models").get(0);
+        assertThat(busiest.get("modelId").asString()).isEqualTo("gemini-3.5-flash");
+        assertThat(busiest.get("calls").asLong()).isGreaterThanOrEqualTo(40);
+        assertThat(busiest.get("schemaFailures").asLong()).isEqualTo(2);
+        assertThat(version.get("models").get(1).get("calls").asLong()).as("the row 45 days old is outside the span")
+                .isEqualTo(10);
+        assertThat(getJson(admin, SHORTLIST + "/usage").get("days").asInt()).isEqualTo(30);
+        assertThat(getJson(admin, SHORTLIST + "/usage?days=4000").get("days").asInt()).isEqualTo(90);
+        refused(404, "NOT_FOUND", mvc.perform(get(PROMPTS + "/no-such-prompt/usage")
+                .header("Authorization", bearer(admin))).andReturn());
+    }
+
+    @Test
+    @DisplayName("a version put live that fails more often than the one it replaced is flagged on the list")
+    void aWorseLiveVersionIsFlagged() throws Exception {
+        forgetShortlistCounts();
+        String admin = superAdmin();
+        int shipped = getJson(admin, SHORTLIST).get("prompt").get("liveVersion").asInt();
+        assertThat(promptIn(getJson(admin, PROMPTS), "recruiter-shortlist").get("health").isNull())
+                .as("a version that replaced none has nothing to be compared with").isTrue();
+        int edited = expect(201, postJson(admin, SHORTLIST + "/versions", save("Weigh the candidate, briefly.")))
+                .get("versions").get(0).get("version").asInt();
+        expect(200, putJson(admin, SHORTLIST + "/production",
+                "{\"version\":" + edited + ",\"reason\":\"Reads better\"}"));
+        counted("recruiter-shortlist", shipped, "gemini-3.5-flash", 1, 200, 4);
+        counted("recruiter-shortlist", edited, "gemini-3.5-flash", 0, 30, 6);
+
+        JsonNode few = promptIn(getJson(admin, PROMPTS), "recruiter-shortlist").get("health");
+        assertThat(few.get("comparedWithVersion").asInt()).isEqualTo(shipped);
+        assertThat(few.get("warnings")).as("thirty calls are too few to call it worse").isEmpty();
+
+        counted("recruiter-shortlist", edited, "gemini-3.8-flash", 0, 70, 14);
+        decided("recruiter-shortlist", shipped, 1, 30, 10);
+        decided("recruiter-shortlist", edited, 0, 10, 15);
+
+        JsonNode health = promptIn(getJson(admin, PROMPTS), "recruiter-shortlist").get("health");
+        assertThat(health.get("warnings")).extracting(JsonNode::asString)
+                .containsExactly("MORE_FAILURES", "FEWER_ACCEPTED");
+        assertThat(health.get("days").asInt()).isEqualTo(1);
+        assertThat(health.get("liveCalls").asLong()).isEqualTo(100);
+        assertThat(health.get("liveFailureRate").asDouble()).isEqualTo(0.2);
+        assertThat(health.get("previousFailureRate").asDouble()).isEqualTo(0.02);
+        assertThat(health.get("liveAcceptRate").asDouble()).isEqualTo(0.4);
+        assertThat(health.get("previousAcceptRate").asDouble()).isEqualTo(0.75);
+        assertThat(getJson(admin, SHORTLIST).get("prompt").get("health").get("warnings")).hasSize(2);
+    }
+
+    private void forgetShortlistCounts() {
+        db.update("DELETE FROM app_lm_platform_prompt_call_daily WHERE prompt_id = 'recruiter-shortlist'");
+        db.update("DELETE FROM app_lm_platform_prompt_outcome_daily WHERE prompt_id = 'recruiter-shortlist'");
+    }
+
+    private void counted(String promptId, int version, String modelId, int daysAgo, int calls, int schemaFailures) {
+        db.update("""
+                INSERT INTO app_lm_platform_prompt_call_daily
+                    (prompt_id, version, provider, model_id, day, calls, finish_stop, schema_failures)
+                VALUES (?, ?, 'VERTEX_GEMINI', ?, (now() AT TIME ZONE 'UTC')::date - ?, ?, ?, ?)
+                """, promptId, version, modelId, daysAgo, calls, calls, schemaFailures);
+    }
+
+    private void decided(String promptId, int version, int daysAgo, int accepted, int changed) {
+        db.update("""
+                INSERT INTO app_lm_platform_prompt_outcome_daily (prompt_id, version, day, accepted, changed)
+                VALUES (?, ?, (now() AT TIME ZONE 'UTC')::date - ?, ?, ?)
+                """, promptId, version, daysAgo, accepted, changed);
     }
 
     @Test
@@ -356,6 +444,7 @@ class PromptManagementIntegrationTest extends PositionTemplateFlowSupport {
         Firm firm = firm("Ordinary Firm", "admin");
         List<MockHttpServletRequestBuilder> routes = List.of(
                 get(PROMPTS), get(SHORTLIST), get(SHORTLIST + "/versions/1"), get("/api/v1/platform/ai-models"),
+                get(SHORTLIST + "/usage"),
                 post(SHORTLIST + "/versions").contentType(MediaType.APPLICATION_JSON).content(save("Text")),
                 post(SHORTLIST + "/versions/1/trial"),
                 put(SHORTLIST + "/production").contentType(MediaType.APPLICATION_JSON)

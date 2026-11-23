@@ -12,6 +12,7 @@ import app.lightmove.api.candidate.constant.Gender;
 import app.lightmove.api.candidate.constant.LawfulBasis;
 import app.lightmove.api.candidate.constant.PrivacyNoticeChannel;
 import app.lightmove.api.common.constant.Seniority;
+import app.lightmove.api.core.llm.model.PromptVersionRef;
 import app.lightmove.api.core.persistence.model.BaseEntity;
 import app.lightmove.api.core.text.service.LinkedInUrls;
 import jakarta.persistence.CollectionTable;
@@ -102,6 +103,11 @@ public class Person extends BaseEntity {
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "ai_inferred_fields", nullable = false)
     private Set<String> aiInferredFields = new HashSet<>();
+
+    /** Which prompt version proposed each flagged value (V243); a key missing here was proposed before the count. */
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "ai_inferred_by")
+    private Map<String, PromptVersionRef> aiInferredBy;
 
     /** The nationality classifier's last reading (V83) — staff-only, never on {@code CandidateResponse}. */
     @JdbcTypeCode(SqlTypes.JSON)
@@ -401,6 +407,7 @@ public class Person extends BaseEntity {
     /** A researcher saved the Background section: every AI-proposed value in it is now theirs. */
     public void confirmBackground() {
         aiInferredFields = new HashSet<>();
+        aiInferredBy = null;
     }
 
     private void confirmIfChanged(BackgroundField field, Object before, Object after) {
@@ -408,7 +415,31 @@ public class Person extends BaseEntity {
             Set<String> remaining = new HashSet<>(aiInferredFields);
             remaining.remove(field.key());
             aiInferredFields = remaining;
+            inferredBy(field, null);
         }
+    }
+
+    /** The prompt versions behind the values still flagged as the model's, by {@link BackgroundField} key. */
+    public Map<String, PromptVersionRef> inferredBy() {
+        if (aiInferredBy == null) {
+            return Map.of();
+        }
+        // A flag cleared in bulk (an inference switched off) takes its value with it: nothing is left to decide on.
+        Map<String, PromptVersionRef> flagged = new LinkedHashMap<>(aiInferredBy);
+        flagged.keySet().retainAll(aiInferredFields);
+        return Map.copyOf(flagged);
+    }
+
+    /** A new map each time, as the flags are: Hibernate tells a JSON column changed by comparing the value. */
+    private void inferredBy(BackgroundField field, PromptVersionRef answeredBy) {
+        Map<String, PromptVersionRef> sources = aiInferredBy == null ? new LinkedHashMap<>()
+                : new LinkedHashMap<>(aiInferredBy);
+        if (answeredBy == null) {
+            sources.remove(field.key());
+        } else {
+            sources.put(field.key(), answeredBy);
+        }
+        aiInferredBy = sources.isEmpty() ? null : sources;
     }
 
     /**
@@ -597,19 +628,22 @@ public class Person extends BaseEntity {
      * in {@link #aiInferredFields}. A value already there — typed, imported, captured or researched —
      * always stands. Answers whether anything was filled.
      */
-    public boolean proposeBackground(InferredBackground proposed) {
+    public boolean proposeBackground(InferredBackground proposed, PromptVersionRef answeredBy) {
         Set<String> inferred = new HashSet<>(aiInferredFields);
         if (gender == null && proposed.gender() != null) {
             gender = proposed.gender();
             inferred.add(BackgroundField.GENDER.key());
+            inferredBy(BackgroundField.GENDER, answeredBy);
         }
         if (yearsExperience == null && proposed.yearsExperience() != null) {
             yearsExperience = proposed.yearsExperience();
             inferred.add(BackgroundField.YEARS_EXPERIENCE.key());
+            inferredBy(BackgroundField.YEARS_EXPERIENCE, answeredBy);
         }
         if (seniorityLevel == null && proposed.seniority() != null) {
             seniorityLevel = proposed.seniority();
             inferred.add(BackgroundField.SENIORITY.key());
+            inferredBy(BackgroundField.SENIORITY, answeredBy);
         }
         boolean filled = !inferred.equals(aiInferredFields);
         aiInferredFields = inferred;
@@ -621,13 +655,14 @@ public class Person extends BaseEntity {
      * {@link NationalityReading#isDecisive decisive} one — a medium or low reading stays a suggestion the
      * researcher accepts, and Unknown leaves the field null. A value already there always stands.
      */
-    public void recordNationalityReading(NationalityReading reading) {
+    public void recordNationalityReading(NationalityReading reading, PromptVersionRef answeredBy) {
         this.aiNationalityReading = reading;
         if (nationality == null && reading.isDecisive()) {
             nationality = reading.category();
             Set<String> inferred = new HashSet<>(aiInferredFields);
             inferred.add(BackgroundField.NATIONALITY.key());
             aiInferredFields = inferred;
+            inferredBy(BackgroundField.NATIONALITY, answeredBy);
         }
     }
 

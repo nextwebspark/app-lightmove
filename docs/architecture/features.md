@@ -697,8 +697,22 @@ Behind it, every AI system prompt is served through the **prompt registry** (#13
 settings, a `production` label, a cross-instance reload (`core/reload`) and a daily count of the calls each version
 answered. Behind `lightmove.ai.prompt-registry.enabled`, off by default: off, the bundled `prompts/*.st` serve as
 before; `docs/llm-guardrails.md` has the call path.
+**Per-version monitoring** (#1323, V243) reads those counts back, and nothing else: no prompt or answer is stored
+anywhere. Beside calls, tokens and finish reasons, a version's row counts guard refusals, schema re-asks and answers
+that would not bind (`PromptCallTrace` rides the advisor context, since the guard answers before the counter and a
+bind fails after it). **Accept rate**: a feature that asks a person to keep or change an AI answer takes the version
+with it (`StructuredPrompt.askAttributed`) and says what happened through `PromptOutcomes`, counted after the
+decision commits. Two screens do: an outreach opener sent as written or rewritten (the draft's version rides the
+enrolment request, and is counted only if that version exists), and a candidate's AI-inferred background value
+changed or confirmed (`app_lm_person.ai_inferred_by`). Position extraction does not yet: its suggestions are merged
+in the browser. `GET …/prompts/{id}/usage?days=` (`PROMPT_MANAGE`, 30 days unless asked, 90 at most) answers each
+version by model; each list row carries `health`, the live version since it went live beside the one it replaced
+over as many days before (30 at most), with `MORE_FAILURES` (failure rate up five points or more, 50 calls a side)
+and `FEWER_ACCEPTED` (accept rate down ten points or more, 20 decisions a side) from `PromptHealthRules`. A
+failure there is a call cut off, stopped by the safety filter, or unbindable; a guard refusal is the input's, not
+the prompt's, and is shown but not held against a version.
 Its API (#1317, `promptregistry`, under `/api/v1/platform/prompts` and `/ai-models`): `PROMPT_MANAGE` reads the list
-(`PlatformPrompt` names the sixteen), a prompt's versions and a version's text, saves a new version (text, model from
+(`PlatformPrompt` names the seventeen), a prompt's versions and a version's text, saves a new version (text, model from
 `AiModelCatalog`, settings inside that model's bounds, a change note; `PromptContract` keeps a prompt's `{variables}`)
 and runs **Try it** (`PromptTrial`, one bean beside each structured caller, a fictional input through the feature's own
 call path on the tried version's model and settings; `LlmBudget.PROMPT_TRIAL`). A save naming no model is on the

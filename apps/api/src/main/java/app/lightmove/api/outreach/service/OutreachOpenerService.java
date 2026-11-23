@@ -11,6 +11,7 @@ import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
+import app.lightmove.api.core.llm.model.AttributedAnswer;
 import app.lightmove.api.core.ratelimit.service.LlmBudget;
 import app.lightmove.api.core.ratelimit.service.LlmBudgetGuard;
 import app.lightmove.api.outreach.model.DraftedOpener;
@@ -97,16 +98,24 @@ public class OutreachOpenerService {
 
     private List<DraftedOpener> draftAll(Map<UUID, CandidateDossier> dossiers, OpenerBrief brief) {
         try (ExecutorService threads = Executors.newVirtualThreadPerTaskExecutor()) {
-            Map<UUID, Future<String>> pending = new LinkedHashMap<>();
-            dossiers.forEach((candidateId, dossier) ->
-                    pending.put(candidateId, threads.submit(() -> drafter.draft(dossier, brief).orElse(null))));
+            Map<UUID, Future<AttributedAnswer<String>>> pending = new LinkedHashMap<>();
+            dossiers.forEach((candidateId, dossier) -> pending.put(candidateId,
+                    threads.submit(() -> drafter.draftAttributed(dossier, brief).orElse(null))));
             return pending.entrySet().stream()
-                    .map(entry -> new DraftedOpener(entry.getKey(), resultOf(entry.getValue())))
+                    .map(entry -> draftedOf(entry.getKey(), resultOf(entry.getValue())))
                     .toList();
         }
     }
 
-    private static String resultOf(Future<String> drafted) {
+    private static DraftedOpener draftedOf(UUID candidateId, AttributedAnswer<String> drafted) {
+        if (drafted == null) {
+            return new DraftedOpener(candidateId, null, null);
+        }
+        return new DraftedOpener(candidateId, drafted.answer(),
+                drafted.answeredBy() == null ? null : drafted.answeredBy().version());
+    }
+
+    private static AttributedAnswer<String> resultOf(Future<AttributedAnswer<String>> drafted) {
         try {
             return drafted.get();
         } catch (InterruptedException interrupted) {

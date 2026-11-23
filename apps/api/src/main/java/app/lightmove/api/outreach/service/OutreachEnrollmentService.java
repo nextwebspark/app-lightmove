@@ -10,6 +10,9 @@ import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
+import app.lightmove.api.core.llm.constant.PromptOutcome;
+import app.lightmove.api.core.llm.model.PromptVersionRef;
+import app.lightmove.api.core.llm.service.PromptOutcomes;
 import app.lightmove.api.outreach.constant.OutreachSkipReason;
 import app.lightmove.api.outreach.constant.OutreachStopReason;
 import app.lightmove.api.outreach.constant.SequenceStartMode;
@@ -79,6 +82,7 @@ public class OutreachEnrollmentService {
     private final EmailSignatureService signatures;
     private final OutreachPrivacyService privacy;
     private final RecentApproachReader recentApproaches;
+    private final PromptOutcomes promptOutcomes;
 
     @Transactional(readOnly = true)
     public EnrollmentCandidatesResponse candidates(UUID userId, UUID workspaceId, UUID projectId,
@@ -215,9 +219,20 @@ public class OutreachEnrollmentService {
                 })
                 .toList();
         List<OutreachEnrollment> saved = enrollments.saveAllAndFlush(created);
+        request.people().forEach(this::countOpenerDecision);
         saved.forEach(enrollment -> people.recordEnrolled(userId, projectId, enrollment.getCandidateId(),
                 sequence.getId(), sequence.getName()));
         return saved;
+    }
+
+    /** A drafted opener sent as written is kept; one rewritten or cleared is changed. No draft, nothing counted. */
+    private void countOpenerDecision(EnrollPersonRequest person) {
+        if (person.openerPromptVersion() == null) {
+            return;
+        }
+        boolean kept = blankToNull(person.opener()) != null && !person.openerEdited();
+        promptOutcomes.record(new PromptVersionRef(OutreachOpenerDrafter.PROMPT_ID, person.openerPromptVersion()),
+                kept ? PromptOutcome.ACCEPTED : PromptOutcome.CHANGED);
     }
 
     private MailboxConnection requireSendingMailbox(UUID userId, UUID workspaceId) {

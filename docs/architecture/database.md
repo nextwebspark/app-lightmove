@@ -594,6 +594,17 @@ and who and when; append-only by trigger, an UPDATE of `changed_by` alone let th
 `harden.sql` step 2e takes UPDATE and DELETE from the runtime role besides. No workspace and no reference into a
 tenant table. A change bumps the `settings` scope of `app_lm_platform_config_version` (V235).
 
+V243 is per-version monitoring (#1323). `app_lm_platform_prompt_call_daily` gains three counters:
+`guard_refusals` (the injection guard answered in the model's place, so no call is counted beside it),
+`schema_reasks` (an answer failed its schema and was asked again; the re-ask is also a call) and `schema_failures`
+(the model answered and the answer still would not bind). `app_lm_platform_prompt_outcome_daily`
+(`prompt_id`, `version`, `day`, `accepted`, `changed`) counts what a person did with an answer a screen asked
+them to keep or change, on the UTC day of the decision; a row is written only for a version that exists. Both are
+platform tables holding keys and counts: no content, no person, no workspace. `app_lm_person` gains
+`ai_inferred_by` jsonb: for each key still in `ai_inferred_fields`, the `{promptId, version}` that proposed it,
+so the decision on it is counted against that version; null, or a key missing, is a value proposed before the
+column. Staff-only like the flags, and it names a prompt version, never a reading.
+
 V231 adds `app_lm_dashboard` (docs/custom-dashboards.md): a member's custom dashboard on a position (`project_id`, composite key to the project's workspace) or across the workspace (null) — `owner_user_id` (cascade with the account), `name` (≤ 80, never blank), `shared`, and `widgets` jsonb, an array of `{queryId, chart, options, title, layout: {x, y, w, h}}` (twelve-column grid; rows saved before it carry `size` instead, flowed into place by the SPA) naming charts of the server's query library. The choice only, never a figure: every chart is answered live. Forced RLS on its `workspace_id`. Staff-only.
 
 V230 cancels the open tasks an executive's removal orphaned before #1402 (`candidate_id` null and an `UNMAPPED` activity line for the person on the position at or after the task's creation; a rule task filed for someone never mapped has no such line and stays open), releasing a rule task's key as `Task.releaseRuleKey` does. Data only.

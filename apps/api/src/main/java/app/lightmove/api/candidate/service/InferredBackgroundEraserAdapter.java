@@ -47,6 +47,7 @@ class InferredBackgroundEraserAdapter implements InferredBackgroundEraser {
             genderCleared = jdbc.update("""
                     UPDATE app_lm_person
                     SET gender = NULL, ai_inferred_fields = ai_inferred_fields - CAST(:gender AS text),
+                        ai_inferred_by = ai_inferred_by - CAST(:gender AS text),
                         version = version + 1
                     WHERE workspace_id = :workspaceId AND jsonb_exists(ai_inferred_fields, :gender)
                     """, scope);
@@ -62,6 +63,7 @@ class InferredBackgroundEraserAdapter implements InferredBackgroundEraser {
                     SET nationality = CASE WHEN jsonb_exists(ai_inferred_fields, :nationality) THEN NULL
                                        ELSE nationality END,
                         ai_inferred_fields = ai_inferred_fields - CAST(:nationality AS text),
+                        ai_inferred_by = ai_inferred_by - CAST(:nationality AS text),
                         ai_nationality_reading = NULL,
                         version = version + 1
                     WHERE workspace_id = :workspaceId

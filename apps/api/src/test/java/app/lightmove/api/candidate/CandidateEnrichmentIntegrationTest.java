@@ -917,6 +917,59 @@ class CandidateEnrichmentIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("an AI value a researcher changes, and one they confirm, are counted against the version that proposed it")
+    void aDecisionOnAnAiValueIsCountedAgainstItsVersion() throws Exception {
+        String projectId = mandate("Counted Background Firm");
+        enricher.answerWith(RESEARCH);
+        model.answerWith(AI_ENRICHMENT);
+        String candidateId = capture(projectId, "Sample Person", "sample-profile");
+        int enrich = versionOf("candidate-ai-enrich");
+        int classifier = versionOf("candidate-nationality");
+        db.update("""
+                UPDATE app_lm_person SET ai_inferred_by = jsonb_build_object(
+                    'gender', jsonb_build_object('promptId', 'candidate-ai-enrich', 'version', ?),
+                    'nationality', jsonb_build_object('promptId', 'candidate-nationality', 'version', ?))
+                WHERE id = (SELECT person_id FROM app_lm_project_candidate WHERE id = ?::uuid)
+                """, enrich, classifier, candidateId);
+        long changedBefore = decided("changed", "candidate-ai-enrich", enrich);
+        long acceptedBefore = decided("accepted", "candidate-nationality", classifier);
+
+        saveProfile(projectId, candidateId, "\"note\":\"Called on Monday\"");
+        assertThat(decided("changed", "candidate-ai-enrich", enrich)).as("an unrelated save decides nothing")
+                .isEqualTo(changedBefore);
+
+        JsonNode row = firstCandidateOf(projectId);
+        mvc.perform(put(candidatesUrl(projectId) + "/" + candidateId)
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fullName":"%s","linkedinUrl":"%s","source":"extension","seniority":"%s",
+                                 "nationality":"%s","gender":"male","yearsExperience":%d,"confirmBackground":true}
+                                """.formatted(row.get("fullName").asText(), row.get("linkedinUrl").asText(),
+                                row.get("seniority").asText(), row.get("nationality").asText(),
+                                row.get("yearsExperience").asInt())))
+                .andExpect(status().isOk());
+
+        assertThat(decided("changed", "candidate-ai-enrich", enrich)).isEqualTo(changedBefore + 1);
+        assertThat(decided("accepted", "candidate-nationality", classifier)).isEqualTo(acceptedBefore + 1);
+        assertThat(db.queryForObject("""
+                SELECT ai_inferred_by IS NULL FROM app_lm_person
+                WHERE id = (SELECT person_id FROM app_lm_project_candidate WHERE id = ?::uuid)
+                """, Boolean.class, candidateId)).isTrue();
+    }
+
+    private int versionOf(String promptId) {
+        return db.queryForObject("""
+                SELECT version FROM app_lm_platform_prompt_label WHERE prompt_id = ? AND label = 'production'
+                """, Integer.class, promptId);
+    }
+
+    private long decided(String column, String promptId, int version) {
+        return db.queryForObject("SELECT coalesce(sum(" + column + "), 0) FROM app_lm_platform_prompt_outcome_daily "
+                + "WHERE prompt_id = ? AND version = ?", Long.class, promptId, version);
+    }
+
+    @Test
     @DisplayName("saving the Background section confirms its AI values; any other save leaves them flagged")
     void savingBackgroundConfirmsTheAiValues() throws Exception {
         String projectId = mandate("Confirm Background Firm");

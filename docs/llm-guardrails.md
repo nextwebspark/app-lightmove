@@ -173,6 +173,11 @@ gets the system text, the provider's options and the wiring that counts the call
   each round of the assistant's tool loop are each a call). The write is off the calling thread and a failed
   one is logged, never thrown. A console Try it is not counted: `PromptCalls` attaches the trial's recorder in
   the counter's place, so a version never live shows no calls and the live one's rates hold no experiments. That table is the record; the label and the log line are secondary.
+- **So is each way a call ends without a usable answer** (#1323), in the same row: a guard refusal (counted by
+  an advisor outside the guard, which answers without calling the rest of the chain; no call is counted, since
+  the model was never asked), a schema re-ask (a structured prompt's second answer), and an answer that still
+  would not bind (`StructuredPrompt` sees the bind fail after the model answered; an outage is none of these).
+  A bundled prompt has no version, so with the registry off none of it is counted.
 
 The answer schema (`-schema.json`), the answer format and the user message stay in code: code parses the
 answer against the first two, and the third decides which data reaches the model.

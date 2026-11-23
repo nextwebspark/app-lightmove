@@ -39,7 +39,10 @@ import app.lightmove.api.candidate.model.ResearchedFiling;
 import app.lightmove.api.candidate.model.FoundEmails;
 import app.lightmove.api.candidate.model.FoundPhones;
 import app.lightmove.api.candidate.model.InferredBackground;
+import app.lightmove.api.candidate.model.AiBackgroundSource;
 import app.lightmove.api.candidate.model.NationalityReading;
+import app.lightmove.api.core.llm.model.PromptVersionRef;
+import app.lightmove.api.core.llm.service.PromptOutcomes;
 import app.lightmove.api.candidate.model.Person;
 import app.lightmove.api.candidate.model.PersonPhoto;
 import app.lightmove.api.candidate.model.PipelineCatalog;
@@ -142,6 +145,7 @@ public class CandidateService {
     private final LookedUpResearch lookedUp;
     private final CorrectedProfileResearch correctedProfiles;
     private final PersonVendorRecordStore vendorRecords;
+    private final PromptOutcomes promptOutcomes;
 
     public CandidateService(CandidateRepository candidates, PersonRepository people, PersonMatcher matcher,
                             PersonActivityRecorder activity, PersonNoteService personNotes,
@@ -156,7 +160,8 @@ public class CandidateService {
                             CandidateRemoval removal, SuppressionGate suppression,
                             WorkspaceAiControlsReader aiControls, WorkspaceSettingsService workspaceSettings,
                             LookedUpResearch lookedUp, CorrectedProfileResearch correctedProfiles,
-                            PersonVendorRecordStore vendorRecords, LightMoveProperties properties) {
+                            PersonVendorRecordStore vendorRecords, PromptOutcomes promptOutcomes,
+                            LightMoveProperties properties) {
         this.candidates = candidates;
         this.people = people;
         this.matcher = matcher;
@@ -184,6 +189,7 @@ public class CandidateService {
         this.lookedUp = lookedUp;
         this.correctedProfiles = correctedProfiles;
         this.vendorRecords = vendorRecords;
+        this.promptOutcomes = promptOutcomes;
     }
 
     /**
@@ -532,12 +538,20 @@ public class CandidateService {
         boolean wasResearched = person.isResearched();
         String previousUrl = person.getLinkedinUrl();
         ContactChannelSizes contactsBefore = requests.channelSizesOf(person);
+        Map<String, PromptVersionRef> proposedBy = person.inferredBy();
         person.describe(details, door);
+        Map<String, PromptVersionRef> stillProposedBy = person.inferredBy();
+        proposedBy.forEach((field, answeredBy) -> {
+            if (!stillProposedBy.containsKey(field)) {
+                promptOutcomes.changed(answeredBy);
+            }
+        });
         correctedProfiles.researchIfCorrected(candidate, wasResearched, previousUrl, door);
         if (claim == ProfileClaim.SHARED) {
             person.yieldProfileKey();
         }
         if (confirmBackground) {
+            stillProposedBy.values().forEach(promptOutcomes::accepted);
             person.confirmBackground();
         }
         requests.refuseOverfullChannels(person, contactsBefore);
@@ -890,16 +904,17 @@ public class CandidateService {
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public CandidateResponse applyAiBackground(UUID workspaceId, UUID projectId, UUID candidateId, UUID requestedBy,
-                                               InferredBackground background, NationalityReading reading) {
+                                               InferredBackground background, NationalityReading reading,
+                                               AiBackgroundSource source) {
         WorkspaceAiControls controls = aiControls.aiControlsHeldForWrite(workspaceId);
         InferredBackground allowedBackground = background == null || controls.inferGender()
                 ? background : background.withoutGender();
         NationalityReading allowedReading = controls.inferNationality() ? reading : null;
         Candidate candidate = candidates.requireInProject(candidateId, projectId);
         Person person = candidate.getPerson();
-        boolean filled = allowedBackground != null && person.proposeBackground(allowedBackground);
+        boolean filled = allowedBackground != null && person.proposeBackground(allowedBackground, source.background());
         if (allowedReading != null) {
-            person.recordNationalityReading(allowedReading);
+            person.recordNationalityReading(allowedReading, source.nationality());
         }
         if (filled || allowedReading != null) {
             activity.record(candidate, requestedBy, PersonActivityKind.AI_ASSESSED,
