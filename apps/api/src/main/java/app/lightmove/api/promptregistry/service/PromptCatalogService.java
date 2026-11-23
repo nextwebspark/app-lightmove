@@ -20,7 +20,9 @@ import app.lightmove.api.promptregistry.constant.PlatformPrompt;
 import app.lightmove.api.promptregistry.dto.AiModelResponse;
 import app.lightmove.api.promptregistry.dto.PromptAiUse;
 import app.lightmove.api.promptregistry.dto.PromptDetail;
+import app.lightmove.api.promptregistry.dto.PromptLiveHealth;
 import app.lightmove.api.promptregistry.dto.PromptOverview;
+import app.lightmove.api.promptregistry.dto.PromptUsageResponse;
 import app.lightmove.api.promptregistry.dto.PromptTrialInput;
 import app.lightmove.api.promptregistry.dto.PromptVersionBody;
 import app.lightmove.api.promptregistry.dto.PromptVersionSummary;
@@ -52,12 +54,15 @@ public class PromptCatalogService {
     private final ChatModelProvider provider;
     private final LightMoveProperties properties;
     private final PromotionGate gate;
+    private final PromptMonitoringService monitoring;
     private final Clock clock;
 
     @Transactional(readOnly = true)
     public List<PromptOverview> list() {
+        Map<String, PromptLiveHealth> health = monitoring.liveHealth();
         return store.livePrompts().stream()
-                .flatMap(live -> PlatformPrompt.of(live.live().promptId()).map(prompt -> overviewOf(prompt, live)).stream())
+                .flatMap(live -> PlatformPrompt.of(live.live().promptId())
+                        .map(prompt -> overviewOf(prompt, live, health.get(prompt.getPromptId()))).stream())
                 .sorted(Comparator.comparing(PromptOverview::name))
                 .toList();
     }
@@ -76,7 +81,7 @@ public class PromptCatalogService {
                 .toList();
         PromptTrial trial = trialOf(promptId).orElse(null);
         return new PromptDetail(
-                overviewOf(prompt, live),
+                overviewOf(prompt, live, monitoring.liveHealthOf(promptId)),
                 versions,
                 live.newestBundledVersion() == 0 ? null : live.newestBundledVersion(),
                 PromptContract.variablesOf(bundled.bodyOf(promptId)).stream().sorted().toList(),
@@ -95,6 +100,13 @@ public class PromptCatalogService {
                 .map(served -> new PromptVersionBody(served.version(), served.body()))
                 .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND,
                         "No version " + version + " of prompt " + promptId));
+    }
+
+    /** Each version's calls and decisions over the last {@code days} days; 30 when none is asked for. */
+    @Transactional(readOnly = true)
+    public PromptUsageResponse usage(String promptId, Integer days) {
+        require(promptId);
+        return monitoring.usage(promptId, days);
     }
 
     public List<AiModelResponse> models() {
@@ -151,7 +163,7 @@ public class PromptCatalogService {
         return specOf(prompt).defaults().orElse(provider.configuredSettings());
     }
 
-    private PromptOverview overviewOf(PlatformPrompt prompt, LivePrompt livePrompt) {
+    private PromptOverview overviewOf(PlatformPrompt prompt, LivePrompt livePrompt, PromptLiveHealth health) {
         PromptVersion live = livePrompt.live();
         Optional<AiModel> model = modelOf(live.provider(), live.modelId());
         return new PromptOverview(
@@ -169,7 +181,8 @@ public class PromptCatalogService {
                         today()).isPresent(),
                 livePrompt.shippedChangedSinceTheEdit(),
                 live.createdAt(),
-                live.origin() == PromptOrigin.BUNDLED ? null : live.authorName());
+                live.origin() == PromptOrigin.BUNDLED ? null : live.authorName(),
+                health);
     }
 
     private PromptVersionSummary summaryOf(PromptVersion version, int liveVersion,

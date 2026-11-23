@@ -142,22 +142,31 @@ public class PromptRegistryStore {
         jdbc.sql("""
                         INSERT INTO app_lm_platform_prompt_call_daily AS daily
                             (prompt_id, version, provider, model_id, day, calls, input_tokens, output_tokens,
-                             finish_stop, finish_max_tokens, finish_safety, finish_other)
-                        VALUES (:promptId, :version, :provider, :modelId, (now() AT TIME ZONE 'UTC')::date, 1,
-                                :inputTokens, :outputTokens, :stop, :maxTokens, :safety, :other)
+                             finish_stop, finish_max_tokens, finish_safety, finish_other,
+                             guard_refusals, schema_reasks, schema_failures)
+                        VALUES (:promptId, :version, :provider, :modelId, (now() AT TIME ZONE 'UTC')::date, :calls,
+                                :inputTokens, :outputTokens, :stop, :maxTokens, :safety, :other,
+                                :guardRefusals, :schemaReasks, :schemaFailures)
                         ON CONFLICT (prompt_id, version, provider, model_id, day) DO UPDATE SET
-                            calls = daily.calls + 1,
+                            calls = daily.calls + EXCLUDED.calls,
                             input_tokens = daily.input_tokens + EXCLUDED.input_tokens,
                             output_tokens = daily.output_tokens + EXCLUDED.output_tokens,
                             finish_stop = daily.finish_stop + EXCLUDED.finish_stop,
                             finish_max_tokens = daily.finish_max_tokens + EXCLUDED.finish_max_tokens,
                             finish_safety = daily.finish_safety + EXCLUDED.finish_safety,
-                            finish_other = daily.finish_other + EXCLUDED.finish_other
+                            finish_other = daily.finish_other + EXCLUDED.finish_other,
+                            guard_refusals = daily.guard_refusals + EXCLUDED.guard_refusals,
+                            schema_reasks = daily.schema_reasks + EXCLUDED.schema_reasks,
+                            schema_failures = daily.schema_failures + EXCLUDED.schema_failures
                         """)
                 .param("promptId", count.promptId())
                 .param("version", count.version())
                 .param("provider", count.provider().name())
                 .param("modelId", count.modelId())
+                .param("calls", count.calls())
+                .param("guardRefusals", count.guardRefusals())
+                .param("schemaReasks", count.schemaReasks())
+                .param("schemaFailures", count.schemaFailures())
                 .param("inputTokens", count.inputTokens())
                 .param("outputTokens", count.outputTokens())
                 .param("stop", oneIf(count, FinishKind.STOP))

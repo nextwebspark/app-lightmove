@@ -136,7 +136,7 @@ describe("EnrolDialog", () => {
     vi.mocked(sequenceApi.getSequences).mockResolvedValue([SEQUENCE]);
     vi.mocked(signaturesApi.listSignatures).mockResolvedValue({ signatures: [], sources: SIGNATURE_SOURCES, limit: 10 });
     vi.mocked(sequenceApi.draftOpeners).mockImplementation(async (_projectId, candidateIds) =>
-      candidateIds.map((candidateId) => ({ candidateId, opener: `Drafted for ${candidateId}.` })),
+      candidateIds.map((candidateId) => ({ candidateId, opener: `Drafted for ${candidateId}.`, promptVersion: 7 })),
     );
     vi.mocked(sequenceApi.startSequence).mockResolvedValue({
       enrolled: 2,
@@ -461,8 +461,8 @@ describe("EnrolDialog", () => {
 
     await waitFor(() =>
       expect(sequenceApi.startSequence).toHaveBeenCalledWith("p1", "s1", [
-        { candidateId: "a", toAddress: "a@target.example", opener: "Your move into treasury stood out.", openerEdited: true },
-        { candidateId: "b", toAddress: "b@target.example", opener: "Drafted for b.", openerEdited: false },
+        { candidateId: "a", toAddress: "a@target.example", opener: "Your move into treasury stood out.", openerEdited: true, openerPromptVersion: 7 },
+        { candidateId: "b", toAddress: "b@target.example", opener: "Drafted for b.", openerEdited: false, openerPromptVersion: 7 },
       ], { startMode: "NOW", startAt: null }, null),
     );
     expect(sequenceApi.draftOpeners).toHaveBeenCalledTimes(1);

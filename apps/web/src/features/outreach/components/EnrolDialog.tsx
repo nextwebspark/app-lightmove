@@ -64,6 +64,8 @@ interface ReviewedEmail {
   toAddress: string;
   opener: string;
   openerEdited: boolean;
+  /** The prompt version behind the last draft this person was given, so its fate can be counted. */
+  draftedByVersion: number | null;
   isDrafting: boolean;
   draftFailed: boolean;
 }
@@ -194,14 +196,22 @@ export function EnrolDialog({
       try {
         const drafted = await sequenceApi.draftOpeners(projectId, batch);
         if (!isOpen.current) return received;
-        const byId = new Map(drafted.map((opener) => [opener.candidateId, opener.opener]));
-        batch.filter((candidateId) => byId.get(candidateId)).forEach((candidateId) => received.add(candidateId));
+        const byId = new Map(drafted.map((draft) => [draft.candidateId, draft]));
+        batch.filter((candidateId) => byId.get(candidateId)?.opener).forEach((candidateId) => received.add(candidateId));
         setReviewed((current) =>
           withEach(current, batch, (email, candidateId) => {
-            const opener = byId.get(candidateId) ?? null;
-            if (opener === null) return { ...email, isDrafting: false, draftFailed: true };
+            const draft = byId.get(candidateId);
+            const opener = draft?.opener ?? null;
+            if (!draft || opener === null) return { ...email, isDrafting: false, draftFailed: true };
             if (email.openerEdited && !replaceEdited) return { ...email, isDrafting: false };
-            return { ...email, opener, openerEdited: false, isDrafting: false, draftFailed: false };
+            return {
+              ...email,
+              opener,
+              openerEdited: false,
+              draftedByVersion: draft.promptVersion,
+              isDrafting: false,
+              draftFailed: false,
+            };
           }),
         );
       } catch (error) {
@@ -225,6 +235,7 @@ export function EnrolDialog({
           toAddress: person.emails[0].address,
           opener: "",
           openerEdited: false,
+          draftedByVersion: null,
           isDrafting: false,
           draftFailed: false,
         };
@@ -250,6 +261,7 @@ export function EnrolDialog({
             toAddress: email.toAddress,
             opener: email.opener.trim() || null,
             openerEdited: email.openerEdited,
+            openerPromptVersion: email.draftedByVersion,
           };
         }),
         {

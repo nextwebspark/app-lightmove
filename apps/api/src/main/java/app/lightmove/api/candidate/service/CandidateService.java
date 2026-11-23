@@ -19,6 +19,7 @@ import app.lightmove.api.candidate.dto.SaveCandidateRequest;
 import app.lightmove.api.candidate.dto.UpdateCandidateContactsRequest;
 import app.lightmove.api.candidate.dto.UpdateCandidateStatusRequest;
 import app.lightmove.api.candidate.dto.UpdateCandidateTriageStatusRequest;
+import app.lightmove.api.candidate.model.AiBackgroundSource;
 import app.lightmove.api.candidate.model.Candidate;
 import app.lightmove.api.candidate.model.CandidateAiEnrichRequested;
 import app.lightmove.api.candidate.model.CandidateAttribution;
@@ -57,6 +58,7 @@ import app.lightmove.api.core.config.CompanyListSettings;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
+import app.lightmove.api.core.llm.service.PromptOutcomes;
 import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.rbac.ProjectAudience;
 import app.lightmove.api.core.security.repository.UserRepository;
@@ -142,6 +144,7 @@ public class CandidateService {
     private final LookedUpResearch lookedUp;
     private final CorrectedProfileResearch correctedProfiles;
     private final PersonVendorRecordStore vendorRecords;
+    private final PromptOutcomes promptOutcomes;
 
     public CandidateService(CandidateRepository candidates, PersonRepository people, PersonMatcher matcher,
                             PersonActivityRecorder activity, PersonNoteService personNotes,
@@ -156,7 +159,8 @@ public class CandidateService {
                             CandidateRemoval removal, SuppressionGate suppression,
                             WorkspaceAiControlsReader aiControls, WorkspaceSettingsService workspaceSettings,
                             LookedUpResearch lookedUp, CorrectedProfileResearch correctedProfiles,
-                            PersonVendorRecordStore vendorRecords, LightMoveProperties properties) {
+                            PersonVendorRecordStore vendorRecords, PromptOutcomes promptOutcomes,
+                            LightMoveProperties properties) {
         this.candidates = candidates;
         this.people = people;
         this.matcher = matcher;
@@ -184,6 +188,7 @@ public class CandidateService {
         this.lookedUp = lookedUp;
         this.correctedProfiles = correctedProfiles;
         this.vendorRecords = vendorRecords;
+        this.promptOutcomes = promptOutcomes;
     }
 
     /**
@@ -532,7 +537,13 @@ public class CandidateService {
         boolean wasResearched = person.isResearched();
         String previousUrl = person.getLinkedinUrl();
         ContactChannelSizes contactsBefore = requests.channelSizesOf(person);
+        BackgroundDecisions backgroundDecisions = BackgroundDecisions.before(person);
         person.describe(details, door);
+        // Only the screen is a person deciding: a re-imported sheet overwriting an AI value reviewed nothing, and
+        // counted it would read as the answer being rejected.
+        if (door == ContactSource.MANUAL) {
+            backgroundDecisions.after(person, confirmBackground, promptOutcomes::record);
+        }
         correctedProfiles.researchIfCorrected(candidate, wasResearched, previousUrl, door);
         if (claim == ProfileClaim.SHARED) {
             person.yieldProfileKey();
@@ -890,16 +901,17 @@ public class CandidateService {
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public CandidateResponse applyAiBackground(UUID workspaceId, UUID projectId, UUID candidateId, UUID requestedBy,
-                                               InferredBackground background, NationalityReading reading) {
+                                               InferredBackground background, NationalityReading reading,
+                                               AiBackgroundSource source) {
         WorkspaceAiControls controls = aiControls.aiControlsHeldForWrite(workspaceId);
         InferredBackground allowedBackground = background == null || controls.inferGender()
                 ? background : background.withoutGender();
         NationalityReading allowedReading = controls.inferNationality() ? reading : null;
         Candidate candidate = candidates.requireInProject(candidateId, projectId);
         Person person = candidate.getPerson();
-        boolean filled = allowedBackground != null && person.proposeBackground(allowedBackground);
+        boolean filled = allowedBackground != null && person.proposeBackground(allowedBackground, source.background());
         if (allowedReading != null) {
-            person.recordNationalityReading(allowedReading);
+            person.recordNationalityReading(allowedReading, source.nationality());
         }
         if (filled || allowedReading != null) {
             activity.record(candidate, requestedBy, PersonActivityKind.AI_ASSESSED,
