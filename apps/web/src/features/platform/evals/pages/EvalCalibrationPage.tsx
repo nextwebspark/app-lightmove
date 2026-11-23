@@ -175,7 +175,7 @@ function Labelling({ datasetId, data }: { datasetId: string; data: EvalCalibrati
             <Answer name="Answer B" answer={pair.b} />
           </div>
 
-          <h2 className="mb-2 mt-[22px] text-sm font-semibold text-u-text">Which answer is better?</h2>
+          <h2 className="mb-2 mt-[22px] text-lead font-semibold text-u-text">Which answer is better?</h2>
           <div className="rounded-lg border border-u-border bg-u-sunken px-4 py-0.5">
             {criteria.map((criterion) => (
               <CriterionPick
@@ -221,7 +221,7 @@ function BackToRubric({ datasetId, name }: { datasetId: string; name: string }) 
 function Answer({ name, answer }: { name: string; answer: EvalCalibrationAnswer }) {
   return (
     <section aria-label={name} className="min-w-0 flex-[1_1_320px] rounded-lg border border-u-border-strong bg-u-surface px-4 py-3.5">
-      <h2 className="mb-1.5 text-sm font-semibold">{name}</h2>
+      <h2 className="mb-1.5 text-lead font-semibold">{name}</h2>
       {answer.prose !== null ? (
         <p className="whitespace-pre-wrap border-t border-u-border py-2.5 text-body text-u-text">{answer.prose}</p>
       ) : (

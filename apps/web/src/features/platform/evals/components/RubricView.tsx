@@ -112,7 +112,7 @@ export function RubricView({ detail }: { detail: EvalDatasetDetail }) {
       </div>
 
       <div className="mb-2 mt-[22px] flex flex-wrap items-baseline gap-2.5">
-        <h2 className="text-sm font-semibold text-u-text">Criteria</h2>
+        <h2 className="text-lead font-semibold text-u-text">Criteria</h2>
         <span className="font-mono text-xs text-u-text3">Rubric v{rubric.version}</span>
       </div>
       <div className="overflow-hidden rounded-lg border border-u-border-strong bg-u-surface">
@@ -163,7 +163,7 @@ export function RubricView({ detail }: { detail: EvalDatasetDetail }) {
       {rubric.differences.length > 0 && (
         <>
           <div className="mb-2 mt-[22px] flex flex-wrap items-baseline gap-2.5">
-            <h2 className="text-sm font-semibold text-u-text">Where the judge and the person differ</h2>
+            <h2 className="text-lead font-semibold text-u-text">Where the judge and the person differ</h2>
             <span className="font-mono text-xs text-u-text3">
               {rubric.differences.length} of the {rubric.picks} picks.
               {rubric.differences.length > DIFFERENCES_LISTED && !showsAllDifferences

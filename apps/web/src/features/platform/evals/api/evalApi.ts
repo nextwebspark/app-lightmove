@@ -19,7 +19,7 @@ export const EVAL_PAIRS_KEY = (datasetId: string) => ["platform-evals", "dataset
 export const EVAL_RUNS_KEY = ["platform-evals", "runs"] as const;
 export const EVAL_RUN_KEY = (runId: string) => ["platform-evals", "runs", runId] as const;
 export const EVAL_RUN_CASES_KEY = (runId: string) => ["platform-evals", "runs", runId, "cases"] as const;
-export const EVAL_ESTIMATE_KEY = (run: StartEvalRunRequest) => ["platform-evals", "estimate", run] as const;
+export const EVAL_ESTIMATE_KEY = (run: StartEvalRunRequest | null) => ["platform-evals", "estimate", run] as const;
 
 const ROOT = "/platform/evals";
 const datasetUrl = (datasetId: string) => `${ROOT}/datasets/${encodeURIComponent(datasetId)}`;

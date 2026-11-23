@@ -131,7 +131,13 @@ export function joined(values: string[]): string | null {
 
 /** "1 change", "3 changes": a count with its noun, the plural an `s`. */
 export function countOf(count: number, noun: string): string {
-  return count === 1 ? `1 ${noun}` : `${count} ${noun}s`;
+  return `${formatNumber(count)} ${noun}${count === 1 ? "" : "s"}`;
+}
+
+/** "a", "a and b", "a, b and c". */
+export function joinNames(names: readonly string[]): string {
+  if (names.length < 2) return names.join("");
+  return `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
 }
 
 function trimAmount(value: number): string {

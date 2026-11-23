@@ -43,7 +43,8 @@ export default function EvalRunPage() {
 
   usePlatformPageCrumb(detail ? runLabel(detail.run.number) : null);
 
-  // A run that ends changes what its prompt's page says about putting the candidate live.
+  // An ended run changes what its prompt's page says about putting the candidate live. This fires on every visit
+  // to one, not only as it ends: the run may have ended elsewhere, under a prompt read before it did.
   const status = detail?.run.status;
   const promptId = detail?.run.promptId;
   useEffect(() => {
@@ -66,7 +67,9 @@ export default function EvalRunPage() {
   if (!detail) return <FormError message={error ? messageFor(error) : "This run could not be opened."} />;
 
   const { run } = detail;
-  const canPromote = user?.platformActions.includes("PROMPT_PROMOTE") ?? false;
+  // The link opens the prompt's own page, which PROMPT_MANAGE guards.
+  const actions = user?.platformActions ?? [];
+  const canPromote = actions.includes("PROMPT_PROMOTE") && actions.includes("PROMPT_MANAGE");
 
   return (
     <div>

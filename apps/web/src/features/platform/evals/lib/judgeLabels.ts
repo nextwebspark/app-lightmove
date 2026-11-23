@@ -1,5 +1,5 @@
 import { formatDate } from "../../../../lib/datetime/format";
-import { formatNumber } from "../../../../lib/format";
+import { formatNumber, joinNames } from "../../../../lib/format";
 import type { PromotionGate } from "../../prompts/api/types";
 import type {
   EvalCaseJudgedCriterion,
@@ -164,7 +164,7 @@ export function gateJudgedLine(gate: PromotionGate): string {
   if (gate.state === "FAILED") {
     if (judged.forBaseline.length === 0) return "";
     const named = judged.forBaseline.map(lowerFirst);
-    return `The judge prefers the live version on ${named.length === 1 ? "one criterion" : `${named.length} criteria`}: ${listed(named)}.`;
+    return `The judge prefers the live version on ${named.length === 1 ? "one criterion" : `${named.length} criteria`}: ${joinNames(named)}.`;
   }
   return `The judge prefers the candidate on ${judged.forCandidate} of the ${judged.criteria} judged criteria and the live version on ${judged.forBaseline.length === 0 ? "none" : judged.forBaseline.length}.`;
 }
@@ -180,11 +180,6 @@ function countOfPairs(pairs: number): string {
 
 function percentOf(percent: number | null): string {
   return percent === null ? "none" : `${formatNumber(Math.round(percent))}%`;
-}
-
-function listed(items: string[]): string {
-  if (items.length <= 1) return items.join("");
-  return `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`;
 }
 
 function lowerFirst(text: string): string {

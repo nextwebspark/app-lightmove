@@ -41,6 +41,8 @@ describe("evalLabels", () => {
     expect(runLabel(42)).toBe("R-0042");
     expect(tokensLabel(610_000)).toBe("0.61M tokens");
     expect(tokensLabel(15_478)).toBe("15k tokens");
+    expect(tokensLabel(99_400)).toBe("99k tokens");
+    expect(tokensLabel(99_600)).toBe("0.10M tokens");
     expect(costLabel(runOverview())).toBe("72 calls · 0.61M tokens");
     expect(costLabel(runOverview({ status: "CANCELLED", callsMade: 31, callsPlanned: 160 }))).toBe("31 of 160 calls");
     // An answer put back to the model takes the calls past the plan, which a progress line never shows.

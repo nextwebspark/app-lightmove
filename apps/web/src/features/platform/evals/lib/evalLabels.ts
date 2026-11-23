@@ -1,5 +1,5 @@
 import { formatDate, formatInstantDateTime } from "../../../../lib/datetime/format";
-import { formatNumber } from "../../../../lib/format";
+import { countOf, formatNumber, joinNames } from "../../../../lib/format";
 import type { PromotionGate } from "../../prompts/api/types";
 import { gateJudgedLine, judgedChange, whyNotCounting } from "./judgeLabels";
 import type {
@@ -58,8 +58,9 @@ export function versionsLabel(run: Pick<EvalRunOverview, "candidateVersion" | "b
 
 /** "0.61M tokens", "15k tokens", "640 tokens". */
 export function tokensLabel(tokens: number): string {
-  if (tokens >= 100_000) return `${(tokens / 1_000_000).toFixed(2)}M tokens`;
-  if (tokens >= 1_000) return `${Math.round(tokens / 1_000)}k tokens`;
+  const thousands = Math.round(tokens / 1_000);
+  if (thousands >= 100) return `${(tokens / 1_000_000).toFixed(2)}M tokens`;
+  if (tokens >= 1_000) return `${thousands}k tokens`;
   return `${tokens} tokens`;
 }
 
@@ -283,12 +284,8 @@ export function gateFailedLine(gate: PromotionGate): string {
   const checks =
     failed.length === 0
       ? ""
-      : `Worse than the live version on ${countWord(failed.length)} ${failed.length === 1 ? "check" : "checks"}: ${listed(named)}.`;
+      : `Worse than the live version on ${countWord(failed.length)} ${failed.length === 1 ? "check" : "checks"}: ${joinNames(named)}.`;
   return [checks, gateJudgedLine(gate)].filter(Boolean).join(" ");
-}
-
-export function countOf(count: number, noun: string): string {
-  return `${formatNumber(count)} ${noun}${count === 1 ? "" : "s"}`;
 }
 
 /** Small counts in words, as the mockups write them: "two checks", "One case". */
@@ -298,11 +295,6 @@ function countWord(count: number): string {
 
 function noneOr(count: number | null): string {
   return count ? String(count) : "none";
-}
-
-function listed(items: string[]): string {
-  if (items.length <= 1) return items.join("");
-  return `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`;
 }
 
 function capitalised(text: string): string {

@@ -14,7 +14,8 @@ import type { EvalCaseSummary, EvalDatasetDetail } from "../api/types";
 import { EvalsFrame } from "../components/EvalsFrame";
 import { ImportCasesDialog } from "../components/ImportCasesDialog";
 import { RubricView } from "../components/RubricView";
-import { countOf, DATASET_VIEW_PARAM, EVALS_PATH } from "../lib/evalLabels";
+import { countOf } from "../../../../lib/format";
+import { DATASET_VIEW_PARAM, EVALS_PATH } from "../lib/evalLabels";
 
 type DatasetView = "cases" | "rubric";
 
@@ -79,7 +80,7 @@ export default function EvalDatasetPage() {
               Datasets
             </Link>
             <div className="min-w-0 flex-[1_1_260px]">
-              <h1 className="inline text-sm font-semibold text-u-text">{detail.dataset.name}</h1>
+              <h1 className="inline text-lead font-semibold text-u-text">{detail.dataset.name}</h1>
               <span className="ml-2 font-mono text-xs text-u-text3">
                 {detail.dataset.promptName} · {countOf(detail.dataset.cases, "case")} · {detail.dataset.dev} dev ·{" "}
                 {detail.dataset.holdout} holdout

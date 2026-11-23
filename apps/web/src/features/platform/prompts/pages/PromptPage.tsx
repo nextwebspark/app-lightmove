@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { Icon, ICONS } from "../../../../components/layout/Icon";
 import { Button, CardsSkeleton, FormError, LinesSkeleton, useToast } from "../../../../components/ui";
@@ -53,6 +53,22 @@ export default function PromptPage() {
 
   usePlatformPageCrumb(detail?.prompt.name ?? null);
 
+  const canPromote = user?.platformActions.includes("PROMPT_PROMOTE") ?? false;
+  const isPutLiveLinked = params.has(PUT_LIVE_PARAM);
+  // A run's page links here with its candidate and Put live already asked for. The run has just changed what the
+  // evals say about that version, so the dialog waits for the prompt to be read again: on the cached copy it would
+  // ask for a reason the run has made unnecessary. Once open it is the page's own, so a later read cannot close it.
+  useEffect(() => {
+    if (!isPutLiveLinked || !detail || isFetching) return;
+    const isOffered =
+      canPromote &&
+      openedVersion === linkedVersion &&
+      linkedVersion !== detail.prompt.liveVersion &&
+      detail.versions.some((version) => version.version === linkedVersion);
+    if (isOffered) setChosenToMove(linkedVersion);
+    setParams({}, { replace: true });
+  }, [isPutLiveLinked, detail, isFetching, canPromote, openedVersion, linkedVersion, setParams]);
+
   const openNumber = openedVersion ?? detail?.prompt.liveVersion ?? null;
   const open = detail?.versions.find((version) => version.version === openNumber) ?? null;
 
@@ -68,22 +84,10 @@ export default function PromptPage() {
   if (!detail || !open) return <FormError message={error ? messageFor(error) : "This prompt could not be opened."} />;
 
   const { prompt } = detail;
-  const canPromote = user?.platformActions.includes("PROMPT_PROMOTE") ?? false;
   const openIsLive = open.version === prompt.liveVersion;
-  // A run's page links here with its candidate and Put live already asked for. The run has just changed what the
-  // evals say about that version, so the dialog waits for the prompt to be read again: on the cached copy it would
-  // ask for a reason the run has made unnecessary.
-  const linkedToMove =
-    params.has(PUT_LIVE_PARAM) && canPromote && open.version === linkedVersion && !openIsLive && !isFetching
-      ? open.version
-      : null;
-  const movingVersion = chosenToMove ?? linkedToMove;
   const moving: PromptVersionSummary | null =
-    detail.versions.find((version) => version.version === movingVersion) ?? null;
-  const closeMove = () => {
-    setChosenToMove(null);
-    if (params.has(PUT_LIVE_PARAM)) setParams({}, { replace: true });
-  };
+    detail.versions.find((version) => version.version === chosenToMove) ?? null;
+  const closeMove = () => setChosenToMove(null);
   const tabs: TabOption<PromptTab>[] = [
     { value: "editor", label: "Editor" },
     { value: "compare", label: "Compare versions" },

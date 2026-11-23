@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { FormError, LinesSkeleton } from "../../../../components/ui";
 import { cn } from "../../../../lib/cn";
 import { messageFor } from "../../../../lib/errorCodes";
+import { countOf } from "../../../../lib/format";
 import * as promptApi from "../../prompts/api/promptApi";
 import { PromptPill } from "../../prompts/components/PromptPill";
 import * as evalApi from "../api/evalApi";
@@ -13,7 +14,6 @@ import {
   changeLabel,
   checkNote,
   checksFootnote,
-  countOf,
   evalRubricPath,
   percentLabel,
   scoreLabel,
@@ -79,7 +79,7 @@ export function RunComparison({ detail, summary }: { detail: EvalRunDetail; summ
 
       {hasChecks ? (
         <>
-          <h2 className="mb-2 text-sm font-semibold text-u-text">Checks</h2>
+          <h2 className="mb-2 text-lead font-semibold text-u-text">Checks</h2>
           <div className="overflow-hidden rounded-lg border border-u-border-strong bg-u-surface">
             <div role="table" aria-label="Checks" className="overflow-x-auto">
               <div role="row" className={cn(CHECK_GRID, "border-b border-u-border-strong bg-u-sunken")}>
@@ -128,7 +128,7 @@ export function RunComparison({ detail, summary }: { detail: EvalRunDetail; summ
         />
       )}
 
-      <h2 className="mb-2 mt-6 text-sm font-semibold text-u-text">Cases that changed</h2>
+      <h2 className="mb-2 mt-6 text-lead font-semibold text-u-text">Cases that changed</h2>
       {cases.isError ? (
         <FormError message={messageFor(cases.error)} />
       ) : !cases.data ? (
@@ -181,7 +181,7 @@ function JudgedCriteria({
   return (
     <div>
       <div className="mb-1 mt-6 flex flex-wrap items-center gap-2.5">
-        <h2 className="text-sm font-semibold text-u-text">Judged criteria</h2>
+        <h2 className="text-lead font-semibold text-u-text">Judged criteria</h2>
         {judged.counted ? <PromptPill tone="live">Counts</PromptPill> : <PromptPill tone="plain">Shown only</PromptPill>}
       </div>
       <p className="mb-2.5 max-w-[760px] text-xs text-u-text2">
