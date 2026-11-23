@@ -56,6 +56,11 @@ class CandidateSeniorityEvalSubject implements EvalSubject {
         return CHECKS;
     }
 
+    @Override
+    public boolean isGateReady() {
+        return true;
+    }
+
     /** The distance between the labelled level and the answered one; no level answered is as far as can be. */
     private static int levelsApart(JsonNode expected, JsonNode answer) {
         Seniority labelled = Seniority.fromValue(GoldenProfileCase.labelOf(expected, LABEL));

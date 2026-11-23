@@ -55,6 +55,11 @@ class CandidateNationalityEvalSubject implements EvalSubject {
         return CHECKS;
     }
 
+    @Override
+    public boolean isGateReady() {
+        return true;
+    }
+
     private static String labelled(JsonNode expected) {
         return GoldenRowScorer.canonical(GoldenProfileCase.labelOf(expected, LABEL));
     }
