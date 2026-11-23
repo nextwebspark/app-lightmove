@@ -196,19 +196,19 @@ export function EnrolDialog({
       try {
         const drafted = await sequenceApi.draftOpeners(projectId, batch);
         if (!isOpen.current) return received;
-        const byId = new Map(drafted.map((opener) => [opener.candidateId, opener.opener]));
-        const versionById = new Map(drafted.map((opener) => [opener.candidateId, opener.promptVersion ?? null]));
-        batch.filter((candidateId) => byId.get(candidateId)).forEach((candidateId) => received.add(candidateId));
+        const byId = new Map(drafted.map((draft) => [draft.candidateId, draft]));
+        batch.filter((candidateId) => byId.get(candidateId)?.opener).forEach((candidateId) => received.add(candidateId));
         setReviewed((current) =>
           withEach(current, batch, (email, candidateId) => {
-            const opener = byId.get(candidateId) ?? null;
-            if (opener === null) return { ...email, isDrafting: false, draftFailed: true };
+            const draft = byId.get(candidateId);
+            const opener = draft?.opener ?? null;
+            if (!draft || opener === null) return { ...email, isDrafting: false, draftFailed: true };
             if (email.openerEdited && !replaceEdited) return { ...email, isDrafting: false };
             return {
               ...email,
               opener,
               openerEdited: false,
-              draftedByVersion: versionById.get(candidateId) ?? null,
+              draftedByVersion: draft.promptVersion,
               isDrafting: false,
               draftFailed: false,
             };

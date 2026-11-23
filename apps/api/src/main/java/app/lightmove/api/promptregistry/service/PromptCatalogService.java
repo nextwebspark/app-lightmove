@@ -81,7 +81,7 @@ public class PromptCatalogService {
                 .toList();
         PromptTrial trial = trialOf(promptId).orElse(null);
         return new PromptDetail(
-                overviewOf(prompt, live, monitoring.liveHealth().get(promptId)),
+                overviewOf(prompt, live, monitoring.liveHealthOf(promptId)),
                 versions,
                 live.newestBundledVersion() == 0 ? null : live.newestBundledVersion(),
                 PromptContract.variablesOf(bundled.bodyOf(promptId)).stream().sorted().toList(),

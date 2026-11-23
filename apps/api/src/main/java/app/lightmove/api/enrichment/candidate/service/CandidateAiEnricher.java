@@ -83,7 +83,6 @@ public class CandidateAiEnricher {
         return inferAttributed(dossier, material, asked).map(AttributedAnswer::answer);
     }
 
-    /** The same, with the prompt version that proposed it. */
     Optional<AttributedAnswer<InferredBackground>> inferAttributed(CandidateDossier dossier, MaterialText material,
                                                                    Set<BackgroundField> asked) {
         AttributedAnswer<ModelAnswer> answered;

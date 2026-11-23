@@ -1,7 +1,7 @@
 package app.lightmove.api.enrichment.candidate.service;
 
-import app.lightmove.api.candidate.model.CandidateDossier;
 import app.lightmove.api.candidate.model.AiBackgroundSource;
+import app.lightmove.api.candidate.model.CandidateDossier;
 import app.lightmove.api.candidate.model.InferredBackground;
 import app.lightmove.api.candidate.model.NationalityReading;
 import app.lightmove.api.core.llm.model.AttributedAnswer;
