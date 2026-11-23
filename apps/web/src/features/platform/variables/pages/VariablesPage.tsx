@@ -11,7 +11,7 @@ import type { ApplicationVariable } from "../api/types";
 import { ResetVariableDialog } from "../components/ResetVariableDialog";
 import { VariableEditForm } from "../components/VariableEditForm";
 import { VariableHistoryDrawer } from "../components/VariableHistoryDrawer";
-import { groupsOf, valueLabel } from "../lib/variableLabels";
+import { groupsOf, valueInWords, valueLabel } from "../lib/variableLabels";
 
 type OpenPanel = { kind: "edit" | "reset" | "history"; key: string } | null;
 
@@ -74,7 +74,7 @@ export default function VariablesPage() {
                     onCancel={() => setOpen(null)}
                     onSaved={(updated) => {
                       store(updated);
-                      toast.success(`${updated.label} is now ${updated.value} on every instance`);
+                      toast.success(`${updated.label} is now ${valueInWords(updated.value, updated.unit)} on every instance`);
                     }}
                   />
                 ))}

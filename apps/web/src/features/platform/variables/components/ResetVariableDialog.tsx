@@ -67,7 +67,7 @@ export function ResetVariableDialog({
       }
     >
       <p className="mb-4 text-body text-u-text2">
-        It goes back from {variable.value} to {valueInWords(variable.defaultValue, variable.unit)} on every instance,
+        It goes back from {valueInWords(variable.value, variable.unit)} to {valueInWords(variable.defaultValue, variable.unit)} on every instance,
         within seconds. The change stays in the history.
       </p>
       <FormError message={formError} />

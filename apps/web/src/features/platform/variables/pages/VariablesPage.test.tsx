@@ -132,6 +132,22 @@ describe("VariablesPage", () => {
     expect(screen.queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
   });
 
+  it("names the unit in the toast of a variable that has one", async () => {
+    const user = userEvent.setup();
+    vi.mocked(variableApi.changeVariable).mockResolvedValue({ ...DEADLINE, value: 240, changed: true });
+    renderPage();
+
+    const deadline = await rowOf("Run deadline");
+    await user.click(within(deadline).getByRole("button", { name: "Edit Run deadline" }));
+    const field = within(deadline).getByRole("textbox", { name: /New value/ });
+    await user.clear(field);
+    await user.type(field, "240");
+    await user.type(within(deadline).getByRole("textbox", { name: /Change note/ }), "Slow provider this week");
+    await user.click(within(deadline).getByRole("button", { name: "Save" }));
+
+    expect(await screen.findByText("Run deadline is now 240 seconds on every instance")).toBeInTheDocument();
+  });
+
   it("holds a value outside the range or a missing note on its own field, and sends nothing", async () => {
     const user = userEvent.setup();
     renderPage();
