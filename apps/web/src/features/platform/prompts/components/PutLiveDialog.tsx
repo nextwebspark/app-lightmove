@@ -7,7 +7,18 @@ import { z } from "zod";
 import { Button, Field, FormError, Modal, TextArea } from "../../../../components/ui";
 import { ApiRequestError } from "../../../../lib/apiClient";
 import { codeOf, messageFor } from "../../../../lib/errorCodes";
-import { EVAL_RUNS_PATH, gateFailedLine, gatePassedLine, gateRunLine } from "../../evals/lib/evalLabels";
+import {
+  EVAL_RUNS_PATH,
+  evalRubricPath,
+  gateFailedLine,
+  gateJudgeOnlyLine,
+  gateNoResultLine,
+  gatePassedLine,
+  gateRunLine,
+  isJudgeOnlyGate,
+  runLabel,
+} from "../../evals/lib/evalLabels";
+import { JUDGE_PROMPT_ID } from "../../evals/lib/judgeLabels";
 import * as promptApi from "../api/promptApi";
 import type { PromotionGate, PromptDetail, PromptVersionSummary } from "../api/types";
 import { versionLabel } from "../lib/promptLabels";
@@ -28,7 +39,7 @@ type PutLiveValues = z.infer<ReturnType<typeof reasonSchema>>;
 /**
  * Put a version live, or roll back to an earlier one: the one act here that changes what every workspace's AI
  * calls are answered with. A version that a run on the holdout cases found no worse than the live one goes live
- * unexplained; anything else, a rollback included, asks why. The server asks for a fresh two-factor code, which
+ * unexplained; anything else, a rollback and a run that gave no result included, asks why. The server asks for a fresh two-factor code, which
  * the app's own dialog collects.
  */
 export function PutLiveDialog({
@@ -110,7 +121,13 @@ export function PutLiveDialog({
           <span className="text-u-text">{targetModel}</span>
         </div>
       )}
-      {!isRollback && <GateBlock gate={gate} />}
+      {detail.prompt.id === JUDGE_PROMPT_ID && (
+        <div className="mb-3 rounded-lg border border-u-border bg-u-sunken px-3 py-2.5 text-xs text-u-text2">
+          This prompt is the judge. Once its live version changes, every rubric's judged criteria are shown only,
+          until the judge is checked again on that rubric's labelled pairs.
+        </div>
+      )}
+      {!isRollback && <GateBlock gate={gate} promptName={detail.prompt.name} />}
       <FormError message={formError} />
       {needsReason && (
         <Field label={isRollback ? "Why roll back" : "Why put it live anyway"} error={errors.reason?.message}>
@@ -135,7 +152,7 @@ export function PutLiveDialog({
 }
 
 /** What the evals say about this version against the live one: the run it rests on, or that there is none. */
-function GateBlock({ gate }: { gate: PromotionGate | null }) {
+function GateBlock({ gate, promptName }: { gate: PromotionGate | null; promptName: string }) {
   if (gate?.state === "PASSED") {
     return (
       <div role="status" className="mb-4 rounded-lg border border-u-border bg-u-direct-tint px-3.5 py-3">
@@ -143,7 +160,9 @@ function GateBlock({ gate }: { gate: PromotionGate | null }) {
           <PromptPill tone="live">No worse</PromptPill>
           <span className="text-body font-semibold">{gateRunLine(gate)}</span>
         </div>
-        <p className="mt-1.5 text-xs text-u-text2">{gatePassedLine(gate)}</p>
+        <p className="mt-1.5 text-xs text-u-text2">
+          {isJudgeOnlyGate(gate) ? gateJudgeOnlyLine(gate) : gatePassedLine(gate)}
+        </p>
       </div>
     );
   }
@@ -155,6 +174,21 @@ function GateBlock({ gate }: { gate: PromotionGate | null }) {
           <span className="text-body font-semibold">{gateRunLine(gate)}</span>
         </div>
         <p className="mt-1.5 text-xs text-u-text2">{gateFailedLine(gate)}</p>
+      </div>
+    );
+  }
+  if (gate?.state === "NO_RESULT") {
+    return (
+      <div role="status" className="mb-4 rounded-lg border border-u-border bg-u-accent-tint px-3.5 py-3">
+        <div className="text-body font-semibold">
+          Run {runLabel(gate.runNumber ?? 0)} on the holdout cases gave no result
+        </div>
+        <p className="mb-2 mt-1.5 text-xs text-u-text2">{gateNoResultLine(gate, promptName)}</p>
+        {gate.datasetId && (
+          <Link to={evalRubricPath(gate.datasetId)} className="text-xs font-medium text-u-accent hover:underline">
+            Open the rubric
+          </Link>
+        )}
       </div>
     );
   }

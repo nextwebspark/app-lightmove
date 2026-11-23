@@ -79,7 +79,7 @@ export default function EvalRunPage() {
         <div className="min-w-0 flex-[1_1_340px]">
           <div className="flex flex-wrap items-center gap-2.5">
             <h1 className="text-title font-semibold">{runTitle(detail)}</h1>
-            <VerdictPill verdict={run.verdict} />
+            <VerdictPill verdict={run.verdict} status={run.status} />
             {run.status === "CANCELLED" && <PromptPill tone="plain">Cancelled</PromptPill>}
           </div>
           <div className="mt-1 font-mono text-xs text-u-text3">{runMeta(run)}</div>
@@ -151,7 +151,8 @@ function RunProgress({
       </div>
       <p className="mt-3 font-mono text-xs text-u-text3">
         It keeps going if you leave this page. Only one run goes at a time, so another cannot start until this one
-        ends. A cancelled run keeps the answers it has.
+        ends.{run.judged ? " The judge's calls are counted with the answers." : ""} A cancelled run keeps the answers
+        it has.
       </p>
     </div>
   );

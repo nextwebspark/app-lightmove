@@ -244,13 +244,22 @@ function EstimateBox({ estimate }: { estimate: EvalRunEstimate }) {
       </div>
       <p className="mt-1.5 text-xs text-u-text2">
         {[
-          `${countOf(estimate.cases, "case")} × 2 versions × ${countOf(estimate.repeats, "repeat")}.`,
+          `${countOf(estimate.cases, "case")} × 2 versions × ${countOf(estimate.repeats, "repeat")}${
+            estimate.judgeCalls > 0
+              ? `, and ${countOf(estimate.judgeCalls, "call")} by the judge, one for each pair of answers`
+              : ""
+          }.`,
           repeatsReasonLine(estimate.repeatsReason, estimate.repeats),
           `The run counts toward the AI budget and stops at ${countOf(estimate.callCap, "call")}.`,
         ]
           .filter(Boolean)
           .join(" ")}
       </p>
+      {estimate.judgedCounts === false && (
+        <p className="mt-1.5 text-xs text-u-text2">
+          This dataset's judged criteria are shown only: they will not count toward this run's result.
+        </p>
+      )}
       {estimate.tooLarge && (
         <p role="alert" className="mt-1.5 text-xs font-medium text-u-offlimits">
           That is more calls than one run may make. Choose a split with fewer cases.

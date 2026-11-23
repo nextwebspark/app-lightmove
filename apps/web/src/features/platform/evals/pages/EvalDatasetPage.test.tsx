@@ -37,6 +37,7 @@ const DETAIL: EvalDatasetDetail = {
     evalCase({ id: "c4", key: "AD-004", name: "Self-report only", tag: "self-report", split: "HOLDOUT", addedBy: null }),
     evalCase({ id: "c12", key: "AD-012", name: "Two executives on one call", tag: "speaker", retiredAt: "2026-11-18T10:00:00Z" }),
   ],
+  rubric: null,
 };
 
 const plan = (overrides: Partial<EvalCaseImportResult> = {}): EvalCaseImportResult => ({
