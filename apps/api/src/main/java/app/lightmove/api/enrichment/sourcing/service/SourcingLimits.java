@@ -24,4 +24,9 @@ public class SourcingLimits {
     public int indexPeoplePerCompany() {
         return variables.intValue(ApplicationVariable.SOURCING_INDEX_PEOPLE_PER_COMPANY);
     }
+
+    /** Free name-narrowed live counts per company, each confirming one index person's title. */
+    public int titleChecksPerCompany() {
+        return variables.intValue(ApplicationVariable.SOURCING_TITLE_CHECKS_PER_COMPANY);
+    }
 }

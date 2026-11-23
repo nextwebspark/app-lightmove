@@ -1,8 +1,6 @@
 package app.lightmove.api.enrichment.sourcing.service;
 
 import app.lightmove.api.common.constant.Seniority;
-import app.lightmove.api.core.config.ExecutiveSourcingSettings;
-import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.enrichment.candidate.model.BrightDataPerson;
 import app.lightmove.api.enrichment.common.service.SearchHitFiling;
 import app.lightmove.api.enrichment.sourcing.constant.FoundBy;
@@ -37,15 +35,12 @@ public class CompanySearch {
     private final LiveProfiles live;
     private final ProfileIndex index;
     private final PeopleCache cache;
-    private final ExecutiveSourcingSettings settings;
     private final SourcingLimits limits;
 
-    public CompanySearch(LiveProfiles live, ProfileIndex index, PeopleCache cache, LightMoveProperties properties,
-                         SourcingLimits limits) {
+    public CompanySearch(LiveProfiles live, ProfileIndex index, PeopleCache cache, SourcingLimits limits) {
         this.live = live;
         this.index = index;
         this.cache = cache;
-        this.settings = properties.enrichment().sourcing();
         this.limits = limits;
     }
 
@@ -127,7 +122,7 @@ public class CompanySearch {
         if (person.position() != null && !person.position().isBlank()) {
             return TitleCheck.INDEX_TITLE;
         }
-        if (!live.isOffered() || spend.titleChecks >= settings.titleChecksPerCompany()) {
+        if (!live.isOffered() || spend.titleChecks >= limits.titleChecksPerCompany()) {
             return TitleCheck.UNCHECKED;
         }
         spend.titleChecks++;
@@ -145,7 +140,7 @@ public class CompanySearch {
                 .filter(person -> person.position() == null || person.position().isBlank())
                 .filter(spend::isNew)
                 .count();
-        return (int) Math.min(untitled, settings.titleChecksPerCompany());
+        return (int) Math.min(untitled, limits.titleChecksPerCompany());
     }
 
     /**
