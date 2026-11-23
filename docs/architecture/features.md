@@ -831,6 +831,23 @@ the comparison names models from `/ai-models` (a refused read leaves the model's
 `PROMPT_MANAGE`, as the seed does. Not drawn, so not built: a
 case's own page, creating a dataset, writing a case by hand, editing a rubric.
 
+**Application variables** (#1314, V241, `/api/v1/platform/settings`, `PLATFORM_SETTINGS_MANAGE`) let a super admin
+change an allowlisted `lightmove.*` value without a release. **The allowlist is code** (`ApplicationVariable` in
+`core/config`: key, label, whole-number bounds, unit, and where its yml default is read), and it is the whole
+guarantee of what can change at runtime: no secret, key, `auth.*`, `crypto.*`, sign-in limit or security switch may
+be on it, and a key off it is a 404 on every route. First on it are five of Find executives' limits
+(`enrichment.sourcing.max-companies-per-run`, `index-people-per-company`, `title-checks-per-company`, `parallelism`,
+`run-deadline`), which that feature reads through `SourcingLimits` at each use; `picks-per-company` and
+`profiles-per-company` are bound from yml and read by nothing, so they are not listed. **The read seam is
+`ApplicationVariables.intValue`**: the stored override, else the yml value. Overrides are cached per instance and
+dropped through `core/reload` (scope `settings`: a bump in the writing transaction, the `NOTIFY`, and the 30-second
+re-read), so a change is live everywhere within seconds. It is never why a feature fails: an unreadable table, a
+value out of bounds or a row for a key no longer listed all serve the yml value. The bounds hold an override only; a
+deployment's yml value serves as written. A change and a reset (`PUT …/{key}`, `POST …/{key}/reset`) each take a
+note, ask a fresh two-factor code, write `app_lm_platform_setting_change` in the same transaction and are audited
+(`PLATFORM_SETTING_CHANGED`, `PLATFORM_SETTING_RESET`, with the key and both values). A change to the default itself
+removes the override, as a reset does. Moving another key onto the list is one enum entry and its readers.
+
 
 ## Layout
 

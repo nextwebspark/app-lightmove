@@ -583,6 +583,15 @@ per rubric. `app_lm_eval_calibration_pick`: the judge's pick per check, pair and
 with `a_shown_first` and its reason. No workspace, no reference into a tenant table, and not in `harden.sql`, for
 V238's reason.
 
+V241 adds application variables (#1314), two platform tables, and seeds the `PLATFORM_SETTINGS_MANAGE` action for
+`SUPER_ADMIN`. `app_lm_platform_setting`: one row per overridden variable (`key`, the yml path without `lightmove.`;
+`value` as text; `updated_by`, `updated_at`). No row means the yml value serves; which keys may have a row, their
+bounds and labels are code (`ApplicationVariable`), never data. `app_lm_platform_setting_change`: every change and
+reset, with `old_value` and `new_value` as they served (a reset's new value is the default of that day), the `note`
+and who and when; append-only by trigger, an UPDATE of `changed_by` alone let through for account erasure, and
+`harden.sql` step 2e takes UPDATE and DELETE from the runtime role besides. No workspace and no reference into a
+tenant table. A change bumps the `settings` scope of `app_lm_platform_config_version` (V235).
+
 V231 adds `app_lm_dashboard` (docs/custom-dashboards.md): a member's custom dashboard on a position (`project_id`, composite key to the project's workspace) or across the workspace (null) — `owner_user_id` (cascade with the account), `name` (≤ 80, never blank), `shared`, and `widgets` jsonb, an array of `{queryId, chart, options, title, layout: {x, y, w, h}}` (twelve-column grid; rows saved before it carry `size` instead, flowed into place by the SPA) naming charts of the server's query library. The choice only, never a figure: every chart is answered live. Forced RLS on its `workspace_id`. Staff-only.
 
 V230 cancels the open tasks an executive's removal orphaned before #1402 (`candidate_id` null and an `UNMAPPED` activity line for the person on the position at or after the task's creation; a rule task filed for someone never mapped has no such line and stays open), releasing a rule task's key as `Task.releaseRuleKey` does. Data only.
