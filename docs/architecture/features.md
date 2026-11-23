@@ -837,16 +837,25 @@ change an allowlisted `lightmove.*` value without a release. **The allowlist is 
 guarantee of what can change at runtime: no secret, key, `auth.*`, `crypto.*`, sign-in limit or security switch may
 be on it, and a key off it is a 404 on every route. First on it are five of Find executives' limits
 (`enrichment.sourcing.max-companies-per-run`, `index-people-per-company`, `title-checks-per-company`, `parallelism`,
-`run-deadline`), which that feature reads through `SourcingLimits` at each use; `picks-per-company` and
+`run-deadline`), which that feature reads through `SourcingLimits`. **A run keeps the limits it started with**: the
+worker takes one `SourcingRunLimits` when the run starts, and the run row records the `run-deadline` it was requested
+under (V242), so a change reaches the runs requested after it; a run is read as lost past its own deadline and a
+minute's grace (`lostAfterSeconds` on the run, which the SPA prefers to the config's), never past one lowered while
+it was live. `picks-per-company` and
 `profiles-per-company` are bound from yml and read by nothing, so they are not listed. **The read seam is
 `ApplicationVariables.intValue`**: the stored override, else the yml value. Overrides are cached per instance and
 dropped through `core/reload` (scope `settings`: a bump in the writing transaction, the `NOTIFY`, and the 30-second
-re-read), so a change is live everywhere within seconds. It is never why a feature fails: an unreadable table, a
-value out of bounds or a row for a key no longer listed all serve the yml value. The bounds hold an override only; a
+re-read; the cache itself is `ReloadableSnapshot`, shared with the prompt registry), so a change is live everywhere
+within seconds. It is never why a feature fails: an unreadable table, a
+value out of bounds or a row for a key no longer listed all serve the yml value, and the read runs in its own
+transaction so a failed one cannot abort the caller's. The bounds hold an override only; a
 deployment's yml value serves as written. A change and a reset (`PUT …/{key}`, `POST …/{key}/reset`) each take a
 note, ask a fresh two-factor code, write `app_lm_platform_setting_change` in the same transaction and are audited
 (`PLATFORM_SETTING_CHANGED`, `PLATFORM_SETTING_RESET`, with the key and both values). A change to the default itself
-removes the override, as a reset does. Moving another key onto the list is one enum entry and its readers.
+removes the override, as a reset does. History records what served, so clearing a stored value that could not serve
+(out of bounds after a release narrowed them, or not a number) writes no history line; its audit event carries the
+stored text as `discarded`. The console's writes and history are `platformsettings`' own (`PlatformSettingRepository`);
+`core/config` holds only the read. Moving another key onto the list is one enum entry and its readers.
 
 
 ## Layout
