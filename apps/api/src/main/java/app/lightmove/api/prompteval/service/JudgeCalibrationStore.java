@@ -240,15 +240,24 @@ public class JudgeCalibrationStore {
                 .single();
     }
 
-    /** Takes a waiting check for this instance: one statement, so two instances never both get it. */
-    Optional<ClaimedCalibrationCheck> claim(Instant staleBefore) {
-        jdbc.sql("""
+    /** Fails every check claimed {@link #MAX_CLAIMS} times and gone quiet again, and answers which. */
+    List<UUID> giveUpOnOverclaimed(Instant staleBefore) {
+        return jdbc.sql("""
                         UPDATE app_lm_eval_calibration_check SET status = 'FAILED', finished_at = now()
                         WHERE status = 'RUNNING' AND heartbeat_at < :staleBefore AND claims >= :maxClaims
+                        RETURNING id
                         """)
                 .param("staleBefore", Timestamp.from(staleBefore))
                 .param("maxClaims", MAX_CLAIMS)
-                .update();
+                .query(UUID.class)
+                .list();
+    }
+
+    /**
+     * Takes a waiting check for this instance: one statement, so two instances never both get it. Asked after
+     * {@link #giveUpOnOverclaimed}, which leaves it none claimed too often.
+     */
+    Optional<ClaimedCalibrationCheck> claim(Instant staleBefore) {
         UUID token = UUID.randomUUID();
         return jdbc.sql("""
                         UPDATE app_lm_eval_calibration_check
@@ -279,6 +288,7 @@ public class JudgeCalibrationStore {
                 .update() == 1;
     }
 
+    /** Only after {@link #addSpend} counted in the same transaction: that is what holds the claim. */
     void addPicks(UUID checkId, boolean aShownFirst, List<CalibrationPick> picks) {
         batches.batchUpdate("""
                 INSERT INTO app_lm_eval_calibration_pick
@@ -317,22 +327,26 @@ public class JudgeCalibrationStore {
                 .single();
     }
 
-    /** What the judge's ask cost, answered or not, and the model that answered. */
-    void addSpend(UUID checkId, JudgeReading reading) {
+    /**
+     * What the judge's ask cost, answered or not, and the model that answered. False when the check is no longer
+     * this worker's: nothing was counted, and it must write nothing more.
+     */
+    boolean addSpend(ClaimedCalibrationCheck claimed, JudgeReading reading) {
         String model = reading.asked().model();
-        jdbc.sql("""
+        return jdbc.sql("""
                         UPDATE app_lm_eval_calibration_check
                         SET calls_made = calls_made + :calls, input_tokens = input_tokens + :inputTokens,
                             output_tokens = output_tokens + :outputTokens, judge_model = coalesce(:model, judge_model)
-                        WHERE id = :id
+                        WHERE id = :id AND status = 'RUNNING' AND claim_token = :token
                         """)
-                .param("id", checkId)
+                .param("id", claimed.check().id())
+                .param("token", claimed.claimToken())
                 .param("calls", reading.callsCharged())
                 .param("inputTokens", reading.asked().inputTokens())
                 .param("outputTokens", reading.asked().outputTokens())
                 .param("model", model == null || model.isBlank() ? null
                         : model.substring(0, Math.min(model.length(), MODEL_NAME_LENGTH)))
-                .update();
+                .update() == 1;
     }
 
     /**

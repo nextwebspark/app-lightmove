@@ -23,6 +23,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -61,7 +62,7 @@ public class JudgeCalibrationWorker {
         this.audit = audit;
         this.clock = clock;
         this.settings = properties.platform().eval();
-        this.drainer = new ClaimedJobDrainer<>("eval-judge-check", () -> store.claim(staleBefore()), this::work,
+        this.drainer = new ClaimedJobDrainer<>("eval-judge-check", this::claimNext, this::work,
                 () -> store.isOneWaiting(staleBefore()));
     }
 
@@ -79,6 +80,14 @@ public class JudgeCalibrationWorker {
     /** No check is being worked here: what a test waits for. */
     public boolean isIdle() {
         return drainer.isIdle();
+    }
+
+    /** A check given up on ends here rather than in {@link #work}, and is audited as any other ending is. */
+    private Optional<ClaimedCalibrationCheck> claimNext() {
+        for (UUID givenUp : store.giveUpOnOverclaimed(staleBefore())) {
+            store.findCheck(givenUp).ifPresent(this::record);
+        }
+        return store.claim(staleBefore());
     }
 
     private void work(ClaimedCalibrationCheck claimed) {
@@ -118,28 +127,48 @@ public class JudgeCalibrationWorker {
             if (judged.contains(pair.id())) {
                 continue;
             }
-            if (!store.pulse(claimed)) {
-                log.info("The judge check {} is no longer this worker's", check.id());
-                return null;
-            }
-            boolean answered = judge(check, version, rubric, pair);
+            PairJudging judging = judge(claimed, version, rubric, pair);
             if (drainer.isShuttingDown()) {
                 return null;
             }
-            if (!answered) {
+            if (judging == PairJudging.CLAIM_LOST) {
+                log.info("The judge check {} is no longer this worker's", check.id());
+                return null;
+            }
+            if (judging == PairJudging.UNANSWERED) {
                 return false;
             }
         }
         return true;
     }
 
-    private boolean judge(CalibrationCheck check, ServedPrompt version, EvalRubric rubric, CalibrationPair pair) {
+    /**
+     * The check's pulse is raised before every ask, as a run's is: three slow asks behind one pulse would otherwise
+     * outlast {@code stale-after} and hand a check still being worked to another instance.
+     */
+    private PairJudging judge(ClaimedCalibrationCheck claimed, ServedPrompt version, EvalRubric rubric,
+                              CalibrationPair pair) {
         boolean aShownFirst = ThreadLocalRandom.current().nextBoolean();
+        AtomicBoolean claimLost = new AtomicBoolean();
         Optional<JudgeReading> answered = judge.judgeUntilAnswered(version, rubric.criteria(), pair.input(),
                 aShownFirst ? pair.answerA() : pair.answerB(), aShownFirst ? pair.answerB() : pair.answerA(),
-                drainer::isShuttingDown, unanswered -> store.addSpend(check.id(), unanswered));
+                () -> {
+                    if (drainer.isShuttingDown() || claimLost.get()) {
+                        return true;
+                    }
+                    claimLost.set(!store.pulse(claimed));
+                    return claimLost.get();
+                },
+                unanswered -> {
+                    if (!store.addSpend(claimed, unanswered)) {
+                        claimLost.set(true);
+                    }
+                });
+        if (claimLost.get()) {
+            return PairJudging.CLAIM_LOST;
+        }
         if (answered.isEmpty()) {
-            return false;
+            return PairJudging.UNANSWERED;
         }
         JudgeReading reading = answered.get();
         List<CalibrationPick> picks = rubric.criteria().stream()
@@ -150,11 +179,15 @@ public class JudgeCalibrationWorker {
                             shown.reason());
                 })
                 .toList();
-        transactions.executeWithoutResult(status -> {
-            store.addPicks(check.id(), aShownFirst, picks);
-            store.addSpend(check.id(), reading);
-        });
-        return true;
+        // The spend first: it takes the check's row, so the claim cannot change hands before the picks land.
+        boolean kept = Boolean.TRUE.equals(transactions.execute(status -> {
+            if (!store.addSpend(claimed, reading)) {
+                return false;
+            }
+            store.addPicks(claimed.check().id(), aShownFirst, picks);
+            return true;
+        }));
+        return kept ? PairJudging.JUDGED : PairJudging.CLAIM_LOST;
     }
 
     private void record(CalibrationCheck ended) {
@@ -180,4 +213,7 @@ public class JudgeCalibrationWorker {
     void stop() {
         drainer.stop();
     }
+
+    /** How judging one pair came out. {@code UNANSWERED}: the model gave nothing, asked several times over. */
+    private enum PairJudging { JUDGED, UNANSWERED, CLAIM_LOST }
 }

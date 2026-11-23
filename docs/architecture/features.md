@@ -790,7 +790,9 @@ and its net in points; past **10 points** against the candidate a criterion is w
 calibrated** (`JudgeCalibrationService`): a person labels **20 pairs** by hand (`…/rubric/pairs`, drawn once per
 rubric version from two versions' answers to the same **dev** case in a finished run, so holdout cases stay unseen;
 which answer is A is random and neither the versions nor the judge's picks are served), then `…/rubric/check` has
-`JudgeCalibrationWorker` make the judge's own picks on the same pairs. While the two agree on **80%** of the picks,
+`JudgeCalibrationWorker` make the judge's own picks on the same pairs, under a run's own claim rules (the spend and the
+picks name the claim token, the pulse is raised before each ask, and a check claimed three times is given up on and
+audited). While the two agree on **80%** of the picks,
 taken over every criterion together, the rubric is `COUNTS`; otherwise its criteria are judged and shown and change
 no result (`SHOWN_ONLY`, `UNLABELLED`, `UNCHECKED`, `CHECKING`, and `STALE` once the judge's live version or a label
 changes, until it is checked again on the same labels). Whether it counted is read as a run finishes and stored in

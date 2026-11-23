@@ -20,6 +20,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterEach;
@@ -346,6 +347,93 @@ class EvalJudgeIntegrationTest extends PositionTemplateFlowSupport {
     }
 
     @Test
+    @DisplayName("a worker whose run another instance took while the judge read stores no picks and counts no spend")
+    void aRunLostWhileTheJudgeReadWritesNothing() throws Exception {
+        String admin = superAdmin();
+        UUID dataset = openerDataset(admin, 1, 1);
+        int candidate = saveVersion(admin, OPENER_PROMPT, OPENER, "MARK-CANDIDATE");
+        model.answerWith(AN_OPENER);
+        model.answerWhenSystemContains(JUDGE_MARK, judging("A", "tie"));
+        AtomicBoolean takenOver = new AtomicBoolean();
+        model.whileNextPromptIsAnsweredWhenSystemContains(JUDGE_MARK, () -> takenOver.set(db.update(
+                "UPDATE app_lm_eval_run SET claim_token = gen_random_uuid() WHERE status = 'RUNNING'") == 1));
+
+        String run = expect(201, postJson(admin, RUNS, runOf(dataset, "HOLDOUT", candidate)))
+                .get("run").get("id").asString();
+        Awaitility.await().atMost(Duration.ofSeconds(10)).until(takenOver::get);
+        Awaitility.await().atMost(Duration.ofSeconds(20)).until(worker::isIdle);
+
+        Map<String, Object> stored = db.queryForMap(
+                "SELECT status, calls_made, judge_model FROM app_lm_eval_run WHERE id = ?::uuid", run);
+        assertThat(stored.get("status")).as("the run is the other instance's to end").isEqualTo("RUNNING");
+        assertThat(((Number) stored.get("calls_made")).intValue()).as("the pair's two answers, and no judge call")
+                .isEqualTo(2);
+        assertThat(stored.get("judge_model")).isNull();
+        assertThat(db.queryForObject("SELECT count(*) FROM app_lm_eval_judgement WHERE run_id = ?::uuid",
+                Integer.class, run)).isZero();
+        assertThat(judgePrompts()).as("it asks nothing more either").hasSize(1);
+    }
+
+    @Test
+    @DisplayName("a worker whose judge check another instance took while the judge read writes nothing more")
+    void aLostCheckWritesNothing() throws Exception {
+        String admin = superAdmin();
+        UUID dataset = labelledDataset(admin);
+        int askedBefore = judgePrompts().size();
+        AtomicBoolean takenOver = new AtomicBoolean();
+        model.whileNextPromptIsAnsweredWhenSystemContains(JUDGE_MARK, () -> takenOver.set(takeOverTheCheck()));
+
+        expect(200, postJson(admin, DATASETS + "/" + dataset + "/rubric/check", "{}"));
+        Awaitility.await().atMost(Duration.ofSeconds(10)).until(takenOver::get);
+        Awaitility.await().atMost(Duration.ofSeconds(20)).until(checks::isIdle);
+
+        assertNothingWrittenByTheCheckOf(dataset);
+        assertThat(judgePrompts()).as("it asks nothing more either").hasSize(askedBefore + 1);
+        assertThat(audited("EVAL_JUDGE_CHECK_FINISHED")).isZero();
+    }
+
+    @Test
+    @DisplayName("a judge check taken over during an outage is not asked about again, and counts no spend")
+    void aCheckLostDuringAnOutageStopsAsking() throws Exception {
+        String admin = superAdmin();
+        UUID dataset = labelledDataset(admin);
+        int askedBefore = judgePrompts().size();
+        AtomicBoolean takenOver = new AtomicBoolean();
+        model.failWhenSystemContains(JUDGE_MARK, new IllegalStateException("The model is away"));
+        model.whileNextPromptIsAnsweredWhenSystemContains(JUDGE_MARK, () -> takenOver.set(takeOverTheCheck()));
+
+        expect(200, postJson(admin, DATASETS + "/" + dataset + "/rubric/check", "{}"));
+        Awaitility.await().atMost(Duration.ofSeconds(10)).until(takenOver::get);
+        Awaitility.await().atMost(Duration.ofSeconds(20)).until(checks::isIdle);
+
+        assertNothingWrittenByTheCheckOf(dataset);
+        assertThat(judgePrompts()).as("one ask, not the three an outage is given").hasSize(askedBefore + 1);
+    }
+
+    @Test
+    @DisplayName("a judge check claimed too often is given up on, and that ending is audited as any other")
+    void aCheckGivenUpOnIsAudited() throws Exception {
+        String admin = superAdmin();
+        UUID dataset = openerDataset(admin, 1, 1);
+        UUID check = db.queryForObject("""
+                INSERT INTO app_lm_eval_calibration_check
+                    (rubric_id, judge_version, status, claim_token, claims, heartbeat_at, started_by)
+                SELECT r.id, 1, 'RUNNING', gen_random_uuid(), 3, now() - interval '1 hour',
+                       (SELECT id FROM app_lm_user WHERE email = ?)
+                FROM app_lm_eval_rubric r WHERE r.dataset_id = ?
+                RETURNING id
+                """, UUID.class, "owner@" + domain, dataset);
+
+        checks.wake();
+
+        Awaitility.await().atMost(Duration.ofSeconds(20)).until(() -> "FAILED".equals(db.queryForObject(
+                "SELECT status FROM app_lm_eval_calibration_check WHERE id = ?", String.class, check)));
+        assertThat(judgePrompts()).isEmpty();
+        Awaitility.await().atMost(Duration.ofSeconds(10))
+                .untilAsserted(() -> assertThat(audited("EVAL_JUDGE_CHECK_FINISHED")).isEqualTo(1));
+    }
+
+    @Test
     @DisplayName("nobody without the platform role is told a rubric or its pairs exist")
     void theRoutesAreGuarded() throws Exception {
         Firm firm = firm("Ordinary Firm", "admin");
@@ -386,6 +474,43 @@ class EvalJudgeIntegrationTest extends PositionTemplateFlowSupport {
                         String.join("\n", rows).getBytes(StandardCharsets.UTF_8)))
                 .header("Authorization", bearer(admin))).andReturn());
         return dataset;
+    }
+
+    /** A dataset whose rubric has its twenty pairs drawn and labelled: one a check of the judge can start on. */
+    private UUID labelledDataset(String admin) throws Exception {
+        UUID dataset = openerDataset(admin, 7, 1);
+        int candidate = saveVersion(admin, OPENER_PROMPT, OPENER, "MARK-CANDIDATE");
+        model.answerWith(AN_OPENER);
+        model.answerWhenSystemContains(JUDGE_MARK, judging("tie", "tie"));
+        awaitEnded(admin, expect(201, postJson(admin, RUNS, runOf(dataset, "DEV", candidate))));
+        for (JsonNode pair : expect(200, postJson(admin, DATASETS + "/" + dataset + "/rubric/pairs", "{}"))
+                .get("pairs")) {
+            expect(204, putJson(admin, "/api/v1/platform/evals/rubric-pairs/" + pair.get("id").asString()
+                    + "/labels", "{\"picks\":{\"specific\":\"TIE\",\"plain\":\"TIE\"}}"));
+        }
+        return dataset;
+    }
+
+    /** As another instance claiming the check would: the token this worker holds is no longer the row's. */
+    private boolean takeOverTheCheck() {
+        return db.update("""
+                UPDATE app_lm_eval_calibration_check SET claim_token = gen_random_uuid() WHERE status = 'RUNNING'
+                """) == 1;
+    }
+
+    private void assertNothingWrittenByTheCheckOf(UUID dataset) {
+        Map<String, Object> stored = db.queryForMap("""
+                SELECT c.id, c.status, c.calls_made, c.input_tokens + c.output_tokens AS tokens, c.judge_model
+                FROM app_lm_eval_calibration_check c
+                JOIN app_lm_eval_rubric r ON r.id = c.rubric_id
+                WHERE r.dataset_id = ?
+                """, dataset);
+        assertThat(stored.get("status")).as("the check is the other instance's to end").isEqualTo("RUNNING");
+        assertThat(((Number) stored.get("calls_made")).intValue()).isZero();
+        assertThat(((Number) stored.get("tokens")).longValue()).isZero();
+        assertThat(stored.get("judge_model")).isNull();
+        assertThat(db.queryForObject("SELECT count(*) FROM app_lm_eval_calibration_pick WHERE check_id = ?",
+                Integer.class, stored.get("id"))).isZero();
     }
 
     private int saveVersion(String admin, String promptUrl, String promptId, String marker) throws Exception {
