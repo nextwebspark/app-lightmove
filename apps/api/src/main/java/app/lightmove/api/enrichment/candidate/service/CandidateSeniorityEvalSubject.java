@@ -26,7 +26,7 @@ class CandidateSeniorityEvalSubject implements EvalSubject {
 
     @Override
     public String promptId() {
-        return "candidate-ai-enrich";
+        return CandidateAiEnricher.PROMPT_ID;
     }
 
     @Override

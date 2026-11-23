@@ -1,8 +1,10 @@
 package app.lightmove.api.prompteval.service;
 
+import app.lightmove.api.enrichment.candidate.service.GoldenRows;
 import app.lightmove.api.prompteval.constant.EvalCaseSplit;
 import app.lightmove.api.prompteval.model.EvalSeedPack;
 import app.lightmove.api.prompteval.model.NewEvalCase;
+import app.lightmove.api.promptregistry.constant.PlatformPrompt;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
@@ -23,23 +25,20 @@ import tools.jackson.databind.node.ObjectNode;
 @RequiredArgsConstructor
 public class EvalSeedPacks {
 
-    static final String NATIONALITY_ROWS = "eval/nationality-synthetic.jsonl";
     static final String ASSISTANT_CASES = "eval/assistant-cases.json";
-
-    private static final int MAX_NAME = 200;
 
     private final ObjectMapper json;
 
     public List<EvalSeedPack> all() {
-        List<JsonNode> profiles = goldenRows();
+        List<JsonNode> profiles = GoldenRows.synthetic();
         return List.of(
-                new EvalSeedPack("candidate-nationality", "Nationality: synthetic profiles",
+                new EvalSeedPack(PlatformPrompt.NATIONALITY.getPromptId(), "Nationality: synthetic profiles",
                         "Invented profiles, one for each case of the nationality rubric.",
                         labelledWith("nationality", profiles)),
-                new EvalSeedPack("candidate-ai-enrich", "Seniority: synthetic profiles",
+                new EvalSeedPack(PlatformPrompt.PROFILE_ENRICHMENT.getPromptId(), "Seniority: synthetic profiles",
                         "The nationality set's invented profiles, labelled with the level each holds.",
                         labelledWith("seniority", profiles)),
-                new EvalSeedPack("assistant-core", "Assistant: synthetic conversations",
+                new EvalSeedPack(PlatformPrompt.ASSISTANT.getPromptId(), "Assistant: synthetic conversations",
                         "Invented conversations about an invented retail position. Its offline suite runs them in "
                                 + "a workspace built for the run, so they are listed here and cannot be run.",
                         conversations()));
@@ -75,18 +74,11 @@ public class EvalSeedPacks {
             }
             String opening = conversation.path("turns").path(0).asString("");
             cases.add(new NewEvalCase(conversation.get("id").asString(),
-                    opening.length() <= MAX_NAME ? opening : opening.substring(0, MAX_NAME), null,
+                    opening.length() <= EvalCaseFileReader.MAX_NAME ? opening
+                            : opening.substring(0, EvalCaseFileReader.MAX_NAME), null,
                     EvalCaseSplit.DEV, input, null));
         }
         return cases;
-    }
-
-    private List<JsonNode> goldenRows() {
-        return textOf(NATIONALITY_ROWS).lines()
-                .map(String::strip)
-                .filter(line -> !line.isEmpty() && !line.startsWith("//"))
-                .map(json::readTree)
-                .toList();
     }
 
     private static String textOf(String resource) {

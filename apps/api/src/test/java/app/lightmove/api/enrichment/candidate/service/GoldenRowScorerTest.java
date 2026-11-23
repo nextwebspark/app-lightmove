@@ -61,7 +61,7 @@ class GoldenRowScorerTest {
     @Test
     @DisplayName("the committed synthetic fixtures parse and every label is in the vocabulary")
     void syntheticFixturesAreWellFormed() {
-        List<GoldenRow> synthetic = GoldenRows.read(GoldenRows.SYNTHETIC);
+        List<GoldenRow> synthetic = GoldenRows.typed(GoldenRows.synthetic());
 
         assertThat(synthetic).hasSizeGreaterThanOrEqualTo(10);
         assertThat(synthetic).allSatisfy(golden -> {

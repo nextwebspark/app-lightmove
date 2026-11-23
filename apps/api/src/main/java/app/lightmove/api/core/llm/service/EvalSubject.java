@@ -21,6 +21,9 @@ public interface EvalSubject {
      */
     List<String> problemsOf(JsonNode input, JsonNode expected);
 
-    /** Asks the model once with a case's input. */
+    /**
+     * Asks the model once with a case's input. Nothing is returned: a run calls this inside
+     * {@link PromptTrialRunner}, which reads the parsed answer and the spend off the call itself.
+     */
     void answer(JsonNode input);
 }
