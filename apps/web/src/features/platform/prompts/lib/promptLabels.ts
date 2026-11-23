@@ -13,6 +13,12 @@ import type {
 export const PROMPTS_PATH = "/platform/prompts";
 export const promptPath = (promptId: string) => `${PROMPTS_PATH}/${encodeURIComponent(promptId)}`;
 
+export const VERSION_PARAM = "version";
+export const PUT_LIVE_PARAM = "putLive";
+/** A prompt's page opened on one version, with Put live asked for at once: where a run's page sends its candidate. */
+export const putLivePath = (promptId: string, version: number) =>
+  `${promptPath(promptId)}?${VERSION_PARAM}=${version}&${PUT_LIVE_PARAM}=1`;
+
 /** How long before a model's stated retirement the console starts warning, as the server's list does. */
 export const RETIREMENT_WARNING_DAYS = 60;
 

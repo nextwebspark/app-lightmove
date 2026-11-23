@@ -554,6 +554,35 @@ retired, never rewritten: a trigger lets an UPDATE set `retired_at` and `retired
 change `created_by` or `retired_by` only to null (an erased account), and refuses DELETE. Not in `harden.sql`: retiring needs UPDATE, and later eval tables
 reference these, which a table owned by `postgres` would refuse.
 
+V239 adds eval runs (#1320), two more platform tables. `app_lm_eval_run`: `number` (an identity, the `R-0042` a
+person reads), the prompt, dataset and split, `case_ids` (the cases in use when it started, so one imported or
+retired since is neither added nor dropped), both versions **by number with no foreign key** (`harden.sql` gives the
+version table to `postgres`, which a key from a table `lm_app` owns could not reference), the model that answered
+for each, `repeats`, `status` `QUEUED` | `RUNNING` | `FINISHED` | `CANCELLED` | `FAILED`, `verdict` `PASS` | `FAIL`
+(only when finished), `failure` (only when failed), `gate_ready` (whether the subject's cases counted at put live
+when it started), calls planned and made, `call_cap`, tokens, `summary` jsonb, `stop_requested_at`, and the worker's
+`claim_token`, `claims` and `heartbeat_at`. `app_lm_eval_run_one_at_a_time` is a unique index on a constant where
+status is `QUEUED` or `RUNNING`: one run platform-wide. `app_lm_eval_result`: one row per run, case, side
+(`CANDIDATE` | `BASELINE`) and repeat, unique on the four, with the bound `answer` jsonb (null when unreadable), the
+raw answer, finish, tokens and each check's verdict by id. A fictional case's answer only. Append-only by trigger.
+Not in `harden.sql`, for V238's reason.
+
+V240 adds the eval judge (#1322), six more platform tables, and three columns on `app_lm_eval_run`: `rubric_id` (the
+rubric its pairs are judged by, fixed at the start; null for a dataset with none), `judge_version` and `judge_model`.
+`app_lm_eval_rubric`: one per dataset and `version`, `criteria` jsonb (`[{key, name, better}]`), append-only by
+trigger, so a changed rubric is a new version. `app_lm_eval_judgement`: the judge's pick on one criterion of one pair
+of a run's answers, unique on run, case, repeat and `criterion_key`, with `candidate_shown_as` (`A` | `B`, the order
+drawn for that pair), `winner` `CANDIDATE` | `BASELINE` | `TIE` (null: no pick that could be read) and its `reason`;
+append-only by trigger. `app_lm_eval_calibration_pair`: the pairs a person labels for one rubric version, by
+`position`, each naming a case and two `app_lm_eval_result` rows as `a_result_id` and `b_result_id`.
+`app_lm_eval_calibration_label`: the person's `pick` (`A` | `B` | `TIE`) per pair and criterion, with who and when; the
+one table here that is updated, since a label may be changed. `app_lm_eval_calibration_check`: one check of the judge
+against a rubric's labels, with the `judge_version` that made the picks, `status` `QUEUED` | `RUNNING` | `FINISHED` |
+`FAILED`, `agreed` of `picks` once finished, its spend and the worker's claim; a partial unique index allows one going
+per rubric. `app_lm_eval_calibration_pick`: the judge's pick per check, pair and criterion, in the pair's own A and B,
+with `a_shown_first` and its reason. No workspace, no reference into a tenant table, and not in `harden.sql`, for
+V238's reason.
+
 V231 adds `app_lm_dashboard` (docs/custom-dashboards.md): a member's custom dashboard on a position (`project_id`, composite key to the project's workspace) or across the workspace (null) — `owner_user_id` (cascade with the account), `name` (≤ 80, never blank), `shared`, and `widgets` jsonb, an array of `{queryId, chart, options, title, layout: {x, y, w, h}}` (twelve-column grid; rows saved before it carry `size` instead, flowed into place by the SPA) naming charts of the server's query library. The choice only, never a figure: every chart is answered live. Forced RLS on its `workspace_id`. Staff-only.
 
 V230 cancels the open tasks an executive's removal orphaned before #1402 (`candidate_id` null and an `UNMAPPED` activity line for the person on the position at or after the task's creation; a rule task filed for someone never mapped has no such line and stays open), releasing a rule task's key as `Task.releaseRuleKey` does. Data only.

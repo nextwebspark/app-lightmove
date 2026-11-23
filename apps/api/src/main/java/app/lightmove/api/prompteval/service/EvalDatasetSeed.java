@@ -13,6 +13,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 /**
  * Records this build's synthetic sets as datasets at boot. A case is added once, by its key: one already there is
  * left as it is, retired or not, so a release never rewrites what a run scored or brings back what a person retired.
+ * A pack's rubric becomes the dataset's next version when it differs from its newest.
  */
 @Slf4j
 @Component
@@ -21,6 +22,7 @@ public class EvalDatasetSeed implements ApplicationRunner {
 
     private final EvalSeedPacks packs;
     private final EvalDatasetStore store;
+    private final EvalRubricStore rubrics;
     private final TransactionTemplate transactions;
 
     @Override
@@ -38,6 +40,9 @@ public class EvalDatasetSeed implements ApplicationRunner {
             for (EvalSeedPack pack : shipped) {
                 UUID datasetId = store.ensureDataset(pack.promptId(), pack.name(), pack.description());
                 store.add(datasetId, pack.cases(), null);
+                if (!pack.rubric().isEmpty()) {
+                    rubrics.ensure(datasetId, pack.rubric());
+                }
             }
         });
     }

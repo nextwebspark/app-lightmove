@@ -1,0 +1,24 @@
+package app.lightmove.api.prompteval.model;
+
+import app.lightmove.api.core.llm.model.ServedPrompt;
+import app.lightmove.api.core.llm.service.EvalSubject;
+import app.lightmove.api.prompteval.constant.EvalCaseSplit;
+import app.lightmove.api.prompteval.constant.EvalRepeatsReason;
+
+/**
+ * A run as it would be started: both versions resolved, and how many calls answering every case would take.
+ * {@code judgedCounts} is whether the rubric's criteria count under the judge serving now; null with no rubric.
+ */
+public record EvalRunPlan(EvalDataset dataset, EvalSubject subject, EvalCaseSplit split, ServedPrompt candidate,
+                          ServedPrompt baseline, int cases, int repeats, EvalRepeatsReason repeatsReason,
+                          EvalRubric rubric, Boolean judgedCounts) {
+
+    /** One for each pair of answers, where the dataset has a rubric. */
+    public int judgeCalls() {
+        return rubric == null ? 0 : cases * repeats;
+    }
+
+    public int calls() {
+        return cases * 2 * repeats + judgeCalls();
+    }
+}
