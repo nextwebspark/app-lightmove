@@ -24,7 +24,7 @@ import app.lightmove.api.promptregistry.dto.PromptOverview;
 import app.lightmove.api.promptregistry.dto.PromptTrialInput;
 import app.lightmove.api.promptregistry.dto.PromptVersionBody;
 import app.lightmove.api.promptregistry.dto.PromptVersionSummary;
-import app.lightmove.api.promptregistry.model.PromotionGateResult;
+import app.lightmove.api.promptregistry.dto.PromotionGateResult;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.ZoneOffset;

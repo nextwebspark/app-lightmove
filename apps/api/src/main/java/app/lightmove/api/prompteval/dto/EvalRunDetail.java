@@ -1,6 +1,5 @@
 package app.lightmove.api.prompteval.dto;
 
-import app.lightmove.api.prompteval.model.EvalRunSummary;
 
 /**
  * A run's page. {@code summary} is null until the run finishes. {@code countsAtPutLive}: a finished run on the

@@ -1,4 +1,4 @@
-package app.lightmove.api.prompteval.model;
+package app.lightmove.api.prompteval.dto;
 
 /**
  * How far one version's answers to the same case moved between repeats. {@code sameAnswerRate} is the share, in

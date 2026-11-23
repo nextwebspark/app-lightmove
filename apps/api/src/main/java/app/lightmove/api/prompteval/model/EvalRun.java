@@ -4,6 +4,7 @@ import app.lightmove.api.prompteval.constant.EvalCaseSplit;
 import app.lightmove.api.prompteval.constant.EvalRunFailure;
 import app.lightmove.api.prompteval.constant.EvalRunStatus;
 import app.lightmove.api.prompteval.constant.EvalRunVerdict;
+import app.lightmove.api.prompteval.dto.EvalRunSummary;
 import java.time.Instant;
 import java.util.UUID;
 

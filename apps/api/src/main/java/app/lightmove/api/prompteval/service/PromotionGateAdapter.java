@@ -1,12 +1,12 @@
 package app.lightmove.api.prompteval.service;
 
 import app.lightmove.api.prompteval.constant.EvalRunVerdict;
-import app.lightmove.api.prompteval.model.EvalCheckScore;
+import app.lightmove.api.prompteval.dto.EvalCheckScore;
 import app.lightmove.api.prompteval.model.EvalRun;
-import app.lightmove.api.prompteval.model.EvalRunSummary;
+import app.lightmove.api.prompteval.dto.EvalRunSummary;
 import app.lightmove.api.promptregistry.constant.PromotionGateState;
-import app.lightmove.api.promptregistry.model.PromotionGateFailedCheck;
-import app.lightmove.api.promptregistry.model.PromotionGateResult;
+import app.lightmove.api.promptregistry.dto.PromotionGateFailedCheck;
+import app.lightmove.api.promptregistry.dto.PromotionGateResult;
 import app.lightmove.api.promptregistry.service.PromotionGate;
 import java.util.LinkedHashMap;
 import java.util.Map;

@@ -21,7 +21,7 @@ import app.lightmove.api.prompteval.model.EvalRunAnswer;
 import app.lightmove.api.prompteval.model.EvalRunCase;
 import app.lightmove.api.prompteval.model.EvalRunPulse;
 import app.lightmove.api.prompteval.model.EvalRunQueued;
-import app.lightmove.api.prompteval.model.EvalRunSummary;
+import app.lightmove.api.prompteval.dto.EvalRunSummary;
 import jakarta.annotation.PreDestroy;
 import java.time.Clock;
 import java.time.Instant;

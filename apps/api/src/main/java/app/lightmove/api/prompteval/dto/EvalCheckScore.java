@@ -1,4 +1,4 @@
-package app.lightmove.api.prompteval.model;
+package app.lightmove.api.prompteval.dto;
 
 /**
  * One check across a run: the share of each version's answers that pass, in percent, as the mean over the repeats,

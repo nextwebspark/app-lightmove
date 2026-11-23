@@ -1,4 +1,4 @@
-package app.lightmove.api.promptregistry.model;
+package app.lightmove.api.promptregistry.dto;
 
 import app.lightmove.api.promptregistry.constant.PromotionGateState;
 import java.time.Instant;

@@ -3,7 +3,6 @@ package app.lightmove.api.promptregistry.dto;
 import app.lightmove.api.core.llm.constant.AiProvider;
 import app.lightmove.api.core.llm.constant.PromptOrigin;
 import app.lightmove.api.core.llm.model.GenerationSettings;
-import app.lightmove.api.promptregistry.model.PromotionGateResult;
 import java.time.Instant;
 
 /**

@@ -14,7 +14,7 @@ import app.lightmove.api.promptregistry.constant.PlatformPrompt;
 import app.lightmove.api.promptregistry.constant.PromotionGateState;
 import app.lightmove.api.promptregistry.dto.PromptDetail;
 import app.lightmove.api.promptregistry.dto.PutPromptLiveRequest;
-import app.lightmove.api.promptregistry.model.PromotionGateResult;
+import app.lightmove.api.promptregistry.dto.PromotionGateResult;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Clock;
 import java.time.LocalDate;

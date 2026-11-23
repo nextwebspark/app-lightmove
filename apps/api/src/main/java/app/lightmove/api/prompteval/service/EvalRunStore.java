@@ -13,7 +13,7 @@ import app.lightmove.api.prompteval.model.EvalRun;
 import app.lightmove.api.prompteval.model.EvalRunAnswer;
 import app.lightmove.api.prompteval.model.EvalRunCase;
 import app.lightmove.api.prompteval.model.EvalRunPulse;
-import app.lightmove.api.prompteval.model.EvalRunSummary;
+import app.lightmove.api.prompteval.dto.EvalRunSummary;
 import app.lightmove.api.prompteval.model.NewEvalRun;
 import java.sql.ResultSet;
 import java.sql.SQLException;

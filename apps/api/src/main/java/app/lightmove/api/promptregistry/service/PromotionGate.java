@@ -1,6 +1,6 @@
 package app.lightmove.api.promptregistry.service;
 
-import app.lightmove.api.promptregistry.model.PromotionGateResult;
+import app.lightmove.api.promptregistry.dto.PromotionGateResult;
 import java.util.Map;
 
 /**

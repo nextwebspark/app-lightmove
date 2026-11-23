@@ -1,4 +1,4 @@
-package app.lightmove.api.prompteval.model;
+package app.lightmove.api.prompteval.dto;
 
 import java.util.List;
 
