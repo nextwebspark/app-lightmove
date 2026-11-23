@@ -81,19 +81,41 @@ public class JudgeCalibrationService {
     /** Where the rubric stands now. Read again whenever it is asked: a new live judge makes every rubric stale. */
     @Transactional(readOnly = true)
     public RubricStanding standingOf(EvalRubric rubric) {
-        CalibrationLabelling labelling = store.labellingOf(rubric.id(), rubric.criteria().size());
-        return standingOf(rubric, labelling);
+        return standingOf(rubric, liveJudgeVersion());
     }
 
-    Optional<EvalRubricSummary> summaryOf(EvalRubric rubric) {
-        return Optional.ofNullable(rubric)
-                .map(present -> new EvalRubricSummary(present.version(), standingOf(present).state()));
+    /** {@code liveJudgeVersion} is {@link #liveJudgeVersion()}, read once by a caller asking of several rubrics. */
+    RubricStanding standingOf(EvalRubric rubric, Integer liveJudgeVersion) {
+        return standingOf(rubric, store.labellingOf(rubric.id(), rubric.criteria().size()),
+                store.latestFinishedCheck(rubric.id()), liveJudgeVersion);
+    }
+
+    /**
+     * Where the rubric stands for the picks of one version of the judge: it counts only where that version itself
+     * was checked against the labels as they are. What a run's judged criteria rest on, whichever judge serves now.
+     */
+    @Transactional(readOnly = true)
+    public RubricStanding standingFor(EvalRubric rubric, int judgeVersion) {
+        return standingOf(rubric, store.labellingOf(rubric.id(), rubric.criteria().size()),
+                store.latestFinishedCheck(rubric.id(), judgeVersion), judgeVersion);
+    }
+
+    /** The judge's version serving now. Null where the registry holds none. */
+    Integer liveJudgeVersion() {
+        return judge.liveVersion().map(ServedPrompt::version).orElse(null);
+    }
+
+    Optional<EvalRubricSummary> summaryOf(EvalRubric rubric, Integer liveJudgeVersion) {
+        return Optional.ofNullable(rubric).map(present ->
+                new EvalRubricSummary(present.version(), standingOf(present, liveJudgeVersion).state()));
     }
 
     EvalRubricDetail detailOf(EvalDataset dataset, EvalRubric rubric) {
         CalibrationLabelling labelling = store.labellingOf(rubric.id(), rubric.criteria().size());
-        RubricStanding standing = standingOf(rubric, labelling);
+        Optional<ServedPrompt> live = judge.liveVersion();
         Optional<CalibrationCheck> finished = store.latestFinishedCheck(rubric.id());
+        RubricStanding standing = standingOf(rubric, labelling, finished,
+                live.map(ServedPrompt::version).orElse(null));
         Optional<CalibrationCheck> latest = Optional.ofNullable(standing.check());
         List<CalibrationPair> pairs = finished.isPresent() ? store.pairsOf(rubric.id()) : List.of();
         List<CalibrationLabel> labels = finished.isPresent() ? store.labelsOf(rubric.id()) : List.of();
@@ -129,7 +151,6 @@ public class JudgeCalibrationService {
                 })
                 .toList();
 
-        Optional<ServedPrompt> live = judge.liveVersion();
         boolean going = latest.map(CalibrationCheck::isGoing).orElse(false);
         return new EvalRubricDetail(rubric.id(), rubric.version(), standing.state(), THRESHOLD_PERCENT, PAIRS,
                 labelling.pairs(), labelling.labelled(), standing.agreed(), standing.picks(),
@@ -221,9 +242,13 @@ public class JudgeCalibrationService {
                 .record();
     }
 
-    private RubricStanding standingOf(EvalRubric rubric, CalibrationLabelling labelling) {
+    /**
+     * {@code finished} is the check the standing is measured by, and {@code judgeVersion} the judge whose picks
+     * are in question: a check of any other version leaves the rubric stale.
+     */
+    private RubricStanding standingOf(EvalRubric rubric, CalibrationLabelling labelling,
+                                      Optional<CalibrationCheck> finished, Integer judgeVersion) {
         Optional<CalibrationCheck> latest = store.latestCheck(rubric.id());
-        Optional<CalibrationCheck> finished = store.latestFinishedCheck(rubric.id());
         Integer agreed = finished.map(CalibrationCheck::agreed).orElse(null);
         Integer picks = finished.map(CalibrationCheck::picks).orElse(null);
         CalibrationCheck shown = latest.orElse(null);
@@ -236,8 +261,7 @@ public class JudgeCalibrationService {
         if (finished.isEmpty()) {
             return new RubricStanding(RubricState.UNCHECKED, null, null, shown);
         }
-        Integer live = judge.liveVersion().map(ServedPrompt::version).orElse(null);
-        if (live == null || live != finished.get().judgeVersion()
+        if (judgeVersion == null || judgeVersion != finished.get().judgeVersion()
                 || store.isLabelChangedSince(rubric.id(), finished.get().createdAt())) {
             return new RubricStanding(RubricState.STALE, agreed, picks, shown);
         }

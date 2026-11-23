@@ -13,6 +13,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 import tools.jackson.core.type.TypeReference;
@@ -29,6 +31,7 @@ public class EvalRubricStore {
     private static final TypeReference<List<RubricCriterion>> CRITERIA = new TypeReference<>() { };
 
     private final JdbcClient jdbc;
+    private final NamedParameterJdbcTemplate batches;
     private final ObjectMapper json;
 
     /** The dataset's rubric at its newest version. */
@@ -70,22 +73,21 @@ public class EvalRubricStore {
 
     /** One pick per pair and criterion, once: a run picked up again that judges a pair it had judged adds nothing. */
     void addJudgements(UUID runId, List<EvalJudgement> judgements) {
-        for (EvalJudgement judgement : judgements) {
-            jdbc.sql("""
-                            INSERT INTO app_lm_eval_judgement
-                                (run_id, case_id, repeat, criterion_key, candidate_shown_as, winner, reason)
-                            VALUES (:runId, :caseId, :repeat, :criterion, :shownAs, :winner, :reason)
-                            ON CONFLICT (run_id, case_id, repeat, criterion_key) DO NOTHING
-                            """)
-                    .param("runId", runId)
-                    .param("caseId", judgement.caseId())
-                    .param("repeat", judgement.repeat())
-                    .param("criterion", judgement.criterionKey())
-                    .param("shownAs", judgement.candidateShownAs().name())
-                    .param("winner", judgement.winner() == null ? null : judgement.winner().name())
-                    .param("reason", judgement.reason())
-                    .update();
-        }
+        batches.batchUpdate("""
+                INSERT INTO app_lm_eval_judgement
+                    (run_id, case_id, repeat, criterion_key, candidate_shown_as, winner, reason)
+                VALUES (:runId, :caseId, :repeat, :criterion, :shownAs, :winner, :reason)
+                ON CONFLICT (run_id, case_id, repeat, criterion_key) DO NOTHING
+                """, judgements.stream()
+                .map(judgement -> new MapSqlParameterSource()
+                        .addValue("runId", runId)
+                        .addValue("caseId", judgement.caseId())
+                        .addValue("repeat", judgement.repeat())
+                        .addValue("criterion", judgement.criterionKey())
+                        .addValue("shownAs", judgement.candidateShownAs().name())
+                        .addValue("winner", judgement.winner() == null ? null : judgement.winner().name())
+                        .addValue("reason", judgement.reason()))
+                .toArray(MapSqlParameterSource[]::new));
     }
 
     List<EvalJudgement> judgementsOf(UUID runId) {

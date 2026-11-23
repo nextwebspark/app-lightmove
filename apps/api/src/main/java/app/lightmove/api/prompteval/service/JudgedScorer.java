@@ -50,7 +50,7 @@ final class JudgedScorer {
             int judged = candidate + baseline + ties;
             Double net = judged == 0 ? null : PERCENT * (candidate - baseline) / judged;
             scores.add(new JudgedCriterionScore(criterion.key(), criterion.name(), candidate, baseline, ties,
-                    pairs.size() - judged, rounded(net), net != null && -net > TOLERANCE_POINTS + EPSILON));
+                    pairs.size() - judged, rounded(net), isBeyondTolerance(net, -1), isBeyondTolerance(net, 1)));
         }
         return new EvalRunJudged(rubric.version(), run.judgeVersion(), run.judgeModel(), standing.state(),
                 standing.agreementPercent(), standing.counts(), TOLERANCE_POINTS, pairs.size(), scores);
@@ -106,6 +106,11 @@ final class JudgedScorer {
 
     static List<EvalJudgement> judgementsOn(UUID caseId, List<EvalJudgement> judgements) {
         return judgements.stream().filter(judgement -> judgement.caseId().equals(caseId)).toList();
+    }
+
+    /** Both edges by one rule: a net exactly on the tolerance is inside it, for the candidate and against. */
+    private static boolean isBeyondTolerance(Double net, int direction) {
+        return net != null && direction * net > TOLERANCE_POINTS + EPSILON;
     }
 
     private static int wonBy(List<EvalJudgement> judgements, JudgedWinner winner) {

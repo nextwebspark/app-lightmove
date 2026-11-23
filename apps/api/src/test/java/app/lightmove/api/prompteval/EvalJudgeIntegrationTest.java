@@ -262,6 +262,90 @@ class EvalJudgeIntegrationTest extends PositionTemplateFlowSupport {
     }
 
     @Test
+    @DisplayName("a judge put live and checked while a run goes does not make the picks of the unchecked judge "
+            + "that made them count")
+    void aRunCountsOnlyUnderTheJudgeThatJudgedIt() throws Exception {
+        String admin = superAdmin();
+        UUID dataset = openerDataset(admin, 7, 1);
+        String rubricUrl = DATASETS + "/" + dataset + "/rubric";
+        int candidate = saveVersion(admin, OPENER_PROMPT, OPENER, "MARK-CANDIDATE");
+        model.answerWith(AN_OPENER);
+        model.answerWhenSystemContains(JUDGE_MARK, judging("tie", "tie"));
+        awaitEnded(admin, expect(201, postJson(admin, RUNS, runOf(dataset, "DEV", candidate))));
+        for (JsonNode pair : expect(200, postJson(admin, rubricUrl + "/pairs", "{}")).get("pairs")) {
+            expect(204, putJson(admin, "/api/v1/platform/evals/rubric-pairs/" + pair.get("id").asString()
+                    + "/labels", "{\"picks\":{\"specific\":\"TIE\",\"plain\":\"TIE\"}}"));
+        }
+        AtomicReference<Integer> newJudge = new AtomicReference<>();
+        AtomicReference<Throwable> midRunFailure = new AtomicReference<>();
+        // The run's first answer is with the model while a new judge goes live and is checked against the labels.
+        model.whileNextPromptIsAnswered(() -> {
+            try {
+                newJudge.set(saveVersion(admin, JUDGE_PROMPT, "eval-judge", "MARK-JUDGE"));
+                expect(200, putJson(admin, JUDGE_PROMPT + "/production",
+                        "{\"version\":" + newJudge.get() + ",\"reason\":\"Tighter wording\"}"));
+                expect(200, postJson(admin, rubricUrl + "/check", "{}"));
+                awaitChecked(admin, dataset);
+            } catch (Throwable failure) {
+                midRunFailure.set(failure);
+            }
+        });
+
+        JsonNode finished = awaitEnded(admin, expect(201, postJson(admin, RUNS, runOf(dataset, "HOLDOUT",
+                candidate))));
+
+        assertThat(midRunFailure.get()).isNull();
+        assertThat(rubricOf(admin, dataset).get("state").asString()).as("the judge serving now is checked")
+                .isEqualTo("COUNTS");
+        JsonNode judged = finished.get("summary").get("judged");
+        assertThat(judged.get("judgeVersion").asInt()).as("the judge serving when the run was first worked")
+                .isLessThan(newJudge.get());
+        assertThat(judged.get("state").asString()).isEqualTo("UNCHECKED");
+        assertThat(judged.get("counted").asBoolean()).isFalse();
+        assertThat(finished.get("run").get("verdict").isNull()).as("nothing the run measured counts").isTrue();
+        assertThat(judgeSystemTexts().subList(judgeSystemTexts().size() - 3, judgeSystemTexts().size()))
+                .as("the run's three pairs, judged after the new judge went live")
+                .allSatisfy(system -> assertThat(system).doesNotContain("MARK-JUDGE"));
+    }
+
+    @Test
+    @DisplayName("a run picked up again is judged by the judge it began with, whichever serves by then")
+    void aResumedRunKeepsItsJudge() throws Exception {
+        String admin = superAdmin();
+        UUID dataset = openerDataset(admin, 1, 1);
+        int candidate = saveVersion(admin, OPENER_PROMPT, OPENER, "MARK-CANDIDATE");
+        model.answerWith(AN_OPENER);
+        model.failWhenSystemContains(JUDGE_MARK, new IllegalStateException("The model is away"));
+        String runId = expect(201, postJson(admin, RUNS, runOf(dataset, "HOLDOUT", candidate)))
+                .get("run").get("id").asString();
+        Awaitility.await().atMost(Duration.ofSeconds(60)).until(() -> "FAILED".equals(
+                getJson(admin, RUNS + "/" + runId).get("run").get("status").asString()));
+        Integer began = db.queryForObject("SELECT judge_version FROM app_lm_eval_run WHERE id = ?::uuid",
+                Integer.class, runId);
+        assertThat(began).as("fixed on the first claim, before any judge call answered").isNotNull();
+
+        int newJudge = saveVersion(admin, JUDGE_PROMPT, "eval-judge", "MARK-JUDGE");
+        expect(200, putJson(admin, JUDGE_PROMPT + "/production",
+                "{\"version\":" + newJudge + ",\"reason\":\"Tighter wording\"}"));
+        model.reset();
+        model.answerWith(AN_OPENER);
+        model.answerWhenSystemContains(JUDGE_MARK, judging("A", "tie"));
+        // As an instance that died mid-run leaves it: still to be worked, its answers stored.
+        db.update("""
+                UPDATE app_lm_eval_run SET status = 'QUEUED', failure = NULL, finished_at = NULL
+                WHERE id = ?::uuid
+                """, runId);
+        worker.wake();
+
+        JsonNode finished = awaitEnded(admin, getJson(admin, RUNS + "/" + runId));
+
+        assertThat(finished.get("summary").get("judged").get("judgeVersion").asInt()).isEqualTo(began)
+                .isLessThan(newJudge);
+        assertThat(judgeSystemTexts()).isNotEmpty()
+                .allSatisfy(system -> assertThat(system).doesNotContain("MARK-JUDGE"));
+    }
+
+    @Test
     @DisplayName("nobody without the platform role is told a rubric or its pairs exist")
     void theRoutesAreGuarded() throws Exception {
         Firm firm = firm("Ordinary Firm", "admin");
@@ -343,6 +427,14 @@ class EvalJudgeIntegrationTest extends PositionTemplateFlowSupport {
         return model.prompts().stream()
                 .filter(prompt -> prompt.getSystemMessage().getText().contains(JUDGE_MARK))
                 .map(prompt -> prompt.getUserMessage().getText())
+                .toList();
+    }
+
+    /** The instructions each judge call was sent, in order: which version of the judge was asked. */
+    private List<String> judgeSystemTexts() {
+        return model.prompts().stream()
+                .map(prompt -> prompt.getSystemMessage().getText())
+                .filter(system -> system.contains(JUDGE_MARK))
                 .toList();
     }
 

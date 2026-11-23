@@ -29,11 +29,9 @@ import app.lightmove.api.prompteval.model.EvalRunQueued;
 import app.lightmove.api.prompteval.model.EvalRunSummary;
 import app.lightmove.api.prompteval.model.JudgeReading;
 import app.lightmove.api.prompteval.model.JudgedPick;
-import app.lightmove.api.prompteval.model.RubricCriterion;
 import jakarta.annotation.PreDestroy;
 import java.time.Clock;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -41,10 +39,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadLocalRandom;
-import java.util.concurrent.atomic.AtomicBoolean;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -58,9 +53,8 @@ import tools.jackson.databind.JsonNode;
  * no start handed over (a restart, a worker gone quiet). Where the dataset has a rubric, the judge then compares each
  * pair of answers, and its calls are the run's too.
  *
- * <p>One thread of its own, never the shared {@code @Async} pool, which runs a task on its publisher's thread once
- * it is full: a run takes minutes. That thread makes every call itself, because {@link PromptTrialRunner} swaps the
- * version per thread, and carries no workspace: a run sits inside none.
+ * <p>One thread of its own ({@link ClaimedJobDrainer}), which makes every call itself, because
+ * {@link PromptTrialRunner} swaps the version per thread, and carries no workspace: a run sits inside none.
  */
 @Slf4j
 @Component
@@ -80,10 +74,7 @@ public class EvalRunWorker {
     private final AuditService audit;
     private final Clock clock;
     private final PlatformEvalSettings settings;
-    private final ExecutorService thread = Executors.newSingleThreadExecutor(
-            Thread.ofPlatform().name("eval-run").daemon(true).factory());
-    private final AtomicBoolean working = new AtomicBoolean();
-    private volatile boolean shuttingDown;
+    private final ClaimedJobDrainer<ClaimedEvalRun> drainer;
 
     EvalRunWorker(EvalRunStore store, EvalRubricStore rubrics, EvalSubjects subjects, EvalJudge judge,
                   JudgeCalibrationService calibration, PromptRegistryStore registry, PromptTrialRunner runner,
@@ -99,6 +90,8 @@ public class EvalRunWorker {
         this.audit = audit;
         this.clock = clock;
         this.settings = properties.platform().eval();
+        this.drainer = new ClaimedJobDrainer<>("eval-run", () -> store.claim(staleBefore()), this::work,
+                () -> store.isOneWaiting(staleBefore()));
     }
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
@@ -110,44 +103,12 @@ public class EvalRunWorker {
     @Scheduled(fixedDelayString = "${lightmove.platform.eval.worker-tick}",
             initialDelayString = "${lightmove.platform.eval.worker-tick}")
     public void wake() {
-        if (working.compareAndSet(false, true)) {
-            thread.execute(this::drain);
-        }
+        drainer.wake();
     }
 
     /** No run is being worked here: what a test waits for. */
     public boolean isIdle() {
-        return !working.get();
-    }
-
-    /**
-     * Looks again after standing down: a run queued while this one was ending found the worker busy, and would
-     * otherwise wait for the timer.
-     */
-    private void drain() {
-        boolean lookAgain = true;
-        while (lookAgain) {
-            try {
-                Optional<ClaimedEvalRun> claimed = store.claim(staleBefore());
-                while (claimed.isPresent()) {
-                    work(claimed.get());
-                    claimed = store.claim(staleBefore());
-                }
-            } catch (RuntimeException failure) {
-                log.error("The eval worker could not look for a run; the timer looks again", failure);
-            } finally {
-                working.set(false);
-            }
-            lookAgain = isOneWaiting() && working.compareAndSet(false, true);
-        }
-    }
-
-    private boolean isOneWaiting() {
-        try {
-            return store.isOneWaiting(staleBefore());
-        } catch (RuntimeException failure) {
-            return false;
-        }
+        return drainer.isIdle();
     }
 
     private void work(ClaimedEvalRun claimed) {
@@ -155,18 +116,14 @@ public class EvalRunWorker {
         try {
             end(claimed, answerAll(claimed));
         } catch (RuntimeException failure) {
-            if (shuttingDown) {
+            if (drainer.isShuttingDown()) {
                 return;
             }
             log.error("Eval run {} stopped unexpectedly", run.number(), failure);
-            end(claimed, Ending.failed(EvalRunFailure.STOPPED_UNEXPECTEDLY));
+            end(claimed, new Ending.Failed(EvalRunFailure.STOPPED_UNEXPECTEDLY));
         }
     }
 
-    /**
-     * Null: the run is no longer this worker's to end. Another instance took it, or this one is shutting down and
-     * leaves it, still running, for the next to pick up from the answers stored.
-     */
     private Ending answerAll(ClaimedEvalRun claimed) {
         EvalRun run = claimed.run();
         EvalSubject subject = subjects.of(run.promptId())
@@ -176,8 +133,7 @@ public class EvalRunWorker {
                 EvalRunSide.BASELINE, versionOf(run, run.baselineVersion()));
         EvalRubric rubric = run.rubricId() == null ? null : rubrics.find(run.rubricId())
                 .orElseThrow(() -> new IllegalStateException("No rubric " + run.rubricId()));
-        ServedPrompt judgeVersion = rubric == null ? null : judge.liveVersion()
-                .orElseThrow(() -> new IllegalStateException("The eval judge has no version serving"));
+        ServedPrompt judgeVersion = rubric == null ? null : judgeOf(run);
         List<EvalRunCase> cases = store.casesOf(run.id());
         Map<String, EvalRunAnswer> answers = new HashMap<>();
         store.answersOf(run.id()).forEach(answer ->
@@ -195,58 +151,74 @@ public class EvalRunWorker {
                     if (answers.containsKey(key)) {
                         continue;
                     }
-                    Ending stopped = stopBeforeCall(claimed);
-                    if (stopped != null) {
-                        return stopped == Ending.NOT_HELD ? null : stopped;
+                    Optional<Ending> stopped = stopBeforeCall(claimed);
+                    if (stopped.isPresent()) {
+                        return stopped.get();
                     }
                     EvalRunAnswer answered = answer(run, subject, versions.get(side), evalCase, side, repeat);
-                    if (shuttingDown) {
-                        return null;
+                    if (drainer.isShuttingDown()) {
+                        return new Ending.Left();
                     }
                     if (answered == null) {
-                        return Ending.failed(EvalRunFailure.MODEL_UNAVAILABLE);
+                        return new Ending.Failed(EvalRunFailure.MODEL_UNAVAILABLE);
                     }
                     answers.put(key, answered);
                 }
                 if (rubric == null || judged.contains(pairKeyOf(evalCase.id(), repeat))) {
                     continue;
                 }
-                Ending stopped = stopBeforeCall(claimed);
-                if (stopped != null) {
-                    return stopped == Ending.NOT_HELD ? null : stopped;
+                Optional<Ending> stopped = stopBeforeCall(claimed);
+                if (stopped.isPresent()) {
+                    return stopped.get();
                 }
                 boolean judgedNow = judge(run, rubric, judgeVersion, evalCase, repeat,
                         answers.get(keyOf(evalCase.id(), EvalRunSide.CANDIDATE, repeat)).answer(),
                         answers.get(keyOf(evalCase.id(), EvalRunSide.BASELINE, repeat)).answer());
-                if (shuttingDown) {
-                    return null;
+                if (drainer.isShuttingDown()) {
+                    return new Ending.Left();
                 }
                 if (!judgedNow) {
-                    return Ending.failed(EvalRunFailure.MODEL_UNAVAILABLE);
+                    return new Ending.Failed(EvalRunFailure.MODEL_UNAVAILABLE);
                 }
             }
         }
         List<EvalJudgement> judgements = rubric == null ? List.of() : rubrics.judgementsOf(run.id());
         // Whether the judged criteria count is read as the run finishes and stored with it: labelling later
-        // changes no run.
+        // changes no run. It is read for the judge that made this run's picks, never the one serving by now: a
+        // judge put live and checked while the run went says nothing of the picks an unchecked one made (#1322).
         EvalRunJudged judgedSummary = rubric == null ? null : JudgedScorer.judgedOf(rubric,
-                store.find(run.id()).orElse(run), calibration.standingOf(rubric), judgements);
+                store.find(run.id()).orElse(run), calibration.standingFor(rubric, judgeVersion.version()),
+                judgements);
         EvalRunSummary summary = EvalRunScorer.summarise(subject, cases, store.answersOf(run.id()), rubric,
                 judgements, judgedSummary);
-        return Ending.finished(summary, EvalRunScorer.verdictOf(subject, summary));
+        return new Ending.Finished(summary, EvalRunScorer.verdictOf(subject, summary));
     }
 
-    /** Null: the next call may be made. Asked before every call, a judge's among them. */
-    private Ending stopBeforeCall(ClaimedEvalRun claimed) {
+    /**
+     * The judge this run's pairs are judged by: the one serving when the run was first worked, kept from then on.
+     * A run picked up after a restart, with a new judge live in between, would otherwise hold picks from two.
+     */
+    private ServedPrompt judgeOf(EvalRun run) {
+        int pinned = run.judgeVersion() != null ? run.judgeVersion()
+                : store.pinJudgeVersion(run.id(), judge.liveVersion()
+                        .orElseThrow(() -> new IllegalStateException("The eval judge has no version serving"))
+                        .version());
+        return registry.version(EvalJudge.PROMPT_ID, pinned)
+                .orElseThrow(() -> new IllegalStateException("No version " + pinned + " of the eval judge"));
+    }
+
+    /** Empty: the next call may be made. Asked before every call, a judge's among them. */
+    private Optional<Ending> stopBeforeCall(ClaimedEvalRun claimed) {
         EvalRunPulse pulse = store.pulse(claimed);
         if (!pulse.held()) {
             log.info("Eval run {} is no longer this worker's", claimed.run().number());
-            return Ending.NOT_HELD;
+            return Optional.of(new Ending.Left());
         }
         if (pulse.stopRequested()) {
-            return Ending.cancelled();
+            return Optional.of(new Ending.Cancelled());
         }
-        return pulse.callsMade() >= claimed.run().callCap() ? Ending.failed(EvalRunFailure.CALL_CAP_REACHED) : null;
+        return pulse.callsMade() >= claimed.run().callCap()
+                ? Optional.of(new Ending.Failed(EvalRunFailure.CALL_CAP_REACHED)) : Optional.empty();
     }
 
     /**
@@ -255,7 +227,7 @@ public class EvalRunWorker {
      */
     private EvalRunAnswer answer(EvalRun run, EvalSubject subject, ServedPrompt version, EvalRunCase evalCase,
                                  EvalRunSide side, int repeat) {
-        for (int ask = 0; ask < ASKS_PER_ANSWER && !shuttingDown; ask++) {
+        for (int ask = 0; ask < ASKS_PER_ANSWER && !drainer.isShuttingDown(); ask++) {
             PromptTrialResult asked = null;
             try {
                 asked = runner.run(version, () -> subject.answer(evalCase.input()));
@@ -283,34 +255,31 @@ public class EvalRunWorker {
 
     /**
      * Has the judge compare one pair, the two answers in an order drawn at random and stored with its picks. False
-     * when the judge answered nothing, asked {@link #ASKS_PER_ANSWER} times: an outage is never stored as a tie.
+     * when the judge never answered: an outage is never stored as a tie.
      */
     private boolean judge(EvalRun run, EvalRubric rubric, ServedPrompt judgeVersion, EvalRunCase evalCase,
                           int repeat, JsonNode candidate, JsonNode baseline) {
         boolean candidateFirst = ThreadLocalRandom.current().nextBoolean();
-        for (int ask = 0; ask < ASKS_PER_ANSWER && !shuttingDown; ask++) {
-            JudgeReading reading = judge.judge(judgeVersion, rubric.criteria(), evalCase.input(),
-                    candidateFirst ? candidate : baseline, candidateFirst ? baseline : candidate);
-            if (!reading.isAnswered()) {
-                store.addJudgeSpend(run.id(), judgeVersion.version(), 1, 0, 0, null);
-                continue;
-            }
-            List<EvalJudgement> judgements = new ArrayList<>();
-            for (RubricCriterion criterion : rubric.criteria()) {
-                JudgedPick pick = reading.picks().getOrDefault(criterion.key(), JudgedPick.UNREADABLE);
-                judgements.add(new EvalJudgement(evalCase.id(), repeat, criterion.key(),
-                        candidateFirst ? JudgePick.A : JudgePick.B, winnerOf(pick.pick(), candidateFirst),
-                        pick.reason()));
-            }
-            PromptTrialResult asked = reading.asked();
-            transactions.executeWithoutResult(status -> {
-                rubrics.addJudgements(run.id(), judgements);
-                store.addJudgeSpend(run.id(), judgeVersion.version(), asked.modelCalls(), asked.inputTokens(),
-                        asked.outputTokens(), asked.model());
-            });
-            return true;
+        Optional<JudgeReading> answered = judge.judgeUntilAnswered(judgeVersion, rubric.criteria(), evalCase.input(),
+                candidateFirst ? candidate : baseline, candidateFirst ? baseline : candidate,
+                drainer::isShuttingDown, unanswered -> store.addJudgeSpend(run.id(), unanswered));
+        if (answered.isEmpty()) {
+            return false;
         }
-        return false;
+        JudgeReading reading = answered.get();
+        List<EvalJudgement> judgements = rubric.criteria().stream()
+                .map(criterion -> {
+                    JudgedPick pick = reading.picks().getOrDefault(criterion.key(), JudgedPick.UNREADABLE);
+                    return new EvalJudgement(evalCase.id(), repeat, criterion.key(),
+                            candidateFirst ? JudgePick.A : JudgePick.B, winnerOf(pick.pick(), candidateFirst),
+                            pick.reason());
+                })
+                .toList();
+        transactions.executeWithoutResult(status -> {
+            rubrics.addJudgements(run.id(), judgements);
+            store.addJudgeSpend(run.id(), reading);
+        });
+        return true;
     }
 
     private static JudgedWinner winnerOf(JudgePick pick, boolean candidateFirst) {
@@ -342,17 +311,25 @@ public class EvalRunWorker {
     }
 
     private void end(ClaimedEvalRun claimed, Ending ending) {
-        if (ending == null) {
-            return;
+        switch (ending) {
+            case Ending.Left left -> { }
+            // A cancelled run was audited when the stop was asked for, by the person who asked.
+            case Ending.Cancelled cancelled -> store.end(claimed, EvalRunStatus.CANCELLED, null);
+            case Ending.Failed failed -> {
+                if (store.end(claimed, EvalRunStatus.FAILED, failed.failure())) {
+                    record(claimed, null, null, failed.failure());
+                }
+            }
+            case Ending.Finished finished -> {
+                if (store.finish(claimed, finished.verdict(), finished.summary())) {
+                    record(claimed, finished.summary(), finished.verdict(), null);
+                }
+            }
         }
-        EvalRunVerdict verdict = ending.verdict();
-        boolean ended = ending.status() == EvalRunStatus.FINISHED
-                ? store.finish(claimed, verdict, ending.summary())
-                : store.end(claimed, ending.status(), ending.failure());
-        // A cancelled run was audited when the stop was asked for, by the person who asked.
-        if (!ended || ending.status() == EvalRunStatus.CANCELLED) {
-            return;
-        }
+    }
+
+    private void record(ClaimedEvalRun claimed, EvalRunSummary summary, EvalRunVerdict verdict,
+                        EvalRunFailure failure) {
         store.find(claimed.run().id()).ifPresent(run -> {
             AuditService.Builder event = audit.event(PlatformEventType.EVAL_RUN_FINISHED)
                     .actor(run.startedBy())
@@ -361,13 +338,13 @@ public class EvalRunWorker {
                     .detail("prompt", run.promptId())
                     .detail("status", run.status().name())
                     .detailIfPresent("verdict", verdict == null ? null : verdict.name())
-                    .detailIfPresent("failure", ending.failure() == null ? null : ending.failure().name())
+                    .detailIfPresent("failure", failure == null ? null : failure.name())
                     .detail("calls", run.callsMade())
                     .detail("tokens", run.inputTokens() + run.outputTokens());
-            if (ending.summary() != null && ending.summary().judged() != null) {
-                event.detail("judgedCounted", ending.summary().judged().counted());
+            if (summary != null && summary.judged() != null) {
+                event.detail("judgedCounted", summary.judged().counted());
             }
-            if (ending.status() == EvalRunStatus.FAILED) {
+            if (failure != null) {
                 event.failed();
             }
             event.record();
@@ -394,27 +371,23 @@ public class EvalRunWorker {
 
     @PreDestroy
     void stop() {
-        shuttingDown = true;
-        thread.shutdownNow();
+        drainer.stop();
     }
 
-    /** How a run this worker held came to an end. {@code verdict} is null for a finished run with no result. */
-    private record Ending(EvalRunStatus status, EvalRunFailure failure, EvalRunSummary summary,
-                          EvalRunVerdict verdict) {
+    /** How a claimed run's work came to a stop. */
+    private sealed interface Ending {
 
-        /** The run is another worker's now: nothing here ends it. */
-        static final Ending NOT_HELD = new Ending(null, null, null, null);
+        /** {@code verdict} is null for a run nothing counted on. */
+        record Finished(EvalRunSummary summary, EvalRunVerdict verdict) implements Ending { }
 
-        static Ending finished(EvalRunSummary summary, EvalRunVerdict verdict) {
-            return new Ending(EvalRunStatus.FINISHED, null, summary, verdict);
-        }
+        record Cancelled() implements Ending { }
 
-        static Ending cancelled() {
-            return new Ending(EvalRunStatus.CANCELLED, null, null, null);
-        }
+        record Failed(EvalRunFailure failure) implements Ending { }
 
-        static Ending failed(EvalRunFailure failure) {
-            return new Ending(EvalRunStatus.FAILED, failure, null, null);
-        }
+        /**
+         * Not this worker's to end: another instance took the run, or this one is shutting down and leaves it,
+         * still running, for the next to pick up from the answers stored.
+         */
+        record Left() implements Ending { }
     }
 }

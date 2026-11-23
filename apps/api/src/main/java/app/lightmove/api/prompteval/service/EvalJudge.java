@@ -1,5 +1,6 @@
 package app.lightmove.api.prompteval.service;
 
+import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.llm.constant.FinishKind;
 import app.lightmove.api.core.llm.model.BlockedAnswer;
 import app.lightmove.api.core.llm.model.PromptTrialResult;
@@ -18,6 +19,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.BooleanSupplier;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -61,8 +64,8 @@ public class EvalJudge {
     private final ObjectMapper json;
 
     EvalJudge(StructuredPromptFactory prompts, PromptTrialRunner runner, PromptRegistryStore registry,
-              ObjectMapper json) {
-        this.prompt = prompts.create(PROMPT_ID, BLOCKED, PlatformPrompt.EVAL_JUDGE.getPinnedModel());
+              ObjectMapper json, LightMoveProperties properties) {
+        this.prompt = prompts.create(PROMPT_ID, BLOCKED, properties.platform().eval().pinnedJudgeModel());
         this.runner = runner;
         this.registry = registry;
         this.json = json;
@@ -71,6 +74,24 @@ public class EvalJudge {
     /** The judge's version serving now. Empty where the registry holds none. */
     public Optional<ServedPrompt> liveVersion() {
         return registry.productionOf(PROMPT_ID).flatMap(live -> registry.version(PROMPT_ID, live.version()));
+    }
+
+    /**
+     * Asks until the judge answers, {@link EvalRunWorker#ASKS_PER_ANSWER} times at most, handing {@code unanswered}
+     * each ask that came back with nothing so its cost is kept. Empty: it never answered, or {@code givenUp} said
+     * to stop asking. An outage is never a pick.
+     */
+    Optional<JudgeReading> judgeUntilAnswered(ServedPrompt version, List<RubricCriterion> criteria,
+                                              JsonNode caseInput, JsonNode answerA, JsonNode answerB,
+                                              BooleanSupplier givenUp, Consumer<JudgeReading> unanswered) {
+        for (int ask = 0; ask < EvalRunWorker.ASKS_PER_ANSWER && !givenUp.getAsBoolean(); ask++) {
+            JudgeReading reading = judge(version, criteria, caseInput, answerA, answerB);
+            if (reading.isAnswered()) {
+                return Optional.of(reading);
+            }
+            unanswered.accept(reading);
+        }
+        return Optional.empty();
     }
 
     /**

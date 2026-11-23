@@ -57,9 +57,7 @@ class PromotionGateAdapter implements PromotionGate {
             return null;
         }
         return new PromotionGateJudged(judged.counted(), judged.state().name(), judged.criteria().size(),
-                (int) judged.criteria().stream()
-                        .filter(criterion -> criterion.net() != null && criterion.net() > judged.tolerancePoints())
-                        .count(),
+                (int) judged.criteria().stream().filter(JudgedCriterionScore::betterBeyondTolerance).count(),
                 judged.criteria().stream()
                         .filter(JudgedCriterionScore::worseBeyondTolerance)
                         .map(JudgedCriterionScore::name)

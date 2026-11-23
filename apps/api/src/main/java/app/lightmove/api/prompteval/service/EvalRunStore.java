@@ -14,6 +14,7 @@ import app.lightmove.api.prompteval.model.EvalRunAnswer;
 import app.lightmove.api.prompteval.model.EvalRunCase;
 import app.lightmove.api.prompteval.model.EvalRunPulse;
 import app.lightmove.api.prompteval.model.EvalRunSummary;
+import app.lightmove.api.prompteval.model.JudgeReading;
 import app.lightmove.api.prompteval.model.NewEvalRun;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -240,20 +241,36 @@ public class EvalRunStore {
                 .update();
     }
 
-    /** What the judge's ask cost, answered or not, and the judge that was asked. */
-    void addJudgeSpend(UUID runId, int judgeVersion, int calls, long inputTokens, long outputTokens, String model) {
+    /**
+     * Fixes the judge a run is judged by, the first time it is worked, and answers it. A run picked up again keeps
+     * the judge it began with, whichever serves by then: its pairs are never judged by two versions.
+     */
+    int pinJudgeVersion(UUID runId, int liveJudgeVersion) {
+        return jdbc.sql("""
+                        UPDATE app_lm_eval_run SET judge_version = coalesce(judge_version, :live)
+                        WHERE id = :id
+                        RETURNING judge_version
+                        """)
+                .param("id", runId)
+                .param("live", liveJudgeVersion)
+                .query(Integer.class)
+                .single();
+    }
+
+    /** What the judge's ask cost, answered or not, and the model that answered. */
+    void addJudgeSpend(UUID runId, JudgeReading reading) {
+        String model = reading.asked().model();
         jdbc.sql("""
                         UPDATE app_lm_eval_run
                         SET calls_made = calls_made + :calls, input_tokens = input_tokens + :inputTokens,
-                            output_tokens = output_tokens + :outputTokens, judge_version = :judgeVersion,
+                            output_tokens = output_tokens + :outputTokens,
                             judge_model = coalesce(:model, judge_model)
                         WHERE id = :id
                         """)
                 .param("id", runId)
-                .param("judgeVersion", judgeVersion)
-                .param("calls", calls)
-                .param("inputTokens", inputTokens)
-                .param("outputTokens", outputTokens)
+                .param("calls", reading.callsCharged())
+                .param("inputTokens", reading.asked().inputTokens())
+                .param("outputTokens", reading.asked().outputTokens())
                 .param("model", model == null || model.isBlank() ? null
                         : model.substring(0, Math.min(model.length(), MODEL_NAME_LENGTH)))
                 .update();

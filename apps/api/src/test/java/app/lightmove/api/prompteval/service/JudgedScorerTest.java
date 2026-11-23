@@ -73,7 +73,13 @@ class JudgedScorerTest {
     void isWorseOnlyPastTheTolerance() {
         List<EvalJudgement> atTolerance = new ArrayList<>();
         List<EvalJudgement> pastTolerance = new ArrayList<>();
+        List<EvalJudgement> forCandidateAtTolerance = new ArrayList<>();
+        List<EvalJudgement> forCandidatePastTolerance = new ArrayList<>();
         for (int repeat = 0; repeat < 10; repeat++) {
+            forCandidateAtTolerance.addAll(pair(FIRST, repeat,
+                    repeat == 0 ? JudgedWinner.CANDIDATE : JudgedWinner.TIE, JudgedWinner.TIE));
+            forCandidatePastTolerance.addAll(pair(FIRST, repeat,
+                    repeat < 2 ? JudgedWinner.CANDIDATE : JudgedWinner.TIE, JudgedWinner.TIE));
             atTolerance.addAll(pair(FIRST, repeat, repeat == 0 ? JudgedWinner.BASELINE : JudgedWinner.TIE,
                     JudgedWinner.TIE));
             pastTolerance.addAll(pair(FIRST, repeat, repeat < 2 ? JudgedWinner.BASELINE : JudgedWinner.TIE,
@@ -86,6 +92,11 @@ class JudgedScorerTest {
                 .getFirst();
         assertThat(worse.net()).isEqualTo(-20.0);
         assertThat(worse.worseBeyondTolerance()).isTrue();
+        assertThat(worse.betterBeyondTolerance()).isFalse();
+        assertThat(JudgedScorer.judgedOf(RUBRIC, run(), counting(), forCandidateAtTolerance).criteria().getFirst()
+                .betterBeyondTolerance()).as("the same edge the other way").isFalse();
+        assertThat(JudgedScorer.judgedOf(RUBRIC, run(), counting(), forCandidatePastTolerance).criteria()
+                .getFirst().betterBeyondTolerance()).isTrue();
     }
 
     @Test

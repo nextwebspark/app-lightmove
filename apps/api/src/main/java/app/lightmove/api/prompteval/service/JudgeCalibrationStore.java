@@ -1,6 +1,5 @@
 package app.lightmove.api.prompteval.service;
 
-import app.lightmove.api.core.llm.model.PromptTrialResult;
 import app.lightmove.api.prompteval.constant.CalibrationCheckStatus;
 import app.lightmove.api.prompteval.constant.EvalCaseSplit;
 import app.lightmove.api.prompteval.constant.JudgePick;
@@ -10,6 +9,7 @@ import app.lightmove.api.prompteval.model.CalibrationLabelling;
 import app.lightmove.api.prompteval.model.CalibrationPair;
 import app.lightmove.api.prompteval.model.CalibrationPick;
 import app.lightmove.api.prompteval.model.ClaimedCalibrationCheck;
+import app.lightmove.api.prompteval.model.JudgeReading;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
@@ -18,6 +18,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 import tools.jackson.databind.JsonNode;
@@ -52,6 +54,7 @@ public class JudgeCalibrationStore {
             """;
 
     private final JdbcClient jdbc;
+    private final NamedParameterJdbcTemplate batches;
     private final ObjectMapper json;
 
     /** Held to the end of the transaction, so two people opening Label pairs together draw one set. */
@@ -197,6 +200,18 @@ public class JudgeCalibrationStore {
                 .optional();
     }
 
+    /** The last finished check of that version of the judge: what a run it judged rests on. */
+    Optional<CalibrationCheck> latestFinishedCheck(UUID rubricId, int judgeVersion) {
+        return jdbc.sql(CHECKS + """
+                        WHERE rubric_id = :rubricId AND judge_version = :judgeVersion AND status = 'FINISHED'
+                        ORDER BY created_at DESC LIMIT 1
+                        """)
+                .param("rubricId", rubricId)
+                .param("judgeVersion", judgeVersion)
+                .query(JudgeCalibrationStore::check)
+                .optional();
+    }
+
     Optional<CalibrationCheck> findCheck(UUID checkId) {
         return jdbc.sql(CHECKS + "WHERE id = :id").param("id", checkId).query(JudgeCalibrationStore::check).optional();
     }
@@ -265,21 +280,20 @@ public class JudgeCalibrationStore {
     }
 
     void addPicks(UUID checkId, boolean aShownFirst, List<CalibrationPick> picks) {
-        for (CalibrationPick pick : picks) {
-            jdbc.sql("""
-                            INSERT INTO app_lm_eval_calibration_pick
-                                (check_id, pair_id, criterion_key, a_shown_first, pick, reason)
-                            VALUES (:checkId, :pairId, :criterion, :aShownFirst, :pick, :reason)
-                            ON CONFLICT (check_id, pair_id, criterion_key) DO NOTHING
-                            """)
-                    .param("checkId", checkId)
-                    .param("pairId", pick.pairId())
-                    .param("criterion", pick.criterionKey())
-                    .param("aShownFirst", aShownFirst)
-                    .param("pick", pick.pick() == null ? null : pick.pick().name())
-                    .param("reason", pick.reason())
-                    .update();
-        }
+        batches.batchUpdate("""
+                INSERT INTO app_lm_eval_calibration_pick
+                    (check_id, pair_id, criterion_key, a_shown_first, pick, reason)
+                VALUES (:checkId, :pairId, :criterion, :aShownFirst, :pick, :reason)
+                ON CONFLICT (check_id, pair_id, criterion_key) DO NOTHING
+                """, picks.stream()
+                .map(pick -> new MapSqlParameterSource()
+                        .addValue("checkId", checkId)
+                        .addValue("pairId", pick.pairId())
+                        .addValue("criterion", pick.criterionKey())
+                        .addValue("aShownFirst", aShownFirst)
+                        .addValue("pick", pick.pick() == null ? null : pick.pick().name())
+                        .addValue("reason", pick.reason()))
+                .toArray(MapSqlParameterSource[]::new));
     }
 
     List<CalibrationPick> picksOf(UUID checkId) {
@@ -303,8 +317,9 @@ public class JudgeCalibrationStore {
                 .single();
     }
 
-    void addSpend(UUID checkId, PromptTrialResult asked) {
-        String model = asked.model();
+    /** What the judge's ask cost, answered or not, and the model that answered. */
+    void addSpend(UUID checkId, JudgeReading reading) {
+        String model = reading.asked().model();
         jdbc.sql("""
                         UPDATE app_lm_eval_calibration_check
                         SET calls_made = calls_made + :calls, input_tokens = input_tokens + :inputTokens,
@@ -312,9 +327,9 @@ public class JudgeCalibrationStore {
                         WHERE id = :id
                         """)
                 .param("id", checkId)
-                .param("calls", Math.max(1, asked.modelCalls()))
-                .param("inputTokens", asked.inputTokens())
-                .param("outputTokens", asked.outputTokens())
+                .param("calls", reading.callsCharged())
+                .param("inputTokens", reading.asked().inputTokens())
+                .param("outputTokens", reading.asked().outputTokens())
                 .param("model", model == null || model.isBlank() ? null
                         : model.substring(0, Math.min(model.length(), MODEL_NAME_LENGTH)))
                 .update();

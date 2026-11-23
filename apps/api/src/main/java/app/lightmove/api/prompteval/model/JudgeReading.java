@@ -13,4 +13,12 @@ public record JudgeReading(Map<String, JudgedPick> picks, PromptTrialResult aske
     public boolean isAnswered() {
         return asked.modelCalls() > 0 || asked.parsedAnswer() != null;
     }
+
+    /**
+     * The calls one ask counts as, on a run and on a check alike: the model's own, and never fewer than one, so an
+     * ask that came back with nothing still moves its job toward its call cap.
+     */
+    public int callsCharged() {
+        return Math.max(1, asked.modelCalls());
+    }
 }

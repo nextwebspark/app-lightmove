@@ -61,7 +61,6 @@ public class EvalRunService {
     private final EvalRunPlanner planner;
     private final EvalSubjects subjects;
     private final EvalRubricStore rubrics;
-    private final JudgeCalibrationService calibration;
     private final PromptCatalogService catalog;
     private final PromptRegistryStore registry;
     private final LlmBudgetGuard budget;
@@ -72,14 +71,13 @@ public class EvalRunService {
     private final PlatformEvalSettings settings;
 
     EvalRunService(EvalRunStore store, EvalRunPlanner planner, EvalSubjects subjects, EvalRubricStore rubrics,
-                   JudgeCalibrationService calibration, PromptCatalogService catalog, PromptRegistryStore registry, LlmBudgetGuard budget, TransactionTemplate transactions,
-                   ApplicationEventPublisher events, AuditService audit, Clock clock,
-                   LightMoveProperties properties) {
+                   PromptCatalogService catalog, PromptRegistryStore registry, LlmBudgetGuard budget,
+                   TransactionTemplate transactions, ApplicationEventPublisher events, AuditService audit,
+                   Clock clock, LightMoveProperties properties) {
         this.store = store;
         this.planner = planner;
         this.subjects = subjects;
         this.rubrics = rubrics;
-        this.calibration = calibration;
         this.catalog = catalog;
         this.registry = registry;
         this.budget = budget;
@@ -110,8 +108,7 @@ public class EvalRunService {
                         + UNMEASURED_ANSWER_TOKENS;
         double millisPerCall = measured.millis() != null ? measured.millis() : UNMEASURED_CALL_MILLIS;
         return new EvalRunEstimate(plan.baseline().version(), plan.cases(), plan.repeats(), plan.repeatsReason(),
-                plan.calls(), plan.judgeCalls(),
-                plan.rubric() == null ? null : calibration.standingOf(plan.rubric()).counts(),
+                plan.calls(), plan.judgeCalls(), plan.judgedCounts(),
                 Math.round(tokensPerCall * plan.calls()),
                 (int) Math.ceil(millisPerCall * plan.calls() / Duration.ofMinutes(1).toMillis()),
                 settings.maxCallsPerRun(), plan.calls() > settings.maxCallsPerRun());

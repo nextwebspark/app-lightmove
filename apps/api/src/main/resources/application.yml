@@ -847,6 +847,8 @@ lightmove:
       max-calls-per-run: ${PLATFORM_EVAL_MAX_CALLS_PER_RUN:200}
       stale-after: ${PLATFORM_EVAL_STALE_AFTER:10m}
       worker-tick: ${PLATFORM_EVAL_WORKER_TICK:PT1M}
+      # The model a version of the eval judge naming none is answered by (#1322). Blank: the deployment's own.
+      judge-model: ${PLATFORM_EVAL_JUDGE_MODEL:gemini-3.8-flash}
 
   # The data processing agreement a founder accepts for the firm when creating a workspace (#928). Both blank until
   # counsel publishes one: nothing is asked. Set together; a new version asks only workspaces created after it.

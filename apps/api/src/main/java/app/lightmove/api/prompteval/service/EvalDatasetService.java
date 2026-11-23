@@ -33,8 +33,9 @@ public class EvalDatasetService {
     @Transactional(readOnly = true)
     public List<EvalDatasetOverview> list() {
         Map<UUID, EvalRubric> rubricByDataset = rubrics.latestByDataset();
+        Integer liveJudgeVersion = calibration.liveJudgeVersion();
         return store.datasets().stream()
-                .map(dataset -> overviewOf(dataset, rubricByDataset.get(dataset.id())))
+                .map(dataset -> overviewOf(dataset, rubricByDataset.get(dataset.id()), liveJudgeVersion))
                 .toList();
     }
 
@@ -42,7 +43,7 @@ public class EvalDatasetService {
     public EvalDatasetDetail get(UUID datasetId) {
         EvalDataset dataset = require(datasetId);
         EvalRubric rubric = rubrics.latestOf(datasetId).orElse(null);
-        return new EvalDatasetDetail(overviewOf(dataset, rubric),
+        return new EvalDatasetDetail(overviewOf(dataset, rubric, calibration.liveJudgeVersion()),
                 store.casesOf(datasetId).stream().map(EvalDatasetService::summaryOf).toList(),
                 rubric == null ? null : calibration.detailOf(dataset, rubric));
     }
@@ -68,11 +69,12 @@ public class EvalDatasetService {
                 .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND, "No eval dataset " + datasetId));
     }
 
-    private EvalDatasetOverview overviewOf(EvalDataset dataset, EvalRubric rubric) {
+    private EvalDatasetOverview overviewOf(EvalDataset dataset, EvalRubric rubric, Integer liveJudgeVersion) {
         return new EvalDatasetOverview(dataset.id(), dataset.name(), dataset.description(), dataset.promptId(),
                 PlatformPrompt.of(dataset.promptId()).map(PlatformPrompt::getDisplayName).orElse(dataset.promptId()),
                 dataset.cases(), dataset.dev(), dataset.holdout(), dataset.updatedAt(),
-                subjects.of(dataset.promptId()).isPresent(), calibration.summaryOf(rubric).orElse(null));
+                subjects.of(dataset.promptId()).isPresent(),
+                calibration.summaryOf(rubric, liveJudgeVersion).orElse(null));
     }
 
     private static EvalCaseSummary summaryOf(EvalCase evalCase) {

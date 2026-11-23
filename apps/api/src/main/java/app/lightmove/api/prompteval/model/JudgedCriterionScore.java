@@ -5,4 +5,4 @@ package app.lightmove.api.prompteval.model;
  * share the baseline won, in points; null when no pair was judged. {@code unjudged} pairs count for neither side.
  */
 public record JudgedCriterionScore(String key, String name, int candidateWon, int baselineWon, int ties, int unjudged,
-                                   Double net, boolean worseBeyondTolerance) {}
+                                   Double net, boolean worseBeyondTolerance, boolean betterBeyondTolerance) {}

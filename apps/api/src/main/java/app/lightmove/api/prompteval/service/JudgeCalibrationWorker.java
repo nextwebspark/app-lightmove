@@ -15,19 +15,14 @@ import app.lightmove.api.prompteval.model.ClaimedCalibrationCheck;
 import app.lightmove.api.prompteval.model.EvalRubric;
 import app.lightmove.api.prompteval.model.JudgeReading;
 import app.lightmove.api.prompteval.model.JudgedPick;
-import app.lightmove.api.prompteval.model.RubricCriterion;
 import jakarta.annotation.PreDestroy;
 import java.time.Clock;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadLocalRandom;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -38,8 +33,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * Checks the judge against a rubric's labels, off every request: it makes its own picks on the labelled pairs, each
- * shown in a random order, and the check ends with how many matched. One thread of its own, like
- * {@link EvalRunWorker}'s, and for the same reasons.
+ * shown in a random order, and the check ends with how many matched. One thread of its own
+ * ({@link ClaimedJobDrainer}), like {@link EvalRunWorker}'s.
  */
 @Slf4j
 @Component
@@ -53,10 +48,7 @@ public class JudgeCalibrationWorker {
     private final AuditService audit;
     private final Clock clock;
     private final PlatformEvalSettings settings;
-    private final ExecutorService thread = Executors.newSingleThreadExecutor(
-            Thread.ofPlatform().name("eval-judge-check").daemon(true).factory());
-    private final AtomicBoolean working = new AtomicBoolean();
-    private volatile boolean shuttingDown;
+    private final ClaimedJobDrainer<ClaimedCalibrationCheck> drainer;
 
     JudgeCalibrationWorker(JudgeCalibrationStore store, EvalRubricStore rubrics, EvalJudge judge,
                            PromptRegistryStore registry, TransactionTemplate transactions, AuditService audit,
@@ -69,6 +61,8 @@ public class JudgeCalibrationWorker {
         this.audit = audit;
         this.clock = clock;
         this.settings = properties.platform().eval();
+        this.drainer = new ClaimedJobDrainer<>("eval-judge-check", () -> store.claim(staleBefore()), this::work,
+                () -> store.isOneWaiting(staleBefore()));
     }
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
@@ -79,40 +73,12 @@ public class JudgeCalibrationWorker {
     @Scheduled(fixedDelayString = "${lightmove.platform.eval.worker-tick}",
             initialDelayString = "${lightmove.platform.eval.worker-tick}")
     public void wake() {
-        if (working.compareAndSet(false, true)) {
-            thread.execute(this::drain);
-        }
+        drainer.wake();
     }
 
     /** No check is being worked here: what a test waits for. */
     public boolean isIdle() {
-        return !working.get();
-    }
-
-    private void drain() {
-        boolean lookAgain = true;
-        while (lookAgain) {
-            try {
-                Optional<ClaimedCalibrationCheck> claimed = store.claim(staleBefore());
-                while (claimed.isPresent()) {
-                    work(claimed.get());
-                    claimed = store.claim(staleBefore());
-                }
-            } catch (RuntimeException failure) {
-                log.error("The judge check worker could not look for a check; the timer looks again", failure);
-            } finally {
-                working.set(false);
-            }
-            lookAgain = isOneWaiting() && working.compareAndSet(false, true);
-        }
-    }
-
-    private boolean isOneWaiting() {
-        try {
-            return store.isOneWaiting(staleBefore());
-        } catch (RuntimeException failure) {
-            return false;
-        }
+        return drainer.isIdle();
     }
 
     private void work(ClaimedCalibrationCheck claimed) {
@@ -120,7 +86,7 @@ public class JudgeCalibrationWorker {
         try {
             judgedAll = judgeAll(claimed);
         } catch (RuntimeException failure) {
-            if (shuttingDown) {
+            if (drainer.isShuttingDown()) {
                 return;
             }
             log.error("The judge check {} stopped unexpectedly", claimed.check().id(), failure);
@@ -157,7 +123,7 @@ public class JudgeCalibrationWorker {
                 return null;
             }
             boolean answered = judge(check, version, rubric, pair);
-            if (shuttingDown) {
+            if (drainer.isShuttingDown()) {
                 return null;
             }
             if (!answered) {
@@ -169,26 +135,26 @@ public class JudgeCalibrationWorker {
 
     private boolean judge(CalibrationCheck check, ServedPrompt version, EvalRubric rubric, CalibrationPair pair) {
         boolean aShownFirst = ThreadLocalRandom.current().nextBoolean();
-        for (int ask = 0; ask < EvalRunWorker.ASKS_PER_ANSWER && !shuttingDown; ask++) {
-            JudgeReading reading = judge.judge(version, rubric.criteria(), pair.input(),
-                    aShownFirst ? pair.answerA() : pair.answerB(), aShownFirst ? pair.answerB() : pair.answerA());
-            if (!reading.isAnswered()) {
-                store.addSpend(check.id(), reading.asked());
-                continue;
-            }
-            List<CalibrationPick> picks = new ArrayList<>();
-            for (RubricCriterion criterion : rubric.criteria()) {
-                JudgedPick shown = reading.picks().getOrDefault(criterion.key(), JudgedPick.UNREADABLE);
-                picks.add(new CalibrationPick(pair.id(), criterion.key(),
-                        shown.pick() == null || aShownFirst ? shown.pick() : shown.pick().swapped(), shown.reason()));
-            }
-            transactions.executeWithoutResult(status -> {
-                store.addPicks(check.id(), aShownFirst, picks);
-                store.addSpend(check.id(), reading.asked());
-            });
-            return true;
+        Optional<JudgeReading> answered = judge.judgeUntilAnswered(version, rubric.criteria(), pair.input(),
+                aShownFirst ? pair.answerA() : pair.answerB(), aShownFirst ? pair.answerB() : pair.answerA(),
+                drainer::isShuttingDown, unanswered -> store.addSpend(check.id(), unanswered));
+        if (answered.isEmpty()) {
+            return false;
         }
-        return false;
+        JudgeReading reading = answered.get();
+        List<CalibrationPick> picks = rubric.criteria().stream()
+                .map(criterion -> {
+                    JudgedPick shown = reading.picks().getOrDefault(criterion.key(), JudgedPick.UNREADABLE);
+                    return new CalibrationPick(pair.id(), criterion.key(),
+                            shown.pick() == null || aShownFirst ? shown.pick() : shown.pick().swapped(),
+                            shown.reason());
+                })
+                .toList();
+        transactions.executeWithoutResult(status -> {
+            store.addPicks(check.id(), aShownFirst, picks);
+            store.addSpend(check.id(), reading);
+        });
+        return true;
     }
 
     private void record(CalibrationCheck ended) {
@@ -212,7 +178,6 @@ public class JudgeCalibrationWorker {
 
     @PreDestroy
     void stop() {
-        shuttingDown = true;
-        thread.shutdownNow();
+        drainer.stop();
     }
 }
