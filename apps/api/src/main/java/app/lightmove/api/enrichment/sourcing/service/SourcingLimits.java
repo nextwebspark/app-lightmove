@@ -2,6 +2,7 @@ package app.lightmove.api.enrichment.sourcing.service;
 
 import app.lightmove.api.core.config.ApplicationVariable;
 import app.lightmove.api.core.config.ApplicationVariables;
+import java.time.Duration;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -33,5 +34,15 @@ public class SourcingLimits {
     /** Companies searched at once. */
     public int parallelism() {
         return variables.intValue(ApplicationVariable.SOURCING_PARALLELISM);
+    }
+
+    /** How long the whole run may take before the companies not reached are reported as such. */
+    public Duration runDeadline() {
+        return Duration.ofSeconds(variables.intValue(ApplicationVariable.SOURCING_RUN_DEADLINE));
+    }
+
+    /** Past this a run still marked in progress was lost with its instance: the deadline, and a minute's grace. */
+    public Duration lostAfter() {
+        return runDeadline().plusMinutes(1);
     }
 }

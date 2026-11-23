@@ -4,8 +4,6 @@ import app.lightmove.api.billing.usage.constant.UsageKind;
 import app.lightmove.api.billing.usage.service.FairUseGuard;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
-import app.lightmove.api.core.config.ExecutiveSourcingSettings;
-import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.stream.ProjectStreamKind;
@@ -45,14 +43,12 @@ public class ExecutiveSourcingService {
     private final AuditService audit;
     private final ProjectStreamPublisher stream;
     private final ApplicationEventPublisher events;
-    private final ExecutiveSourcingSettings settings;
     private final SourcingLimits limits;
 
     public ExecutiveSourcingService(ExecutiveSourcingRunRepository runs, SourcingCompanies companies,
                                     SourcingCriteriaService criteria, CompanySearch companySearch,
                                     FairUseGuard fairUse, AuditService audit, ProjectStreamPublisher stream,
-                                    ApplicationEventPublisher events, LightMoveProperties properties,
-                                    SourcingLimits limits) {
+                                    ApplicationEventPublisher events, SourcingLimits limits) {
         this.runs = runs;
         this.companies = companies;
         this.criteria = criteria;
@@ -61,14 +57,13 @@ public class ExecutiveSourcingService {
         this.audit = audit;
         this.stream = stream;
         this.events = events;
-        this.settings = properties.enrichment().sourcing();
         this.limits = limits;
     }
 
     public ExecutiveSourcingConfigResponse config() {
         return new ExecutiveSourcingConfigResponse(companySearch.isOffered(), limits.maxCompaniesPerRun(),
                 SearchCriteria.PER_COMPANY_CHOICES, SearchCriteria.DEFAULT_PER_COMPANY,
-                settings.lostAfter().toSeconds(), limits.parallelism());
+                limits.lostAfter().toSeconds(), limits.parallelism());
     }
 
     @Transactional
@@ -134,7 +129,7 @@ public class ExecutiveSourcingService {
 
     /** A run lost with its instance is failed here, so it never holds the mandate's one slot for good. */
     private void refuseRunInProgress(UUID workspaceId, UUID projectId) {
-        Instant cutoff = Instant.now().minus(settings.lostAfter());
+        Instant cutoff = Instant.now().minus(limits.lostAfter());
         for (ExecutiveSourcingRun inProgress : runs.findByWorkspaceIdAndProjectIdAndStatusIn(workspaceId, projectId,
                 SourcingRunStatus.IN_PROGRESS)) {
             if (!inProgress.isLostBefore(cutoff)) {

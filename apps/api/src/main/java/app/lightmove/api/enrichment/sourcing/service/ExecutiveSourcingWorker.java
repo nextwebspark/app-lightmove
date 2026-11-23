@@ -6,7 +6,6 @@ import app.lightmove.api.billing.usage.service.UsageRecorder;
 import app.lightmove.api.candidate.service.SuppressionGate;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
-import app.lightmove.api.core.config.ExecutiveSourcingSettings;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.concurrent.service.ThreadContextPropagation;
 import app.lightmove.api.enrichment.sourcing.constant.SourcingOutcome;
@@ -66,7 +65,6 @@ class ExecutiveSourcingWorker {
     private final AuditService audit;
     private final UsageRecorder usage;
     private final Clock clock;
-    private final ExecutiveSourcingSettings settings;
     private final SourcingLimits limits;
     private final Duration peopleCacheTtl;
 
@@ -85,7 +83,6 @@ class ExecutiveSourcingWorker {
         this.audit = audit;
         this.usage = usage;
         this.clock = clock;
-        this.settings = properties.enrichment().sourcing();
         this.limits = limits;
         this.peopleCacheTtl = properties.enrichment().peopleCacheTtl();
     }
@@ -116,7 +113,7 @@ class ExecutiveSourcingWorker {
         SearchCriteria searched = started.getCriteria() != null ? started.getCriteria()
                 : criteria.current(request.workspaceId(), request.projectId());
         suggestions.purgeCreatedBefore(Instant.now(clock).minus(peopleCacheTtl));
-        Run run = new Run(request, brief, searched, Instant.now(clock).plus(settings.runDeadline()));
+        Run run = new Run(request, brief, searched, Instant.now(clock).plus(limits.runDeadline()));
 
         try (ExecutorService pool = Executors.newFixedThreadPool(limits.parallelism(),
                 Thread.ofVirtual().factory())) {
