@@ -46,11 +46,13 @@ public class ExecutiveSourcingService {
     private final ProjectStreamPublisher stream;
     private final ApplicationEventPublisher events;
     private final ExecutiveSourcingSettings settings;
+    private final SourcingLimits limits;
 
     public ExecutiveSourcingService(ExecutiveSourcingRunRepository runs, SourcingCompanies companies,
                                     SourcingCriteriaService criteria, CompanySearch companySearch,
                                     FairUseGuard fairUse, AuditService audit, ProjectStreamPublisher stream,
-                                    ApplicationEventPublisher events, LightMoveProperties properties) {
+                                    ApplicationEventPublisher events, LightMoveProperties properties,
+                                    SourcingLimits limits) {
         this.runs = runs;
         this.companies = companies;
         this.criteria = criteria;
@@ -60,10 +62,11 @@ public class ExecutiveSourcingService {
         this.stream = stream;
         this.events = events;
         this.settings = properties.enrichment().sourcing();
+        this.limits = limits;
     }
 
     public ExecutiveSourcingConfigResponse config() {
-        return new ExecutiveSourcingConfigResponse(companySearch.isOffered(), settings.maxCompaniesPerRun(),
+        return new ExecutiveSourcingConfigResponse(companySearch.isOffered(), limits.maxCompaniesPerRun(),
                 SearchCriteria.PER_COMPANY_CHOICES, SearchCriteria.DEFAULT_PER_COMPANY,
                 settings.lostAfter().toSeconds(), settings.parallelism());
     }
@@ -76,7 +79,7 @@ public class ExecutiveSourcingService {
             throw ApiException.of(ErrorCode.EXECUTIVE_SOURCING_UNAVAILABLE);
         }
         List<SourcingCompany> chosen = companies.chosen(workspaceId, projectId, request.triageCompanyIds(),
-                settings.maxCompaniesPerRun());
+                limits.maxCompaniesPerRun());
         refuseRunInProgress(workspaceId, projectId);
         if (chosen.isEmpty()) {
             throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "triageCompanyIds",

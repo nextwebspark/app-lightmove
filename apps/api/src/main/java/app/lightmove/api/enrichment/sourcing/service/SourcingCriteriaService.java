@@ -42,10 +42,12 @@ public class SourcingCriteriaService {
     private final LlmBudgetGuard llmBudget;
     private final TransactionTemplate transaction;
     private final ExecutiveSourcingSettings settings;
+    private final SourcingLimits limits;
 
     public SourcingCriteriaService(SourcingCriteriaRepository saved, PositionService positions,
                                    SearchWordsDrafter drafter, SourcingCompanies companies, LlmBudgetGuard llmBudget,
-                                   PlatformTransactionManager transactions, LightMoveProperties properties) {
+                                   PlatformTransactionManager transactions, LightMoveProperties properties,
+                                   SourcingLimits limits) {
         this.saved = saved;
         this.positions = positions;
         this.drafter = drafter;
@@ -53,6 +55,7 @@ public class SourcingCriteriaService {
         this.llmBudget = llmBudget;
         this.transaction = new TransactionTemplate(transactions);
         this.settings = properties.enrichment().sourcing();
+        this.limits = limits;
     }
 
     @Transactional(readOnly = true)
@@ -66,7 +69,7 @@ public class SourcingCriteriaService {
         llmBudget.require(LlmBudget.EXECUTIVE_SOURCING, userId);
         SourcingBrief brief = briefOf(workspaceId, projectId);
         List<SourcingCompany> chosen = companies.chosen(workspaceId, projectId, companyIds,
-                settings.maxCompaniesPerRun());
+                limits.maxCompaniesPerRun());
         Optional<SearchWords> drafted = drafter.draft(brief, SourcingCompanies.countryNamesOf(chosen));
         SearchWords words = drafted.orElseGet(() -> SearchWords.defaultFor(brief.roleTitle(), brief.seniority()));
         CriteriaSource source = drafted.isPresent() ? CriteriaSource.AI : CriteriaSource.DEFAULT;
