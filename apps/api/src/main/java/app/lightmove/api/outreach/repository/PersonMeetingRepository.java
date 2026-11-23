@@ -16,6 +16,9 @@ public interface PersonMeetingRepository extends JpaRepository<PersonMeeting, UU
 
     List<PersonMeeting> findByWorkspaceIdAndPersonIdOrderByStartsAtAsc(UUID workspaceId, UUID personId);
 
+    List<PersonMeeting> findByWorkspaceIdAndUserIdAndStartsAtGreaterThanEqualAndStartsAtLessThanOrderByStartsAtAsc(
+            UUID workspaceId, UUID userId, Instant from, Instant to);
+
     boolean existsByWorkspaceIdAndUserIdAndJoinUrlAndStartsAtGreaterThanAndStartsAtLessThanEqual(
             UUID workspaceId, UUID userId, String joinUrl, Instant after, Instant until);
 

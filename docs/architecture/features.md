@@ -462,22 +462,26 @@ depends back.
 **Home** (`/`, `features/home`, `uncava-design` `Workspace.dc.html?view=home`) is the page after sign-in, and
 **Positions** (`/positions`) the one list beside it — `/all` redirects there, and the old My/All split and the tasks
 card on the list are gone. The list is the server's answer: every position for a holder of `PROJECT_BROWSE_ALL`
-(V232, ADMIN), only the ones the caller holds a seat on for anyone else. A staff member's Home is **Needs you** —
-their outreach To do across the positions they work (`GET /me/outreach/needs`, `MyOutreachQueueService`, each
-position's own `ConversationService.list`; **Team** for a lead reads the whole queue of the positions they lead) and
-their overdue and today's tasks, a task a row already carries never drawn twice. It draws two blocks: **Outreach**
-— a reply or a delivery problem — as cards (who, why, the words waiting, and Reply into the position's queue), and
-**Tasks** as one-line rows (tick, kind, title, executive, due), a Follow-up or Before first email row drawn as the
-task it carries; either opens the position's In universe table with the executive's panel open —
-beside **Today** (today's calls
-and meetings), **Your positions** and charts from the workspace dashboard library — every one a tile on the
-dashboard's twelve-column grid (`DashboardGrid`). **Customize** is the dashboard's edit mode on Home: drag a tile to
-move it, its edge or corner to resize it, **Add chart** (any library chart, up to 12), × to take a tile off (never
-Needs you), and **Options** for which sections show and which To do groups Needs you carries, naming the start page
-with a link to change it; nothing is kept until **Save layout**, and **Reset to the default** puts back the layout
-everyone starts from. The layout is the person's own, per workspace, on the server (V233, `GET/PUT/DELETE /me/home`,
-`HomeLayoutService`; saving the default deletes the row so they keep following it), and a layout kept on the browser
-before V233 (`lm-home:…`) is carried over on the first save.
+(V232, ADMIN), only the ones the caller holds a seat on for anyone else. A staff member's Home is three fixed cards
+under a greeting that counts what waits, today's meetings and the caller's active positions — nothing on it is
+arranged or added to (the customisable grid, V233–V243, is gone).
+
+- **Needs your attention** — their outreach To do across the positions they work (`GET /me/outreach/needs`,
+  `MyOutreachQueueService`, each position's own `ConversationService.list`; **Team** for a lead reads the whole queue
+  of the positions they lead) and their overdue and today's tasks, a task a row already carries never drawn twice.
+  One list, most urgent first (`attentionOf`): overdue, then replies and delivery problems (newest first), then what
+  is due today and later. Each line names the position and its unit (from the positions list), carries a chip
+  (`2d overdue`, `24m ago`, `Due 16:00`, `Delivery problem`) and one action — Reply or Resolve into the position's
+  queue, Follow up or Open on the executive's record — the first line's drawn primary.
+- **Today** — the meetings on the caller's own calendar today (`GET /me/meetings/today?tz=`, `MyMeetingsService`:
+  `app_lm_person_meeting` rows of the caller between their local midnights, each placed on the newest live position
+  they may work where that executive is mapped, its unit named) merged with today's call and meeting tasks still
+  ahead, a task at a meeting's time for the same person drawn once as the meeting. **Before your next call** links
+  the next executive's record.
+- **Your positions** — the live positions the caller holds a seat on, off track and at risk first: stage, health,
+  the **next milestone** (`nextMilestoneOf`, from the position's dates: Universe mapped by `mappingTargetDate` until
+  outreach is live, Map/Shortlist delivered by `deliveryDate` until delivered, then Target start while ahead; a date
+  passed and unmet is overdue) and the due date (`deliveryDate`, else `targetDate`).
 
 **Start page** (`startpage`, Settings → Profile → Start page, `uncava-design` `Settings.dc.html?startPage=…`) is where
 Uncava opens in a workspace: Home (the default, no row), Positions, Candidates, Tasks, one of the member's workspace

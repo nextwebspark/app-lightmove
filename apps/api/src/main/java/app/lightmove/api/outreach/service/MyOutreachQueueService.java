@@ -24,7 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.stereotype.Service;
 
 /**
- * Home's Needs you, outreach half: each position's own queue ({@link ConversationService#list}, Needs) over the live,
+ * Home's Needs your attention, outreach half: each position's own queue ({@link ConversationService#list}, Needs) over the live,
  * active positions the caller holds a seat on, merged in the queue's own order ({@link ConversationService#NEEDS_ORDER}).
  * Mine reads the caller's part of every position they may work; Team reads the whole queue of the positions they lead
  * by their own seat, never by an admin's bypass. One read-only transaction for the whole read.

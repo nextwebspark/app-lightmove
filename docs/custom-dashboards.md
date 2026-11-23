@@ -80,26 +80,9 @@ Errors: `DASHBOARD_NOT_FOUND` (not visible), `DASHBOARD_READ_ONLY` (a teammate's
 
 ## Home
 
-Home (`features/home`) is drawn on the same grid: Needs you, Today and Your positions are tiles beside charts from the
-workspace library, and **Customize** is Edit layout on Home (`DashboardGrid`, `ChartLibraryDrawer`, `ChartCard`, one
-`POST /dashboards/answers` for every chart on it). Each section has its own minimum size (`homeLayout.ts`
-`SECTION_SIZES`; Needs you at least 5 × 6 and never removable), a chart its type's.
-
-- **Storage** — `app_lm_home_layout` (V233), one row per member per workspace, absent until their first save:
-  `tiles` (`{kind, layout}`, a `CHART` tile with the widget's `queryId`, `chart`, `options`, `title`), `needs` (the
-  Needs you groups shown). Saving the default deletes the row, so the person keeps following the default. Where
-  Uncava opens is no longer Home's: V237 moved it to the start page (docs/architecture/features.md, Start page), and
-  Options only names it and links to Settings → Profile.
-- **Endpoints** — `GET /api/v1/me/home` (`{layout}` with its `version`, null without a row), `PUT` (the whole layout
-  and the `version` it was opened at, null when it opened the default; any other → `HOME_LAYOUT_STALE`, so a stale
-  window never overwrites a newer save or a reset), `DELETE ?version=` (reset, over the version it was opened at —
-  none when it opened the default — so a stale window saving the default never deletes a newer layout; with no row
-  stored it answers 204 whatever version was sent, since the person is already on the default). `@workspaceAuthorizer.staffOnly`: a pure client's Home
-  has nothing to arrange.
-- **Checks** (`HomeLayoutService`) — exactly one `NEEDS`, at most one `TODAY` and `POSITIONS`, every tile on the
-  grid and a section at least its minimum (`HomeTileKind`), at most 12 charts, each one a workspace library chart checked by `DashboardWidgetValidator` (a retired query
-  already saved is kept); `needs` keys are `ConversationGroup` names. Anything else is
-  `VALIDATION_FAILED`.
+Home is no longer drawn on the dashboard grid and holds no charts: it is the same three cards for everyone
+(docs/architecture/features.md, Home). The per-member layout it once kept (V233 `app_lm_home_layout`, `/me/home`,
+`HomeLayoutService`) was removed and its table dropped by V243; charts live on the workspace's Dashboards.
 
 ## Not built yet
 

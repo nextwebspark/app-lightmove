@@ -348,9 +348,6 @@ public enum ErrorCode {
      */
     START_PAGE_UNAVAILABLE(HttpStatus.UNPROCESSABLE_CONTENT, "That page is not available to you. Choose another"),
 
-    /** The member's Home was saved in another tab or device after it was opened here. */
-    HOME_LAYOUT_STALE(HttpStatus.CONFLICT, "Your Home was changed in another window. Reload to see it"),
-
     /** A dashboard holds at most thirty charts, so it stays readable and quick to load. */
     DASHBOARD_TOO_MANY_WIDGETS(HttpStatus.BAD_REQUEST, "A dashboard can hold up to 30 charts"),
 
