@@ -10,6 +10,9 @@ import tools.jackson.databind.JsonNode;
  *
  * <p><b>An implementation reads no table.</b> A case is synthetic and arrives whole; the platform sits inside no
  * workspace.
+ *
+ * <p>{@link #minimumRepeats} and {@link #isGateReady} are read by the console's runs and their put-live check
+ * (#1320).
  */
 public interface EvalSubject {
 
@@ -26,4 +29,21 @@ public interface EvalSubject {
      * {@link PromptTrialRunner}, which reads the parsed answer and the spend off the call itself.
      */
     void answer(JsonNode input);
+
+    /** The rules every answer of this prompt is held to, in the order a compare view lists them. */
+    List<EvalCheck> checks();
+
+    /** How many times a case is answered at the least: more than once where answers vary even at temperature 0. */
+    default int minimumRepeats() {
+        return 1;
+    }
+
+    /**
+     * Whether a run on this prompt's cases may let a version go live without a written reason. False until a person
+     * has reviewed the cases the check would rest on, so a subject opts in; a run still scores and reports either
+     * way.
+     */
+    default boolean isGateReady() {
+        return false;
+    }
 }

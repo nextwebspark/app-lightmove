@@ -38,11 +38,19 @@ public class PromptTrialRunner implements CallAdvisor {
             throw new IllegalArgumentException("A trial of " + trial.promptId() + " cannot run a version of "
                     + version.promptId());
         }
+        return run(version, trial::run);
+    }
+
+    /**
+     * Answers {@code asking} with {@code version} wherever it asks that version's prompt, and keeps what the model
+     * said: a Try it's fictional input, or one eval case through its subject.
+     */
+    public PromptTrialResult run(ServedPrompt version, Runnable asking) {
         Run run = new Run(version);
         RUNNING.set(run);
         long startedAt = System.nanoTime();
         try {
-            trial.run();
+            asking.run();
         } catch (ApiException refused) {
             if (run.rawAnswer == null) {
                 throw refused;

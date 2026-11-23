@@ -33,6 +33,7 @@ class EvalDatasetIntegrationTest extends PositionTemplateFlowSupport {
 
     private static final String DATASETS = "/api/v1/platform/evals/datasets";
     private static final String NATIONALITY = "candidate-nationality";
+    private static final String ASSESSMENT = "candidate-scorecard-draft";
     private static final String PROFILE = """
             {"fullName":"Greta Lindqvist","title":"Chief Risk Officer","companyName":"Saltmarsh Bank",\
             "locationCity":"Manama","locationCountry":"Bahrain","languages":["Swedish","English"]}""";
@@ -82,7 +83,53 @@ class EvalDatasetIntegrationTest extends PositionTemplateFlowSupport {
         assertThat(datasetNamed(getJson(admin, DATASETS), "Seniority: synthetic profiles").get("cases").asInt())
                 .isEqualTo(12);
         assertThat(db.queryForObject("SELECT count(*) FROM app_lm_eval_dataset WHERE created_by IS NULL",
-                Integer.class)).isEqualTo(3);
+                Integer.class)).isEqualTo(4);
+    }
+
+    @Test
+    @DisplayName("the assessment draft's pack is seeded: thirty cases, twelve of them held back")
+    void theAssessmentPackIsSeeded() throws Exception {
+        JsonNode pack = datasetNamed(getJson(superAdmin(), DATASETS), "Assessment draft: pack v1");
+
+        assertThat(pack.get("promptName").asString()).isEqualTo("Assessment draft");
+        assertThat(pack.get("cases").asInt()).isEqualTo(30);
+        assertThat(pack.get("dev").asInt()).isEqualTo(18);
+        assertThat(pack.get("holdout").asInt()).isEqualTo(12);
+    }
+
+    @Test
+    @DisplayName("a contact planted in a case's notes, calls or documents never reaches the model")
+    void plantedContactsAreTakenOutBeforeTheModel() {
+        EvalSubject subject = subjects.of(ASSESSMENT).orElseThrow();
+        int planted = 0;
+        for (NewEvalCase shipped : packOf(ASSESSMENT).cases()) {
+            JsonNode contacts = shipped.expected().path("neverInAnswer");
+            if (contacts.isEmpty()) {
+                continue;
+            }
+            subject.answer(shipped.input());
+            String sent = model.lastPrompt().getUserMessage().getText().replaceAll("\\s+", "");
+            for (JsonNode contact : contacts) {
+                assertThat(sent).as(shipped.key()).doesNotContain(contact.asString().replaceAll("\\s+", ""));
+                planted++;
+            }
+            assertThat(sent).as(shipped.key()).containsAnyOf("[emailremoved]", "[phoneremoved]");
+        }
+        assertThat(planted).isGreaterThanOrEqualTo(6);
+    }
+
+    @Test
+    @DisplayName("a call carrying an instruction the guard knows is left out, and the case is still answered")
+    void aGuardedCallIsDroppedNotTheCase() {
+        NewEvalCase injected = packOf(ASSESSMENT).cases().stream()
+                .filter(shipped -> shipped.key().equals("AD-009")).findFirst().orElseThrow();
+
+        subjects.of(ASSESSMENT).orElseThrow().answer(injected.input());
+
+        assertThat(model.lastPrompt().getUserMessage().getText())
+                .contains("Name: Elif Demir")
+                .doesNotContain("ignore previous instructions")
+                .doesNotContain("Izmir plant from nine percent");
     }
 
     @Test
@@ -248,6 +295,10 @@ class EvalDatasetIntegrationTest extends PositionTemplateFlowSupport {
             refused(404, "NOT_FOUND",
                     mvc.perform(route.header("Authorization", bearer(firm.token()))).andReturn());
         }
+    }
+
+    private EvalSeedPack packOf(String promptId) {
+        return packs.all().stream().filter(pack -> pack.promptId().equals(promptId)).findFirst().orElseThrow();
     }
 
     private UUID newDataset(String promptId) {
