@@ -1,8 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import { Icon, ICONS } from "../../../../components/layout/Icon";
 import { Button, FormError, LinesSkeleton, useToast } from "../../../../components/ui";
+import { Chip } from "../../../../components/ui/Chip";
 import { cn } from "../../../../lib/cn";
 import { codeOf, messageFor } from "../../../../lib/errorCodes";
 import { PlatformTwoFactorRequired } from "../../components/PlatformTwoFactorRequired";
@@ -12,22 +13,39 @@ import * as evalApi from "../api/evalApi";
 import type { EvalCaseSummary, EvalDatasetDetail } from "../api/types";
 import { EvalsFrame } from "../components/EvalsFrame";
 import { ImportCasesDialog } from "../components/ImportCasesDialog";
+import { RubricView } from "../components/RubricView";
 import { countOf } from "../../../../lib/format";
-import { EVALS_PATH } from "../lib/evalLabels";
+import { DATASET_VIEW_PARAM, EVALS_PATH } from "../lib/evalLabels";
+
+type DatasetView = "cases" | "rubric";
+
+const VIEWS: readonly { value: DatasetView; label: string }[] = [
+  { value: "cases", label: "Cases" },
+  { value: "rubric", label: "Rubric" },
+];
+
+const CHECK_REFRESH_MS = 2_000;
 
 const CASE_GRID =
   "grid min-w-[820px] grid-cols-[84px_minmax(220px,2fr)_minmax(100px,.8fr)_96px_minmax(130px,1fr)_84px] items-center gap-3 px-4";
 
-/** Platform → Evals → one dataset: its cases. A case is added or retired, never edited, so a run can name what it scored. */
+/**
+ * Platform → Evals → one dataset: its cases, and its rubric. A case is added or retired, never edited, so a run can
+ * name what it scored.
+ */
 export default function EvalDatasetPage() {
   const { datasetId = "" } = useParams();
   const toast = useToast();
   const queryClient = useQueryClient();
   const [isImporting, setIsImporting] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const view: DatasetView = searchParams.get(DATASET_VIEW_PARAM) === "rubric" ? "rubric" : "cases";
 
   const { data: detail, isPending, error } = useQuery({
     queryKey: evalApi.EVAL_DATASET_KEY(datasetId),
     queryFn: ({ signal }) => evalApi.getDataset(datasetId, signal),
+    // A check of the judge goes on in the background: its progress, then its result, are read again until it ends.
+    refetchInterval: (query) => (query.state.data?.rubric?.state === "CHECKING" ? CHECK_REFRESH_MS : false),
   });
 
   usePlatformPageCrumb(detail?.dataset.name ?? null);
@@ -68,7 +86,7 @@ export default function EvalDatasetPage() {
                 {detail.dataset.holdout} holdout
               </span>
             </div>
-            {detail.dataset.importable && (
+            {detail.dataset.importable && view === "cases" && (
               <Button type="button" size="sm" variant="secondary" onClick={() => setIsImporting(true)}>
                 <Icon d={ICONS.importInto} size={14} />
                 Import cases
@@ -76,6 +94,23 @@ export default function EvalDatasetPage() {
             )}
           </div>
 
+          <div role="radiogroup" aria-label="Dataset view" className="mb-3 flex flex-wrap gap-1.5">
+            {VIEWS.map((option) => (
+              <Chip
+                key={option.value}
+                role="radio"
+                aria-checked={view === option.value}
+                selected={view === option.value}
+                onClick={() => setSearchParams(option.value === "rubric" ? { [DATASET_VIEW_PARAM]: "rubric" } : {}, { replace: true })}
+              >
+                {option.label}
+              </Chip>
+            ))}
+          </div>
+
+          {view === "rubric" ? (
+            <RubricView detail={detail} />
+          ) : (
           <div className="overflow-hidden rounded-lg border border-u-border-strong bg-u-surface">
             <div role="table" aria-label="Cases" className="overflow-x-auto">
               <div role="row" className={cn(CASE_GRID, "border-b border-u-border-strong bg-u-sunken py-2.5")}>
@@ -101,6 +136,7 @@ export default function EvalDatasetPage() {
               )}
             </div>
           </div>
+          )}
 
           {isImporting && (
             <ImportCasesDialog

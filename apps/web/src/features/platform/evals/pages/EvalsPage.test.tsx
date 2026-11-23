@@ -52,6 +52,9 @@ const DATASETS = [
   dataset({ id: "d3", name: "Assistant: synthetic conversations", promptId: "assistant-core", promptName: "Assistant", importable: false }),
 ];
 
+const JUDGED_ESTIMATE_LINE =
+  "12 cases × 2 versions × 3 repeats, and 36 calls by the judge, one for each pair of answers. This prompt is always answered 3 times, because its answers vary. The run counts toward the AI budget and stops at 200 calls.";
+
 describe("EvalsPage", () => {
   beforeEach(() => {
     vi.resetAllMocks();
@@ -139,6 +142,29 @@ describe("EvalsPage", () => {
     await waitFor(() => expect(evalApi.startRun).toHaveBeenCalledWith(asked));
     await waitFor(() => expect(screen.getByTestId("location").textContent).toBe("/platform/evals/runs/r43"));
     expect(await screen.findByText("Run R-0043 started")).toBeInTheDocument();
+  });
+
+  it("counts the judge's calls in what a run would take, and says when its criteria will not count", async () => {
+    vi.mocked(evalApi.listDatasets).mockResolvedValue([
+      { ...DATASETS[0], rubric: { version: 1, state: "UNLABELLED" } },
+      ...DATASETS.slice(1),
+    ]);
+    vi.mocked(evalApi.estimateRun).mockResolvedValue(estimate({ calls: 108, judgeCalls: 36, judgedCounts: false }));
+    const user = userEvent.setup();
+    renderAt("/platform/evals");
+
+    const table = await screen.findByRole("table", { name: "Datasets" });
+    expect(within(table).getByRole("columnheader", { name: "Rubric" })).toBeInTheDocument();
+    expect(within(table).getByText("v1 · shown only")).toBeInTheDocument();
+    expect(within(table).getAllByText("None").length).toBeGreaterThan(0);
+
+    await user.click(screen.getByRole("tab", { name: "Runs" }));
+    await user.click(await screen.findByRole("button", { name: "Start a run" }));
+    const dialog = await screen.findByRole("dialog", { name: "Start a run" });
+    expect(await within(dialog).findByText(JUDGED_ESTIMATE_LINE)).toBeInTheDocument();
+    expect(
+      within(dialog).getByText("This dataset's judged criteria are shown only: they will not count toward this run's result."),
+    ).toBeInTheDocument();
   });
 
   it("will not start a run that is too large, or the same version against itself", async () => {

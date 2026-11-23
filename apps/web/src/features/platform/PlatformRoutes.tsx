@@ -5,6 +5,7 @@ import { useAuth } from "../auth/AuthProvider";
 import type { PlatformAction } from "../auth/api/types";
 import { TemplateEditorPage } from "../templates/pages/TemplateEditorPage";
 import { TemplateListPage } from "../templates/pages/TemplateListPage";
+import EvalCalibrationPage from "./evals/pages/EvalCalibrationPage";
 import EvalDatasetPage from "./evals/pages/EvalDatasetPage";
 import EvalRunPage from "./evals/pages/EvalRunPage";
 import EvalsPage from "./evals/pages/EvalsPage";
@@ -31,6 +32,7 @@ export default function PlatformRoutes() {
         <Route element={<RequirePlatformAction action="EVAL_RUN"><Outlet /></RequirePlatformAction>}>
           <Route path="evals" element={<EvalsPage />} />
           <Route path="evals/datasets/:datasetId" element={<EvalDatasetPage />} />
+          <Route path="evals/datasets/:datasetId/calibration" element={<EvalCalibrationPage />} />
           <Route path="evals/runs/:runId" element={<EvalRunPage />} />
         </Route>
         <Route path="*" element={<NotFoundPage />} />

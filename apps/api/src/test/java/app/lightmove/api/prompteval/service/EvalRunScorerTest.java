@@ -8,6 +8,7 @@ import app.lightmove.api.core.llm.service.EvalCheck;
 import app.lightmove.api.core.llm.service.EvalSubject;
 import app.lightmove.api.prompteval.constant.EvalCaseOutcome;
 import app.lightmove.api.prompteval.constant.EvalRunSide;
+import app.lightmove.api.prompteval.constant.EvalRunVerdict;
 import app.lightmove.api.prompteval.dto.EvalReadingComparison;
 import app.lightmove.api.prompteval.dto.EvalRunCaseComparison;
 import app.lightmove.api.prompteval.dto.EvalCheckScore;
@@ -50,7 +51,7 @@ class EvalRunScorerTest {
         assertThat(right.baseline()).isEqualTo(100.0);
         assertThat(right.change()).isEqualTo(-25.0);
         assertThat(right.worseBeyondTolerance()).isTrue();
-        assertThat(EvalRunScorer.isNoWorse(summary)).isFalse();
+        assertThat(EvalRunScorer.verdictOf(subject(3), summary)).isEqualTo(EvalRunVerdict.FAIL);
         assertThat(summary.regressedCases()).isEqualTo(1);
         assertThat(summary.unchangedCases()).isEqualTo(1);
     }
@@ -68,7 +69,7 @@ class EvalRunScorerTest {
 
         assertThat(summary.checks().getFirst().change()).isEqualTo(-50.0);
         assertThat(summary.checks().getFirst().worseBeyondTolerance()).isFalse();
-        assertThat(EvalRunScorer.isNoWorse(summary)).isTrue();
+        assertThat(EvalRunScorer.verdictOf(subject(50), summary)).isEqualTo(EvalRunVerdict.PASS);
         assertThat(summary.regressedCases()).isEqualTo(1);
     }
 

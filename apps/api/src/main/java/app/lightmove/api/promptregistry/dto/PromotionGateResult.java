@@ -7,7 +7,7 @@ import java.util.UUID;
 
 /**
  * The run a put live would rest on, and what it found. Everything but {@code state} is null, and
- * {@code failedChecks} empty, when there is no such run.
+ * {@code failedChecks} empty, when there is no such run. {@code judged} is null for a run no judge scored.
  */
 public record PromotionGateResult(
         PromotionGateState state,
@@ -20,9 +20,11 @@ public record PromotionGateResult(
         Integer checksSame,
         Integer checksWorse,
         Integer regressedCases,
-        List<PromotionGateFailedCheck> failedChecks
+        List<PromotionGateFailedCheck> failedChecks,
+        UUID datasetId,
+        PromotionGateJudged judged
 ) {
 
     public static final PromotionGateResult NONE = new PromotionGateResult(PromotionGateState.NONE, null, null, null,
-            null, null, null, null, null, null, List.of());
+            null, null, null, null, null, null, List.of(), null, null);
 }

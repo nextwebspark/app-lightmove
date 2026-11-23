@@ -1,6 +1,7 @@
 import { formatDate, formatInstantDateTime } from "../../../../lib/datetime/format";
 import { countOf, formatNumber, joinNames } from "../../../../lib/format";
 import type { PromotionGate } from "../../prompts/api/types";
+import { gateJudgedLine, judgedChange, whyNotCounting } from "./judgeLabels";
 import type {
   EvalCaseSplit,
   EvalCheckScore,
@@ -17,6 +18,10 @@ export const EVALS_PATH = "/platform/evals";
 /** The Evals page opened on its Runs tab. */
 export const EVAL_RUNS_PATH = `${EVALS_PATH}?tab=runs`;
 export const evalDatasetPath = (datasetId: string) => `${EVALS_PATH}/datasets/${encodeURIComponent(datasetId)}`;
+export const DATASET_VIEW_PARAM = "view";
+/** A dataset opened on its Rubric view. */
+export const evalRubricPath = (datasetId: string) => `${evalDatasetPath(datasetId)}?${DATASET_VIEW_PARAM}=rubric`;
+export const evalCalibrationPath = (datasetId: string) => `${evalDatasetPath(datasetId)}/calibration`;
 export const evalRunPath = (runId: string) => `${EVALS_PATH}/runs/${encodeURIComponent(runId)}`;
 
 export const SPLIT_LABEL: Record<EvalCaseSplit, string> = { DEV: "Dev", HOLDOUT: "Holdout" };
@@ -131,11 +136,28 @@ export function verdictLine(detail: EvalRunDetail): string {
   const { run, summary } = detail;
   if (!summary) return "";
   const against = baselineName(detail);
+  const judged = summary.judged;
+  const counted = judged?.counted ? judged.criteria : [];
+  const shownOnly = judged && !judged.counted ? " The judged criteria are shown and do not count." : "";
+  if (run.verdict === null) {
+    return `This run gives no result. ${run.promptName} has no checks, and its judged criteria do not count ${whyNotCounting(judged?.state ?? "UNLABELLED")}. Putting the candidate live needs a written reason, which is recorded.`;
+  }
   if (run.verdict === "FAIL") {
     const worse = summary.checks.filter((check) => check.worseBeyondTolerance).length;
-    return `The candidate is worse than ${against} on ${countWord(worse)} ${worse === 1 ? "check" : "checks"}. Putting it live needs a written reason, which is recorded.`;
+    const judgedWorse = counted.filter((criterion) => criterion.worseBeyondTolerance).length;
+    const on = [
+      worse > 0 ? `${countWord(worse)} ${worse === 1 ? "check" : "checks"}` : "",
+      judgedWorse > 0 ? `${countWord(judgedWorse)} judged ${judgedWorse === 1 ? "criterion" : "criteria"}` : "",
+    ].filter(Boolean);
+    return `The candidate is worse than ${against} on ${on.join(" and ")}.${shownOnly} Putting it live needs a written reason, which is recorded.`;
   }
-  const parts = [`Across the ${SPLIT_LABEL[run.split].toLowerCase()} cases, the candidate is no worse than ${against}.`];
+  const measured = [
+    summary.checks.length > 0 ? `the ${countOf(summary.checks.length, "check")}` : "",
+    counted.length > 0 ? `the ${counted.length} judged ${counted.length === 1 ? "criterion" : "criteria"}` : "",
+  ].filter(Boolean);
+  const parts = [
+    `Across the ${SPLIT_LABEL[run.split].toLowerCase()} cases, the candidate is no worse than ${against} on ${measured.join(" and ")}.${shownOnly}`,
+  ];
   if (summary.regressedCases > 0) {
     const one = summary.regressedCases === 1;
     parts.push(
@@ -176,7 +198,10 @@ export function scoreLabel(side: EvalReadingSide): string {
   return side.spread === null ? side.mean.toFixed(1) : `${side.mean.toFixed(1)} ± ${side.spread.toFixed(1)}`;
 }
 
-/** One sentence on what changed in a case: a score that moved across its band, else the first check that moved. */
+/**
+ * One sentence on what changed in a case: a score that moved across its band, else the first check that moved,
+ * else what the judge preferred.
+ */
 export function whatChanged(compared: EvalRunCaseComparison, against: string): string {
   const moved = compared.readings.find(
     (reading) =>
@@ -191,7 +216,7 @@ export function whatChanged(compared: EvalRunCaseComparison, against: string): s
     return `${moved.label} ${verb} from ${formatNumber(moved.baseline.mean)} to ${formatNumber(moved.candidate.mean)}.${band}`;
   }
   const check = compared.checks[0];
-  if (!check) return "";
+  if (!check) return judgedChange(compared.judged, against);
   return `${check.label}: ${check.candidatePassed} of ${countOf(check.repeats, "answer")} ${check.candidatePassed === 1 ? "passes" : "pass"}, against ${check.baselinePassed} for ${against}.`;
 }
 
@@ -221,7 +246,32 @@ export function gatePassedLine(gate: PromotionGate): string {
   if (regressed > 0) {
     parts.push(`${capitalised(countWord(regressed))} ${regressed === 1 ? "case" : "cases"} regressed inside the tolerance.`);
   }
-  return parts.join(" ");
+  parts.push(gateJudgedLine(gate));
+  return parts.filter(Boolean).join(" ");
+}
+
+/** A run only the judge scores: "10 cases, 3 repeats each. This prompt has no checks, so the judge alone scores it: …" */
+export function gateJudgeOnlyLine(gate: PromotionGate): string {
+  const repeats = gate.repeats ?? 1;
+  const judged = gate.judged;
+  return [
+    `${countOf(gate.cases ?? 0, "case")}, ${repeats === 1 ? "answered once" : `${repeats} repeats each`}.`,
+    judged
+      ? `This prompt has no checks, so the judge alone scores it: it prefers the candidate on ${judged.forCandidate} of the ${judged.criteria} judged criteria and the live version on ${judged.forBaseline.length === 0 ? "none" : judged.forBaseline.length}.`
+      : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
+/** Whether the run a put live rests on was scored by the judge alone. */
+export function isJudgeOnlyGate(gate: PromotionGate): boolean {
+  return gate.judged !== null && (gate.checksBetter ?? 0) + (gate.checksSame ?? 0) + (gate.checksWorse ?? 0) === 0;
+}
+
+/** Under "Run R-0039 on the holdout cases gave no result": why, and that nothing shows the version is no worse. */
+export function gateNoResultLine(gate: PromotionGate, promptName: string): string {
+  return `${promptName} has no checks, and its judged criteria do not count ${whyNotCounting(gate.judged?.state ?? "UNLABELLED")}. Nothing yet shows this version is no worse than the live one.`;
 }
 
 /** "Worse than the live version on two checks: score inside the labelled band (75% against 83%) and …" */
@@ -231,7 +281,11 @@ export function gateFailedLine(gate: PromotionGate): string {
     (check) =>
       `${lowerFirst(check.label)} (${percentLabel(check.candidate)} against ${percentLabel(check.baseline)})`,
   );
-  return `Worse than the live version on ${countWord(failed.length)} ${failed.length === 1 ? "check" : "checks"}: ${joinNames(named)}.`;
+  const checks =
+    failed.length === 0
+      ? ""
+      : `Worse than the live version on ${countWord(failed.length)} ${failed.length === 1 ? "check" : "checks"}: ${joinNames(named)}.`;
+  return [checks, gateJudgedLine(gate)].filter(Boolean).join(" ");
 }
 
 /** Small counts in words, as the mockups write them: "two checks", "One case". */

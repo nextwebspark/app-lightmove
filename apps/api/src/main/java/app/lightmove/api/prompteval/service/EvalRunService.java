@@ -22,6 +22,7 @@ import app.lightmove.api.prompteval.dto.EvalRunOverview;
 import app.lightmove.api.prompteval.dto.EvalRunSideDetail;
 import app.lightmove.api.prompteval.dto.StartEvalRunRequest;
 import app.lightmove.api.prompteval.model.EvalCallAverages;
+import app.lightmove.api.prompteval.model.EvalRubric;
 import app.lightmove.api.prompteval.model.EvalRun;
 import app.lightmove.api.prompteval.model.EvalRunCase;
 import app.lightmove.api.prompteval.model.EvalRunPlan;
@@ -43,7 +44,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * Eval runs as the platform console starts, watches and stops them. A start stores a queued run and returns; the
- * answering is {@link EvalRunWorker}'s. One run goes at a time, platform-wide.
+ * answering, and the judging where the dataset has a rubric, is {@link EvalRunWorker}'s. One run goes at a time,
+ * platform-wide.
  */
 @Service
 public class EvalRunService {
@@ -58,6 +60,7 @@ public class EvalRunService {
     private final EvalRunStore store;
     private final EvalRunPlanner planner;
     private final EvalSubjects subjects;
+    private final EvalRubricStore rubrics;
     private final PromptCatalogService catalog;
     private final PromptRegistryStore registry;
     private final LlmBudgetGuard budget;
@@ -67,13 +70,14 @@ public class EvalRunService {
     private final Clock clock;
     private final PlatformEvalSettings settings;
 
-    EvalRunService(EvalRunStore store, EvalRunPlanner planner, EvalSubjects subjects, PromptCatalogService catalog,
-                   PromptRegistryStore registry, LlmBudgetGuard budget, TransactionTemplate transactions,
-                   ApplicationEventPublisher events, AuditService audit, Clock clock,
-                   LightMoveProperties properties) {
+    EvalRunService(EvalRunStore store, EvalRunPlanner planner, EvalSubjects subjects, EvalRubricStore rubrics,
+                   PromptCatalogService catalog, PromptRegistryStore registry, LlmBudgetGuard budget,
+                   TransactionTemplate transactions, ApplicationEventPublisher events, AuditService audit,
+                   Clock clock, LightMoveProperties properties) {
         this.store = store;
         this.planner = planner;
         this.subjects = subjects;
+        this.rubrics = rubrics;
         this.catalog = catalog;
         this.registry = registry;
         this.budget = budget;
@@ -104,7 +108,8 @@ public class EvalRunService {
                         + UNMEASURED_ANSWER_TOKENS;
         double millisPerCall = measured.millis() != null ? measured.millis() : UNMEASURED_CALL_MILLIS;
         return new EvalRunEstimate(plan.baseline().version(), plan.cases(), plan.repeats(), plan.repeatsReason(),
-                plan.calls(), Math.round(tokensPerCall * plan.calls()),
+                plan.calls(), plan.judgeCalls(), plan.judgedCounts(),
+                Math.round(tokensPerCall * plan.calls()),
                 (int) Math.ceil(millisPerCall * plan.calls() / Duration.ofMinutes(1).toMillis()),
                 settings.maxCallsPerRun(), plan.calls() > settings.maxCallsPerRun());
     }
@@ -125,7 +130,7 @@ public class EvalRunService {
 
         NewEvalRun queued = new NewEvalRun(plan.dataset().promptId(), plan.dataset().id(), plan.split(),
                 plan.candidate().version(), plan.baseline().version(), plan.repeats(), plan.subject().isGateReady(),
-                settings.maxCallsPerRun(), userId);
+                settings.maxCallsPerRun(), userId, plan.rubric() == null ? null : plan.rubric().id());
         UUID runId;
         try {
             runId = transactions.execute(status -> {
@@ -180,8 +185,9 @@ public class EvalRunService {
             return new EvalRunCases(List.of(), 0);
         }
         List<EvalRunCase> cases = store.casesOf(runId);
+        EvalRubric rubric = run.rubricId() == null ? null : rubrics.find(run.rubricId()).orElse(null);
         List<EvalRunCaseComparison> changed = EvalRunScorer.changedCases(subject.get(), cases,
-                store.answersOf(runId));
+                store.answersOf(runId), rubric, rubric == null ? List.of() : rubrics.judgementsOf(runId));
         return new EvalRunCases(changed, cases.size() - changed.size());
     }
 
@@ -223,7 +229,8 @@ public class EvalRunService {
         return new EvalRunOverview(run.id(), run.number(), run.promptId(),
                 PlatformPrompt.of(run.promptId()).map(PlatformPrompt::getDisplayName).orElse(run.promptId()),
                 run.datasetId(), run.datasetName(), run.split(), run.candidateVersion(), run.baselineVersion(),
-                run.status(), run.verdict(), run.failure(), run.caseCount(), run.repeats(), run.callsPlanned(),
+                run.status(), run.verdict(), run.failure(), run.rubricId() != null, run.caseCount(), run.repeats(),
+                run.callsPlanned(),
                 run.callsMade(), run.inputTokens(), run.outputTokens(), run.startedByName(), run.createdAt(),
                 run.startedAt(), run.finishedAt());
     }

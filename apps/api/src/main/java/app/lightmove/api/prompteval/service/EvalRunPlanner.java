@@ -11,6 +11,7 @@ import app.lightmove.api.prompteval.constant.EvalCaseSplit;
 import app.lightmove.api.prompteval.constant.EvalRepeatsReason;
 import app.lightmove.api.prompteval.dto.StartEvalRunRequest;
 import app.lightmove.api.prompteval.model.EvalDataset;
+import app.lightmove.api.prompteval.model.EvalRubric;
 import app.lightmove.api.prompteval.model.EvalRunPlan;
 import app.lightmove.api.promptregistry.constant.PlatformPrompt;
 import app.lightmove.api.promptregistry.service.PromptCatalogService;
@@ -33,6 +34,9 @@ class EvalRunPlanner {
 
     private final EvalDatasetService datasets;
     private final EvalSubjects subjects;
+    private final EvalRubricStore rubrics;
+    private final EvalJudge judge;
+    private final JudgeCalibrationService calibration;
     private final PromptCatalogService catalog;
     private final PromptRegistryStore registry;
     private final AiModelCatalog models;
@@ -60,7 +64,19 @@ class EvalRunPlanner {
         EvalRepeatsReason reason = subject.minimumRepeats() >= repeats && repeats > 1 ? EvalRepeatsReason.PROMPT_VARIES
                 : variesByTemperature ? EvalRepeatsReason.TEMPERATURE : EvalRepeatsReason.ONCE;
         int cases = request.split() == EvalCaseSplit.HOLDOUT ? dataset.holdout() : dataset.dev();
-        return new EvalRunPlan(dataset, subject, request.split(), candidate, baseline, cases, repeats, reason);
+        EvalRubric rubric = rubrics.latestOf(dataset.id()).orElse(null);
+        return new EvalRunPlan(dataset, subject, request.split(), candidate, baseline, cases, repeats, reason,
+                rubric, rubric == null ? null : judgedCountsOf(rubric));
+    }
+
+    /**
+     * Refused here where the judge has no version serving: the worker would otherwise find that out after the
+     * candidate's and the baseline's calls were paid for.
+     */
+    private boolean judgedCountsOf(EvalRubric rubric) {
+        ServedPrompt liveJudge = judge.liveVersion()
+                .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND, "The eval judge has no version serving"));
+        return calibration.standingOf(rubric, liveJudge.version()).counts();
     }
 
     /** The temperature a version is answered at: its own, else the one its prompt's calls default to. */

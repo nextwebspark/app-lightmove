@@ -30,7 +30,10 @@ public enum PlatformEventType implements AuditEventType {
     EVAL_RUN_STARTED,
     EVAL_RUN_FINISHED,
     EVAL_RUN_CANCELLED,
-    EVAL_GATE_OVERRIDDEN;
+    EVAL_GATE_OVERRIDDEN,
+    EVAL_PAIR_LABELLED,
+    EVAL_JUDGE_CHECK_STARTED,
+    EVAL_JUDGE_CHECK_FINISHED;
 
     @Override
     public String code() {

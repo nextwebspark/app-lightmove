@@ -83,7 +83,7 @@ class EvalDatasetIntegrationTest extends PositionTemplateFlowSupport {
         assertThat(datasetNamed(getJson(admin, DATASETS), "Seniority: synthetic profiles").get("cases").asInt())
                 .isEqualTo(12);
         assertThat(db.queryForObject("SELECT count(*) FROM app_lm_eval_dataset WHERE created_by IS NULL",
-                Integer.class)).isEqualTo(4);
+                Integer.class)).isEqualTo(5);
     }
 
     @Test

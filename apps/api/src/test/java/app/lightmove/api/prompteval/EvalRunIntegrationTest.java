@@ -381,7 +381,9 @@ class EvalRunIntegrationTest extends PositionTemplateFlowSupport {
                 runOf(datasetNamed(admin, "Assessment draft: pack v1"), "HOLDOUT", newAssessmentVersion(admin))));
         assertThat(assessment.get("repeats").asInt()).isEqualTo(3);
         assertThat(assessment.get("repeatsReason").asString()).isEqualTo("PROMPT_VARIES");
-        assertThat(assessment.get("calls").asInt()).isEqualTo(72);
+        assertThat(assessment.get("calls").asInt()).as("72 answers, and the judge on each of the 36 pairs")
+                .isEqualTo(108);
+        assertThat(assessment.get("judgeCalls").asInt()).isEqualTo(36);
     }
 
     @Test

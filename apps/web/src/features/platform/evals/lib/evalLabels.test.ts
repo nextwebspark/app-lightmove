@@ -31,6 +31,8 @@ const gate = (overrides: Partial<PromotionGate> = {}): PromotionGate => ({
   checksWorse: 0,
   regressedCases: 1,
   failedChecks: [],
+  datasetId: "d1",
+  judged: null,
   ...overrides,
 });
 
@@ -64,14 +66,14 @@ describe("evalLabels", () => {
 
   it("says what a passing run means for putting the candidate live, and when it means nothing", () => {
     expect(verdictLine(runDetail())).toBe(
-      "Across the holdout cases, the candidate is no worse than the live version. One case regressed, inside the tolerance; it is listed first below. The candidate can be put live without a written reason.",
+      "Across the holdout cases, the candidate is no worse than the live version on the 3 checks. One case regressed, inside the tolerance; it is listed first below. The candidate can be put live without a written reason.",
     );
     expect(verdictLine(runDetail({ run: runOverview({ split: "DEV" }), countsAtPutLive: false }))).toContain(
       "Only a run on the holdout cases counts when a version is put live.",
     );
     expect(verdictLine(runDetail({ countsAtPutLive: false }))).toContain("still to be reviewed");
     const againstAnother = runDetail({ baseline: { version: 1, live: false, modelId: null, temperature: 0 } });
-    expect(verdictLine(againstAnother)).toContain("no worse than v1.");
+    expect(verdictLine(againstAnother)).toContain("no worse than v1 on the 3 checks.");
     expect(verdictLine(againstAnother)).not.toContain("without a written reason");
   });
 

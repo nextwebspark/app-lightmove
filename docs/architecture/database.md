@@ -567,6 +567,22 @@ status is `QUEUED` or `RUNNING`: one run platform-wide. `app_lm_eval_result`: on
 raw answer, finish, tokens and each check's verdict by id. A fictional case's answer only. Append-only by trigger.
 Not in `harden.sql`, for V238's reason.
 
+V240 adds the eval judge (#1322), six more platform tables, and three columns on `app_lm_eval_run`: `rubric_id` (the
+rubric its pairs are judged by, fixed at the start; null for a dataset with none), `judge_version` and `judge_model`.
+`app_lm_eval_rubric`: one per dataset and `version`, `criteria` jsonb (`[{key, name, better}]`), append-only by
+trigger, so a changed rubric is a new version. `app_lm_eval_judgement`: the judge's pick on one criterion of one pair
+of a run's answers, unique on run, case, repeat and `criterion_key`, with `candidate_shown_as` (`A` | `B`, the order
+drawn for that pair), `winner` `CANDIDATE` | `BASELINE` | `TIE` (null: no pick that could be read) and its `reason`;
+append-only by trigger. `app_lm_eval_calibration_pair`: the pairs a person labels for one rubric version, by
+`position`, each naming a case and two `app_lm_eval_result` rows as `a_result_id` and `b_result_id`.
+`app_lm_eval_calibration_label`: the person's `pick` (`A` | `B` | `TIE`) per pair and criterion, with who and when; the
+one table here that is updated, since a label may be changed. `app_lm_eval_calibration_check`: one check of the judge
+against a rubric's labels, with the `judge_version` that made the picks, `status` `QUEUED` | `RUNNING` | `FINISHED` |
+`FAILED`, `agreed` of `picks` once finished, its spend and the worker's claim; a partial unique index allows one going
+per rubric. `app_lm_eval_calibration_pick`: the judge's pick per check, pair and criterion, in the pair's own A and B,
+with `a_shown_first` and its reason. No workspace, no reference into a tenant table, and not in `harden.sql`, for
+V238's reason.
+
 V231 adds `app_lm_dashboard` (docs/custom-dashboards.md): a member's custom dashboard on a position (`project_id`, composite key to the project's workspace) or across the workspace (null) — `owner_user_id` (cascade with the account), `name` (≤ 80, never blank), `shared`, and `widgets` jsonb, an array of `{queryId, chart, options, title, layout: {x, y, w, h}}` (twelve-column grid; rows saved before it carry `size` instead, flowed into place by the SPA) naming charts of the server's query library. The choice only, never a figure: every chart is answered live. Forced RLS on its `workspace_id`. Staff-only.
 
 V230 cancels the open tasks an executive's removal orphaned before #1402 (`candidate_id` null and an `UNMAPPED` activity line for the person on the position at or after the task's creation; a rule task filed for someone never mapped has no such line and stays open), releasing a rule task's key as `Task.releaseRuleKey` does. Data only.

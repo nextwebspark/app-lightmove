@@ -8,7 +8,9 @@ import java.time.Instant;
 import java.util.UUID;
 
 /**
- * A run as the list shows it. {@code verdict} is null until it finishes and {@code failure} unless it failed;
+ * A run as the list shows it. {@code verdict} is null until it finishes, and for a finished run that gave no
+ * result; {@code failure} is null unless it failed; {@code judged}: its dataset has a rubric, so a judge compares
+ * each pair of answers and its calls are among the run's;
  * {@code callsMade} counts a repair's second ask, so it can pass {@code callsPlanned}.
  */
 public record EvalRunOverview(
@@ -24,6 +26,7 @@ public record EvalRunOverview(
         EvalRunStatus status,
         EvalRunVerdict verdict,
         EvalRunFailure failure,
+        boolean judged,
         int cases,
         int repeats,
         int callsPlanned,

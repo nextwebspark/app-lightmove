@@ -20,6 +20,7 @@ export const dataset = (overrides: Partial<EvalDatasetOverview> = {}): EvalDatas
   holdout: 12,
   updatedAt: "2026-11-17T10:00:00Z",
   importable: true,
+  rubric: null,
   ...overrides,
 });
 
@@ -48,6 +49,7 @@ export const runOverview = (overrides: Partial<EvalRunOverview> = {}): EvalRunOv
   status: "FINISHED",
   verdict: "PASS",
   failure: null,
+  judged: false,
   cases: 12,
   repeats: 3,
   callsPlanned: 72,
@@ -73,6 +75,7 @@ export const summary = (overrides: Partial<EvalRunSummary> = {}): EvalRunSummary
   regressedCases: 1,
   betterCases: 1,
   unchangedCases: 10,
+  judged: null,
   ...overrides,
 });
 
@@ -111,6 +114,9 @@ export const changedCases = (): EvalRunCaseComparison[] => [
         baseline: { mean: null, spread: null, outside: false, text: null },
       },
     ],
+    prose: null,
+    judged: [],
+    candidateShownAs: [],
   },
   {
     caseId: "c22",
@@ -120,6 +126,9 @@ export const changedCases = (): EvalRunCaseComparison[] => [
     outcome: "BETTER",
     checks: [{ id: "evidence-names-source", label: "Evidence names its source", candidatePassed: 3, baselinePassed: 1, repeats: 3 }],
     readings: [],
+    prose: null,
+    judged: [],
+    candidateShownAs: [],
   },
 ];
 
@@ -129,6 +138,8 @@ export const estimate = (overrides: Partial<EvalRunEstimate> = {}): EvalRunEstim
   repeats: 3,
   repeatsReason: "PROMPT_VARIES",
   calls: 72,
+  judgeCalls: 0,
+  judgedCounts: null,
   tokens: 610_000,
   minutes: 6,
   callCap: 200,

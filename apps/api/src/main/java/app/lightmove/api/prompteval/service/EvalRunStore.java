@@ -14,6 +14,7 @@ import app.lightmove.api.prompteval.model.EvalRun;
 import app.lightmove.api.prompteval.model.EvalRunAnswer;
 import app.lightmove.api.prompteval.model.EvalRunCase;
 import app.lightmove.api.prompteval.model.EvalRunPulse;
+import app.lightmove.api.prompteval.model.JudgeReading;
 import app.lightmove.api.prompteval.model.NewEvalRun;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -49,8 +50,8 @@ public class EvalRunStore {
             r.id, r.number, r.prompt_id, r.dataset_id, d.name AS dataset_name, r.split, r.candidate_version,
                    r.baseline_version, r.candidate_model, r.baseline_model, r.repeats, r.status, r.verdict, r.failure,
                    r.gate_ready, r.case_count, r.calls_planned, r.calls_made, r.call_cap, r.input_tokens,
-                   r.output_tokens, r.summary::text AS summary, r.started_by, starter.full_name AS started_by_name,
-                   r.created_at, r.started_at, r.finished_at
+                   r.output_tokens, r.summary::text AS summary, r.rubric_id, r.judge_version, r.judge_model,
+                   r.started_by, starter.full_name AS started_by_name, r.created_at, r.started_at, r.finished_at
             """;
 
     private static final String RUN_TABLES = """
@@ -67,7 +68,8 @@ public class EvalRunStore {
     private final ObjectMapper json;
 
     /**
-     * Queues a run on the cases the dataset has in use in that split now. Empty when it has none.
+     * Queues a run on the cases the dataset has in use in that split now. Empty when it has none. With a rubric,
+     * the calls planned include the judge's: one for each pair of answers.
      *
      * @throws org.springframework.dao.DuplicateKeyException when a run is queued or going already
      */
@@ -75,10 +77,11 @@ public class EvalRunStore {
         return jdbc.sql("""
                         INSERT INTO app_lm_eval_run
                             (prompt_id, dataset_id, split, case_ids, candidate_version, baseline_version, repeats,
-                             status, gate_ready, case_count, calls_planned, call_cap, started_by)
+                             status, gate_ready, case_count, calls_planned, call_cap, started_by, rubric_id)
                         SELECT :promptId, :datasetId, :split, array_agg(c.id ORDER BY c.case_key), :candidate,
-                               :baseline, :repeats, 'QUEUED', :gateReady, count(*), count(*) * 2 * :repeats,
-                               :callCap, :startedBy
+                               :baseline, :repeats, 'QUEUED', :gateReady, count(*),
+                               count(*) * :repeats * CASE WHEN CAST(:rubricId AS uuid) IS NULL THEN 2 ELSE 3 END,
+                               :callCap, :startedBy, CAST(:rubricId AS uuid)
                         FROM app_lm_eval_case c
                         WHERE c.dataset_id = :datasetId AND c.split = :split AND c.retired_at IS NULL
                         HAVING count(*) > 0
@@ -93,6 +96,7 @@ public class EvalRunStore {
                 .param("gateReady", run.gateReady())
                 .param("callCap", run.callCap())
                 .param("startedBy", run.startedBy())
+                .param("rubricId", run.rubricId())
                 .query(UUID.class)
                 .optional();
     }
@@ -261,6 +265,46 @@ public class EvalRunStore {
                 .update() == 1;
     }
 
+    /**
+     * Fixes the judge a run is judged by, the first time it is worked, and answers it. A run picked up again keeps
+     * the judge it began with, whichever serves by then: its pairs are never judged by two versions.
+     */
+    int pinJudgeVersion(UUID runId, int liveJudgeVersion) {
+        return jdbc.sql("""
+                        UPDATE app_lm_eval_run SET judge_version = coalesce(judge_version, :live)
+                        WHERE id = :id
+                        RETURNING judge_version
+                        """)
+                .param("id", runId)
+                .param("live", liveJudgeVersion)
+                .query(Integer.class)
+                .single();
+    }
+
+    /**
+     * What the judge's ask cost, answered or not, and the model that answered. False when the run is no longer this
+     * worker's: nothing was counted, and it must write nothing more.
+     */
+    boolean addJudgeSpend(ClaimedEvalRun claimed, JudgeReading reading) {
+        String model = reading.asked().model();
+        return jdbc.sql("""
+                        UPDATE app_lm_eval_run
+                        SET calls_made = calls_made + :calls, input_tokens = input_tokens + :inputTokens,
+                            output_tokens = output_tokens + :outputTokens,
+                            judge_model = coalesce(:model, judge_model)
+                        WHERE id = :id AND status = 'RUNNING' AND claim_token = :token
+                        """)
+                .param("id", claimed.run().id())
+                .param("token", claimed.claimToken())
+                .param("calls", reading.callsCharged())
+                .param("inputTokens", reading.asked().inputTokens())
+                .param("outputTokens", reading.asked().outputTokens())
+                .param("model", model == null || model.isBlank() ? null
+                        : model.substring(0, Math.min(model.length(), MODEL_NAME_LENGTH)))
+                .update() == 1;
+    }
+
+    /** {@code verdict} null: the run finished and nothing it measured counts, so it gives no result. */
     boolean finish(ClaimedEvalRun claimed, EvalRunVerdict verdict, EvalRunSummary summary) {
         return jdbc.sql("""
                         UPDATE app_lm_eval_run
@@ -270,7 +314,7 @@ public class EvalRunStore {
                         """)
                 .param("id", claimed.run().id())
                 .param("token", claimed.claimToken())
-                .param("verdict", verdict.name())
+                .param("verdict", verdict == null ? null : verdict.name())
                 .param("summary", json.writeValueAsString(summary))
                 .update() == 1;
     }
@@ -378,6 +422,9 @@ public class EvalRunStore {
                 row.getLong("input_tokens"),
                 row.getLong("output_tokens"),
                 summary == null ? null : json.readValue(summary, EvalRunSummary.class),
+                row.getObject("rubric_id", UUID.class),
+                row.getObject("judge_version", Integer.class),
+                row.getString("judge_model"),
                 row.getObject("started_by", UUID.class),
                 row.getString("started_by_name"),
                 row.getTimestamp("created_at").toInstant(),

@@ -70,7 +70,7 @@ describe("EvalRunPage", () => {
     expect(screen.getByText(/^R-0042 · Holdout split · 12 cases × 3 repeats · started by Noor Rahman, 19 Nov 2026/)).toBeInTheDocument();
     expect(
       screen.getByText(
-        "Across the holdout cases, the candidate is no worse than the live version. One case regressed, inside the tolerance; it is listed first below. The candidate can be put live without a written reason.",
+        "Across the holdout cases, the candidate is no worse than the live version on the 3 checks. One case regressed, inside the tolerance; it is listed first below. The candidate can be put live without a written reason.",
       ),
     ).toBeInTheDocument();
 
