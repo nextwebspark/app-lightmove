@@ -20,6 +20,7 @@ import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -160,8 +161,11 @@ final class AssessmentCase {
         return value != null && value.isString() && !value.asString().isBlank() ? value.asString().strip() : null;
     }
 
-    private static List<String> textsOf(JsonNode node, String field) {
+    static List<String> textsOf(JsonNode node, String field) {
         List<String> texts = new ArrayList<>();
+        if (node == null) {
+            return texts;
+        }
         for (JsonNode value : node.path(field)) {
             if (value.isString() && !value.asString().isBlank()) {
                 texts.add(value.asString().strip());
@@ -314,12 +318,7 @@ final class AssessmentCase {
     }
 
     private static boolean isNamed(Enum<?>[] constants, String name) {
-        for (Enum<?> constant : constants) {
-            if (constant.name().equals(name)) {
-                return true;
-            }
-        }
-        return false;
+        return Arrays.stream(constants).anyMatch(constant -> constant.name().equals(name));
     }
 
     @FunctionalInterface

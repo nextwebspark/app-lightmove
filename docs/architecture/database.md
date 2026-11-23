@@ -550,8 +550,8 @@ set of cases for one `prompt_id`, unique on (`prompt_id`, `name`); `created_by` 
 `app_lm_eval_case`: `case_key` unique per dataset for ever, `name`, `tag`, `split` `DEV` | `HOLDOUT`, `source` with
 the single value `SYNTHETIC` (a CHECK: there is nothing to store a real person's data under), `input` jsonb in the
 prompt's own prepared shape and `expected` jsonb (null for a prompt only a judge scores). A case is added and
-retired, never rewritten: a trigger lets an UPDATE change only `retired_at` / `retired_by` (once) and an erased
-account's author columns, and refuses DELETE. Not in `harden.sql`: retiring needs UPDATE, and later eval tables
+retired, never rewritten: a trigger lets an UPDATE set `retired_at` and `retired_by` together, once, and after that
+change `created_by` or `retired_by` only to null (an erased account), and refuses DELETE. Not in `harden.sql`: retiring needs UPDATE, and later eval tables
 reference these, which a table owned by `postgres` would refuse.
 
 V239 adds eval runs (#1320), two more platform tables. `app_lm_eval_run`: `number` (an identity, the `R-0042` a

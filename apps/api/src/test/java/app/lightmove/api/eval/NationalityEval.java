@@ -59,9 +59,10 @@ class NationalityEval {
 
     @Test
     void run() throws IOException {
-        String golden = envOr("LIGHTMOVE_EVAL_GOLDEN", GoldenRows.SYNTHETIC);
+        String golden = envOr("LIGHTMOVE_EVAL_GOLDEN", null);
         String subject = envOr("LIGHTMOVE_EVAL_SUBJECT", "classifier");
-        List<GoldenRow> rows = GoldenRows.read(golden);
+        List<GoldenRow> rows = GoldenRows.typed(golden == null ? GoldenRows.synthetic()
+                : GoldenRows.parse(Files.readString(Path.of(golden), StandardCharsets.UTF_8)));
         StructuredPromptFactory prompts = TestLlmCallPolicy.promptsOver(vertexModel());
 
         List<GoldenRowPrediction> predictions = switch (subject) {
@@ -70,7 +71,7 @@ class NationalityEval {
             default -> throw new IllegalArgumentException("LIGHTMOVE_EVAL_SUBJECT is classifier or baseline");
         };
 
-        String report = GoldenRowScorer.markdown(subject, (golden.equals(GoldenRows.SYNTHETIC) ? "synthetic fixtures" : "private set") + ", " + model(),
+        String report = GoldenRowScorer.markdown(subject, (golden == null ? "synthetic fixtures" : "private set") + ", " + model(),
                 LocalDate.now(ZoneOffset.UTC).toString(), GoldenRowScorer.score(rows, predictions));
         Files.createDirectories(REPORT.getParent());
         Files.writeString(REPORT, report, StandardCharsets.UTF_8,

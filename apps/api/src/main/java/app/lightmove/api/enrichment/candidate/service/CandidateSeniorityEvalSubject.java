@@ -36,7 +36,7 @@ class CandidateSeniorityEvalSubject implements EvalSubject {
 
     @Override
     public String promptId() {
-        return "candidate-ai-enrich";
+        return CandidateAiEnricher.PROMPT_ID;
     }
 
     @Override
@@ -54,6 +54,11 @@ class CandidateSeniorityEvalSubject implements EvalSubject {
     @Override
     public List<EvalCheck> checks() {
         return CHECKS;
+    }
+
+    @Override
+    public boolean isGateReady() {
+        return true;
     }
 
     /** The distance between the labelled level and the answered one; no level answered is as far as can be. */

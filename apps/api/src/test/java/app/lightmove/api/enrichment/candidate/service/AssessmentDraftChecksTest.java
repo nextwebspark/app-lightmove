@@ -59,6 +59,50 @@ class AssessmentDraftChecksTest {
     }
 
     @Test
+    @DisplayName("a score that is no whole number fails the range and throws out of no rule")
+    void aMalformedScoreIsAVerdict() {
+        for (String malformed : List.of("\"N/A\"", "\"high\"", "{\"value\": 8}", "99999999999", "true")) {
+            ObjectNode answer = answer();
+            for (JsonNode entry : answer.get("scores")) {
+                ((ObjectNode) entry).set("score", AssessmentCaseFixture.JSON.readTree(malformed));
+            }
+
+            Map<String, EvalCheckVerdict> verdicts = verdicts(expected(), answer);
+
+            assertThat(verdicts.get("scores-in-range")).as(malformed).isEqualTo(EvalCheckVerdict.FAILED);
+            assertThat(verdicts.get("score-in-band")).as(malformed).isEqualTo(EvalCheckVerdict.FAILED);
+        }
+    }
+
+    @Test
+    @DisplayName("a bare \"no\", or nothing on file beside a strong score, names no source")
+    void onlyALowScoreIsExplainedByNothingOnFile() {
+        assertFails("evidence-names-source", answer -> scoreOf(answer, "B1")
+                .put("evidence", "Led the turnaround with no outside hires."));
+        assertFails("evidence-names-source", answer -> scoreOf(answer, "T1")
+                .put("evidence", "There is no evidence on file of a refinancing."));
+        assertThat(verdictOf("evidence-names-source", expected(), changed(answer -> scoreOf(answer, "B2")
+                .put("score", 3).put("evidence", "There is no evidence on file of how a board regards her."))))
+                .isEqualTo(EvalCheckVerdict.PASSED);
+        assertFails("scores-in-range",
+                answer -> scoreOf(answer, "T2").put("evidence", "Led the reporting with no outside help."));
+    }
+
+    @Test
+    @DisplayName("a call cited with its month in capitals is the same call")
+    void aCallIsCitedInAnyCase() {
+        Consumer<ObjectNode> capitals = answer -> scoreOf(answer, "B1").put("evidence",
+                "On the call 20 OCT 2026, 03:10 in, she describes moving both finance teams onto one calendar.");
+        assertThat(verdictOf("evidence-in-input", expected(), changed(capitals))).isEqualTo(EvalCheckVerdict.PASSED);
+        assertThat(verdictOf("evidence-names-source", expected(), changed(capitals)))
+                .isEqualTo(EvalCheckVerdict.PASSED);
+
+        ObjectNode unusable = expected();
+        unusable.putArray("unusableCalls").add("2026-10-20");
+        assertThat(verdictOf("no-team-evidence", unusable, changed(capitals))).isEqualTo(EvalCheckVerdict.FAILED);
+    }
+
+    @Test
     @DisplayName("evidence naming no source, or a strong score resting on another source than labelled, fails")
     void evidenceMustNameItsSource() {
         assertFails("evidence-names-source", answer -> scoreOf(answer, "B1")

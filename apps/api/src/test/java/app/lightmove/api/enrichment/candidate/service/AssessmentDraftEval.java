@@ -36,7 +36,7 @@ import tools.jackson.databind.json.JsonMapper;
  * Application Default Credentials:
  *
  * <pre>
- * LIGHTMOVE_EVAL_SUBJECT=shipped LIGHTMOVE_EVAL_SPLIT=DEV LIGHTMOVE_EVAL_RUNS=1 \
+ * LIGHTMOVE_EVAL_SUBJECT=shipped LIGHTMOVE_EVAL_SPLIT=DEV \
  *   ./mvnw test -Dgroups=eval -DexcludedGroups= -Dtest=AssessmentDraftEval
  * </pre>
  *
@@ -44,6 +44,7 @@ import tools.jackson.databind.json.JsonMapper;
  * way a check looks for, which shows every check can fail. The split is {@code DEV}, {@code HOLDOUT} or {@code ALL};
  * {@code LIGHTMOVE_EVAL_CASES=AD-005,AD-017} runs those cases instead, and {@code LIGHTMOVE_EVAL_SHOW=true} prints each
  * answer, which is how a label is checked against what the model actually wrote (every case is fictional).
+ * A case is answered as often as the console answers it; {@code LIGHTMOVE_EVAL_RUNS=1} is the quick look.
  * Each case goes through the eval subject the console's runs use. The report, check counts and case keys only, is
  * appended to {@code docs/eval/assessment-draft-eval.md}.
  */
@@ -70,7 +71,6 @@ class AssessmentDraftEval {
     void run() throws IOException {
         String subjectName = envOr("LIGHTMOVE_EVAL_SUBJECT", "shipped");
         String split = envOr("LIGHTMOVE_EVAL_SPLIT", "DEV");
-        int repeats = Integer.parseInt(envOr("LIGHTMOVE_EVAL_RUNS", "1"));
         List<String> only = List.of(envOr("LIGHTMOVE_EVAL_CASES", "").split(","));
         boolean show = Boolean.parseBoolean(envOr("LIGHTMOVE_EVAL_SHOW", "false"));
         String body = switch (subjectName) {
@@ -81,6 +81,7 @@ class AssessmentDraftEval {
         PromptTrialRunner runner = new PromptTrialRunner(JSON);
         CandidateScorecardEvalSubject subject = new CandidateScorecardEvalSubject(
                 new CandidateScorecardDrafter(TestLlmCallPolicy.promptsOver(vertexModel(), runner)), JSON);
+        int repeats = Integer.parseInt(envOr("LIGHTMOVE_EVAL_RUNS", String.valueOf(subject.minimumRepeats())));
         // A version number, because a running trial names its version on the call's log line.
         ServedPrompt version = new ServedPrompt(PROMPT_ID, body, 1, null, null, GenerationSettings.UNSET);
 

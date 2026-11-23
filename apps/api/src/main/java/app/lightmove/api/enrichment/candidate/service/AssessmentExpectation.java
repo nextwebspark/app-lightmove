@@ -1,5 +1,6 @@
 package app.lightmove.api.enrichment.candidate.service;
 
+import app.lightmove.api.candidate.model.CandidateScorecard;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -31,8 +32,8 @@ final class AssessmentExpectation {
 
     static final int DEFAULT_TOLERANCE = 1;
     static final int MAX_TOLERANCE = 3;
-    static final int MAX_SCORE = 10;
-    static final Set<String> SOURCES = Set.of("profile", "note", "call", "document");
+    static final Set<String> SOURCES = Set.of(EvidenceCitations.PROFILE, EvidenceCitations.NOTE,
+            EvidenceCitations.CALL, EvidenceCitations.DOCUMENT);
 
     private static final Set<String> FIELDS = Set.of(COMPETENCIES, NEVER_IN_ANSWER, NOT_EVIDENCE, UNUSABLE_CALLS);
     private static final Set<String> LABEL_FIELDS = Set.of("band", "tolerance", "restsOn", "selfReportOnly");
@@ -83,7 +84,7 @@ final class AssessmentExpectation {
         for (JsonNode transcript : input.path(AssessmentCase.TRANSCRIPTS)) {
             callDays.add(AssessmentCase.textOf(transcript, "date"));
         }
-        for (String day : textsOf(expected, UNUSABLE_CALLS)) {
+        for (String day : AssessmentCase.textsOf(expected, UNUSABLE_CALLS)) {
             if (!callDays.contains(day)) {
                 problems.add("expected.unusableCalls names a date no call of the case has.");
                 break;
@@ -121,18 +122,6 @@ final class AssessmentExpectation {
 
     static boolean isSelfReportOnly(JsonNode label) {
         return label.path("selfReportOnly").asBoolean(false);
-    }
-
-    static List<String> textsOf(JsonNode expected, String list) {
-        List<String> texts = new ArrayList<>();
-        if (expected != null) {
-            for (JsonNode value : expected.path(list)) {
-                if (value.isString() && !value.asString().isBlank()) {
-                    texts.add(value.asString().strip());
-                }
-            }
-        }
-        return texts;
     }
 
     private static int toleranceOf(JsonNode label) {
@@ -177,7 +166,8 @@ final class AssessmentExpectation {
     }
 
     private static boolean isScore(JsonNode value) {
-        return value.isIntegralNumber() && value.asInt() >= 0 && value.asInt() <= MAX_SCORE;
+        return value.isIntegralNumber() && value.canConvertToInt() && value.asInt() >= CandidateScorecard.MIN_SCORE
+                && value.asInt() <= CandidateScorecard.MAX_SCORE;
     }
 
     private static boolean isListOfText(JsonNode values) {

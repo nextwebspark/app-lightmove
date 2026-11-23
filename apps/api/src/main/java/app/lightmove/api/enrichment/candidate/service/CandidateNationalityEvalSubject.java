@@ -35,7 +35,7 @@ class CandidateNationalityEvalSubject implements EvalSubject {
 
     @Override
     public String promptId() {
-        return "candidate-nationality";
+        return CandidateNationalityClassifier.PROMPT_ID;
     }
 
     @Override
@@ -53,6 +53,11 @@ class CandidateNationalityEvalSubject implements EvalSubject {
     @Override
     public List<EvalCheck> checks() {
         return CHECKS;
+    }
+
+    @Override
+    public boolean isGateReady() {
+        return true;
     }
 
     private static String labelled(JsonNode expected) {

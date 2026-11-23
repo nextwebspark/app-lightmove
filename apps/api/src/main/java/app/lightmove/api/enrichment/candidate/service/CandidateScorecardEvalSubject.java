@@ -18,7 +18,6 @@ import tools.jackson.databind.ObjectMapper;
 @RequiredArgsConstructor
 class CandidateScorecardEvalSubject implements EvalSubject {
 
-    /** Assessment answers vary from one call to the next even at temperature 0. */
     static final int REPEATS = 3;
 
     /** Three answers to a dozen held-back cases move a check's pass rate by about this much on their own. */

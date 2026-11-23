@@ -32,14 +32,17 @@ CREATE TABLE app_lm_eval_case (
     CONSTRAINT app_lm_eval_case_key_uk UNIQUE (dataset_id, case_key)
 );
 
--- A run names the cases it scored, so a case is added and retired and never rewritten, and a retired one stays
--- retired. The two author columns alone may change besides: erasing an account sets them null.
+-- A run names the cases it scored, so a case is added and retired and never rewritten. Retiring sets retired_at
+-- and retired_by together, once. Besides that an author column changes only to null, when its account is erased.
 CREATE FUNCTION app_lm_eval_case_is_add_and_retire_only() RETURNS trigger AS $$
 BEGIN
     IF TG_OP = 'UPDATE'
        AND (to_jsonb(NEW) - 'retired_at' - 'retired_by' - 'created_by')
            = (to_jsonb(OLD) - 'retired_at' - 'retired_by' - 'created_by')
-       AND (OLD.retired_at IS NULL OR NEW.retired_at IS NOT DISTINCT FROM OLD.retired_at) THEN
+       AND (NEW.created_by IS NOT DISTINCT FROM OLD.created_by OR NEW.created_by IS NULL)
+       AND ((OLD.retired_at IS NULL AND NEW.retired_at IS NOT NULL)
+            OR (NEW.retired_at IS NOT DISTINCT FROM OLD.retired_at
+                AND (NEW.retired_by IS NOT DISTINCT FROM OLD.retired_by OR NEW.retired_by IS NULL))) THEN
         RETURN NEW;
     END IF;
     RAISE EXCEPTION 'app_lm_eval_case is add-and-retire only (attempted %)', TG_OP
