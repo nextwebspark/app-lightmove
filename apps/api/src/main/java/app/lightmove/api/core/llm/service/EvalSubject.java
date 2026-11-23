@@ -1,5 +1,6 @@
 package app.lightmove.api.core.llm.service;
 
+import app.lightmove.api.core.llm.model.EvalReading;
 import java.util.List;
 import tools.jackson.databind.JsonNode;
 
@@ -30,6 +31,22 @@ public interface EvalSubject {
     /** How many times a case is answered at the least: more than once where answers vary even at temperature 0. */
     default int minimumRepeats() {
         return 1;
+    }
+
+    /**
+     * How many points a check's pass rate may fall, candidate against baseline, before the candidate counts as
+     * worse. Answers vary from one call to the next, so a prompt whose cases are answered several times allows some.
+     */
+    default double tolerancePoints() {
+        return 0;
+    }
+
+    /**
+     * What an answer says about each thing a case is scored on, for two versions to be read side by side: a
+     * competency's score and its evidence. Empty for a prompt whose checks say all there is to compare.
+     */
+    default List<EvalReading> readingsOf(JsonNode input, JsonNode expected, JsonNode answer) {
+        return List.of();
     }
 
     /**

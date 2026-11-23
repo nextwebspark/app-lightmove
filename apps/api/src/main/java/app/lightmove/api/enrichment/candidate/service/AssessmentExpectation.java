@@ -101,6 +101,12 @@ final class AssessmentExpectation {
         return !label.path("band").isArray();
     }
 
+    /** The label as a person reads it, without its tolerance: "7 to 9". */
+    static String inWords(JsonNode label) {
+        return expectsNoScore(label) ? "No evidence"
+                : label.get("band").get(0).asInt() + " to " + label.get("band").get(1).asInt();
+    }
+
     static int lowestOf(JsonNode label) {
         return label.get("band").get(0).asInt() - toleranceOf(label);
     }

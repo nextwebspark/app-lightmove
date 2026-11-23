@@ -1,6 +1,7 @@
 package app.lightmove.api.enrichment.candidate.service;
 
 import app.lightmove.api.core.llm.constant.EvalCheckVerdict;
+import app.lightmove.api.core.llm.model.EvalReading;
 import app.lightmove.api.core.llm.service.EvalCheck;
 import app.lightmove.api.core.text.service.ContactRedaction;
 import app.lightmove.api.core.text.service.LooseTextMatch;
@@ -318,6 +319,29 @@ final class AssessmentDraftChecks {
             }
         }
         return EvalCheckVerdict.PASSED;
+    }
+
+    /**
+     * Each competency of the case's brief as an answer scored it, for two versions to be read side by side. A
+     * score is outside by the rule {@link #scoresInBand} holds it to.
+     */
+    static List<EvalReading> readingsOf(JsonNode input, JsonNode expected, JsonNode answer) {
+        Map<String, Scored> byId = new HashMap<>();
+        scoresOf(answer).forEach(scored -> byId.putIfAbsent(scored.id(), scored));
+        List<EvalReading> readings = new ArrayList<>();
+        AssessmentCase.competenciesOf(input).forEach((id, competency) -> {
+            JsonNode label = expected == null ? null : AssessmentExpectation.labelOf(expected, id);
+            Scored scored = byId.get(id);
+            Integer score = scored != null && scored.hasScore() && scored.score().isIntegralNumber()
+                    ? scored.score().asInt() : null;
+            boolean outside = label != null && (AssessmentExpectation.expectsNoScore(label) ? score != null
+                    : score == null || score < AssessmentExpectation.lowestOf(label)
+                            || score > AssessmentExpectation.highestOf(label));
+            readings.add(new EvalReading(id, competency.name(),
+                    label == null ? null : AssessmentExpectation.inWords(label),
+                    score == null ? null : score.doubleValue(), scored == null ? null : scored.evidence(), outside));
+        });
+        return readings;
     }
 
     private static EvalCheckVerdict selfReportStaysCapped(JsonNode input, JsonNode expected, JsonNode answer) {
