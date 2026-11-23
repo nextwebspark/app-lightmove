@@ -7,11 +7,13 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -28,6 +30,9 @@ import org.hibernate.type.SqlTypes;
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class ExecutiveSourcingRun extends BaseEntity {
+
+    /** How long past its deadline a run may still be marked in progress before it is read as lost. */
+    public static final Duration LOST_GRACE = Duration.ofMinutes(1);
 
     @Column(name = "workspace_id", nullable = false, updatable = false)
     private UUID workspaceId;
@@ -90,8 +95,13 @@ public class ExecutiveSourcingRun extends BaseEntity {
     @Column(name = "finished_at")
     private Instant finishedAt;
 
+    /** The deadline in force when the run was requested; null on runs from before V242. */
+    @Column(name = "run_deadline_seconds", updatable = false)
+    private Integer runDeadlineSeconds;
+
     public static ExecutiveSourcingRun requested(UUID workspaceId, UUID projectId, UUID requestedBy,
-                                                 List<SourcingCompany> companies, SearchCriteria criteria) {
+                                                 List<SourcingCompany> companies, SearchCriteria criteria,
+                                                 Duration runDeadline) {
         ExecutiveSourcingRun run = new ExecutiveSourcingRun();
         run.workspaceId = workspaceId;
         run.projectId = projectId;
@@ -99,6 +109,7 @@ public class ExecutiveSourcingRun extends BaseEntity {
         run.status = SourcingRunStatus.QUEUED;
         run.companies = List.copyOf(companies);
         run.criteria = criteria;
+        run.runDeadlineSeconds = Math.toIntExact(runDeadline.toSeconds());
         return run;
     }
 
@@ -133,8 +144,21 @@ public class ExecutiveSourcingRun extends BaseEntity {
         finishedAt = Instant.now();
     }
 
-    /** Still marked in progress past {@code cutoff}: its worker died with the instance and will never finish it. */
-    public boolean isLostBefore(Instant cutoff) {
-        return SourcingRunStatus.IN_PROGRESS.contains(status) && getCreatedAt().isBefore(cutoff);
+    public Optional<Duration> runDeadline() {
+        return Optional.ofNullable(runDeadlineSeconds).map(Duration::ofSeconds);
+    }
+
+    /** Its own deadline and the grace; empty for a run that recorded no deadline. */
+    public Optional<Duration> lostAfter() {
+        return runDeadline().map(deadline -> deadline.plus(LOST_GRACE));
+    }
+
+    /**
+     * Still marked in progress past its own deadline and the grace: its worker died with the instance and will
+     * never finish it. Never judged against the current deadline, which may have been lowered while the run was live.
+     */
+    public boolean isLostAt(Instant now, Duration lostAfterWhenNoneRecorded) {
+        return SourcingRunStatus.IN_PROGRESS.contains(status)
+                && getCreatedAt().plus(lostAfter().orElse(lostAfterWhenNoneRecorded)).isBefore(now);
     }
 }

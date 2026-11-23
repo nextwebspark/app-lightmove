@@ -1,8 +1,6 @@
 package app.lightmove.api.enrichment.sourcing.service;
 
 import app.lightmove.api.common.constant.Seniority;
-import app.lightmove.api.core.config.ExecutiveSourcingSettings;
-import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.enrichment.candidate.model.BrightDataPerson;
 import app.lightmove.api.enrichment.common.service.SearchHitFiling;
 import app.lightmove.api.enrichment.sourcing.constant.FoundBy;
@@ -13,6 +11,7 @@ import app.lightmove.api.enrichment.sourcing.model.FoundPeople;
 import app.lightmove.api.enrichment.sourcing.model.FoundPerson;
 import app.lightmove.api.enrichment.sourcing.model.SearchWords;
 import app.lightmove.api.enrichment.sourcing.model.SearchedEmployer;
+import app.lightmove.api.enrichment.sourcing.model.SourcingRunLimits;
 import app.lightmove.api.enrichment.sourcing.model.TitleTier;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -37,13 +36,13 @@ public class CompanySearch {
     private final LiveProfiles live;
     private final ProfileIndex index;
     private final PeopleCache cache;
-    private final ExecutiveSourcingSettings settings;
+    private final SourcingLimits limits;
 
-    public CompanySearch(LiveProfiles live, ProfileIndex index, PeopleCache cache, LightMoveProperties properties) {
+    public CompanySearch(LiveProfiles live, ProfileIndex index, PeopleCache cache, SourcingLimits limits) {
         this.live = live;
         this.index = index;
         this.cache = cache;
-        this.settings = properties.enrichment().sourcing();
+        this.limits = limits;
     }
 
     public boolean isOffered() {
@@ -52,11 +51,12 @@ public class CompanySearch {
 
     public FoundPeople search(SearchedEmployer employer, SearchWords words, Seniority seat, List<String> countryCodes,
                               int profiles) {
-        return search(employer, words, seat, countryCodes, profiles, CompanySearchProgress.NONE);
+        return search(employer, words, seat, countryCodes, profiles, limits.current(),
+                CompanySearchProgress.NONE);
     }
 
     public FoundPeople search(SearchedEmployer employer, SearchWords words, Seniority seat, List<String> countryCodes,
-                              int profiles, CompanySearchProgress progress) {
+                              int profiles, SourcingRunLimits runLimits, CompanySearchProgress progress) {
         if (!words.isSearchable() || employer.linkedinSlug() == null) {
             return FoundPeople.none();
         }
@@ -67,7 +67,7 @@ public class CompanySearch {
                 buyLive(employer, words, seat, countryCodes, profiles, spend);
             }
             if (index.isOffered() && !words.roleWords().isEmpty()) {
-                checkIndex(employer, words, countryCodes, spend);
+                checkIndex(employer, words, countryCodes, runLimits, spend);
             }
         } catch (RuntimeException failed) {
             throw new CompanySearchFailure(spend.credits, spend.cached, failed);
@@ -104,11 +104,12 @@ public class CompanySearch {
         }
     }
 
-    private void checkIndex(SearchedEmployer employer, SearchWords words, List<String> countryCodes, Spend spend) {
-        PeopleFound named = cache.index(index, employer, words, countryCodes, settings.indexPeoplePerCompany());
+    private void checkIndex(SearchedEmployer employer, SearchWords words, List<String> countryCodes,
+                            SourcingRunLimits runLimits, Spend spend) {
+        PeopleFound named = cache.index(index, employer, words, countryCodes, runLimits.indexPeoplePerCompany());
         spend.indexSearches += named.askedVendor() ? 1 : 0;
         spend.indexFound += named.people().size();
-        spend.checksToMake = toCheck(named.people(), spend);
+        spend.checksToMake = toCheck(named.people(), runLimits, spend);
         spend.reached(spend.checksToMake > 0 ? SourcingStage.CHECKING : SourcingStage.LOOKING, 0,
                 spend.checksToMake);
         for (BrightDataPerson person : named.people()) {
@@ -116,15 +117,16 @@ public class CompanySearch {
                 continue;
             }
             spend.add(new FoundPerson(person, index.provider(), index.researchedBy(),
-                    checkOf(employer, words, person, spend), FoundBy.INDEX));
+                    checkOf(employer, words, person, runLimits, spend), FoundBy.INDEX));
         }
     }
 
-    private TitleCheck checkOf(SearchedEmployer employer, SearchWords words, BrightDataPerson person, Spend spend) {
+    private TitleCheck checkOf(SearchedEmployer employer, SearchWords words, BrightDataPerson person,
+                               SourcingRunLimits runLimits, Spend spend) {
         if (person.position() != null && !person.position().isBlank()) {
             return TitleCheck.INDEX_TITLE;
         }
-        if (!live.isOffered() || spend.titleChecks >= settings.titleChecksPerCompany()) {
+        if (!live.isOffered() || spend.titleChecks >= runLimits.titleChecksPerCompany()) {
             return TitleCheck.UNCHECKED;
         }
         spend.titleChecks++;
@@ -134,7 +136,7 @@ public class CompanySearch {
     }
 
     /** How many of the index's people will be checked by name: those with no title on record, up to the cap. */
-    private int toCheck(List<BrightDataPerson> named, Spend spend) {
+    private int toCheck(List<BrightDataPerson> named, SourcingRunLimits runLimits, Spend spend) {
         if (!live.isOffered()) {
             return 0;
         }
@@ -142,7 +144,7 @@ public class CompanySearch {
                 .filter(person -> person.position() == null || person.position().isBlank())
                 .filter(spend::isNew)
                 .count();
-        return (int) Math.min(untitled, settings.titleChecksPerCompany());
+        return (int) Math.min(untitled, runLimits.titleChecksPerCompany());
     }
 
     /**

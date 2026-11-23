@@ -13,6 +13,7 @@ import app.lightmove.api.FixtureJdbc;
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.StubChatModel;
+import app.lightmove.api.core.config.ApplicationVariables;
 import app.lightmove.api.core.tenant.WorkspaceScope;
 import app.lightmove.api.enrichment.candidate.model.BrightDataPerson;
 import app.lightmove.api.enrichment.candidate.model.BrightDataPerson.BrightDataExperience;
@@ -24,6 +25,7 @@ import app.lightmove.api.enrichment.sourcing.model.SourcingCompany;
 import app.lightmove.api.enrichment.sourcing.repository.ExecutiveSourcingRunRepository;
 import app.lightmove.api.enrichment.sourcing.service.RecordingLiveProfiles;
 import app.lightmove.api.enrichment.sourcing.service.RecordingProfileIndex;
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
@@ -69,6 +71,7 @@ class ExecutiveSourcingIntegrationTest extends FlowTestSupport {
     @Autowired private ExecutiveSourcingRunRepository runs;
     @Autowired private ApplicationEventPublisher events;
     @Autowired private PlatformTransactionManager transactions;
+    @Autowired private ApplicationVariables variables;
 
     private String adminToken;
     private String adminEmail;
@@ -282,7 +285,8 @@ class ExecutiveSourcingIntegrationTest extends FlowTestSupport {
             ExecutiveSourcingRun queued = runs.save(ExecutiveSourcingRun.requested(workspaceId,
                     UUID.fromString(projectId), userId, List.of(new SourcingCompany(UUID.fromString(dpWorld),
                             "DP World", "dp-world", null, null, null)),
-                    new SearchCriteria(SearchWords.defaultFor("Group CFO", null), List.of(), 3)));
+                    new SearchCriteria(SearchWords.defaultFor("Group CFO", null), List.of(), 3),
+                    Duration.ofSeconds(180)));
             return queued.getId();
         }));
 
@@ -298,6 +302,48 @@ class ExecutiveSourcingIntegrationTest extends FlowTestSupport {
         assertThat(run.get("status").asText()).isEqualTo("STOPPED");
         assertThat(outcomeFor(run.get("outcomes"), dpWorld).get("outcome").asText()).isEqualTo("STOPPED");
         assertThat(live.searches()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("a run is lost past the deadline it was requested under, never one lowered while it was in progress")
+    void aLoweredDeadlineDoesNotFailARunInProgress() throws Exception {
+        String projectId = mandate("Deadline Firm");
+        String dpWorld = company(projectId, "DP World", "https://www.linkedin.com/company/dp-world/");
+        UUID workspaceId = db.queryForObject("select workspace_id from app_lm_project where id = ?::uuid", UUID.class,
+                projectId);
+        UUID userId = db.queryForObject("select id from app_lm_user where email = ?", UUID.class, adminEmail);
+        UUID runId = WorkspaceScope.call(workspaceId, () -> new TransactionTemplate(transactions).execute(status ->
+                runs.save(ExecutiveSourcingRun.requested(workspaceId, UUID.fromString(projectId), userId,
+                        List.of(new SourcingCompany(UUID.fromString(dpWorld), "DP World", "dp-world", null, null,
+                                null)),
+                        new SearchCriteria(SearchWords.defaultFor("Group CFO", null), List.of(), 3),
+                        Duration.ofSeconds(600))).getId()));
+        db.update("UPDATE app_lm_executive_sourcing_run SET created_at = now() - interval '2 minutes' WHERE id = ?",
+                runId);
+        db.update("INSERT INTO app_lm_platform_setting (key, value) VALUES ('enrichment.sourcing.run-deadline', '30')");
+        variables.reload();
+        try {
+            mvc.perform(post(sourcingUrl(projectId))
+                            .header("Authorization", "Bearer " + adminToken)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"triageCompanyIds\":[]}"))
+                    .andExpect(status().isConflict())
+                    .andExpect(jsonPath("$.code").value("EXECUTIVE_SOURCING_IN_PROGRESS"));
+            JsonNode inProgress = runOf(projectId, runId.toString());
+            assertThat(inProgress.get("status").asText()).isEqualTo("QUEUED");
+            assertThat(inProgress.get("lostAfterSeconds").asLong()).isEqualTo(660);
+
+            db.update("UPDATE app_lm_executive_sourcing_run SET created_at = now() - interval '12 minutes'"
+                    + " WHERE id = ?", runId);
+            start(projectId, "[]");
+
+            JsonNode lost = runOf(projectId, runId.toString());
+            assertThat(lost.get("status").asText()).isEqualTo("FAILED");
+            assertThat(lost.get("error").asText()).isEqualTo("Uncava lost track of this run");
+        } finally {
+            db.update("DELETE FROM app_lm_platform_setting");
+            variables.reload();
+        }
     }
 
     @Test
