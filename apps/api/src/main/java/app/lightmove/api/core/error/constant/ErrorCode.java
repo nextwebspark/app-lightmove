@@ -106,6 +106,15 @@ public enum ErrorCode {
     /** A commit of a file whose preview named rows that cannot be imported. Nothing was added. */
     EVAL_IMPORT_INVALID(HttpStatus.BAD_REQUEST, "Some rows cannot be imported. Fix the file and choose it again"),
 
+    /** One run goes at a time, platform-wide: a second start is refused, never queued. */
+    EVAL_RUN_IN_PROGRESS(HttpStatus.CONFLICT, "Another run is going. Wait for it to end, or cancel it"),
+
+    /** The run would make more model calls than one run may. */
+    EVAL_RUN_TOO_LARGE(HttpStatus.BAD_REQUEST, "That run would make more calls than one run may"),
+
+    /** The dataset holds no case in use in the chosen split. */
+    EVAL_NO_CASES(HttpStatus.BAD_REQUEST, "That dataset has no cases in that split"),
+
     /** Account deletion, by a person with no password: the proof is a sign-in moments ago, as for two-factor. */
     ACCOUNT_SIGN_IN_AGAIN(HttpStatus.CONFLICT, "Sign in again, then delete your account within 10 minutes"),
 

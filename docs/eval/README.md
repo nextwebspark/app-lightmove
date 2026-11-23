@@ -15,6 +15,7 @@ here and share one scoring code:
 | `assistant-eval.md` | `AssistantEval` | `eval/assistant-cases.json` |
 | `interview-copilot-eval.md` | `InterviewCopilotEval` | fixtures in the suite |
 | `mcp-eval.md` | `ops/eval/mcp/run.mjs` | `ops/eval/mcp/cases.json` |
+| `assessment-draft-eval.md` | `AssessmentDraftEval` | `eval/candidate-scorecard-draft-pack-v1.json` |
 
 Run one with Application Default Credentials:
 
@@ -32,10 +33,14 @@ The scoring is main code, so a suite and the console cannot drift apart:
 - `EvalSubject` (`core/llm`): one per prompt that can be run, beside its caller. It checks a case's shape and asks the
   model with a case's input **through the feature's own code**, so the user message, the redaction, the injection
   guard, the schema check and the repair are production's. A subject reads no table.
-- `prompteval`: datasets, cases, the import and the seed.
+- `EvalCheck` (`core/llm`): one deterministic rule an answer is held to (passed, failed, or nothing to judge on this
+  case). A subject lists its checks, how many times a case is answered at the least, and whether its cases have been
+  reviewed well enough for a run to count when a version is put live (`isGateReady`).
+- `prompteval`: datasets, cases, the import and the seed; runs, their scoring and the check at put live.
 
-Subjects today: `candidate-nationality` and `candidate-ai-enrich` (seniority). A prompt without one lists its
-dataset but takes no import and cannot be run (`EVAL_SUBJECT_UNAVAILABLE`).
+Subjects today: `candidate-nationality`, `candidate-ai-enrich` (seniority) and `candidate-scorecard-draft` (the
+assessment draft, `assessment-draft-eval.md`). A prompt without one lists its dataset but takes no import and cannot
+be run (`EVAL_SUBJECT_UNAVAILABLE`).
 
 ## Datasets, cases and splits
 
@@ -50,6 +55,43 @@ prompt's own prepared shape, with what a careful reader expects of the answer.
   editing a prompt.
 - **Seeded sets.** At boot `EvalDatasetSeed` records the committed synthetic sets as datasets, adding each case once
   by its key. A later release never rewrites a case or brings back one a person retired.
+
+## Runs
+
+A **run** has two versions of a prompt answer the same cases: a candidate, and a baseline that is the version serving
+unless another is named. Each answers on its own model and settings, so a model change is compared the same way as a
+text change.
+
+- **Repeats.** A case is answered once. It is answered three times when either version's temperature is above 0,
+  and never fewer times than the prompt's subject asks (three for the assessment draft, whose answers vary even at
+  temperature 0).
+- **Cost.** A run makes cases × 2 × repeats calls, plus one for every answer the feature's repair puts back to the
+  model. The estimate is shown before a start. A run planning more than `lightmove.platform.eval.max-calls-per-run`
+  (200) is refused, and one that reaches it stops with no result.
+- **One at a time.** A second start while a run is queued or going is refused. A run keeps going when its page is
+  closed; cancelling stops it before its next call and keeps the answers it has. A cancelled or failed run gives no
+  result.
+- **Scoring.** Every answer gets a verdict from each of the prompt's checks. A check's score is the share of answers
+  that pass, taken within each repeat and averaged. The candidate is **no worse** when no check fell by more than the
+  prompt's tolerance (`EvalSubject.tolerancePoints`: 3 points for the assessment draft, 0 where nothing is set).
+- **An outage is not an answer.** A call the model never answered is asked three times, then the run fails. It is
+  never scored: both versions failing alike would otherwise read as no worse.
+
+## The check at put live
+
+Putting a version live asks for a written reason unless that version has a finished run that:
+
+1. scored the **holdout** cases,
+2. against the version serving **at that moment** (a run against an earlier live version no longer counts),
+3. for a prompt whose subject lets its runs count (`EvalSubject.isGateReady` when the run started), and
+4. found it no worse.
+
+`isGateReady` is the prompt's, not a dataset's: once a subject opens it, a holdout run on any dataset of that
+prompt counts, one a super admin imported included.
+
+The latest such run decides. A failed one can be put live with a reason, recorded as `EVAL_GATE_OVERRIDDEN`. A
+rollback always asks for a reason. A prompt with no dataset, or no subject, has no such run, so it asks as it always
+has.
 
 ## Only synthetic cases
 
@@ -93,3 +135,5 @@ Per prompt:
 - `candidate-nationality`: `input.profile` is the golden row's profile (`eval/golden-row.schema.json`), nothing
   else; `expected.nationality` is a nationality group or `Unknown`.
 - `candidate-ai-enrich`: the same `input.profile`; `expected.seniority` is `Board`, `C-Suite`, `N-1`, `N-2` or `N-3`.
+- `candidate-scorecard-draft`: a profile, notes, transcripts, documents and a brief, with a band for every
+  competency. See `assessment-draft-eval.md`.

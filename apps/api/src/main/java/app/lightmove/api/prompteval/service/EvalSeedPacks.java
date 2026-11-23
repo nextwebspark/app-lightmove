@@ -26,6 +26,7 @@ import tools.jackson.databind.node.ObjectNode;
 public class EvalSeedPacks {
 
     static final String ASSISTANT_CASES = "eval/assistant-cases.json";
+    static final String ASSESSMENT_PACK = "eval/candidate-scorecard-draft-pack-v1.json";
 
     private final ObjectMapper json;
 
@@ -38,10 +39,28 @@ public class EvalSeedPacks {
                 new EvalSeedPack(PlatformPrompt.PROFILE_ENRICHMENT.getPromptId(), "Seniority: synthetic profiles",
                         "The nationality set's invented profiles, labelled with the level each holds.",
                         labelledWith("seniority", profiles)),
+                new EvalSeedPack(PlatformPrompt.ASSESSMENT_DRAFT.getPromptId(), "Assessment draft: pack v1",
+                        "Invented executives with notes, calls and documents on file, each labelled with the "
+                                + "band a consultant expects for every competency of its brief.",
+                        casesIn(ASSESSMENT_PACK)),
                 new EvalSeedPack(PlatformPrompt.ASSISTANT.getPromptId(), "Assistant: synthetic conversations",
                         "Invented conversations about an invented retail position. Its offline suite runs them in "
                                 + "a workspace built for the run, so they are listed here and cannot be run.",
                         conversations()));
+    }
+
+    /** A pack written as cases already: a JSON list of the rows an import file holds one a line. */
+    private List<NewEvalCase> casesIn(String resource) {
+        List<NewEvalCase> cases = new ArrayList<>();
+        for (JsonNode row : json.readTree(textOf(resource))) {
+            JsonNode tag = row.get("tag");
+            JsonNode expected = row.get("expected");
+            cases.add(new NewEvalCase(row.get("key").asString(), row.get("name").asString(),
+                    tag == null || tag.isNull() ? null : tag.asString(),
+                    EvalCaseSplit.valueOf(row.get("split").asString()), row.get("input"),
+                    expected == null || expected.isNull() ? null : expected));
+        }
+        return cases;
     }
 
     /** A golden row as a case of one prompt: its profile, and the one label that prompt is scored on. */

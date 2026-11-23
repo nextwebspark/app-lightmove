@@ -840,6 +840,13 @@ lightmove:
     # How often an instance re-reads the platform configuration versions (core/reload), for a notification it
     # missed. Read by @Scheduled from the environment, so it has no settings record.
     config-reload-check: ${PLATFORM_CONFIG_RELOAD_CHECK:PT30S}
+    # Eval runs (#1320). A start planning more model calls than max-calls-per-run is refused and a run stops on
+    # reaching it. worker-tick is how often an instance looks for a run its start did not hand it (a restart, a
+    # worker gone quiet for stale-after); read by @Scheduled from the environment, so it has no settings field.
+    eval:
+      max-calls-per-run: ${PLATFORM_EVAL_MAX_CALLS_PER_RUN:200}
+      stale-after: ${PLATFORM_EVAL_STALE_AFTER:10m}
+      worker-tick: ${PLATFORM_EVAL_WORKER_TICK:PT1M}
 
   # The data processing agreement a founder accepts for the firm when creating a workspace (#928). Both blank until
   # counsel publishes one: nothing is asked. Set together; a new version asks only workspaces created after it.

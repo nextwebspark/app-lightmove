@@ -40,6 +40,28 @@ export interface PromptOverview {
   lastChangedBy: string | null;
 }
 
+export type PromotionGateState = "PASSED" | "FAILED" | "NONE";
+
+/**
+ * What the evals say about putting a version live in place of the one serving: its latest finished run on the
+ * holdout cases against that version. Everything but `state` is null, and `failedChecks` empty, when there is none.
+ */
+export interface PromotionGate {
+  state: PromotionGateState;
+  runId: string | null;
+  runNumber: number | null;
+  finishedAt: string | null;
+  cases: number | null;
+  repeats: number | null;
+  checksBetter: number | null;
+  checksSame: number | null;
+  checksWorse: number | null;
+  regressedCases: number | null;
+  /** Pass rates in percent. */
+  failedChecks: { label: string; candidate: number; baseline: number }[];
+}
+
+/** `gate` is null for the version serving. */
 export interface PromptVersionSummary {
   version: number;
   origin: PromptOrigin;
@@ -51,6 +73,7 @@ export interface PromptVersionSummary {
   modelId: string | null;
   modelName: string | null;
   settings: GenerationSettings;
+  gate: PromotionGate | null;
 }
 
 export interface PromptDetail {

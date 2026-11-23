@@ -38,11 +38,19 @@ public class PromptTrialRunner implements CallAdvisor {
             throw new IllegalArgumentException("A trial of " + trial.promptId() + " cannot run a version of "
                     + version.promptId());
         }
+        return run(version, trial::run);
+    }
+
+    /**
+     * Answers {@code asking} with {@code version} wherever it asks that version's prompt, and keeps what the model
+     * said: a Try it's fictional input, or one eval case through its subject.
+     */
+    public PromptTrialResult run(ServedPrompt version, Runnable asking) {
         Run run = new Run(version);
         RUNNING.set(run);
         long startedAt = System.nanoTime();
         try {
-            trial.run();
+            asking.run();
         } catch (ApiException refused) {
             if (run.rawAnswer == null) {
                 throw refused;
@@ -57,7 +65,8 @@ public class PromptTrialRunner implements CallAdvisor {
             RUNNING.remove();
         }
         return new PromptTrialResult(run.rawAnswer, run.parsedAnswer == null ? null : json.valueToTree(run.parsedAnswer),
-                run.model, run.inputTokens, run.outputTokens, run.finish, (System.nanoTime() - startedAt) / 1_000_000);
+                run.model, run.inputTokens, run.outputTokens, run.finish, (System.nanoTime() - startedAt) / 1_000_000,
+                run.modelCalls);
     }
 
     /** The version under trial on this thread, when it is a version of {@code promptId}. */
@@ -105,6 +114,7 @@ public class PromptTrialRunner implements CallAdvisor {
             run.finish = first == null || first.getMetadata() == null
                     ? FinishKind.OTHER : FinishKind.of(first.getMetadata().getFinishReason());
             run.model = answered.getMetadata().getModel();
+            run.modelCalls++;
             run.inputTokens += answered.getMetadata().getUsage().getPromptTokens();
             run.outputTokens += answered.getMetadata().getUsage().getCompletionTokens();
         }
@@ -118,6 +128,7 @@ public class PromptTrialRunner implements CallAdvisor {
         private String model;
         private long inputTokens;
         private long outputTokens;
+        private int modelCalls;
         private FinishKind finish = FinishKind.OTHER;
 
         private Run(ServedPrompt version) {

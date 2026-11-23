@@ -10,7 +10,7 @@ import static org.mockito.Mockito.when;
 
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.config.LightMoveProperties;
-import app.lightmove.api.core.config.PlatformSecuritySettings;
+import app.lightmove.api.core.config.PlatformSettings;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.security.mfa.MfaCodeVerifier;
@@ -88,7 +88,7 @@ class PlatformTwoFactorTest {
 
     private PlatformTwoFactor twoFactor(boolean required) {
         LightMoveProperties properties = mock(LightMoveProperties.class);
-        when(properties.platform()).thenReturn(new PlatformSecuritySettings(required, WINDOW));
+        when(properties.platform()).thenReturn(new PlatformSettings(required, WINDOW, null));
         return new PlatformTwoFactor(factors, mock(MfaCodeVerifier.class), mock(MfaRecoveryCodeRepository.class),
                 stepUps, mock(AuditService.class), properties, Clock.fixed(NOW, ZoneOffset.UTC));
     }
