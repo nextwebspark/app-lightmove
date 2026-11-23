@@ -334,6 +334,42 @@ describe("PromptPage", () => {
     expect(await within(dialog).findByRole("alert")).toHaveTextContent("Say why this version should serve");
   });
 
+  it("reads the prompt again when a reason is demanded under a passed run, and asks for it on what the evals now say", async () => {
+    vi.mocked(promptApi.getPrompt)
+      .mockResolvedValueOnce(gated(gate()))
+      .mockResolvedValue(
+        gated(
+          gate({
+            state: "FAILED",
+            runId: "r43",
+            runNumber: 43,
+            failedChecks: [{ label: "Score inside the labelled band", candidate: 75, baseline: 83 }],
+          }),
+        ),
+      );
+    vi.mocked(promptApi.putPromptLive).mockRejectedValue(
+      refusal("VALIDATION_FAILED", { reason: "Say why this version should serve" }),
+    );
+    const user = userEvent.setup();
+    renderPage();
+
+    const stale = await openPutLive(user);
+    expect(within(stale).queryByRole("textbox")).not.toBeInTheDocument();
+    await user.click(within(stale).getByRole("button", { name: "Put live" }));
+
+    const reason = await screen.findByRole("textbox", { name: "Why put it live anyway" });
+    const dialog = screen.getByRole("dialog", { name: "Put v3 live" });
+    expect(within(dialog).getByText("Regressed")).toBeInTheDocument();
+
+    vi.mocked(promptApi.putPromptLive).mockResolvedValue(detail({ prompt: overview({ liveVersion: 3 }) }));
+    await user.type(reason, "Reads better");
+    await user.click(within(dialog).getByRole("button", { name: "Put live" }));
+
+    await waitFor(() =>
+      expect(promptApi.putPromptLive).toHaveBeenLastCalledWith("candidate-scorecard-draft", 3, "Reads better"),
+    );
+  });
+
   it("opens Put live at once from a run's link to its candidate", async () => {
     vi.mocked(promptApi.getPrompt).mockResolvedValue(gated(gate()));
     const user = userEvent.setup();
@@ -360,6 +396,22 @@ describe("PromptPage", () => {
     expect(within(dialog).getByText("No worse")).toBeInTheDocument();
     expect(within(dialog).queryByText("This version has no finished run on the holdout cases")).not.toBeInTheDocument();
     expect(within(dialog).queryByRole("textbox")).not.toBeInTheDocument();
+  });
+
+  it("keeps the linked dialog and the reason typed in it when the prompt is read again", async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const user = userEvent.setup();
+    renderPage(["PROMPT_MANAGE", "PROMPT_PROMOTE"], "?version=3&putLive=1", client);
+
+    const dialog = await screen.findByRole("dialog", { name: "Put v3 live" });
+    const reason = within(dialog).getByRole("textbox", { name: "Why put it live anyway" });
+    await user.type(reason, "Reads better");
+
+    await client.invalidateQueries({ queryKey: promptApi.PROMPT_KEY("candidate-scorecard-draft") });
+
+    expect(promptApi.getPrompt).toHaveBeenCalledTimes(2);
+    expect(reason).toBeInTheDocument();
+    expect(reason).toHaveValue("Reads better");
   });
 
   it("asks why on a rollback whatever the evals said, and draws no check", async () => {

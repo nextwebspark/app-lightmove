@@ -1,5 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { Link } from "react-router-dom";
@@ -46,6 +46,7 @@ export function PutLiveDialog({
   const isRollback = target.version < detail.prompt.liveVersion;
   const gate = isRollback ? null : target.gate;
   const needsReason = isRollback || gate?.state !== "PASSED";
+  const queryClient = useQueryClient();
   const [formError, setFormError] = useState<string | null>(null);
   const {
     register,
@@ -67,6 +68,9 @@ export function PutLiveDialog({
         setError("reason", { type: "server", message: refusedReason });
         return;
       }
+      // The server wants a reason this dialog never asked for: what the evals say changed since the prompt was
+      // read. Reading it again redraws the dialog on the new gate, with the field to answer in.
+      if (refusedReason) void queryClient.invalidateQueries({ queryKey: promptApi.PROMPT_KEY(detail.prompt.id) });
       // The code dialog was closed without a code: nothing happened, and saying so again adds nothing.
       setFormError(codeOf(error) === "PLATFORM_STEP_UP_REQUIRED" ? null : messageFor(error));
     },
