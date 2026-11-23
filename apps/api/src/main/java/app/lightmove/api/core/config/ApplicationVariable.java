@@ -45,10 +45,10 @@ public enum ApplicationVariable {
     private final int max;
     /** What the number counts, where it is not a plain count. Null otherwise. */
     private final String unit;
-    private final ToIntFunction<LightMoveProperties> shipped;
+    private final ToIntFunction<LightMoveProperties> configured;
 
     ApplicationVariable(ApplicationVariableGroup group, String name, String label, String description, int min,
-                        int max, String unit, ToIntFunction<LightMoveProperties> shipped) {
+                        int max, String unit, ToIntFunction<LightMoveProperties> configured) {
         this.group = group;
         this.key = group.getKeyPrefix() + "." + name;
         this.label = label;
@@ -56,7 +56,7 @@ public enum ApplicationVariable {
         this.min = min;
         this.max = max;
         this.unit = unit;
-        this.shipped = shipped;
+        this.configured = configured;
     }
 
     public static Optional<ApplicationVariable> ofKey(String key) {
@@ -64,12 +64,12 @@ public enum ApplicationVariable {
     }
 
     /** The yml value: what serves while nothing overrides it. */
-    public int shippedDefault(LightMoveProperties properties) {
-        return shipped.applyAsInt(properties);
+    public int configuredDefault(LightMoveProperties properties) {
+        return configured.applyAsInt(properties);
     }
 
     /** A typed or stored value as this variable's number, or empty when it is not a whole number in bounds. */
-    public OptionalInt read(String text) {
+    public OptionalInt parseInRange(String text) {
         if (text == null || !text.strip().matches("\\d{1,9}")) {
             return OptionalInt.empty();
         }

@@ -12,6 +12,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -24,7 +25,7 @@ class ApplicationVariablesIntegrationTest {
     private static final ApplicationVariable COMPANIES = ApplicationVariable.SOURCING_MAX_COMPANIES_PER_RUN;
 
     @Autowired ApplicationVariables variables;
-    @Autowired ApplicationVariableStore store;
+    @Autowired JdbcClient jdbc;
     @Autowired PlatformConfigReload reload;
     @Autowired TransactionTemplate transactions;
     @Autowired @FixtureJdbc JdbcTemplate db;
@@ -49,7 +50,9 @@ class ApplicationVariablesIntegrationTest {
         variables.intValue(COMPANIES);
 
         transactions.executeWithoutResult(status -> {
-            store.override(COMPANIES.getKey(), "8", null);
+            jdbc.sql("INSERT INTO app_lm_platform_setting (key, value) VALUES (:key, '8')")
+                    .param("key", COMPANIES.getKey())
+                    .update();
             reload.bump(ApplicationVariables.SCOPE);
         });
 
@@ -96,5 +99,19 @@ class ApplicationVariablesIntegrationTest {
         variables.reload();
 
         assertThat(variables.intValue(COMPANIES)).isEqualTo(5);
+    }
+
+    @Test
+    @DisplayName("an unreadable table read inside a caller's transaction leaves that transaction usable")
+    void anUnreadableTableDoesNotAbortTheCallersTransaction() {
+        db.execute("ALTER TABLE app_lm_platform_setting RENAME TO app_lm_platform_setting_away");
+        variables.reload();
+
+        Integer answeredAfterTheRead = transactions.execute(status -> {
+            assertThat(variables.intValue(COMPANIES)).isEqualTo(5);
+            return jdbc.sql("SELECT 1").query(Integer.class).single();
+        });
+
+        assertThat(answeredAfterTheRead).isEqualTo(1);
     }
 }

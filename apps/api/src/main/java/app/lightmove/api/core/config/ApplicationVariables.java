@@ -1,14 +1,17 @@
 package app.lightmove.api.core.config;
 
 import app.lightmove.api.core.reload.PlatformConfigListener;
+import app.lightmove.api.core.reload.ReloadableSnapshot;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.EnumMap;
 import java.util.Map;
 import java.util.OptionalInt;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * What each application variable is right now: a super admin's override, else the yml value. Overrides are held in
@@ -17,7 +20,6 @@ import org.springframework.stereotype.Component;
  */
 @Slf4j
 @Component
-@RequiredArgsConstructor
 public class ApplicationVariables implements PlatformConfigListener {
 
     public static final String SCOPE = "settings";
@@ -26,16 +28,24 @@ public class ApplicationVariables implements PlatformConfigListener {
 
     private final LightMoveProperties properties;
     private final ApplicationVariableStore store;
-    private final Clock clock;
+    private final ReloadableSnapshot<Map<ApplicationVariable, Integer>> overrides;
 
-    private final Object cacheLock = new Object();
-    private volatile Map<ApplicationVariable, Integer> overrides;
-    private volatile long retryReadAtMillis;
-    private long reloads;
+    public ApplicationVariables(LightMoveProperties properties, ApplicationVariableStore store,
+                                PlatformTransactionManager transactionManager, Clock clock) {
+        this.properties = properties;
+        this.store = store;
+        // On its own connection: a failed statement aborts the Postgres transaction it ran in, so read on the
+        // caller's it would serve the yml value into a request whose every later statement then fails (25P02).
+        TransactionTemplate ownTransaction = new TransactionTemplate(transactionManager);
+        ownTransaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        ownTransaction.setReadOnly(true);
+        this.overrides = new ReloadableSnapshot<>("application variables", "configured values",
+                () -> ownTransaction.execute(status -> storedOverrides()), Map.of(), RETRY_AFTER_FAILED_READ, clock);
+    }
 
     public int intValue(ApplicationVariable variable) {
-        Integer override = overrides().get(variable);
-        return override != null ? override : variable.shippedDefault(properties);
+        Integer override = overrides.get().get(variable);
+        return override != null ? override : variable.configuredDefault(properties);
     }
 
     /** The overrides as stored now, past the cache: what a screen that has just written one must show. */
@@ -43,7 +53,7 @@ public class ApplicationVariables implements PlatformConfigListener {
         Map<ApplicationVariable, Integer> usable = new EnumMap<>(ApplicationVariable.class);
         store.overrides().forEach((key, value) -> {
             ApplicationVariable variable = ApplicationVariable.ofKey(key).orElse(null);
-            OptionalInt number = variable == null ? OptionalInt.empty() : variable.read(value);
+            OptionalInt number = variable == null ? OptionalInt.empty() : variable.parseInRange(value);
             if (number.isPresent()) {
                 usable.put(variable, number.getAsInt());
             } else {
@@ -60,40 +70,6 @@ public class ApplicationVariables implements PlatformConfigListener {
 
     @Override
     public void reload() {
-        synchronized (cacheLock) {
-            reloads++;
-            overrides = null;
-            retryReadAtMillis = 0;
-        }
-    }
-
-    private Map<ApplicationVariable, Integer> overrides() {
-        Map<ApplicationVariable, Integer> held = overrides;
-        if (held != null) {
-            return held;
-        }
-        if (clock.millis() < retryReadAtMillis) {
-            return Map.of();
-        }
-        long reloadsBeforeTheRead;
-        synchronized (cacheLock) {
-            reloadsBeforeTheRead = reloads;
-        }
-        try {
-            held = storedOverrides();
-        } catch (RuntimeException unreadable) {
-            retryReadAtMillis = clock.millis() + RETRY_AFTER_FAILED_READ.toMillis();
-            log.error("The application variables could not be read; serving the configured values and retrying"
-                    + " in {}s", RETRY_AFTER_FAILED_READ.toSeconds(), unreadable);
-            return Map.of();
-        }
-        // A reload during the read means this map may predate the change: kept, it would stay until the next bump,
-        // since the backstop check has already seen the new number. Answer this call with it and read again next.
-        synchronized (cacheLock) {
-            if (reloads == reloadsBeforeTheRead) {
-                overrides = held;
-            }
-        }
-        return held;
+        overrides.drop();
     }
 }

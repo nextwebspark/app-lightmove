@@ -19,6 +19,7 @@ import app.lightmove.api.enrichment.sourcing.model.FoundPerson;
 import app.lightmove.api.enrichment.sourcing.model.SearchCriteria;
 import app.lightmove.api.enrichment.sourcing.model.SourcingBrief;
 import app.lightmove.api.enrichment.sourcing.model.SourcingCompany;
+import app.lightmove.api.enrichment.sourcing.model.SourcingRunLimits;
 import app.lightmove.api.enrichment.sourcing.model.Suggestion;
 import app.lightmove.api.position.service.PositionService;
 import java.time.Clock;
@@ -113,9 +114,10 @@ class ExecutiveSourcingWorker {
         SearchCriteria searched = started.getCriteria() != null ? started.getCriteria()
                 : criteria.current(request.workspaceId(), request.projectId());
         suggestions.purgeCreatedBefore(Instant.now(clock).minus(peopleCacheTtl));
-        Run run = new Run(request, brief, searched, Instant.now(clock).plus(limits.runDeadline()));
+        SourcingRunLimits runLimits = limits.forRun(started);
+        Run run = new Run(request, brief, searched, runLimits, Instant.now(clock).plus(runLimits.runDeadline()));
 
-        try (ExecutorService pool = Executors.newFixedThreadPool(limits.parallelism(),
+        try (ExecutorService pool = Executors.newFixedThreadPool(runLimits.parallelism(),
                 Thread.ofVirtual().factory())) {
             started.getCompanies().forEach(company ->
                     pool.execute(ThreadContextPropagation.wrap(() -> run.record(company, run.searchOne(company)))));
@@ -152,6 +154,7 @@ class ExecutiveSourcingWorker {
         private final ExecutiveSourcingRequested request;
         private final SourcingBrief brief;
         private final SearchCriteria searched;
+        private final SourcingRunLimits runLimits;
         private final Instant deadline;
         private final ReentrantLock recording = new ReentrantLock();
 
@@ -204,7 +207,7 @@ class ExecutiveSourcingWorker {
             List<String> countries = searched.countriesFor(company);
             StepReporter steps = new StepReporter(company);
             FoundPeople found = companySearch.search(company.employer(), searched.words(), brief.seniority(),
-                    countries, searched.perCompany(), steps);
+                    countries, searched.perCompany(), runLimits, steps);
             try {
                 found = withConfirmedProfiles(company, withoutSuppressed(found), steps);
                 steps.reached(SourcingStage.RANKING, found.considered(), 0, 0);

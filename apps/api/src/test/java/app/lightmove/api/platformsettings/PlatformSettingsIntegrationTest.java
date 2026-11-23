@@ -131,6 +131,44 @@ class PlatformSettingsIntegrationTest extends PositionTemplateFlowSupport {
     }
 
     @Test
+    @DisplayName("a stored value that cannot serve is cleared by a change to the default, audited with what it held")
+    void anUnusableStoredValueIsClearedByNamingTheDefault() throws Exception {
+        String admin = superAdmin();
+        storeUnusable("900");
+
+        JsonNode cleared = expect(200, putJson(admin, COMPANIES, CHANGE.formatted(5, "Left over from wider bounds")));
+
+        assertThat(cleared.get("value").asInt()).isEqualTo(5);
+        assertThat(cleared.get("changed").asBoolean()).isFalse();
+        assertThat(overrides()).isZero();
+        assertThat(recordedChanges()).as("what served never changed").isZero();
+        assertThat(audited("PLATFORM_SETTING_CHANGED", "\"from\": 5", "\"to\": 5", "\"discarded\": \"900\""))
+                .isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("a stored value that cannot serve is replaced by a change and removed by a reset, both audited")
+    void anUnusableStoredValueIsReplacedOrReset() throws Exception {
+        String admin = superAdmin();
+        storeUnusable("many");
+
+        expect(200, postJson(admin, COMPANIES + "/reset", RESET.formatted("Not a number")));
+
+        assertThat(overrides()).isZero();
+        assertThat(recordedChanges()).isZero();
+        assertThat(audited("PLATFORM_SETTING_RESET", "\"from\": 5", "\"to\": 5", "\"discarded\": \"many\""))
+                .isEqualTo(1);
+
+        storeUnusable("900");
+        JsonNode replaced = expect(200, putJson(admin, COMPANIES, CHANGE.formatted(8, "Larger groups")));
+
+        assertThat(replaced.get("value").asInt()).isEqualTo(8);
+        assertThat(recordedChanges()).isEqualTo(1);
+        assertThat(audited("PLATFORM_SETTING_CHANGED", "\"from\": 5", "\"to\": 8", "\"discarded\": \"900\""))
+                .isEqualTo(1);
+    }
+
+    @Test
     @DisplayName("a value that is no whole number in the variable's range, or no change, is refused on its field")
     void aBadValueIsRefusedOnItsField() throws Exception {
         String admin = superAdmin();
@@ -228,6 +266,15 @@ class PlatformSettingsIntegrationTest extends PositionTemplateFlowSupport {
         JsonNode problem = expect(status, result);
         assertThat(problem.get("code").asString()).isEqualTo(code);
         return problem;
+    }
+
+    private void storeUnusable(String value) {
+        db.update("INSERT INTO app_lm_platform_setting (key, value) VALUES (?, ?)",
+                "enrichment.sourcing.max-companies-per-run", value);
+    }
+
+    private int recordedChanges() {
+        return db.queryForObject("SELECT count(*) FROM app_lm_platform_setting_change", Integer.class);
     }
 
     private int overrides() {

@@ -148,7 +148,9 @@ adds `AI_SOURCED` to both source CHECKs (the contact ledger's only because `Cont
 exhaustive; nothing writes it).
 V88 holds a mandate to one run in progress (a partial unique index behind the service's own check), and
 the next request fails a run still marked in progress past `run-deadline`, since its worker died with
-the instance.
+the instance. V242 adds `run_deadline_seconds`: the deadline in force when the run was requested, which is the
+one it is judged lost against now that `run-deadline` is an application variable (null on older runs, judged
+against the current value).
 V93 is Strategy's People mode: `app_lm_strategy.people_filter` and `app_lm_strategy_search.kind` +
 `people_filter` (a people search leaves the company `filter` empty rather than null), a nullable
 `app_lm_vendor_people_search.company_slug` (a people-first page is asked of no company), an index over

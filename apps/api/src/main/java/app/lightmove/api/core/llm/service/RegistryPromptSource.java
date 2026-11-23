@@ -8,6 +8,7 @@ import app.lightmove.api.core.llm.model.GenerationSettings;
 import app.lightmove.api.core.llm.model.RecordedBundledPrompt;
 import app.lightmove.api.core.llm.model.ServedPrompt;
 import app.lightmove.api.core.reload.PlatformConfigListener;
+import app.lightmove.api.core.reload.ReloadableSnapshot;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.LocalDate;
@@ -43,10 +44,7 @@ public class RegistryPromptSource implements PromptSource, PlatformConfigListene
     private final Clock clock;
 
     private final Set<String> reportedModelFallbacks = ConcurrentHashMap.newKeySet();
-    private final Object cacheLock = new Object();
-    private volatile Map<String, ServedPrompt> serving;
-    private volatile long retryReadAtMillis;
-    private long reloads;
+    private final ReloadableSnapshot<Map<String, ServedPrompt>> serving;
 
     public RegistryPromptSource(LightMoveProperties properties, BundledPrompts bundled, PromptRegistryStore store,
                                 AiModelCatalog models, Clock clock) {
@@ -55,6 +53,8 @@ public class RegistryPromptSource implements PromptSource, PlatformConfigListene
         this.store = store;
         this.models = models;
         this.clock = clock;
+        this.serving = new ReloadableSnapshot<>("prompt registry", "bundled prompts", this::readRegistry, Map.of(),
+                RETRY_AFTER_FAILED_READ, clock);
     }
 
     @Override
@@ -62,7 +62,7 @@ public class RegistryPromptSource implements PromptSource, PlatformConfigListene
         if (!enabled) {
             return bundledFile(promptId);
         }
-        ServedPrompt served = serving().get(promptId);
+        ServedPrompt served = serving.get().get(promptId);
         return served == null ? bundledFile(promptId) : onAUsableModel(served, kind);
     }
 
@@ -73,42 +73,8 @@ public class RegistryPromptSource implements PromptSource, PlatformConfigListene
 
     @Override
     public void reload() {
-        synchronized (cacheLock) {
-            reloads++;
-            serving = null;
-            retryReadAtMillis = 0;
-        }
+        serving.drop();
         reportedModelFallbacks.clear();
-    }
-
-    private Map<String, ServedPrompt> serving() {
-        Map<String, ServedPrompt> held = serving;
-        if (held != null) {
-            return held;
-        }
-        if (clock.millis() < retryReadAtMillis) {
-            return Map.of();
-        }
-        long reloadsBeforeTheRead;
-        synchronized (cacheLock) {
-            reloadsBeforeTheRead = reloads;
-        }
-        try {
-            held = readRegistry();
-        } catch (RuntimeException unreadable) {
-            retryReadAtMillis = clock.millis() + RETRY_AFTER_FAILED_READ.toMillis();
-            log.error("The prompt registry could not be read; serving the bundled prompts and retrying in {}s",
-                    RETRY_AFTER_FAILED_READ.toSeconds(), unreadable);
-            return Map.of();
-        }
-        // A reload during the read means this map may predate the change: kept, it would stay until the next bump,
-        // since the backstop check has already seen the new number. Answer this call with it and read again next.
-        synchronized (cacheLock) {
-            if (reloads == reloadsBeforeTheRead) {
-                serving = held;
-            }
-        }
-        return held;
     }
 
     private Map<String, ServedPrompt> readRegistry() {
