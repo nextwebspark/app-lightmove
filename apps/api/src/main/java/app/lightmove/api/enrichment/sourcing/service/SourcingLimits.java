@@ -19,4 +19,9 @@ public class SourcingLimits {
     public int maxCompaniesPerRun() {
         return variables.intValue(ApplicationVariable.SOURCING_MAX_COMPANIES_PER_RUN);
     }
+
+    /** People the profile index returns per company to be checked. */
+    public int indexPeoplePerCompany() {
+        return variables.intValue(ApplicationVariable.SOURCING_INDEX_PEOPLE_PER_COMPANY);
+    }
 }

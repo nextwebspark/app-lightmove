@@ -38,12 +38,15 @@ public class CompanySearch {
     private final ProfileIndex index;
     private final PeopleCache cache;
     private final ExecutiveSourcingSettings settings;
+    private final SourcingLimits limits;
 
-    public CompanySearch(LiveProfiles live, ProfileIndex index, PeopleCache cache, LightMoveProperties properties) {
+    public CompanySearch(LiveProfiles live, ProfileIndex index, PeopleCache cache, LightMoveProperties properties,
+                         SourcingLimits limits) {
         this.live = live;
         this.index = index;
         this.cache = cache;
         this.settings = properties.enrichment().sourcing();
+        this.limits = limits;
     }
 
     public boolean isOffered() {
@@ -105,7 +108,7 @@ public class CompanySearch {
     }
 
     private void checkIndex(SearchedEmployer employer, SearchWords words, List<String> countryCodes, Spend spend) {
-        PeopleFound named = cache.index(index, employer, words, countryCodes, settings.indexPeoplePerCompany());
+        PeopleFound named = cache.index(index, employer, words, countryCodes, limits.indexPeoplePerCompany());
         spend.indexSearches += named.askedVendor() ? 1 : 0;
         spend.indexFound += named.people().size();
         spend.checksToMake = toCheck(named.people(), spend);
