@@ -189,8 +189,9 @@ on a mandate: filing someone onto a position, or writing a note about one, also 
 
 **A platform role sits above every tenant and inside none.** The role-template library (V42) is the
 first thing no workspace owns that someone still has to edit, so V57 added a third scope, `PLATFORM`,
-with one role (`SUPER_ADMIN`) granting one action (`TEMPLATE_LIBRARY_MANAGE`). Four things about it are
-deliberate:
+with one role (`SUPER_ADMIN`). It now grants eight actions (`PlatformAction`): the template library, credit
+grants, invoiced subscriptions, workspace restore and purge, and the platform console's prompts, put live, evals
+and variables (`docs/platform-console.md`). Four things about it are deliberate:
 
 - **It opens nothing inside a workspace.** `@platformAuthorizer` gates `/api/v1/platform/**` only and
   never calls `requireWorkspaceId()`; `ProjectAccess`'s workspace-admin bypass does not know it exists.
@@ -203,12 +204,15 @@ deliberate:
 - **Never in the JWT.** `PlatformAccess` re-reads the grant on every check, so a revocation lands on the
   next request and a grant needs no new token; `/me` carries `platformActions` for the SPA to show the
   Platform tab, and nothing trusts it for a decision.
-- **A miss is a 404**, not a 403 — the platform surface is not advertised to anyone who cannot use it.
+- **A miss is a 404**, not a 403 — the platform surface is not advertised to anyone who cannot use it. That holds
+  for a bad request too: `PlatformRouteGate` answers the 404 to anyone holding no platform action before the body
+  is read, because a route's own guard runs after its body is bound and validated, and a 400 admits the route
+  exists. `PlatformAuthorizationIntegrationTest` calls every platform route as an admin, a member and a client.
 - **Where the deployment says so, the role is not enough** (#1313, `lightmove.platform.require-two-factor`, off
   until every super admin there has enrolled). `PlatformTwoFactor` then asks two more things, after the action and
   never before it, so the 404 above still answers everyone else: an enabled factor on every platform route
   (`PLATFORM_TWO_FACTOR_REQUIRED`, 403), and on a high-impact one (`@RequireRecentTwoFactor`: a credit grant, an
-  invoiced subscription) a code entered within `step-up-window` (`PLATFORM_STEP_UP_REQUIRED`, 403), given at
+  invoiced subscription, a prompt put live or rolled back, a variable changed or reset) a code entered within `step-up-window` (`PLATFORM_STEP_UP_REQUIRED`, 403), given at
   `POST /api/v1/platform/step-up`. When the code was entered is a row (`app_lm_platform_step_up`, V234), never a
   claim: a token cannot say it, and a second instance must agree. It is the person's, not the session's — the
   access token names no session and the refresh cookie never reaches `/api/v1/platform` — and a code older than

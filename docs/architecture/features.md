@@ -696,7 +696,8 @@ Behind it, every AI system prompt is served through the **prompt registry** (#13
 `PromptSource`, `AiModelCatalog`, `ChatModelProvider`; V235): immutable versions with their model and generation
 settings, a `production` label, a cross-instance reload (`core/reload`) and a daily count of the calls each version
 answered. Behind `lightmove.ai.prompt-registry.enabled`, off by default: off, the bundled `prompts/*.st` serve as
-before; `docs/llm-guardrails.md` has the call path.
+before; `docs/llm-guardrails.md` has the call path. The console as a whole, its rollout and how to run it are
+`docs/platform-console.md`.
 **Per-version monitoring** (#1323, V243) reads those counts back, and nothing else: no prompt or answer is stored
 anywhere. Beside calls, tokens and finish reasons, a version's row counts guard refusals, schema re-asks and answers
 that would not bind (`PromptCallTrace` rides the advisor context, since the guard answers before the counter and a
@@ -870,6 +871,10 @@ removes the override, as a reset does. History records what served, so clearing 
 (out of bounds after a release narrowed them, or not a number) writes no history line; its audit event carries the
 stored text as `discarded`. The console's writes and history are `platformsettings`' own (`PlatformSettingRepository`);
 `core/config` holds only the read. Moving another key onto the list is one enum entry and its readers.
+Its screen is **Platform → Variables** (#1315, `features/platform/variables`, `/platform/variables`): each variable
+with the value serving now, its default and who last changed it; an inline edit showing the variable's own range
+and asking a change note (`VariableEditForm`), Reset to default (`ResetVariableDialog`) and History
+(`VariableHistoryDrawer`). A change and a reset go through the Confirm it's you dialog where two-factor is required.
 
 
 ## Layout

@@ -2,12 +2,27 @@ package app.lightmove.api.core.security.rbac;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.request;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.positiontemplate.PositionTemplateFlowSupport;
+import java.lang.reflect.Parameter;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.method.HandlerMethod;
+import org.springframework.web.servlet.mvc.method.RequestMappingInfo;
+import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
 import tools.jackson.databind.JsonNode;
 
 /**
@@ -16,6 +31,62 @@ import tools.jackson.databind.JsonNode;
  */
 @IntegrationTest
 class PlatformAuthorizationIntegrationTest extends PositionTemplateFlowSupport {
+
+    @Autowired @Qualifier("requestMappingHandlerMapping") RequestMappingHandlerMapping handlerMappings;
+
+    @Test
+    @DisplayName("no route under /api/v1/platform admits to existing to a workspace admin, a member or a client")
+    void noPlatformRouteAdmitsToExisting() throws Exception {
+        Firm firm = firm("Sweep Firm", "admin");
+        inviteAndAccept(firm.token(), "Mira Member", "mira@" + domain, "MEMBER");
+        Map<String, String> outsiders = Map.of(
+                "workspace admin", firm.token(),
+                "member", login("mira@" + domain),
+                "client", clientRepresentative(firm.token(), "Carl Client", "carl@client-" + domain));
+        List<String> admitted = new ArrayList<>();
+        int swept = 0;
+
+        for (Map.Entry<RequestMappingInfo, HandlerMethod> route : handlerMappings.getHandlerMethods().entrySet()) {
+            for (String pattern : route.getKey().getPatternValues()) {
+                if (!pattern.startsWith("/api/v1/platform/")) {
+                    continue;
+                }
+                for (RequestMethod method : route.getKey().getMethodsCondition().getMethods()) {
+                    swept++;
+                    for (Map.Entry<String, String> outsider : outsiders.entrySet()) {
+                        int answered = mvc.perform(request(HttpMethod.valueOf(method.name()),
+                                        pathOf(pattern, route.getValue()))
+                                        .header("Authorization", bearer(outsider.getValue()))
+                                        .contentType(MediaType.APPLICATION_JSON).content("{}"))
+                                .andReturn().getResponse().getStatus();
+                        if (answered != 404) {
+                            admitted.add(method + " " + pattern + " answered a " + outsider.getKey() + " " + answered);
+                        }
+                    }
+                }
+            }
+        }
+
+        assertThat(swept).as("every platform route was tried").isGreaterThanOrEqualTo(40);
+        assertThat(admitted).isEmpty();
+    }
+
+    /** The pattern with each variable given a value of its handler's own type, so the request reaches the guard. */
+    private static String pathOf(String pattern, HandlerMethod handler) {
+        String path = pattern;
+        for (Parameter parameter : handler.getMethod().getParameters()) {
+            PathVariable variable = parameter.getAnnotation(PathVariable.class);
+            if (variable == null) {
+                continue;
+            }
+            String name = variable.value().isEmpty() ? parameter.getName() : variable.value();
+            Class<?> type = parameter.getType();
+            String value = type == UUID.class ? UUID.randomUUID().toString()
+                    : type == String.class ? "anything" : "1";
+            path = path.replace("{" + name + "}", value);
+        }
+        return path;
+    }
 
     @Test
     @DisplayName("a workspace admin is not a super admin, and the library endpoints do not admit to existing")
