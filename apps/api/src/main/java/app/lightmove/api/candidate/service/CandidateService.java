@@ -19,6 +19,7 @@ import app.lightmove.api.candidate.dto.SaveCandidateRequest;
 import app.lightmove.api.candidate.dto.UpdateCandidateContactsRequest;
 import app.lightmove.api.candidate.dto.UpdateCandidateStatusRequest;
 import app.lightmove.api.candidate.dto.UpdateCandidateTriageStatusRequest;
+import app.lightmove.api.candidate.model.AiBackgroundSource;
 import app.lightmove.api.candidate.model.Candidate;
 import app.lightmove.api.candidate.model.CandidateAiEnrichRequested;
 import app.lightmove.api.candidate.model.CandidateAttribution;
@@ -39,10 +40,7 @@ import app.lightmove.api.candidate.model.ResearchedFiling;
 import app.lightmove.api.candidate.model.FoundEmails;
 import app.lightmove.api.candidate.model.FoundPhones;
 import app.lightmove.api.candidate.model.InferredBackground;
-import app.lightmove.api.candidate.model.AiBackgroundSource;
 import app.lightmove.api.candidate.model.NationalityReading;
-import app.lightmove.api.core.llm.model.PromptVersionRef;
-import app.lightmove.api.core.llm.service.PromptOutcomes;
 import app.lightmove.api.candidate.model.Person;
 import app.lightmove.api.candidate.model.PersonPhoto;
 import app.lightmove.api.candidate.model.PipelineCatalog;
@@ -60,6 +58,7 @@ import app.lightmove.api.core.config.CompanyListSettings;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
+import app.lightmove.api.core.llm.service.PromptOutcomes;
 import app.lightmove.api.core.security.model.User;
 import app.lightmove.api.core.security.rbac.ProjectAudience;
 import app.lightmove.api.core.security.repository.UserRepository;
@@ -538,20 +537,18 @@ public class CandidateService {
         boolean wasResearched = person.isResearched();
         String previousUrl = person.getLinkedinUrl();
         ContactChannelSizes contactsBefore = requests.channelSizesOf(person);
-        Map<String, PromptVersionRef> proposedBy = person.inferredBy();
+        BackgroundDecisions backgroundDecisions = BackgroundDecisions.before(person);
         person.describe(details, door);
-        Map<String, PromptVersionRef> stillProposedBy = person.inferredBy();
-        proposedBy.forEach((field, answeredBy) -> {
-            if (!stillProposedBy.containsKey(field)) {
-                promptOutcomes.changed(answeredBy);
-            }
-        });
+        // Only the screen is a person deciding: a re-imported sheet overwriting an AI value reviewed nothing, and
+        // counted it would read as the answer being rejected.
+        if (door == ContactSource.MANUAL) {
+            backgroundDecisions.after(person, confirmBackground, promptOutcomes::record);
+        }
         correctedProfiles.researchIfCorrected(candidate, wasResearched, previousUrl, door);
         if (claim == ProfileClaim.SHARED) {
             person.yieldProfileKey();
         }
         if (confirmBackground) {
-            stillProposedBy.values().forEach(promptOutcomes::accepted);
             person.confirmBackground();
         }
         requests.refuseOverfullChannels(person, contactsBefore);

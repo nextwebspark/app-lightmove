@@ -48,9 +48,13 @@ public class PromptCalls {
         return answer;
     }
 
-    /** A call that threw after its model answered: the answer would not bind, which is counted against its version. */
+    /**
+     * A call that threw after its model answered in full: the answer would not bind, which is counted against its
+     * version. One call is one failure, so an answer cut short stays the failure its finish reason already counted.
+     */
     void failedToBind(PreparedPrompt prompt) {
-        if (prompt.trace() != null && prompt.trace().wasAnswered()) {
+        PromptCallTrace trace = prompt.trace();
+        if (trace != null && trace.wasAnswered() && !trace.wasCutShort()) {
             counter.countSchemaFailure(prompt.trace());
         }
     }

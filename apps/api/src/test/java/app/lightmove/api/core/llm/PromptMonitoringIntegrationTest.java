@@ -10,6 +10,7 @@ import app.lightmove.api.candidate.model.CandidateDossier;
 import app.lightmove.api.candidate.service.CandidateShortlistService;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.error.model.ApiException;
+import app.lightmove.api.core.llm.constant.PromptOutcome;
 import app.lightmove.api.core.llm.model.AttributedAnswer;
 import app.lightmove.api.core.llm.model.PromptVersionRef;
 import app.lightmove.api.core.llm.service.PromptOutcomes;
@@ -110,6 +111,23 @@ class PromptMonitoringIntegrationTest {
     }
 
     @Test
+    @DisplayName("an answer cut off at the token limit that then will not bind is one failure, not two")
+    void aTruncatedAnswerThatWillNotBindIsOneFailure() {
+        int version = productionOf(OPENER);
+        Map<String, Object> before = countsOf(OPENER, version);
+        model.answerWith("{\"opener\":\"Your distribution cen");
+        model.finishWith("MAX_TOKENS");
+
+        assertThat(openers.draft(executive("Supply chain leader."), BRIEF)).isEmpty();
+
+        Map<String, Object> after = countsOf(OPENER, version);
+        long calls = delta(before, after, "calls");
+        assertThat(calls).isEqualTo(1 + properties.llm().answerRepairAttempts());
+        assertThat(delta(before, after, "finish_max_tokens")).isEqualTo(calls);
+        assertThat(delta(before, after, "schema_failures")).isZero();
+    }
+
+    @Test
     @DisplayName("a model that cannot be reached is neither a refusal nor an unreadable answer")
     void anOutageIsNotAFailureOfTheAnswer() {
         int version = productionOf(OPENER);
@@ -130,14 +148,14 @@ class PromptMonitoringIntegrationTest {
         PromptVersionRef answeredBy = new PromptVersionRef(OPENER, productionOf(OPENER));
         Map<String, Object> before = outcomesOf(answeredBy);
 
-        outcomes.accepted(answeredBy);
-        outcomes.accepted(answeredBy);
-        outcomes.changed(answeredBy);
+        outcomes.record(answeredBy, PromptOutcome.ACCEPTED);
+        outcomes.record(answeredBy, PromptOutcome.ACCEPTED);
+        outcomes.record(answeredBy, PromptOutcome.CHANGED);
         transactions.executeWithoutResult(status -> {
-            outcomes.accepted(answeredBy);
+            outcomes.record(answeredBy, PromptOutcome.ACCEPTED);
             status.setRollbackOnly();
         });
-        outcomes.accepted(null);
+        outcomes.record(null, PromptOutcome.ACCEPTED);
 
         Map<String, Object> after = outcomesOf(answeredBy);
         assertThat(delta(before, after, "accepted")).isEqualTo(2);
@@ -149,13 +167,29 @@ class PromptMonitoringIntegrationTest {
     void anUnknownVersionIsNotCounted() {
         PromptVersionRef invented = new PromptVersionRef(OPENER, 987_654);
 
-        outcomes.accepted(invented);
-        outcomes.changed(new PromptVersionRef("no-such-prompt", 1));
+        outcomes.record(invented, PromptOutcome.ACCEPTED);
+        outcomes.record(new PromptVersionRef("no-such-prompt", 1), PromptOutcome.CHANGED);
 
         assertThat(db.queryForObject("""
                 SELECT count(*) FROM app_lm_platform_prompt_outcome_daily
                 WHERE version = 987654 OR prompt_id = 'no-such-prompt'
                 """, Integer.class)).isZero();
+    }
+
+    @Test
+    @DisplayName("a version that exists but never served is counted nowhere: it drafted nothing anyone decided on")
+    void aVersionNeverLiveIsNotCounted() {
+        int neverLive = db.queryForObject("""
+                INSERT INTO app_lm_platform_prompt_version (prompt_id, version, body, origin)
+                SELECT prompt_id, max(version) + 1, 'A draft nobody promoted.', 'EDITED'
+                FROM app_lm_platform_prompt_version WHERE prompt_id = ? GROUP BY prompt_id
+                RETURNING version
+                """, Integer.class, OPENER);
+
+        outcomes.record(new PromptVersionRef(OPENER, neverLive), PromptOutcome.CHANGED);
+
+        assertThat(((Number) outcomesOf(new PromptVersionRef(OPENER, neverLive)).get("changed")).longValue())
+                .isZero();
     }
 
     @Test
@@ -187,7 +221,8 @@ class PromptMonitoringIntegrationTest {
         return db.queryForMap("""
                 SELECT coalesce(sum(calls), 0) AS calls, coalesce(sum(guard_refusals), 0) AS guard_refusals,
                        coalesce(sum(schema_reasks), 0) AS schema_reasks,
-                       coalesce(sum(schema_failures), 0) AS schema_failures
+                       coalesce(sum(schema_failures), 0) AS schema_failures,
+                       coalesce(sum(finish_max_tokens), 0) AS finish_max_tokens
                 FROM app_lm_platform_prompt_call_daily WHERE prompt_id = ? AND version = ?
                 """, promptId, version);
     }
