@@ -7,7 +7,7 @@ import { Modal } from "../../../../components/ui/Modal";
 import { messageFor } from "../../../../lib/errorCodes";
 import * as evalApi from "../api/evalApi";
 import type { EvalCaseImportResult, EvalDatasetOverview } from "../api/types";
-import { countOf } from "../lib/evalLabels";
+import { countOf } from "../../../../lib/format";
 
 /**
  * Add synthetic cases to a dataset from a JSONL file: choose it, read what it would add, then add. The `File` is

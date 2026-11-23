@@ -778,10 +778,12 @@ starts. `/platform/evals/runs/:id` polls while a run goes (calls made of calls p
 **Cancel run**), then draws the comparison: one sentence on what the run means for putting the candidate live, the
 checks with both pass rates and the change, and **Cases that changed**, regressions first, each opening to both
 versions' scores and evidence (or, for a prompt that scores nothing, the checks that moved). **Put the candidate
-live…** shows to a holder of `PROMPT_PROMOTE` and opens the prompt's page with the dialog already open
+live…** shows to a holder of `PROMPT_PROMOTE` and `PROMPT_MANAGE` and opens the prompt's page with the dialog already open
 (`?version=N&putLive=1`). `PutLiveDialog` draws the gate from the version's own `gate` block: **No worse** with its
 run and no reason field, **Regressed** naming the checks that fell with the reason field, or no finished holdout run
-with a link to Runs and the reason field; a rollback draws no gate and always asks why. Not drawn, so not built: a
+with a link to Runs and the reason field; a rollback draws no gate and always asks why. These screens lean on `PROMPT_MANAGE` reads: Start a run lists a prompt's versions from `GET /platform/prompts/{id}` and
+the comparison names models from `/ai-models` (a refused read leaves the model's id), so `EVAL_RUN` is granted with
+`PROMPT_MANAGE`, as the seed does. Not drawn, so not built: a
 case's own page, creating a dataset, writing a case by hand.
 
 

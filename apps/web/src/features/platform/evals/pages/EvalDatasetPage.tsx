@@ -12,7 +12,8 @@ import * as evalApi from "../api/evalApi";
 import type { EvalCaseSummary, EvalDatasetDetail } from "../api/types";
 import { EvalsFrame } from "../components/EvalsFrame";
 import { ImportCasesDialog } from "../components/ImportCasesDialog";
-import { countOf, EVALS_PATH } from "../lib/evalLabels";
+import { countOf } from "../../../../lib/format";
+import { EVALS_PATH } from "../lib/evalLabels";
 
 const CASE_GRID =
   "grid min-w-[820px] grid-cols-[84px_minmax(220px,2fr)_minmax(100px,.8fr)_96px_minmax(130px,1fr)_84px] items-center gap-3 px-4";
@@ -61,7 +62,7 @@ export default function EvalDatasetPage() {
               Datasets
             </Link>
             <div className="min-w-0 flex-[1_1_260px]">
-              <h1 className="inline text-sm font-semibold text-u-text">{detail.dataset.name}</h1>
+              <h1 className="inline text-lead font-semibold text-u-text">{detail.dataset.name}</h1>
               <span className="ml-2 font-mono text-xs text-u-text3">
                 {detail.dataset.promptName} · {countOf(detail.dataset.cases, "case")} · {detail.dataset.dev} dev ·{" "}
                 {detail.dataset.holdout} holdout

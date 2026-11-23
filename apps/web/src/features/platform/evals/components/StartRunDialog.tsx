@@ -1,5 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { skipToken, useMutation, useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -8,11 +8,12 @@ import { Modal } from "../../../../components/ui/Modal";
 import { ApiRequestError } from "../../../../lib/apiClient";
 import { formatDate } from "../../../../lib/datetime/format";
 import { messageFor } from "../../../../lib/errorCodes";
+import { countOf } from "../../../../lib/format";
 import * as promptApi from "../../prompts/api/promptApi";
 import type { PromptVersionSummary } from "../../prompts/api/types";
 import * as evalApi from "../api/evalApi";
 import type { EvalDatasetOverview, EvalRunDetail, EvalRunEstimate, StartEvalRunRequest } from "../api/types";
-import { countOf, repeatsReasonLine, tokensLabel } from "../lib/evalLabels";
+import { repeatsReasonLine, tokensLabel } from "../lib/evalLabels";
 
 const SAME_VERSION = "Choose another version to compare it against";
 
@@ -95,9 +96,8 @@ export function StartRunDialog({
 
   const request = requestOf(values);
   const estimate = useQuery({
-    queryKey: evalApi.EVAL_ESTIMATE_KEY(request ?? { datasetId: "", split: "HOLDOUT", candidateVersion: 0 }),
-    queryFn: ({ signal }) => evalApi.estimateRun(request as StartEvalRunRequest, signal),
-    enabled: request !== null,
+    queryKey: evalApi.EVAL_ESTIMATE_KEY(request),
+    queryFn: request ? ({ signal }) => evalApi.estimateRun(request, signal) : skipToken,
     staleTime: 0,
   });
 

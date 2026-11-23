@@ -3,6 +3,7 @@ import { useState } from "react";
 import { FormError, LinesSkeleton } from "../../../../components/ui";
 import { cn } from "../../../../lib/cn";
 import { messageFor } from "../../../../lib/errorCodes";
+import { countOf } from "../../../../lib/format";
 import * as promptApi from "../../prompts/api/promptApi";
 import { PromptPill } from "../../prompts/components/PromptPill";
 import * as evalApi from "../api/evalApi";
@@ -12,7 +13,6 @@ import {
   changeLabel,
   checkNote,
   checksFootnote,
-  countOf,
   percentLabel,
   scoreLabel,
   SPLIT_LABEL,
@@ -60,7 +60,7 @@ export function RunComparison({ detail, summary }: { detail: EvalRunDetail; summ
         {verdictLine(detail)}
       </div>
 
-      <h2 className="mb-2 text-sm font-semibold text-u-text">Checks</h2>
+      <h2 className="mb-2 text-lead font-semibold text-u-text">Checks</h2>
       <div className="overflow-hidden rounded-lg border border-u-border-strong bg-u-surface">
         <div role="table" aria-label="Checks" className="overflow-x-auto">
           <div role="row" className={cn(CHECK_GRID, "border-b border-u-border-strong bg-u-sunken")}>
@@ -100,7 +100,7 @@ export function RunComparison({ detail, summary }: { detail: EvalRunDetail; summ
       </div>
       <p className="mx-0.5 mt-2.5 font-mono text-xs text-u-text3">{checksFootnote(detail, modelName)}</p>
 
-      <h2 className="mb-2 mt-6 text-sm font-semibold text-u-text">Cases that changed</h2>
+      <h2 className="mb-2 mt-6 text-lead font-semibold text-u-text">Cases that changed</h2>
       {cases.isError ? (
         <FormError message={messageFor(cases.error)} />
       ) : !cases.data ? (
