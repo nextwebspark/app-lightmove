@@ -394,8 +394,9 @@ more than one instance).
 - **A cache of platform configuration is a `ReloadableSnapshot`**, read in its own transaction: a failed read must
   not abort the caller's (#1446).
 - **A platform route takes `@RequirePlatformPermission` or `@RequireRecentTwoFactor`**, the second for anything
-  that reaches every workspace at once. `PlatformRouteGate` already answers 404 to everyone else before the body
-  is read.
+  that reaches every workspace at once. `PlatformRouteGate` already answers 404 to everyone else in the security
+  filter chain, before a handler is looked up; never move that rule into an interceptor or a guard, where a wrong
+  method answers 405.
 
 ## Secrets the app holds
 

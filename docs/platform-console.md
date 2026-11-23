@@ -26,12 +26,15 @@ The call path every prompt goes through is `docs/llm-guardrails.md`. The second 
   `RbacCatalogTest` keeps the enum and the seeded rows in step.
 - **Everyone else is told 404, on every route.** A workspace admin's `WORKSPACE_MANAGE` opens none of it. Two
   guards make that true:
-  - `PlatformRouteGate` answers 404 to a caller holding no platform action before the request body is read. Without
-    it a workspace user sending a bad body was answered 400 by a route that must not admit to existing.
+  - `PlatformRouteGate` answers 404 to a caller holding no platform action from the security filter chain
+    (`SecurityConfig`, the rule ahead of every other), before a handler is looked up or a body read. Decided any
+    later, a wrong method was answered 405, a bad body 400 and a bare `OPTIONS` an `Allow` header, each by a route
+    that must not admit to existing. A caller with no session is told 401, as on every route. It costs a second
+    read of the caller's platform actions on each platform request, beside the route's own guard.
   - Each route's own `@RequirePlatformPermission` or `@RequireRecentTwoFactor` then decides the action and the
     factor. `PlatformTwoFactorIntegrationTest.everyPlatformRouteIsGuarded` fails a route with neither;
-    `PlatformAuthorizationIntegrationTest.noPlatformRouteAdmitsToExisting` calls every route as a workspace admin,
-    a member and a client.
+    `PlatformAuthorizationIntegrationTest.noPlatformRouteAdmitsToExisting` calls every route, with every method,
+    as a workspace admin, a member and a client.
 - **The SPA is not the boundary.** The avatar menu shows Platform only to a user whose `/me` lists a platform
   action, and the `/platform` chunk is lazy, so tenant users never download it; the server refuses regardless.
 - **Two-factor.** With `lightmove.platform.require-two-factor` on, a super admin without a factor is answered

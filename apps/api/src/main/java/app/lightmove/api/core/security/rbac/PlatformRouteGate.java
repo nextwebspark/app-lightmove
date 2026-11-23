@@ -1,39 +1,30 @@
 package app.lightmove.api.core.security.rbac;
 
 import app.lightmove.api.core.security.model.AuthPrincipal;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
+import java.util.function.Supplier;
 import lombok.RequiredArgsConstructor;
-import org.springframework.context.annotation.Configuration;
+import org.springframework.security.authorization.AuthorizationDecision;
+import org.springframework.security.authorization.AuthorizationManager;
+import org.springframework.security.authorization.AuthorizationResult;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.web.servlet.HandlerInterceptor;
-import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
-import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+import org.springframework.security.web.access.intercept.RequestAuthorizationContext;
+import org.springframework.stereotype.Component;
 
 /**
- * Answers 404 on every platform route to a caller holding no platform action, before the request body is read.
- * Each route's own {@code @platformAuthorizer} guard still decides the action and the factor; but it runs after
- * the body is bound and validated, so without this a workspace user sending a bad body was told 400 by a route
- * that must not admit to existing.
+ * Admits only a holder of some platform action to {@code /api/v1/platform/**}. Asked in the filter chain, before a
+ * handler is looked up or a body read: a wrong method or a bad body would otherwise tell an outsider the route exists.
  */
-@Configuration
+@Component
 @RequiredArgsConstructor
-public class PlatformRouteGate implements WebMvcConfigurer, HandlerInterceptor {
+public class PlatformRouteGate implements AuthorizationManager<RequestAuthorizationContext> {
 
     private final PlatformAccess access;
 
     @Override
-    public void addInterceptors(InterceptorRegistry registry) {
-        registry.addInterceptor(this).addPathPatterns("/api/v1/platform/**");
-    }
-
-    @Override
-    public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication != null && authentication.getPrincipal() instanceof AuthPrincipal principal) {
-            access.requireAnyAction(principal.userId());
-        }
-        return true;
+    public AuthorizationResult authorize(Supplier<? extends Authentication> authentication,
+                                         RequestAuthorizationContext context) {
+        Authentication caller = authentication.get();
+        return new AuthorizationDecision(caller != null && caller.getPrincipal() instanceof AuthPrincipal principal
+                && access.holdsAnyAction(principal.userId()));
     }
 }

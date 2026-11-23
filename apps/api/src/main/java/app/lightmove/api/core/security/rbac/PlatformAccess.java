@@ -28,9 +28,13 @@ public class PlatformAccess {
 
     /** The same 404 for someone holding no platform action at all. */
     public void requireAnyAction(UUID userId) {
-        if (roles.findPlatformActionNames(userId).isEmpty()) {
+        if (!holdsAnyAction(userId)) {
             throw new ApiException(ErrorCode.NOT_FOUND, "Requires a platform action");
         }
+    }
+
+    public boolean holdsAnyAction(UUID userId) {
+        return !roles.findPlatformActionNames(userId).isEmpty();
     }
 
     /**

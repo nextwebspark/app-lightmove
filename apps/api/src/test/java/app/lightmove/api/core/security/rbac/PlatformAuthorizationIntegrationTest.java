@@ -1,14 +1,15 @@
 package app.lightmove.api.core.security.rbac;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.request;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.positiontemplate.PositionTemplateFlowSupport;
-import java.lang.reflect.Parameter;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -16,13 +17,16 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.core.DefaultParameterNameDiscoverer;
+import org.springframework.core.MethodParameter;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
+import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.mvc.method.RequestMappingInfo;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
+import org.springframework.web.util.UriComponentsBuilder;
 import tools.jackson.databind.JsonNode;
 
 /**
@@ -31,6 +35,9 @@ import tools.jackson.databind.JsonNode;
  */
 @IntegrationTest
 class PlatformAuthorizationIntegrationTest extends PositionTemplateFlowSupport {
+
+    private static final List<HttpMethod> EVERY_METHOD = List.of(HttpMethod.GET, HttpMethod.POST, HttpMethod.PUT,
+            HttpMethod.PATCH, HttpMethod.DELETE, HttpMethod.OPTIONS);
 
     @Autowired @Qualifier("requestMappingHandlerMapping") RequestMappingHandlerMapping handlerMappings;
 
@@ -51,11 +58,12 @@ class PlatformAuthorizationIntegrationTest extends PositionTemplateFlowSupport {
                 if (!pattern.startsWith("/api/v1/platform/")) {
                     continue;
                 }
-                for (RequestMethod method : route.getKey().getMethodsCondition().getMethods()) {
-                    swept++;
+                swept++;
+                String path = pathOf(pattern, route.getValue());
+                // Every method, not only the route's own: a wrong one answered 405 would say the path is a route.
+                for (HttpMethod method : EVERY_METHOD) {
                     for (Map.Entry<String, String> outsider : outsiders.entrySet()) {
-                        int answered = mvc.perform(request(HttpMethod.valueOf(method.name()),
-                                        pathOf(pattern, route.getValue()))
+                        int answered = mvc.perform(request(method, path)
                                         .header("Authorization", bearer(outsider.getValue()))
                                         .contentType(MediaType.APPLICATION_JSON).content("{}"))
                                 .andReturn().getResponse().getStatus();
@@ -67,25 +75,53 @@ class PlatformAuthorizationIntegrationTest extends PositionTemplateFlowSupport {
             }
         }
 
-        assertThat(swept).as("every platform route was tried").isGreaterThanOrEqualTo(40);
+        assertThat(swept).as("the sweep found the platform routes").isPositive();
         assertThat(admitted).isEmpty();
+    }
+
+    @Test
+    @DisplayName("a platform route and a path that is no route answer an outsider alike, whatever the method")
+    void aRouteAndNoRouteAnswerAlike() throws Exception {
+        Firm firm = firm("Probe Method Firm", "admin");
+
+        for (String path : List.of("/api/v1/platform/settings", "/api/v1/platform/no-such-route")) {
+            for (HttpMethod method : EVERY_METHOD) {
+                MvcResult answered = mvc.perform(request(method, path).header("Authorization", bearer(firm.token())))
+                        .andExpect(status().isNotFound())
+                        .andReturn();
+                assertThat(answered.getResponse().getHeader("Allow")).as(method + " " + path).isNull();
+                assertThat(body(answered).get("code").asText()).isEqualTo("NOT_FOUND");
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("with no session a platform route answers 401, as every route does, and a super admin still gets in")
+    void theGateAdmitsOnlyAPlatformRoleHolder() throws Exception {
+        mvc.perform(get("/api/v1/platform/settings")).andExpect(status().isUnauthorized());
+        mvc.perform(get("/api/v1/platform/no-such-route")).andExpect(status().isUnauthorized());
+
+        String owner = superAdmin();
+        mvc.perform(get(LIBRARY).header("Authorization", bearer(owner))).andExpect(status().isOk());
+        mvc.perform(delete(LIBRARY).header("Authorization", bearer(owner)))
+                .andExpect(status().isMethodNotAllowed());
     }
 
     /** The pattern with each variable given a value of its handler's own type, so the request reaches the guard. */
     private static String pathOf(String pattern, HandlerMethod handler) {
-        String path = pattern;
-        for (Parameter parameter : handler.getMethod().getParameters()) {
-            PathVariable variable = parameter.getAnnotation(PathVariable.class);
+        Map<String, String> values = new HashMap<>();
+        for (MethodParameter parameter : handler.getMethodParameters()) {
+            PathVariable variable = parameter.getParameterAnnotation(PathVariable.class);
             if (variable == null) {
                 continue;
             }
-            String name = variable.value().isEmpty() ? parameter.getName() : variable.value();
-            Class<?> type = parameter.getType();
-            String value = type == UUID.class ? UUID.randomUUID().toString()
-                    : type == String.class ? "anything" : "1";
-            path = path.replace("{" + name + "}", value);
+            parameter.initParameterNameDiscovery(new DefaultParameterNameDiscoverer());
+            String declared = variable.name().isEmpty() ? variable.value() : variable.name();
+            Class<?> type = parameter.getParameterType();
+            values.put(declared.isEmpty() ? parameter.getParameterName() : declared,
+                    type == UUID.class ? UUID.randomUUID().toString() : type == String.class ? "anything" : "1");
         }
-        return path;
+        return UriComponentsBuilder.fromPath(pattern).buildAndExpand(values).toUriString();
     }
 
     @Test

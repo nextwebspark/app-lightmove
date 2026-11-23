@@ -36,7 +36,9 @@ grant_super_admin() { # what ops/cloudsql/grant-platform-role.sh does; no applic
            WHERE u.email = '$1' AND r.scope = 'PLATFORM' AND r.name = 'SUPER_ADMIN'"
 }
 
-# A code for now. The one before it was spent, and the API refuses a code of a step it has already taken.
+# A code for now. The one before it was spent, and the API refuses a code of a step it has already taken; clearing
+# the step deliberately bypasses that replay protection, to spare the run a 30-second wait per code. The refusal
+# itself is covered by the two-factor integration tests, not here.
 fresh_code() { # fresh_code EMAIL SECRET
   sql_run "UPDATE app_lm_user_mfa_factor SET last_used_step = NULL
            WHERE user_id = (SELECT id FROM app_lm_user WHERE email = '$1')"
@@ -176,40 +178,25 @@ check 22.3i "the two moves are audited, never the prompt's text" "2 0" \
 # --- everyone else --------------------------------------------------------------
 section "22.4  a workspace admin, a member and a client are told none of it exists"
 
-WORKSPACE=$(new_uuid)
+# A few of each kind, against the built image. The exhaustive check is
+# PlatformAuthorizationIntegrationTest.noPlatformRouteAdmitsToExisting, which reads the routes off the handler
+# mappings and tries every method on each; a list kept here would drift from them.
 ROUTES="
 GET /platform/prompts
-GET /platform/prompts/recruiter-shortlist
-GET /platform/prompts/recruiter-shortlist/versions/1
-GET /platform/prompts/recruiter-shortlist/usage
-POST /platform/prompts/recruiter-shortlist/versions
-POST /platform/prompts/recruiter-shortlist/versions/1/trial
-PUT /platform/prompts/recruiter-shortlist/production
-GET /platform/ai-models
-GET /platform/settings
-GET /platform/settings/$KEY/history
 PUT /platform/settings/$KEY
-POST /platform/settings/$KEY/reset
-GET /platform/position-templates
-POST /platform/position-templates
-GET /platform/evals/datasets
-GET /platform/evals/runs
-POST /platform/evals/runs
-POST /platform/evals/runs/estimate
-POST /platform/step-up
-POST /platform/workspaces/$WORKSPACE/credit-grants
-PUT /platform/workspaces/$WORKSPACE/subscription
-POST /platform/workspaces/$WORKSPACE/restore
-GET /platform/workspaces/$WORKSPACE/purge-certificate
+POST /platform/workspaces/$(new_uuid)/credit-grants
+DELETE /platform/settings
+OPTIONS /platform/settings
+GET /platform/no-such-route
 "
-sweep() { # sweep ID WHO AUTH_HEADER: every route, a write sent with a body its route would refuse
+sweep() { # sweep ID WHO AUTH_HEADER: a read, two writes with a body their route would refuse, two wrong methods, no route
   local admitted="" method path
   while read -r method path; do
     [ -z "$method" ] && continue
     if [ "$method" = GET ]; then get "$path" -H "$3"; else http "$method" "$path" -H 'Content-Type: application/json' -d '{}' -H "$3"; fi
     [ "$LAST_STATUS" = 404 ] || admitted="$admitted $method $path=$LAST_STATUS"
   done <<<"$ROUTES"
-  check "$1" "$2 gets 404 on every platform route" "" "$admitted"
+  check "$1" "$2 gets 404 on a platform route, a wrong method and a bad body included" "" "$admitted"
 }
 sweep 22.4a "a workspace admin" "$ADMIN"
 sweep 22.4b "a member" "$MEMBER"

@@ -205,9 +205,10 @@ and variables (`docs/platform-console.md`). Four things about it are deliberate:
   next request and a grant needs no new token; `/me` carries `platformActions` for the SPA to show the
   Platform tab, and nothing trusts it for a decision.
 - **A miss is a 404**, not a 403 — the platform surface is not advertised to anyone who cannot use it. That holds
-  for a bad request too: `PlatformRouteGate` answers the 404 to anyone holding no platform action before the body
-  is read, because a route's own guard runs after its body is bound and validated, and a 400 admits the route
-  exists. `PlatformAuthorizationIntegrationTest` calls every platform route as an admin, a member and a client.
+  for a bad request and a wrong method too: `PlatformRouteGate` answers the 404 to anyone holding no platform action
+  from the security filter chain, because a route's own guard runs after its handler is found and its body bound,
+  and a 405 or a 400 admits the route exists. `PlatformAuthorizationIntegrationTest` calls every platform route,
+  with every method, as an admin, a member and a client.
 - **Where the deployment says so, the role is not enough** (#1313, `lightmove.platform.require-two-factor`, off
   until every super admin there has enrolled). `PlatformTwoFactor` then asks two more things, after the action and
   never before it, so the 404 above still answers everyone else: an enabled factor on every platform route
