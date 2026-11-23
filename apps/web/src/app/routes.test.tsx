@@ -517,7 +517,7 @@ describe("routes — what a sign-in returns to after the session ended", () => {
   it("forgets the page the person signed out from", async () => {
     vi.mocked(authApi.logout).mockResolvedValue(undefined);
     const user = userEvent.setup();
-    renderAt("/projects");
+    renderAt("/positions");
     await user.click(await screen.findByRole("button", { name: /^Account: / }));
 
     await user.click(await screen.findByRole("menuitem", { name: "Sign out" }));
@@ -527,14 +527,14 @@ describe("routes — what a sign-in returns to after the session ended", () => {
   });
 
   it("keeps the page an expired session interrupted", async () => {
-    renderAt("/projects");
+    renderAt("/positions");
     await screen.findByRole("button", { name: /^Account: / });
 
     const sessionLost = vi.mocked(onSessionExpired).mock.calls.at(-1)?.[0];
     act(() => sessionLost?.());
 
     await waitFor(() => expect(screen.getByTestId("pathname")).toHaveTextContent("/login"));
-    expect(screen.getByTestId("from")).toHaveTextContent("/projects");
+    expect(screen.getByTestId("from")).toHaveTextContent("/positions");
   });
 });
 
