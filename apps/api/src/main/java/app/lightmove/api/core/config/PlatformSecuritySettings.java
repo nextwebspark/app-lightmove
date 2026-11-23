@@ -10,12 +10,18 @@ public record PlatformSecuritySettings(
         @DefaultValue("false") boolean requireTwoFactor,
 
         /** How long a right code lets high-impact actions through before the next one is asked for. */
-        @DefaultValue(PlatformSecuritySettings.DEFAULT_STEP_UP_WINDOW) Duration stepUpWindow
+        @DefaultValue(PlatformSecuritySettings.DEFAULT_STEP_UP_WINDOW) Duration stepUpWindow,
+
+        PlatformEvalSettings eval
 ) {
 
     static final String DEFAULT_STEP_UP_WINDOW = "10m";
 
+    public PlatformSecuritySettings {
+        eval = eval == null ? PlatformEvalSettings.defaults() : eval;
+    }
+
     public static PlatformSecuritySettings defaults() {
-        return new PlatformSecuritySettings(false, DurationStyle.detectAndParse(DEFAULT_STEP_UP_WINDOW));
+        return new PlatformSecuritySettings(false, DurationStyle.detectAndParse(DEFAULT_STEP_UP_WINDOW), null);
     }
 }

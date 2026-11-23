@@ -43,6 +43,9 @@ export type ApiErrorCode =
   | "PROMPT_ALREADY_LIVE"
   | "EVAL_SUBJECT_UNAVAILABLE"
   | "EVAL_IMPORT_INVALID"
+  | "EVAL_RUN_IN_PROGRESS"
+  | "EVAL_RUN_TOO_LARGE"
+  | "EVAL_NO_CASES"
   | "ACCOUNT_SIGN_IN_AGAIN"
   | "ACCOUNT_HANDOVER_REQUIRED"
   | "SESSION_NOT_FOUND"
@@ -318,6 +321,9 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   PROMPT_ALREADY_LIVE: "That version is already live.",
   EVAL_SUBJECT_UNAVAILABLE: "Cases can't be added for this prompt yet.",
   EVAL_IMPORT_INVALID: "Some rows cannot be imported. Fix the file and choose it again.",
+  EVAL_RUN_IN_PROGRESS: "Another run is going. Wait for it to end, or cancel it.",
+  EVAL_RUN_TOO_LARGE: "That run would make more calls than one run may.",
+  EVAL_NO_CASES: "That dataset has no cases in that split.",
   ACCOUNT_SIGN_IN_AGAIN: "Sign in again to show it's you, then delete your account within 10 minutes.",
   ACCOUNT_HANDOVER_REQUIRED: "Hand over the workspaces and positions only you run first.",
   SESSION_NOT_FOUND: "That session has already ended.",

@@ -88,7 +88,7 @@ class PlatformTwoFactorTest {
 
     private PlatformTwoFactor twoFactor(boolean required) {
         LightMoveProperties properties = mock(LightMoveProperties.class);
-        when(properties.platform()).thenReturn(new PlatformSecuritySettings(required, WINDOW));
+        when(properties.platform()).thenReturn(new PlatformSecuritySettings(required, WINDOW, null));
         return new PlatformTwoFactor(factors, mock(MfaCodeVerifier.class), mock(MfaRecoveryCodeRepository.class),
                 stepUps, mock(AuditService.class), properties, Clock.fixed(NOW, ZoneOffset.UTC));
     }
