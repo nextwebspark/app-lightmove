@@ -177,6 +177,13 @@ gets the system text, the provider's options and the wiring that counts the call
   an advisor outside the guard, which answers without calling the rest of the chain; no call is counted, since
   the model was never asked), a schema re-ask (a structured prompt's second answer), and an answer that still
   would not bind (`StructuredPrompt` sees the bind fail after the model answered; an outage is none of these).
+  A failure is a call, never two: an answer cut off at the token limit or stopped by the safety filter is
+  already counted under its finish reason, so that it then would not bind adds no `schema_failures`
+  (`PromptCallTrace.wasCutShort`).
+- **The version on an outreach opener's enrolment is the client's word** (#1323): the draft's version rides the
+  browser, so a staff member could send another. It is counted only against a version of `outreach-opener` that
+  has served (a `production` move names it), which bounds it to platform metrics on versions that were live; a
+  signed draft token was judged more than that is worth.
   A bundled prompt has no version, so with the registry off none of it is counted.
 
 The answer schema (`-schema.json`), the answer format and the user message stay in code: code parses the

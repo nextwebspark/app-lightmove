@@ -12,7 +12,6 @@ import java.util.List;
  */
 final class PromptHealthRules {
 
-    /** The longest span compared on either side of the move. */
     static final int COMPARISON_DAYS = 30;
 
     static final long MIN_CALLS = 50;

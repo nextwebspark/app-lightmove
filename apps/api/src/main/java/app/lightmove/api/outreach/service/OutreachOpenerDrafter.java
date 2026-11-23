@@ -64,7 +64,6 @@ public class OutreachOpenerDrafter {
         return draftAttributed(dossier, brief).map(AttributedAnswer::answer);
     }
 
-    /** The same, with the prompt version that drafted it. */
     public Optional<AttributedAnswer<String>> draftAttributed(CandidateDossier dossier, OpenerBrief brief) {
         try {
             AttributedAnswer<ModelAnswer> drafted = ask(dossier, brief);

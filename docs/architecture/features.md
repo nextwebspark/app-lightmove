@@ -486,7 +486,7 @@ Positions and a position, never Outreach. It is per member per workspace (V237, 
 response carries it as `startPage` (`AuthResponseAssembler` asks `StartPageLookup`, which `startpage` answers, so core
 reads no feature), checked against the member's access on every read: a dashboard deleted or unshared, a seat lost
 (`WORK_VIEW`, `WORK_EXECUTE` for Outreach) reads `available: false`, and Home opens with a notice (Choose another, Open
-on Home). It applies on a sign-in (`homeFor`; a remembered destination still wins, the bare root excepted) and when the
+on Home). It applies on a sign-in (`homeFor`; a remembered destination still wins, the bare root excepted, and an expiry or a deep link is the only thing that remembers one: Sign out and Delete my account set `endedOnPurpose`, so the guards send the person to login with no `from`) and when the
 SPA is opened at its bare root as the tab's first entry (`OpenAtStartPage`), a reload of `/` included, on purpose;
 Home reached from inside the app stays Home. The extension's auth response carries no start page. A save of a page the member cannot open is one `START_PAGE_UNAVAILABLE`, whatever the reason. A pure client's Home
 is the positions shared with them, with no queue and nothing staff-only; an admin of a workspace with no position
@@ -704,13 +704,15 @@ that would not bind (`PromptCallTrace` rides the advisor context, since the guar
 bind fails after it). **Accept rate**: a feature that asks a person to keep or change an AI answer takes the version
 with it (`StructuredPrompt.askAttributed`) and says what happened through `PromptOutcomes`, counted after the
 decision commits. Two screens do: an outreach opener sent as written or rewritten (the draft's version rides the
-enrolment request, and is counted only if that version exists), and a candidate's AI-inferred background value
-changed or confirmed (`app_lm_person.ai_inferred_by`). Position extraction does not yet: its suggestions are merged
+enrolment request, and is counted only if that version has served), and a candidate's AI-inferred background value
+changed or confirmed on the profile screen (`app_lm_person.ai_inferred_by`; a spreadsheet re-import overwriting one
+decides nothing and is not counted). Position extraction does not yet: its suggestions are merged
 in the browser. `GET …/prompts/{id}/usage?days=` (`PROMPT_MANAGE`, 30 days unless asked, 90 at most) answers each
 version by model; each list row carries `health`, the live version since it went live beside the one it replaced
 over as many days before (30 at most), with `MORE_FAILURES` (failure rate up five points or more, 50 calls a side)
 and `FEWER_ACCEPTED` (accept rate down ten points or more, 20 decisions a side) from `PromptHealthRules`. A
-failure there is a call cut off, stopped by the safety filter, or unbindable; a guard refusal is the input's, not
+failure there is a call cut off, stopped by the safety filter, or unbindable (one per call: a cut-off answer that
+also would not bind is counted once); a guard refusal is the input's, not
 the prompt's, and is shown but not held against a version.
 Its API (#1317, `promptregistry`, under `/api/v1/platform/prompts` and `/ai-models`): `PROMPT_MANAGE` reads the list
 (`PlatformPrompt` names the seventeen), a prompt's versions and a version's text, saves a new version (text, model from

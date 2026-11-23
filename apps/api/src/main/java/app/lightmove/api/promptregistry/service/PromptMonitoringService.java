@@ -51,6 +51,12 @@ public class PromptMonitoringService {
         }).toList());
     }
 
+    /** Null when the prompt's live version replaced none. */
+    PromptLiveHealth liveHealthOf(String promptId) {
+        return monitoring.liveVersionComparisonOf(promptId, PromptHealthRules.COMPARISON_DAYS)
+                .map(PromptHealthRules::healthOf).orElse(null);
+    }
+
     /** By prompt id; a prompt whose live version replaced none has no entry. */
     Map<String, PromptLiveHealth> liveHealth() {
         return monitoring.liveVersionComparisons(PromptHealthRules.COMPARISON_DAYS).stream()

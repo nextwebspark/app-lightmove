@@ -597,9 +597,10 @@ tenant table. A change bumps the `settings` scope of `app_lm_platform_config_ver
 V243 is per-version monitoring (#1323). `app_lm_platform_prompt_call_daily` gains three counters:
 `guard_refusals` (the injection guard answered in the model's place, so no call is counted beside it),
 `schema_reasks` (an answer failed its schema and was asked again; the re-ask is also a call) and `schema_failures`
-(the model answered and the answer still would not bind). `app_lm_platform_prompt_outcome_daily`
+(the model answered in full and the answer still would not bind; one cut off or stopped by the safety filter is
+counted under its finish reason only). `app_lm_platform_prompt_outcome_daily`
 (`prompt_id`, `version`, `day`, `accepted`, `changed`) counts what a person did with an answer a screen asked
-them to keep or change, on the UTC day of the decision; a row is written only for a version that exists. Both are
+them to keep or change, on the UTC day of the decision; a row is written only for a version that has served (a `production` move names it). Both are
 platform tables holding keys and counts: no content, no person, no workspace. `app_lm_person` gains
 `ai_inferred_by` jsonb: for each key still in `ai_inferred_fields`, the `{promptId, version}` that proposed it,
 so the decision on it is counted against that version; null, or a key missing, is a value proposed before the

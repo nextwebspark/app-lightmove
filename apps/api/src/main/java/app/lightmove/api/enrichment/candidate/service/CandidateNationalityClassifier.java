@@ -76,7 +76,6 @@ public class CandidateNationalityClassifier {
         return classifyAttributed(dossier, material).map(AttributedAnswer::answer);
     }
 
-    /** The same, with the prompt version that read it. */
     Optional<AttributedAnswer<NationalityReading>> classifyAttributed(CandidateDossier dossier,
                                                                      MaterialText material) {
         AttributedAnswer<ModelAnswer> answered;

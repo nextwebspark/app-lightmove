@@ -6,7 +6,9 @@ import app.lightmove.api.core.llm.model.LiveVersionComparison;
 import app.lightmove.api.core.llm.model.PromptModelUsage;
 import app.lightmove.api.core.llm.model.PromptVersionOutcomes;
 import app.lightmove.api.core.llm.model.PromptVersionRef;
+import java.sql.Types;
 import java.util.List;
+import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
@@ -16,11 +18,12 @@ import org.springframework.stereotype.Repository;
 @RequiredArgsConstructor
 public class PromptMonitoringStore {
 
-    private static final String FAILURES = "coalesce(sum(d.finish_max_tokens + d.finish_safety + d.schema_failures), 0)";
-
     private final JdbcClient jdbc;
 
-    /** Counted only against a version that exists: a version a client echoes back is not taken on trust. */
+    /**
+     * Counted only against a version that has served: one a client echoes back is not taken on trust, and a version
+     * never put live drafted nothing a person could have decided on.
+     */
     void add(PromptVersionRef answeredBy, PromptOutcome outcome) {
         jdbc.sql("""
                         INSERT INTO app_lm_platform_prompt_outcome_daily AS daily
@@ -28,12 +31,17 @@ public class PromptMonitoringStore {
                         SELECT v.prompt_id, v.version, (now() AT TIME ZONE 'UTC')::date, :accepted, :changed
                         FROM app_lm_platform_prompt_version v
                         WHERE v.prompt_id = :promptId AND v.version = :version
+                          AND EXISTS (
+                              SELECT 1 FROM app_lm_platform_prompt_label_move m
+                              WHERE m.prompt_id = v.prompt_id AND m.to_version = v.version AND m.label = :label
+                          )
                         ON CONFLICT (prompt_id, version, day) DO UPDATE SET
                             accepted = daily.accepted + EXCLUDED.accepted,
                             changed = daily.changed + EXCLUDED.changed
                         """)
                 .param("promptId", answeredBy.promptId())
                 .param("version", answeredBy.version())
+                .param("label", PromptRegistryStore.PRODUCTION)
                 .param("accepted", outcome == PromptOutcome.ACCEPTED ? 1 : 0)
                 .param("changed", outcome == PromptOutcome.CHANGED ? 1 : 0)
                 .update();
@@ -83,12 +91,25 @@ public class PromptMonitoringStore {
      * over as many days before that, {@code maxDays} at most. The day of the move counts for the live version only.
      */
     public List<LiveVersionComparison> liveVersionComparisons(int maxDays) {
+        return liveVersionComparisons(null, maxDays);
+    }
+
+    /** The same for one prompt; empty when its live version replaced none. */
+    public Optional<LiveVersionComparison> liveVersionComparisonOf(String promptId, int maxDays) {
+        return liveVersionComparisons(promptId, maxDays).stream().findFirst();
+    }
+
+    /**
+     * A failure is a call, never two: an answer cut short is counted under its finish reason only, and
+     * {@code schema_failures} holds only the answers that finished and still would not bind.
+     */
+    private List<LiveVersionComparison> liveVersionComparisons(String onlyPromptId, int maxDays) {
         return jdbc.sql("""
                         WITH last_move AS (
                             SELECT DISTINCT ON (m.prompt_id) m.prompt_id, m.from_version, m.to_version,
                                    (m.moved_at AT TIME ZONE 'UTC')::date AS moved_on
                             FROM app_lm_platform_prompt_label_move m
-                            WHERE m.label = :label
+                            WHERE m.label = :label AND (:onlyPromptId IS NULL OR m.prompt_id = :onlyPromptId)
                             ORDER BY m.prompt_id, m.id DESC
                         ), compared AS (
                             SELECT prompt_id, from_version, to_version, moved_on,
@@ -104,13 +125,17 @@ public class PromptMonitoringStore {
                                previous_outcome.changed AS previous_changed
                         FROM compared c
                         CROSS JOIN LATERAL (
-                            SELECT coalesce(sum(d.calls), 0) AS calls, %1$s AS failures
+                            SELECT coalesce(sum(d.calls), 0) AS calls,
+                                   coalesce(sum(d.finish_max_tokens + d.finish_safety + d.schema_failures), 0)
+                                       AS failures
                             FROM app_lm_platform_prompt_call_daily d
                             WHERE d.prompt_id = c.prompt_id AND d.version = c.to_version
                               AND d.day >= c.moved_on AND d.day < c.moved_on + c.days
                         ) live
                         CROSS JOIN LATERAL (
-                            SELECT coalesce(sum(d.calls), 0) AS calls, %1$s AS failures
+                            SELECT coalesce(sum(d.calls), 0) AS calls,
+                                   coalesce(sum(d.finish_max_tokens + d.finish_safety + d.schema_failures), 0)
+                                       AS failures
                             FROM app_lm_platform_prompt_call_daily d
                             WHERE d.prompt_id = c.prompt_id AND d.version = c.from_version
                               AND d.day >= c.moved_on - c.days AND d.day < c.moved_on
@@ -127,8 +152,9 @@ public class PromptMonitoringStore {
                             WHERE o.prompt_id = c.prompt_id AND o.version = c.from_version
                               AND o.day >= c.moved_on - c.days AND o.day < c.moved_on
                         ) previous_outcome
-                        """.formatted(FAILURES))
+                        """)
                 .param("label", PromptRegistryStore.PRODUCTION)
+                .param("onlyPromptId", onlyPromptId, Types.VARCHAR)
                 .param("maxDays", maxDays)
                 .query((row, index) -> new LiveVersionComparison(row.getString("prompt_id"),
                         row.getInt("from_version"), row.getInt("days"),

@@ -5,6 +5,7 @@ import app.lightmove.api.core.llm.model.PromptCallCount;
 import app.lightmove.api.core.llm.model.PromptCallTrace;
 import java.util.List;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
@@ -46,7 +47,7 @@ public class PromptCallCounter implements CallAdvisor {
 
     /** The model answered, and its answer could not be read into what the feature expects. */
     void countSchemaFailure(PromptCallTrace trace) {
-        add(PromptCallCount.schemaFailure(trace));
+        add(() -> PromptCallCount.schemaFailure(trace));
     }
 
     @Override
@@ -73,21 +74,20 @@ public class PromptCallCounter implements CallAdvisor {
         }
         ChatResponse answer = response.chatResponse();
         if (trace != null && answer != null) {
-            try {
+            add(() -> {
                 Usage usage = answer.getMetadata().getUsage();
-                boolean reask = trace.answeredBy(answer.getMetadata().getModel());
-                writer.add(PromptCallCount.answered(trace, usage.getPromptTokens(), usage.getCompletionTokens(),
-                        finishOf(answer), reask));
-            } catch (RuntimeException failure) {
-                log.error("Could not count a model call against its prompt version", failure);
-            }
+                FinishKind finish = finishOf(answer);
+                boolean reask = trace.answeredBy(answer.getMetadata().getModel(), finish);
+                return PromptCallCount.answered(trace, usage.getPromptTokens(), usage.getCompletionTokens(), finish,
+                        reask);
+            });
         }
         return response;
     }
 
-    private void add(PromptCallCount count) {
+    private void add(Supplier<PromptCallCount> count) {
         try {
-            writer.add(count);
+            writer.add(count.get());
         } catch (RuntimeException failure) {
             log.error("Could not count a model call against its prompt version", failure);
         }
@@ -126,7 +126,7 @@ public class PromptCallCounter implements CallAdvisor {
             ChatClientResponse response = chain.nextCall(request);
             PromptCallTrace trace = traceOf(request);
             if (trace != null && trace.wasNeverAnswered()) {
-                add(PromptCallCount.guardRefusal(trace));
+                add(() -> PromptCallCount.guardRefusal(trace));
             }
             return response;
         }
