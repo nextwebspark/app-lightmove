@@ -42,7 +42,13 @@ export function tryPromptVersion(promptId: string, version: number): Promise<Pro
   return request<PromptTrialResult>(`${promptUrl(promptId)}/versions/${version}/trial`, { method: "POST" });
 }
 
-/** Puts a version live, or rolls back to an earlier one. The server asks for a fresh two-factor code first. */
-export function putPromptLive(promptId: string, version: number, reason: string): Promise<PromptDetail> {
-  return request<PromptDetail>(`${promptUrl(promptId)}/production`, { method: "PUT", body: { version, reason } });
+/**
+ * Puts a version live, or rolls back to an earlier one. The server asks for a fresh two-factor code first, and for a
+ * `reason` unless a run on the holdout cases found the version no worse than the one serving.
+ */
+export function putPromptLive(promptId: string, version: number, reason: string | null): Promise<PromptDetail> {
+  return request<PromptDetail>(`${promptUrl(promptId)}/production`, {
+    method: "PUT",
+    body: reason === null ? { version } : { version, reason },
+  });
 }

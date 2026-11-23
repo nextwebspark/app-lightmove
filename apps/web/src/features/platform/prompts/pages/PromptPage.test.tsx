@@ -7,7 +7,7 @@ import { ToastProvider } from "../../../../components/ui";
 import { ApiRequestError } from "../../../../lib/apiClient";
 import type { PlatformAction } from "../../../auth/api/types";
 import * as promptApi from "../api/promptApi";
-import type { PromptDetail } from "../api/types";
+import type { PromotionGate, PromptDetail } from "../api/types";
 import PromptPage from "./PromptPage";
 import { detail, model, overview, version } from "./promptFixtures";
 
@@ -32,11 +32,15 @@ const BODIES: Record<number, string> = {
   3: "Score each competency.\nBe specific.\nQuote the evidence and name its source.",
 };
 
-const renderPage = (actions: PlatformAction[] = ["PROMPT_MANAGE", "PROMPT_PROMOTE"]) => {
+const renderPage = (
+  actions: PlatformAction[] = ["PROMPT_MANAGE", "PROMPT_PROMOTE"],
+  search = "",
+  client = new QueryClient({ defaultOptions: { queries: { retry: false } } }),
+) => {
   held.actions = actions;
   return render(
-    <MemoryRouter initialEntries={["/platform/prompts/candidate-scorecard-draft"]}>
-      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+    <MemoryRouter initialEntries={[`/platform/prompts/candidate-scorecard-draft${search}`]}>
+      <QueryClientProvider client={client}>
         <ToastProvider>
           <Routes>
             <Route path="/platform/prompts/:promptId" element={<PromptPage />} />
@@ -51,6 +55,34 @@ const refusal = (code: string, fieldErrors: Record<string, string> = {}) =>
   new ApiRequestError({ code, detail: "", status: 400, correlationId: "c", fieldErrors });
 
 const editor = () => screen.findByRole("textbox", { name: "Prompt text" });
+
+const gate = (overrides: Partial<PromotionGate> = {}): PromotionGate => ({
+  state: "PASSED",
+  runId: "r42",
+  runNumber: 42,
+  finishedAt: "2026-11-19T16:26:00Z",
+  cases: 12,
+  repeats: 3,
+  checksBetter: 5,
+  checksSame: 3,
+  checksWorse: 0,
+  regressedCases: 1,
+  failedChecks: [],
+  ...overrides,
+});
+
+/** The fixture's prompt, with what the evals say about its newest version against the live one. */
+const gated = (newest: PromotionGate): PromptDetail => ({
+  ...detail(),
+  versions: detail().versions.map((entry) => (entry.version === 3 ? { ...entry, gate: newest } : entry)),
+});
+
+const openPutLive = async (user: ReturnType<typeof userEvent.setup>) => {
+  await editor();
+  await user.click(within(screen.getByRole("region", { name: "Version history" })).getAllByRole("button")[0]);
+  await user.click(await screen.findByRole("button", { name: "Put version 3 live" }));
+  return screen.findByRole("dialog", { name: "Put v3 live" });
+};
 
 describe("PromptPage", () => {
   beforeEach(() => {
@@ -220,6 +252,132 @@ describe("PromptPage", () => {
     expect(await screen.findByText("Assessment draft now runs on version 3 in every workspace")).toBeInTheDocument();
     expect(screen.getByText("Live: v3")).toBeInTheDocument();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("puts a version live with no reason asked once a holdout run found it no worse", async () => {
+    vi.mocked(promptApi.getPrompt).mockResolvedValue(gated(gate()));
+    vi.mocked(promptApi.putPromptLive).mockResolvedValue(detail({ prompt: overview({ liveVersion: 3 }) }));
+    const user = userEvent.setup();
+    renderPage();
+
+    const dialog = await openPutLive(user);
+
+    expect(within(dialog).getByText("No worse")).toBeInTheDocument();
+    expect(within(dialog).getByText("Run R-0042 · holdout · 19 Nov 2026")).toBeInTheDocument();
+    expect(
+      within(dialog).getByText(
+        "12 cases, 3 repeats each. Better on 5 checks, the same on 3, worse on none. One case regressed inside the tolerance.",
+      ),
+    ).toBeInTheDocument();
+    expect(within(dialog).queryByRole("textbox")).not.toBeInTheDocument();
+
+    await user.click(within(dialog).getByRole("button", { name: "Put live" }));
+
+    await waitFor(() => expect(promptApi.putPromptLive).toHaveBeenCalledWith("candidate-scorecard-draft", 3, null));
+  });
+
+  it("asks why over a run that found the version worse, naming the checks it fell on", async () => {
+    vi.mocked(promptApi.getPrompt).mockResolvedValue(
+      gated(
+        gate({
+          state: "FAILED",
+          runNumber: 41,
+          finishedAt: "2026-11-13T11:02:00Z",
+          failedChecks: [
+            { label: "Score inside the labelled band", candidate: 75, baseline: 83 },
+            { label: "Self-report alone stays at 7 or below", candidate: 83, baseline: 92 },
+          ],
+        }),
+      ),
+    );
+    const user = userEvent.setup();
+    renderPage();
+
+    const dialog = await openPutLive(user);
+
+    expect(within(dialog).getByText("Regressed")).toBeInTheDocument();
+    expect(within(dialog).getByText("Run R-0041 · holdout · 13 Nov 2026")).toBeInTheDocument();
+    expect(
+      within(dialog).getByText(
+        "Worse than the live version on two checks: score inside the labelled band (75% against 83%) and self-report alone stays at 7 or below (83% against 92%).",
+      ),
+    ).toBeInTheDocument();
+    expect(within(dialog).getByRole("textbox", { name: "Why put it live anyway" })).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "Put live" })).toBeDisabled();
+  });
+
+  it("says a version has no holdout run, asks why, and points at Evals", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    const dialog = await openPutLive(user);
+
+    expect(within(dialog).getByText("This version has no finished run on the holdout cases")).toBeInTheDocument();
+    expect(within(dialog).getByRole("link", { name: "Run an eval first" })).toHaveAttribute(
+      "href",
+      "/platform/evals?tab=runs",
+    );
+    expect(within(dialog).getByRole("textbox", { name: "Why put it live anyway" })).toBeInTheDocument();
+  });
+
+  it("shows the reason field's refusal when the version serving changed under a passed run", async () => {
+    vi.mocked(promptApi.getPrompt).mockResolvedValue(gated(gate()));
+    vi.mocked(promptApi.putPromptLive).mockRejectedValue(
+      refusal("VALIDATION_FAILED", { reason: "Say why this version should serve" }),
+    );
+    const user = userEvent.setup();
+    renderPage();
+
+    const dialog = await openPutLive(user);
+    await user.click(within(dialog).getByRole("button", { name: "Put live" }));
+
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent("Say why this version should serve");
+  });
+
+  it("opens Put live at once from a run's link to its candidate", async () => {
+    vi.mocked(promptApi.getPrompt).mockResolvedValue(gated(gate()));
+    const user = userEvent.setup();
+    renderPage(["PROMPT_MANAGE", "PROMPT_PROMOTE"], "?version=3&putLive=1");
+
+    const dialog = await screen.findByRole("dialog", { name: "Put v3 live" });
+    expect(within(dialog).getByText("No worse")).toBeInTheDocument();
+
+    await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Put version 3 live" })).toBeInTheDocument();
+  });
+
+  it("reads the prompt again before the linked dialog opens, so a run that just ended is the one it rests on", async () => {
+    // The prompt as it was read before the run: no run yet for its newest version.
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    client.setQueryData(promptApi.PROMPT_KEY("candidate-scorecard-draft"), detail(), { updatedAt: 0 });
+    vi.mocked(promptApi.getPrompt).mockResolvedValue(gated(gate()));
+    renderPage(["PROMPT_MANAGE", "PROMPT_PROMOTE"], "?version=3&putLive=1", client);
+
+    const dialog = await screen.findByRole("dialog", { name: "Put v3 live" });
+
+    expect(within(dialog).getByText("No worse")).toBeInTheDocument();
+    expect(within(dialog).queryByText("This version has no finished run on the holdout cases")).not.toBeInTheDocument();
+    expect(within(dialog).queryByRole("textbox")).not.toBeInTheDocument();
+  });
+
+  it("asks why on a rollback whatever the evals said, and draws no check", async () => {
+    vi.mocked(promptApi.getPrompt).mockResolvedValue({
+      ...detail(),
+      versions: detail().versions.map((entry) => (entry.version === 1 ? { ...entry, gate: gate() } : entry)),
+    });
+    const user = userEvent.setup();
+    renderPage();
+    await editor();
+
+    await user.click(within(screen.getByRole("region", { name: "Version history" })).getAllByRole("button")[2]);
+    await user.click(await screen.findByRole("button", { name: "Roll back to version 1" }));
+
+    const dialog = await screen.findByRole("dialog", { name: "Roll back to v1" });
+    expect(within(dialog).queryByText("No worse")).not.toBeInTheDocument();
+    expect(within(dialog).getByRole("textbox", { name: "Why roll back" })).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "Roll back" })).toBeDisabled();
   });
 
   it("rolls back to an earlier version from its history, through the same dialog", async () => {

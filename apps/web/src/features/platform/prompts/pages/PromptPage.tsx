@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import { Icon, ICONS } from "../../../../components/layout/Icon";
 import { Button, CardsSkeleton, FormError, LinesSkeleton, useToast } from "../../../../components/ui";
 import { TabList, type TabOption } from "../../../../components/ui/TabList";
@@ -17,7 +17,14 @@ import { OriginPill, PromptPill } from "../components/PromptPill";
 import { PutLiveDialog } from "../components/PutLiveDialog";
 import { TrialTab } from "../components/TrialTab";
 import { VersionCompareTab } from "../components/VersionCompareTab";
-import { changedLabel, PROMPTS_PATH, versionLabel, versionModelLine } from "../lib/promptLabels";
+import {
+  changedLabel,
+  PROMPTS_PATH,
+  PUT_LIVE_PARAM,
+  VERSION_PARAM,
+  versionLabel,
+  versionModelLine,
+} from "../lib/promptLabels";
 
 type PromptTab = "editor" | "compare" | "try";
 
@@ -29,11 +36,13 @@ export default function PromptPage() {
   const { user } = useAuth();
   const toast = useToast();
   const queryClient = useQueryClient();
-  const [openedVersion, setOpenedVersion] = useState<number | null>(null);
+  const [params, setParams] = useSearchParams();
+  const linkedVersion = Number(params.get(VERSION_PARAM)) || null;
+  const [openedVersion, setOpenedVersion] = useState<number | null>(linkedVersion);
   const [tab, setTab] = useState<PromptTab>("editor");
-  const [moving, setMoving] = useState<PromptVersionSummary | null>(null);
+  const [chosenToMove, setChosenToMove] = useState<number | null>(null);
 
-  const { data: detail, isPending, error } = useQuery({
+  const { data: detail, isPending, isFetching, error } = useQuery({
     queryKey: promptApi.PROMPT_KEY(promptId),
     queryFn: ({ signal }) => promptApi.getPrompt(promptId, signal),
   });
@@ -61,6 +70,20 @@ export default function PromptPage() {
   const { prompt } = detail;
   const canPromote = user?.platformActions.includes("PROMPT_PROMOTE") ?? false;
   const openIsLive = open.version === prompt.liveVersion;
+  // A run's page links here with its candidate and Put live already asked for. The run has just changed what the
+  // evals say about that version, so the dialog waits for the prompt to be read again: on the cached copy it would
+  // ask for a reason the run has made unnecessary.
+  const linkedToMove =
+    params.has(PUT_LIVE_PARAM) && canPromote && open.version === linkedVersion && !openIsLive && !isFetching
+      ? open.version
+      : null;
+  const movingVersion = chosenToMove ?? linkedToMove;
+  const moving: PromptVersionSummary | null =
+    detail.versions.find((version) => version.version === movingVersion) ?? null;
+  const closeMove = () => {
+    setChosenToMove(null);
+    if (params.has(PUT_LIVE_PARAM)) setParams({}, { replace: true });
+  };
   const tabs: TabOption<PromptTab>[] = [
     { value: "editor", label: "Editor" },
     { value: "compare", label: "Compare versions" },
@@ -96,12 +119,12 @@ export default function PromptPage() {
             </span>
           )}
           {!openIsLive && canPromote && open.version < prompt.liveVersion && (
-            <Button type="button" size="sm" variant="secondary" onClick={() => setMoving(open)}>
+            <Button type="button" size="sm" variant="secondary" onClick={() => setChosenToMove(open.version)}>
               Roll back to version {open.version}
             </Button>
           )}
           {!openIsLive && canPromote && open.version > prompt.liveVersion && (
-            <Button type="button" size="sm" onClick={() => setMoving(open)}>
+            <Button type="button" size="sm" onClick={() => setChosenToMove(open.version)}>
               Put version {open.version} live
             </Button>
           )}
@@ -191,12 +214,14 @@ export default function PromptPage() {
 
       {moving && (
         <PutLiveDialog
+          // What the evals say can change while the dialog is open (a run ending); it then starts over on that.
+          key={`${moving.version}:${moving.gate?.state ?? ""}:${moving.gate?.runId ?? ""}`}
           detail={detail}
           target={moving}
-          onClose={() => setMoving(null)}
+          onClose={closeMove}
           onDone={(updated) => {
             keep(updated);
-            setMoving(null);
+            closeMove();
             toast.success(`${prompt.name} now runs on version ${updated.prompt.liveVersion} in every workspace`);
           }}
         />

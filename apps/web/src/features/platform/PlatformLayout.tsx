@@ -46,5 +46,5 @@ export function PlatformLayout() {
 
 function widthOf(section: PlatformSection | undefined, pathname: string): string {
   if (!section?.wide) return "max-w-[760px]";
-  return pathname === section.to ? "max-w-[1040px]" : "max-w-[1240px]";
+  return section.workArea && pathname !== section.to ? "max-w-[1240px]" : "max-w-[1040px]";
 }
