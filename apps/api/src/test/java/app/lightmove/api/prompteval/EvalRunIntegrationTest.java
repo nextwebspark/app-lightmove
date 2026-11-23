@@ -385,9 +385,13 @@ class EvalRunIntegrationTest extends PositionTemplateFlowSupport {
         return dataset;
     }
 
+    /** The super admin's own: a dataset with no author reads as one a release shipped, which other tests count. */
     private UUID newDataset() {
-        return db.queryForObject("INSERT INTO app_lm_eval_dataset (prompt_id, name) VALUES (?, ?) RETURNING id",
-                UUID.class, NATIONALITY, "Test set " + UUID.randomUUID());
+        return db.queryForObject("""
+                INSERT INTO app_lm_eval_dataset (prompt_id, name, created_by)
+                SELECT ?, ?, id FROM app_lm_user WHERE email = ?
+                RETURNING id
+                """, UUID.class, NATIONALITY, "Test set " + UUID.randomUUID(), "owner@" + domain);
     }
 
     private UUID datasetNamed(String admin, String name) throws Exception {
