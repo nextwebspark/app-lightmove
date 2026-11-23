@@ -554,6 +554,19 @@ retired, never rewritten: a trigger lets an UPDATE change only `retired_at` / `r
 account's author columns, and refuses DELETE. Not in `harden.sql`: retiring needs UPDATE, and later eval tables
 reference these, which a table owned by `postgres` would refuse.
 
+V239 adds eval runs (#1320), two more platform tables. `app_lm_eval_run`: `number` (an identity, the `R-0042` a
+person reads), the prompt, dataset and split, `case_ids` (the cases in use when it started, so one imported or
+retired since is neither added nor dropped), both versions **by number with no foreign key** (`harden.sql` gives the
+version table to `postgres`, which a key from a table `lm_app` owns could not reference), the model that answered
+for each, `repeats`, `status` `QUEUED` | `RUNNING` | `FINISHED` | `CANCELLED` | `FAILED`, `verdict` `PASS` | `FAIL`
+(only when finished), `failure` (only when failed), `gate_ready` (whether the subject's cases counted at put live
+when it started), calls planned and made, `call_cap`, tokens, `summary` jsonb, `stop_requested_at`, and the worker's
+`claim_token`, `claims` and `heartbeat_at`. `app_lm_eval_run_one_at_a_time` is a unique index on a constant where
+status is `QUEUED` or `RUNNING`: one run platform-wide. `app_lm_eval_result`: one row per run, case, side
+(`CANDIDATE` | `BASELINE`) and repeat, unique on the four, with the bound `answer` jsonb (null when unreadable), the
+raw answer, finish, tokens and each check's verdict by id. A fictional case's answer only. Append-only by trigger.
+Not in `harden.sql`, for V238's reason.
+
 V231 adds `app_lm_dashboard` (docs/custom-dashboards.md): a member's custom dashboard on a position (`project_id`, composite key to the project's workspace) or across the workspace (null) — `owner_user_id` (cascade with the account), `name` (≤ 80, never blank), `shared`, and `widgets` jsonb, an array of `{queryId, chart, options, title, layout: {x, y, w, h}}` (twelve-column grid; rows saved before it carry `size` instead, flowed into place by the SPA) naming charts of the server's query library. The choice only, never a figure: every chart is answered live. Forced RLS on its `workspace_id`. Staff-only.
 
 V230 cancels the open tasks an executive's removal orphaned before #1402 (`candidate_id` null and an `UNMAPPED` activity line for the person on the position at or after the task's creation; a rule task filed for someone never mapped has no such line and stays open), releasing a rule task's key as `Task.releaseRuleKey` does. Data only.

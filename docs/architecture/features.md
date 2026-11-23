@@ -706,8 +706,8 @@ configured model, an explicit choice (the editor's Default model): the editor op
 "defaults to the previous version's" is the SPA's, and the API never guesses. Settings with no model whose bounds are
 known are refused rather than checked against another model's. Try it's fictional inputs live in code, one per
 `PromptTrial`, not stored with the prompt, and a trial is never counted in `app_lm_platform_prompt_call_daily`.
-`PROMPT_PROMOTE` with a fresh two-factor code moves `production` (`PUT …/production`, a reason required until the eval
-gate of #1320), which is also how a rollback is made, and reloads every instance; a version whose model
+`PROMPT_PROMOTE` with a fresh two-factor code moves `production` (`PUT …/production`, a written reason required
+unless the eval gate below passed), which is also how a rollback is made, and reloads every instance; a version whose model
 `AiModelCatalog.unusableBecause` refuses today (retired since it was saved, say) is `PROMPT_MODEL_UNAVAILABLE`, so a
 rollback cannot quietly hand a prompt to the configured model. Saving never changes what serves. Every act is audited
 (`PROMPT_VERSION_SAVED`, `PROMPT_TRIED`, `PROMPT_PUT_LIVE`, `PROMPT_ROLLED_BACK`) with the prompt id, version, model
@@ -730,8 +730,8 @@ added and retired but never edited, so a run can name what it scored. The commit
 previews, names every row at fault by its line, and commits all or nothing. A prompt can take cases and be run only
 if it has an `EvalSubject` (`core/llm`, beside its caller like its `PromptTrial`), which checks a case's shape and
 asks the model with it through the feature's own code; nationality and seniority have one. The scoring the offline
-`@Tag("eval")` suites use is the same main code (`GoldenRowScorer`, `LooseTextMatch`). No run exists yet (#1320), so
-this calls no model. `docs/eval/README.md` has the splits, case authoring and why real data stays offline.
+`@Tag("eval")` suites use is the same main code (`GoldenRowScorer`, `LooseTextMatch`). `docs/eval/README.md` has the
+splits, case authoring, runs and why real data stays offline.
 The **assessment draft** has its subject, checks and pack (#1326, `enrichment/candidate`): a case is a fictional
 profile with dated notes, call transcripts, documents and a brief, and `CandidateScorecardEvalSubject` hands it to
 `CandidateScorecardDrafter` after `CandidateMaterialReader.written` / `withCalls` have written the material out, the
@@ -742,6 +742,32 @@ colleague or an unidentified speaker, score inside the labelled band, self-repor
 times a case. Pack v1 (30 cases, 12 held out) is seeded; `isGateReady` is false until a consultant has reviewed it,
 so no run on it will let a version go live unexplained. `docs/eval/assessment-draft-eval.md` has the case shape, the
 labels and the first real-model runs.
+An **eval run** (#1320, V239, `/api/v1/platform/evals/runs`, `EVAL_RUN`) has a candidate version and a baseline (the
+one serving, unless another is named) answer the same split of a dataset's cases, each on its own model and settings,
+through `PromptTrialRunner`'s per-thread version swap, so every call is the feature's own and none is counted in
+`app_lm_platform_prompt_call_daily`. A case is answered once, three times when either version's temperature is above
+0, and never fewer times than its subject asks (`EvalRunPlanner`). `POST …/runs/estimate` says what a start would
+take; a start planning more calls than `lightmove.platform.eval.max-calls-per-run` (200) is `EVAL_RUN_TOO_LARGE`, one
+with no case in the split `EVAL_NO_CASES`, and it spends one of the starter's `LlmBudget.EVAL_RUN`. **One run goes at
+a time, platform-wide**: a partial unique index refuses a second (`EVAL_RUN_IN_PROGRESS`), never queues it. The start
+stores a `QUEUED` row and returns; `EvalRunWorker` claims it in one statement on a thread of its own (after the
+commit, and from a timer for a run no start handed over), makes the calls one after another, and stores each answer
+with every check's verdict as it lands. Before each call it reads the stop flag and the calls made, so a cancel
+(`POST …/runs/{id}/cancel`) and the call cap (a repair's second ask counts) both stop it; a run whose worker went
+quiet for `stale-after` is claimed again and goes on from the answers stored. A call the model never answered is
+asked three times and then fails the run (`MODEL_UNAVAILABLE`) rather than being scored: two versions failing alike in
+an outage would read as no worse. `EvalRunScorer` gives each check the share of answers that pass per version (the
+mean over the repeats), the change in points, how far scores moved between repeats, and the cases the two did
+differently on (`GET …/runs/{id}/cases`, regressions first, each scored thing side by side through the subject's
+`readingsOf`). The verdict is `PASS` when no check fell by more than the subject's `tolerancePoints` (3 for the
+assessment draft, 0 otherwise). **The gate:** `promptregistry` declares `PromotionGate` and `prompteval` answers it
+(`PromotionGateAdapter`), so the registry never learns that runs exist. A version's gate is its latest finished run
+on `HOLDOUT` against the version serving **now**, started while its subject was `isGateReady`: `PASSED`, `FAILED` or
+`NONE`. `PromptPromotionService.putLive` reads it under the prompt's lock; only `PASSED` lets a version go live with
+no reason, and a rollback always asks for one (`VALIDATION_FAILED` on `reason`). Each `PromptVersionSummary` carries
+its `gate` (run number, date, check counts, the checks that failed), so the dialog needs no eval route. Audited:
+`EVAL_RUN_STARTED`, `EVAL_RUN_FINISHED`, `EVAL_RUN_CANCELLED`, `EVAL_GATE_OVERRIDDEN` (a put live over a failed
+run), and `PROMPT_PUT_LIVE` names the gate's state and run.
 
 
 ## Layout
