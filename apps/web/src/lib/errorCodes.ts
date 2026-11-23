@@ -41,6 +41,8 @@ export type ApiErrorCode =
   | "PROMPT_MODEL_UNAVAILABLE"
   | "PROMPT_TRIAL_UNAVAILABLE"
   | "PROMPT_ALREADY_LIVE"
+  | "EVAL_SUBJECT_UNAVAILABLE"
+  | "EVAL_IMPORT_INVALID"
   | "ACCOUNT_SIGN_IN_AGAIN"
   | "ACCOUNT_HANDOVER_REQUIRED"
   | "SESSION_NOT_FOUND"
@@ -314,6 +316,8 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   PROMPT_MODEL_UNAVAILABLE: "That model can't be used for this prompt. Choose another.",
   PROMPT_TRIAL_UNAVAILABLE: "This prompt can't be tried here yet.",
   PROMPT_ALREADY_LIVE: "That version is already live.",
+  EVAL_SUBJECT_UNAVAILABLE: "Cases can't be added for this prompt yet.",
+  EVAL_IMPORT_INVALID: "Some rows cannot be imported. Fix the file and choose it again.",
   ACCOUNT_SIGN_IN_AGAIN: "Sign in again to show it's you, then delete your account within 10 minutes.",
   ACCOUNT_HANDOVER_REQUIRED: "Hand over the workspaces and positions only you run first.",
   SESSION_NOT_FOUND: "That session has already ended.",

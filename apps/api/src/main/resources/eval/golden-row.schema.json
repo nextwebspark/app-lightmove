@@ -11,6 +11,10 @@
       "description": "model_draft: drafted by a model, not yet confirmed. human_confirmed: a person checked the row. known: the person's nationality is actually known — the ground truth."
     },
     "note": { "type": "string", "description": "The edge case the row exercises. Never a name or a profile fact." },
+    "split": {
+      "enum": ["DEV", "HOLDOUT"],
+      "description": "Synthetic rows only: which half of the seeded dataset the row lands in (docs/eval/README.md). DEV when left out."
+    },
     "profile": {
       "type": "object",
       "required": ["fullName"],

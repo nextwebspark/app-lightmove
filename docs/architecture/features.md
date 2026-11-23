@@ -723,6 +723,15 @@ with the model's range, the read-only message the feature sends, a required chan
 **Compare versions** (`lineDiff`, plus model and settings) and **Try it**. **Put version N live** and **Roll back to
 version N** show only to a holder of `PROMPT_PROMOTE` and open `PutLiveDialog`, which always asks a reason until the
 eval gate (#1321); the code before it is the app's own step-up dialog.
+What a version is scored on are the **eval datasets** (#1319, `prompteval`, V238, under `/api/v1/platform/evals`,
+`EVAL_RUN`): a dataset per prompt, its cases synthetic only (`source` has the one value), each `DEV` or `HOLDOUT`,
+added and retired but never edited, so a run can name what it scored. The committed synthetic sets under
+`resources/eval/` are recorded at boot (`EvalDatasetSeed`, a case once by its key); more arrive by a JSONL import that
+previews, names every row at fault by its line, and commits all or nothing. A prompt can take cases and be run only
+if it has an `EvalSubject` (`core/llm`, beside its caller like its `PromptTrial`), which checks a case's shape and
+asks the model with it through the feature's own code; nationality and seniority have one. The scoring the offline
+`@Tag("eval")` suites use is the same main code (`GoldenRowScorer`, `LooseTextMatch`). No run exists yet (#1320), so
+this calls no model. `docs/eval/README.md` has the splits, case authoring and why real data stays offline.
 
 
 ## Layout

@@ -544,6 +544,16 @@ V237 adds `app_lm_start_page` (docs/architecture/features.md, Start page): where
 V236 seeds the platform actions `PROMPT_MANAGE` (read the prompts, save a version, try it) and `PROMPT_PROMOTE` (move
 the production label), both granted to `SUPER_ADMIN` (#1317). No table changes.
 
+V238 adds the eval datasets (#1319, docs/eval/README.md), two platform tables with no `workspace_id` and no reference
+into a tenant table, and seeds the platform action `EVAL_RUN`, granted to `SUPER_ADMIN`. `app_lm_eval_dataset`: one
+set of cases for one `prompt_id`, unique on (`prompt_id`, `name`); `created_by` null for one shipped with a release.
+`app_lm_eval_case`: `case_key` unique per dataset for ever, `name`, `tag`, `split` `DEV` | `HOLDOUT`, `source` with
+the single value `SYNTHETIC` (a CHECK: there is nothing to store a real person's data under), `input` jsonb in the
+prompt's own prepared shape and `expected` jsonb (null for a prompt only a judge scores). A case is added and
+retired, never rewritten: a trigger lets an UPDATE set `retired_at` and `retired_by` together, once, and after that
+change `created_by` or `retired_by` only to null (an erased account), and refuses DELETE. Not in `harden.sql`: retiring needs UPDATE, and later eval tables
+reference these, which a table owned by `postgres` would refuse.
+
 V231 adds `app_lm_dashboard` (docs/custom-dashboards.md): a member's custom dashboard on a position (`project_id`, composite key to the project's workspace) or across the workspace (null) — `owner_user_id` (cascade with the account), `name` (≤ 80, never blank), `shared`, and `widgets` jsonb, an array of `{queryId, chart, options, title, layout: {x, y, w, h}}` (twelve-column grid; rows saved before it carry `size` instead, flowed into place by the SPA) naming charts of the server's query library. The choice only, never a figure: every chart is answered live. Forced RLS on its `workspace_id`. Staff-only.
 
 V230 cancels the open tasks an executive's removal orphaned before #1402 (`candidate_id` null and an `UNMAPPED` activity line for the person on the position at or after the task's creation; a rule task filed for someone never mapped has no such line and stays open), releasing a rule task's key as `Task.releaseRuleKey` does. Data only.

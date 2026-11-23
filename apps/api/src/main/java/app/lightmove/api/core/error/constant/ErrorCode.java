@@ -100,6 +100,12 @@ public enum ErrorCode {
     /** Putting live the version that already serves. */
     PROMPT_ALREADY_LIVE(HttpStatus.CONFLICT, "That version is already live"),
 
+    /** The prompt has no eval subject, so nothing can check a case's shape or run one. */
+    EVAL_SUBJECT_UNAVAILABLE(HttpStatus.CONFLICT, "Cases can't be added for this prompt yet"),
+
+    /** A commit of a file whose preview named rows that cannot be imported. Nothing was added. */
+    EVAL_IMPORT_INVALID(HttpStatus.BAD_REQUEST, "Some rows cannot be imported. Fix the file and choose it again"),
+
     /** Account deletion, by a person with no password: the proof is a sign-in moments ago, as for two-factor. */
     ACCOUNT_SIGN_IN_AGAIN(HttpStatus.CONFLICT, "Sign in again, then delete your account within 10 minutes"),
 
