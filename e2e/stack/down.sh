@@ -25,6 +25,12 @@ done
 pkill -f 'app.lightmove.api.LightMoveApplication' 2>/dev/null || true
 pkill -f 'vite.*apps/web' 2>/dev/null || true
 
+# Git Bash's pkill cannot see a native Windows JVM, so the API stayed on :8080 and the next up.sh "left it alone",
+# serving the database this script just removed. ops/dev/stop.sh frees the ports with taskkill instead.
+case "$(uname -s)" in
+  MINGW* | MSYS* | CYGWIN*) "$E2E_DIR/../ops/dev/stop.sh" 8080 5173 >/dev/null || true ;;
+esac
+
 if [ "${KEEP_DB:-}" = "1" ]; then
   say "KEEP_DB=1 — leaving $PG_CONTAINER running"
 else

@@ -133,6 +133,9 @@ if [ ! -s "$PRIVATE_KEY" ] || [ ! -s "$PUBLIC_KEY" ]; then
   openssl rsa -pubout -in "$PRIVATE_KEY" -out "$PUBLIC_KEY" 2>/dev/null
   chmod 600 "$PRIVATE_KEY"
 fi
+# Git Bash on Windows spells these /c/…, which the JVM reads as C:\c\… and boots with no keys; cygpath -m gives it
+# C:/…. Elsewhere there is no cygpath and the path passes through as it is.
+for_java() { if command -v cygpath >/dev/null 2>&1; then cygpath -m "$1"; else printf '%s' "$1"; fi; }
 
 # --- 3. api -----------------------------------------------------------------
 if curl -sf -o /dev/null "http://localhost:8080/api/v1/auth/providers"; then
@@ -149,8 +152,8 @@ else
       SPRING_DATASOURCE_PASSWORD=lm \
       DB_PASSWORD=lm \
       LIGHTMOVE_EMAIL_PROVIDER="$MAIL_PROVIDER" \
-      JWT_PRIVATE_KEY_LOCATION="file:$PRIVATE_KEY" \
-      JWT_PUBLIC_KEY_LOCATION="file:$PUBLIC_KEY" \
+      JWT_PRIVATE_KEY_LOCATION="file:$(for_java "$PRIVATE_KEY")" \
+      JWT_PUBLIC_KEY_LOCATION="file:$(for_java "$PUBLIC_KEY")" \
       ./mvnw -q spring-boot:run -Dspring-boot.run.profiles="$PROFILE" \
       > "$RUN_DIR/api.log" 2>&1 & echo $! > "$RUN_DIR/api.pid" )
 
