@@ -721,8 +721,8 @@ under a live edit, a model within 60 days of retirement, or a live model the con
 history, an **Editor** (text, model from the catalogue with unusable ones disabled and their reason, the three settings
 with the model's range, the read-only message the feature sends, a required change note, **Save as new version**),
 **Compare versions** (`lineDiff`, plus model and settings) and **Try it**. **Put version N live** and **Roll back to
-version N** show only to a holder of `PROMPT_PROMOTE` and open `PutLiveDialog`, which always asks a reason until the
-eval gate (#1321); the code before it is the app's own step-up dialog.
+version N** show only to a holder of `PROMPT_PROMOTE` and open `PutLiveDialog`, which draws the eval gate below and
+asks a reason unless it passed; the code before it is the app's own step-up dialog.
 What a version is scored on are the **eval datasets** (#1319, `prompteval`, V238, under `/api/v1/platform/evals`,
 `EVAL_RUN`): a dataset per prompt, its cases synthetic only (`source` has the one value), each `DEV` or `HOLDOUT`,
 added and retired but never edited, so a run can name what it scored. The committed synthetic sets under
@@ -768,6 +768,21 @@ no reason, and a rollback always asks for one (`VALIDATION_FAILED` on `reason`).
 its `gate` (run number, date, check counts, the checks that failed), so the dialog needs no eval route. Audited:
 `EVAL_RUN_STARTED`, `EVAL_RUN_FINISHED`, `EVAL_RUN_CANCELLED`, `EVAL_GATE_OVERRIDDEN` (a put live over a failed
 run), and `PROMPT_PUT_LIVE` names the gate's state and run.
+Its screens (#1321, `features/platform/evals`, behind `EVAL_RUN` in `platformSections`): `/platform/evals` has two
+tabs. **Datasets** lists each with its prompt, cases and split, and opens `/platform/evals/datasets/:id`: the cases,
+**Retire** on each (no confirmation is drawn; the row stays, marked Retired) and **Import cases** (the file is read
+first, every row at fault is named by its line, and Add N cases sends the same file again). **Runs**
+(`/platform/evals?tab=runs`) lists what each run found, cost and who started it, and **Start a run** offers only the
+prompts whose cases can be run, the newest version against the live one, and the server's estimate before anything
+starts. `/platform/evals/runs/:id` polls while a run goes (calls made of calls planned, a guess at the time left,
+**Cancel run**), then draws the comparison: one sentence on what the run means for putting the candidate live, the
+checks with both pass rates and the change, and **Cases that changed**, regressions first, each opening to both
+versions' scores and evidence (or, for a prompt that scores nothing, the checks that moved). **Put the candidate
+live…** shows to a holder of `PROMPT_PROMOTE` and opens the prompt's page with the dialog already open
+(`?version=N&putLive=1`). `PutLiveDialog` draws the gate from the version's own `gate` block: **No worse** with its
+run and no reason field, **Regressed** naming the checks that fell with the reason field, or no finished holdout run
+with a link to Runs and the reason field; a rollback draws no gate and always asks why. Not drawn, so not built: a
+case's own page, creating a dataset, writing a case by hand.
 
 
 ## Layout
