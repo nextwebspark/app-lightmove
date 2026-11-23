@@ -1,3 +1,4 @@
+import { joinNames } from "../../../lib/format";
 import type { RankedCandidate, RankingCriterion } from "../api/types";
 import {
   differentiators,
@@ -35,11 +36,6 @@ export function rankShiftLabel(shift: number): string {
 export const firstName = (candidate: RankedCandidate) => candidate.fullName.split(/\s+/)[0] || candidate.fullName;
 const possessive = (candidate: RankedCandidate) => `${firstName(candidate)}'s`;
 const outOfTen = (points: number) => `${oneDecimal(points / 10)}/10`;
-
-export function joinNames(names: readonly string[]): string {
-  if (names.length < 2) return names.join("");
-  return `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
-}
 
 export const splitLabel = (share: number) => `${share}:${100 - share}`;
 

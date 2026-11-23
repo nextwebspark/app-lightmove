@@ -30,6 +30,7 @@ export const version = (overrides: Partial<PromptVersionSummary> = {}): PromptVe
   modelId: null,
   modelName: null,
   settings: { temperature: null, thinkingBudget: null, maxOutputTokens: null },
+  gate: null,
   ...overrides,
 });
 
