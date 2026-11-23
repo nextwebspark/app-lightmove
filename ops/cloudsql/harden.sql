@@ -74,6 +74,18 @@ BEGIN
     END IF;
 END $$;
 
+-- 2e. The record of every application variable change (V241, #1314) is append-only on the same terms: what a limit
+--     was, and who moved it, must not be rewritable from a foothold in the app. V241's trigger refuses UPDATE and
+--     DELETE; this takes the privilege away besides. The overrides themselves stay lm_app's: it writes them.
+DO $$
+BEGIN
+    IF to_regclass('public.app_lm_platform_setting_change') IS NOT NULL THEN
+        EXECUTE 'ALTER TABLE app_lm_platform_setting_change OWNER TO postgres';
+        EXECUTE 'REVOKE ALL ON app_lm_platform_setting_change FROM lm_app';
+        EXECUTE 'GRANT  INSERT, SELECT ON app_lm_platform_setting_change TO lm_app';
+    END IF;
+END $$;
+
 -- 2c. Row-level security on the two tables this file owns (V190, #1085). Where they were already postgres's when V190
 --     ran, it skipped them with a warning; where they were still lm_app's it applied the same policies, which the
 --     ownership change keeps. Either way this leaves both forced with their policies; until it has, every API boot

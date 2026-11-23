@@ -13,6 +13,7 @@ import { PlatformLayout } from "./PlatformLayout";
 import { PLATFORM_HOME, visiblePlatformSections } from "./platformSections";
 import PromptListPage from "./prompts/pages/PromptListPage";
 import PromptPage from "./prompts/pages/PromptPage";
+import VariablesPage from "./variables/pages/VariablesPage";
 
 /** Everything under `/platform`, as one chunk nobody but its holders downloads. */
 export default function PlatformRoutes() {
@@ -24,6 +25,9 @@ export default function PlatformRoutes() {
           <Route path="templates" element={<TemplateListPage scope="library" />} />
           <Route path="templates/new" element={<TemplateEditorPage scope="library" />} />
           <Route path="templates/:code" element={<TemplateEditorPage scope="library" />} />
+        </Route>
+        <Route element={<RequirePlatformAction action="PLATFORM_SETTINGS_MANAGE"><Outlet /></RequirePlatformAction>}>
+          <Route path="variables" element={<VariablesPage />} />
         </Route>
         <Route element={<RequirePlatformAction action="PROMPT_MANAGE"><Outlet /></RequirePlatformAction>}>
           <Route path="prompts" element={<PromptListPage />} />

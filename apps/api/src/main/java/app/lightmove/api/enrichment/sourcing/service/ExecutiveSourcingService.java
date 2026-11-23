@@ -4,8 +4,6 @@ import app.lightmove.api.billing.usage.constant.UsageKind;
 import app.lightmove.api.billing.usage.service.FairUseGuard;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
-import app.lightmove.api.core.config.ExecutiveSourcingSettings;
-import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.stream.ProjectStreamKind;
@@ -20,6 +18,7 @@ import app.lightmove.api.enrichment.sourcing.model.SearchCriteria;
 import app.lightmove.api.enrichment.sourcing.model.SourcingCompany;
 import app.lightmove.api.enrichment.sourcing.repository.ExecutiveSourcingRunRepository;
 import jakarta.servlet.http.HttpServletRequest;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -45,12 +44,12 @@ public class ExecutiveSourcingService {
     private final AuditService audit;
     private final ProjectStreamPublisher stream;
     private final ApplicationEventPublisher events;
-    private final ExecutiveSourcingSettings settings;
+    private final SourcingLimits limits;
 
     public ExecutiveSourcingService(ExecutiveSourcingRunRepository runs, SourcingCompanies companies,
                                     SourcingCriteriaService criteria, CompanySearch companySearch,
                                     FairUseGuard fairUse, AuditService audit, ProjectStreamPublisher stream,
-                                    ApplicationEventPublisher events, LightMoveProperties properties) {
+                                    ApplicationEventPublisher events, SourcingLimits limits) {
         this.runs = runs;
         this.companies = companies;
         this.criteria = criteria;
@@ -59,13 +58,13 @@ public class ExecutiveSourcingService {
         this.audit = audit;
         this.stream = stream;
         this.events = events;
-        this.settings = properties.enrichment().sourcing();
+        this.limits = limits;
     }
 
     public ExecutiveSourcingConfigResponse config() {
-        return new ExecutiveSourcingConfigResponse(companySearch.isOffered(), settings.maxCompaniesPerRun(),
+        return new ExecutiveSourcingConfigResponse(companySearch.isOffered(), limits.maxCompaniesPerRun(),
                 SearchCriteria.PER_COMPANY_CHOICES, SearchCriteria.DEFAULT_PER_COMPANY,
-                settings.lostAfter().toSeconds(), settings.parallelism());
+                limits.lostAfter().toSeconds(), limits.current().parallelism());
     }
 
     @Transactional
@@ -76,7 +75,7 @@ public class ExecutiveSourcingService {
             throw ApiException.of(ErrorCode.EXECUTIVE_SOURCING_UNAVAILABLE);
         }
         List<SourcingCompany> chosen = companies.chosen(workspaceId, projectId, request.triageCompanyIds(),
-                settings.maxCompaniesPerRun());
+                limits.maxCompaniesPerRun());
         refuseRunInProgress(workspaceId, projectId);
         if (chosen.isEmpty()) {
             throw ApiException.withField(ErrorCode.VALIDATION_FAILED, "triageCompanyIds",
@@ -89,7 +88,7 @@ public class ExecutiveSourcingService {
         }
         fairUse.check(workspaceId, userId, UsageKind.SOURCING_RUN, (long) chosen.size() * searched.perCompany());
         ExecutiveSourcingRun run = saveRefusingASecond(ExecutiveSourcingRun.requested(workspaceId, projectId, userId,
-                chosen, searched));
+                chosen, searched, limits.runDeadline()));
         stream.publish(projectId, ProjectStreamKind.EXECUTIVE_SOURCING);
         audit.projectEvent(ProjectEventType.EXECUTIVE_SOURCING_REQUESTED, userId, workspaceId, projectId, httpRequest)
                 .detail("runId", run.getId().toString())
@@ -131,10 +130,11 @@ public class ExecutiveSourcingService {
 
     /** A run lost with its instance is failed here, so it never holds the mandate's one slot for good. */
     private void refuseRunInProgress(UUID workspaceId, UUID projectId) {
-        Instant cutoff = Instant.now().minus(settings.lostAfter());
+        Instant now = Instant.now();
+        Duration lostAfterWhenNoneRecorded = limits.lostAfter();
         for (ExecutiveSourcingRun inProgress : runs.findByWorkspaceIdAndProjectIdAndStatusIn(workspaceId, projectId,
                 SourcingRunStatus.IN_PROGRESS)) {
-            if (!inProgress.isLostBefore(cutoff)) {
+            if (!inProgress.isLostAt(now, lostAfterWhenNoneRecorded)) {
                 throw ApiException.of(ErrorCode.EXECUTIVE_SOURCING_IN_PROGRESS);
             }
             inProgress.fail("Uncava lost track of this run");

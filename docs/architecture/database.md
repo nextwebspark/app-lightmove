@@ -148,7 +148,9 @@ adds `AI_SOURCED` to both source CHECKs (the contact ledger's only because `Cont
 exhaustive; nothing writes it).
 V88 holds a mandate to one run in progress (a partial unique index behind the service's own check), and
 the next request fails a run still marked in progress past `run-deadline`, since its worker died with
-the instance.
+the instance. V242 adds `run_deadline_seconds`: the deadline in force when the run was requested, which is the
+one it is judged lost against now that `run-deadline` is an application variable (null on older runs, judged
+against the current value).
 V93 is Strategy's People mode: `app_lm_strategy.people_filter` and `app_lm_strategy_search.kind` +
 `people_filter` (a people search leaves the company `filter` empty rather than null), a nullable
 `app_lm_vendor_people_search.company_slug` (a people-first page is asked of no company), an index over
@@ -582,6 +584,15 @@ against a rubric's labels, with the `judge_version` that made the picks, `status
 per rubric. `app_lm_eval_calibration_pick`: the judge's pick per check, pair and criterion, in the pair's own A and B,
 with `a_shown_first` and its reason. No workspace, no reference into a tenant table, and not in `harden.sql`, for
 V238's reason.
+
+V241 adds application variables (#1314), two platform tables, and seeds the `PLATFORM_SETTINGS_MANAGE` action for
+`SUPER_ADMIN`. `app_lm_platform_setting`: one row per overridden variable (`key`, the yml path without `lightmove.`;
+`value` as text; `updated_by`, `updated_at`). No row means the yml value serves; which keys may have a row, their
+bounds and labels are code (`ApplicationVariable`), never data. `app_lm_platform_setting_change`: every change and
+reset, with `old_value` and `new_value` as they served (a reset's new value is the default of that day), the `note`
+and who and when; append-only by trigger, an UPDATE of `changed_by` alone let through for account erasure, and
+`harden.sql` step 2e takes UPDATE and DELETE from the runtime role besides. No workspace and no reference into a
+tenant table. A change bumps the `settings` scope of `app_lm_platform_config_version` (V235).
 
 V231 adds `app_lm_dashboard` (docs/custom-dashboards.md): a member's custom dashboard on a position (`project_id`, composite key to the project's workspace) or across the workspace (null) — `owner_user_id` (cascade with the account), `name` (≤ 80, never blank), `shared`, and `widgets` jsonb, an array of `{queryId, chart, options, title, layout: {x, y, w, h}}` (twelve-column grid; rows saved before it carry `size` instead, flowed into place by the SPA) naming charts of the server's query library. The choice only, never a figure: every chart is answered live. Forced RLS on its `workspace_id`. Staff-only.
 

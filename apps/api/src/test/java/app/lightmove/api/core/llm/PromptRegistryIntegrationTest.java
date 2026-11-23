@@ -230,6 +230,24 @@ class PromptRegistryIntegrationTest {
     }
 
     @Test
+    @DisplayName("an unreadable registry read inside a caller's transaction leaves that transaction usable (#1446)")
+    void anUnreadableRegistryDoesNotAbortTheCallersTransaction() {
+        db.execute("ALTER TABLE app_lm_platform_prompt_version RENAME TO app_lm_platform_prompt_version_away");
+        try {
+            registry.reload();
+
+            Integer answeredAfterTheRead = transactions.execute(status -> {
+                assertThat(prompts.current(SHORTLIST, PromptKind.PROSE).body()).isEqualTo(bundled.bodyOf(SHORTLIST));
+                return app.queryForObject("SELECT 1", Integer.class);
+            });
+
+            assertThat(answeredAfterTheRead).isEqualTo(1);
+        } finally {
+            db.execute("ALTER TABLE app_lm_platform_prompt_version_away RENAME TO app_lm_platform_prompt_version");
+        }
+    }
+
+    @Test
     @DisplayName("the application can neither rewrite nor delete a version or a recorded move")
     void versionsAndMovesAreAppendOnly() {
         String prompt = "sync-" + UUID.randomUUID();
