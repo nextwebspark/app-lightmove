@@ -124,6 +124,9 @@ public enum ErrorCode {
     /** One check of a rubric goes at a time. */
     EVAL_JUDGE_CHECK_IN_PROGRESS(HttpStatus.CONFLICT, "The judge is being checked already"),
 
+    /** Resetting an application variable that nothing overrides. */
+    PLATFORM_SETTING_NOT_CHANGED(HttpStatus.CONFLICT, "That value is already on its default"),
+
     /** Account deletion, by a person with no password: the proof is a sign-in moments ago, as for two-factor. */
     ACCOUNT_SIGN_IN_AGAIN(HttpStatus.CONFLICT, "Sign in again, then delete your account within 10 minutes"),
 
