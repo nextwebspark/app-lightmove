@@ -18,6 +18,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterEach;
@@ -232,6 +233,66 @@ class EvalRunIntegrationTest extends PositionTemplateFlowSupport {
         assertThat(db.queryForObject("SELECT count(*) FROM app_lm_eval_result WHERE run_id = ?", Integer.class, run))
                 .isEqualTo(4);
         assertThat(ended.get("run").get("callsMade").asInt()).isEqualTo(4);
+    }
+
+    @Test
+    @DisplayName("a worker whose run another instance took while the model answered writes nothing more")
+    void aLostClaimWritesNothing() throws Exception {
+        String admin = superAdmin();
+        UUID dataset = datasetOfTwoHoldoutCases(admin);
+        int candidate = saveVersion(admin, "MARK-TAKEN");
+        model.answerWith(WESTERN);
+        AtomicBoolean takenOver = new AtomicBoolean();
+        model.whileNextPromptIsAnswered(() -> takenOver.set(db.update(
+                "UPDATE app_lm_eval_run SET claim_token = gen_random_uuid() WHERE status = 'RUNNING'") == 1));
+
+        String run = expect(201, postJson(admin, RUNS, runOf(dataset, "HOLDOUT", candidate)))
+                .get("run").get("id").asString();
+        Awaitility.await().atMost(Duration.ofSeconds(10)).until(takenOver::get);
+        Awaitility.await().atMost(Duration.ofSeconds(20)).until(worker::isIdle);
+
+        Map<String, Object> stored = db.queryForMap("""
+                SELECT status, calls_made, input_tokens + output_tokens AS tokens, candidate_model, baseline_model
+                FROM app_lm_eval_run WHERE id = ?::uuid
+                """, run);
+        assertThat(stored.get("status")).as("the run is the other instance's to end").isEqualTo("RUNNING");
+        assertThat(((Number) stored.get("calls_made")).intValue()).isZero();
+        assertThat(((Number) stored.get("tokens")).longValue()).isZero();
+        assertThat(stored.get("candidate_model")).isNull();
+        assertThat(stored.get("baseline_model")).isNull();
+        assertThat(db.queryForObject("SELECT count(*) FROM app_lm_eval_result WHERE run_id = ?::uuid",
+                Integer.class, run)).isZero();
+        assertThat(promptsAboutTheCase()).as("it asks nothing more either").hasSize(1);
+    }
+
+    @Test
+    @DisplayName("a run claimed too often is given up on, and that ending is audited as any other")
+    void aRunGivenUpOnIsAudited() throws Exception {
+        String admin = superAdmin();
+        UUID dataset = datasetOfTwoHoldoutCases(admin);
+        int candidate = saveVersion(admin, "MARK-GIVEN-UP");
+        int live = getJson(admin, NATIONALITY_PROMPT).get("prompt").get("liveVersion").asInt();
+        UUID run = db.queryForObject("""
+                INSERT INTO app_lm_eval_run
+                    (prompt_id, dataset_id, split, case_ids, candidate_version, baseline_version, repeats, status,
+                     gate_ready, case_count, calls_planned, call_cap, claim_token, claims, heartbeat_at, started_at,
+                     started_by)
+                SELECT ?, c.dataset_id, 'HOLDOUT', array_agg(c.id ORDER BY c.case_key), ?, ?, 1, 'RUNNING', true,
+                       count(*), count(*) * 2, 200, gen_random_uuid(), 3, now() - interval '1 hour',
+                       now() - interval '1 hour', (SELECT id FROM app_lm_user WHERE email = ?)
+                FROM app_lm_eval_case c WHERE c.dataset_id = ? AND c.split = 'HOLDOUT'
+                GROUP BY c.dataset_id
+                RETURNING id
+                """, UUID.class, NATIONALITY, candidate, live, "owner@" + domain, dataset);
+
+        worker.wake();
+        JsonNode ended = awaitEnded(admin, getJson(admin, RUNS + "/" + run));
+
+        assertThat(ended.get("run").get("status").asString()).isEqualTo("FAILED");
+        assertThat(ended.get("run").get("failure").asString()).isEqualTo("STOPPED_UNEXPECTEDLY");
+        assertThat(promptsAboutTheCase()).isEmpty();
+        Awaitility.await().atMost(Duration.ofSeconds(10))
+                .untilAsserted(() -> assertThat(audited("EVAL_RUN_FINISHED")).isEqualTo(1));
     }
 
     @Test

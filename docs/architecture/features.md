@@ -753,9 +753,12 @@ with no case in the split `EVAL_NO_CASES`, and it spends one of the starter's `L
 a time, platform-wide**: a partial unique index refuses a second (`EVAL_RUN_IN_PROGRESS`), never queues it. The start
 stores a `QUEUED` row and returns; `EvalRunWorker` claims it in one statement on a thread of its own (after the
 commit, and from a timer for a run no start handed over), makes the calls one after another, and stores each answer
-with every check's verdict as it lands. Before each call it reads the stop flag and the calls made, so a cancel
-(`POST …/runs/{id}/cancel`) and the call cap (a repair's second ask counts) both stop it; a run whose worker went
-quiet for `stale-after` is claimed again and goes on from the answers stored. A call the model never answered is
+with every check's verdict as it lands. Before each ask (an answer takes up to three) it raises the run's heartbeat
+and reads the stop flag and the calls made, so a cancel (`POST …/runs/{id}/cancel`) and the call cap (a repair's
+second ask counts) both stop it; a run whose worker went quiet for `stale-after` is claimed again and goes on from
+the answers stored, and one claimed three times is given up on (`STOPPED_UNEXPECTEDLY`, audited like any ending).
+Every worker write, the spend and the answer included, names its claim token and a `RUNNING` row, so a worker whose
+run was taken over counts and stores nothing. A call the model never answered is
 asked three times and then fails the run (`MODEL_UNAVAILABLE`) rather than being scored: two versions failing alike in
 an outage would read as no worse. `EvalRunScorer` gives each check the share of answers that pass per version (the
 mean over the repeats), the change in points, how far scores moved between repeats, and the cases the two did
@@ -764,7 +767,7 @@ differently on (`GET …/runs/{id}/cases`, regressions first, each scored thing 
 assessment draft, 0 otherwise). **The gate:** `promptregistry` declares `PromotionGate` and `prompteval` answers it
 (`PromotionGateAdapter`), so the registry never learns that runs exist. A version's gate is its latest finished run
 on `HOLDOUT` against the version serving **now**, started while its subject was `isGateReady`: `PASSED`, `FAILED` or
-`NONE`. `PromptPromotionService.putLive` reads it under the prompt's lock; only `PASSED` lets a version go live with
+`NONE`. `isGateReady` is the prompt's, not a dataset's: a run on any dataset of that prompt counts. `PromptPromotionService.putLive` reads it under the prompt's lock; only `PASSED` lets a version go live with
 no reason, and a rollback always asks for one (`VALIDATION_FAILED` on `reason`). Each `PromptVersionSummary` carries
 its `gate` (run number, date, check counts, the checks that failed), so the dialog needs no eval route. Audited:
 `EVAL_RUN_STARTED`, `EVAL_RUN_FINISHED`, `EVAL_RUN_CANCELLED`, `EVAL_GATE_OVERRIDDEN` (a put live over a failed

@@ -11,7 +11,7 @@ public record PlatformEvalSettings(
 
         /**
          * How long a running run may go without a sign of life before another instance takes it over. Longer than
-         * one answer can take, its retries and repair included.
+         * one ask can take, its repair included: the sign is raised before each.
          */
         @DefaultValue(PlatformEvalSettings.DEFAULT_STALE_AFTER) Duration staleAfter
 ) {

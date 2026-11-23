@@ -83,8 +83,11 @@ Putting a version live asks for a written reason unless that version has a finis
 
 1. scored the **holdout** cases,
 2. against the version serving **at that moment** (a run against an earlier live version no longer counts),
-3. on a dataset whose cases a person has reviewed (`EvalSubject.isGateReady` when the run started), and
+3. for a prompt whose subject lets its runs count (`EvalSubject.isGateReady` when the run started), and
 4. found it no worse.
+
+`isGateReady` is the prompt's, not a dataset's: once a subject opens it, a holdout run on any dataset of that
+prompt counts, one a super admin imported included.
 
 The latest such run decides. A failed one can be put live with a reason, recorded as `EVAL_GATE_OVERRIDDEN`. A
 rollback always asks for a reason. A prompt with no dataset, or no subject, has no such run, so it asks as it always

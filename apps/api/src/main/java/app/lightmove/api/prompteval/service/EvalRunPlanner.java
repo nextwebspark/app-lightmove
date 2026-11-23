@@ -28,6 +28,9 @@ class EvalRunPlanner {
     /** How often a case is answered once one answer says too little. */
     static final int REPEATS_WHEN_ANSWERS_VARY = 3;
 
+    /** V239's ceiling on a run's repeats: a subject asking for more would be refused by the table, as a 500. */
+    static final int MOST_REPEATS = 5;
+
     private final EvalDatasetService datasets;
     private final EvalSubjects subjects;
     private final PromptCatalogService catalog;
@@ -52,7 +55,8 @@ class EvalRunPlanner {
         ServedPrompt baseline = versionOf(prompt, baselineVersion, "baselineVersion");
 
         boolean variesByTemperature = isAboveZero(prompt, candidate) || isAboveZero(prompt, baseline);
-        int repeats = Math.max(subject.minimumRepeats(), variesByTemperature ? REPEATS_WHEN_ANSWERS_VARY : 1);
+        int repeats = Math.min(MOST_REPEATS,
+                Math.max(subject.minimumRepeats(), variesByTemperature ? REPEATS_WHEN_ANSWERS_VARY : 1));
         EvalRepeatsReason reason = subject.minimumRepeats() >= repeats && repeats > 1 ? EvalRepeatsReason.PROMPT_VARIES
                 : variesByTemperature ? EvalRepeatsReason.TEMPERATURE : EvalRepeatsReason.ONCE;
         int cases = request.split() == EvalCaseSplit.HOLDOUT ? dataset.holdout() : dataset.dev();

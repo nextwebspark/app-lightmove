@@ -15,13 +15,13 @@ import app.lightmove.api.prompteval.constant.EvalRunFailure;
 import app.lightmove.api.prompteval.constant.EvalRunSide;
 import app.lightmove.api.prompteval.constant.EvalRunStatus;
 import app.lightmove.api.prompteval.constant.EvalRunVerdict;
+import app.lightmove.api.prompteval.dto.EvalRunSummary;
 import app.lightmove.api.prompteval.model.ClaimedEvalRun;
 import app.lightmove.api.prompteval.model.EvalRun;
 import app.lightmove.api.prompteval.model.EvalRunAnswer;
 import app.lightmove.api.prompteval.model.EvalRunCase;
 import app.lightmove.api.prompteval.model.EvalRunPulse;
 import app.lightmove.api.prompteval.model.EvalRunQueued;
-import app.lightmove.api.prompteval.dto.EvalRunSummary;
 import jakarta.annotation.PreDestroy;
 import java.time.Clock;
 import java.time.Instant;
@@ -31,6 +31,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -108,10 +109,10 @@ public class EvalRunWorker {
         boolean lookAgain = true;
         while (lookAgain) {
             try {
-                Optional<ClaimedEvalRun> claimed = store.claim(staleBefore());
+                Optional<ClaimedEvalRun> claimed = claimNext();
                 while (claimed.isPresent()) {
                     work(claimed.get());
-                    claimed = store.claim(staleBefore());
+                    claimed = claimNext();
                 }
             } catch (RuntimeException failure) {
                 log.error("The eval worker could not look for a run; the timer looks again", failure);
@@ -120,6 +121,14 @@ public class EvalRunWorker {
             }
             lookAgain = isOneWaiting() && working.compareAndSet(false, true);
         }
+    }
+
+    /** A run given up on ends here rather than in {@link #end}, and is audited as any other ending is. */
+    private Optional<ClaimedEvalRun> claimNext() {
+        for (UUID givenUp : store.giveUpOnOverclaimed(staleBefore())) {
+            store.find(givenUp).ifPresent(this::auditEnded);
+        }
+        return store.claim(staleBefore());
     }
 
     private boolean isOneWaiting() {
@@ -155,33 +164,35 @@ public class EvalRunWorker {
                 EvalRunSide.CANDIDATE, versionOf(run, run.candidateVersion()),
                 EvalRunSide.BASELINE, versionOf(run, run.baselineVersion()));
         List<EvalRunCase> cases = store.casesOf(run.id());
-        Set<String> answered = new HashSet<>();
+        Set<AnswerSlot> answered = new HashSet<>();
         store.answersOf(run.id()).forEach(answer ->
-                answered.add(keyOf(answer.caseId(), answer.side(), answer.repeat())));
+                answered.add(new AnswerSlot(answer.caseId(), answer.side(), answer.repeat())));
 
         for (EvalRunCase evalCase : cases) {
             for (int repeat = 0; repeat < run.repeats(); repeat++) {
                 for (EvalRunSide side : EvalRunSide.values()) {
-                    if (answered.contains(keyOf(evalCase.id(), side, repeat))) {
+                    if (answered.contains(new AnswerSlot(evalCase.id(), side, repeat))) {
                         continue;
                     }
-                    EvalRunPulse pulse = store.pulse(claimed);
-                    if (!pulse.held()) {
-                        log.info("Eval run {} is no longer this worker's", run.number());
-                        return null;
-                    }
-                    if (pulse.stopRequested()) {
-                        return Ending.cancelled();
-                    }
-                    if (pulse.callsMade() >= run.callCap()) {
-                        return Ending.failed(EvalRunFailure.CALL_CAP_REACHED);
-                    }
-                    boolean answeredNow = answer(run, subject, versions.get(side), evalCase, side, repeat);
+                    AskOutcome outcome = answer(claimed, subject, versions.get(side), evalCase, side, repeat);
                     if (shuttingDown) {
                         return null;
                     }
-                    if (!answeredNow) {
-                        return Ending.failed(EvalRunFailure.MODEL_UNAVAILABLE);
+                    switch (outcome) {
+                        case ANSWERED -> { }
+                        case CLAIM_LOST -> {
+                            log.info("Eval run {} is no longer this worker's", run.number());
+                            return null;
+                        }
+                        case STOP_REQUESTED -> {
+                            return Ending.cancelled();
+                        }
+                        case CALL_CAP_REACHED -> {
+                            return Ending.failed(EvalRunFailure.CALL_CAP_REACHED);
+                        }
+                        case MODEL_SILENT -> {
+                            return Ending.failed(EvalRunFailure.MODEL_UNAVAILABLE);
+                        }
                     }
                 }
             }
@@ -191,12 +202,26 @@ public class EvalRunWorker {
     }
 
     /**
-     * False when the model answered nothing, asked {@link #ASKS_PER_ANSWER} times. Such a call is never stored as
-     * an answer: both versions failing alike during an outage would otherwise score as no worse.
+     * {@code MODEL_SILENT} when the model answered nothing, asked {@link #ASKS_PER_ANSWER} times. Such a call is
+     * never stored as an answer: both versions failing alike during an outage would otherwise score as no worse.
+     *
+     * <p>The run's pulse is raised before every ask, not once an answer: three slow asks would otherwise outlast
+     * {@code stale-after} and hand a run still being worked to another instance.
      */
-    private boolean answer(EvalRun run, EvalSubject subject, ServedPrompt version, EvalRunCase evalCase,
-                           EvalRunSide side, int repeat) {
+    private AskOutcome answer(ClaimedEvalRun claimed, EvalSubject subject, ServedPrompt version,
+                              EvalRunCase evalCase, EvalRunSide side, int repeat) {
+        EvalRun run = claimed.run();
         for (int ask = 0; ask < ASKS_PER_ANSWER && !shuttingDown; ask++) {
+            EvalRunPulse pulse = store.pulse(claimed);
+            if (!pulse.held()) {
+                return AskOutcome.CLAIM_LOST;
+            }
+            if (pulse.stopRequested()) {
+                return AskOutcome.STOP_REQUESTED;
+            }
+            if (pulse.callsMade() >= run.callCap()) {
+                return AskOutcome.CALL_CAP_REACHED;
+            }
             PromptTrialResult asked = null;
             try {
                 asked = runner.run(version, () -> subject.answer(evalCase.input()));
@@ -206,20 +231,26 @@ public class EvalRunWorker {
                         unanswered.getClass().getSimpleName());
             }
             if (asked == null || asked.modelCalls() == 0) {
-                store.addSpend(run.id(), side, 1, 0, 0, null);
+                if (!store.addSpend(claimed, side, 1, 0, 0, null)) {
+                    return AskOutcome.CLAIM_LOST;
+                }
                 continue;
             }
             EvalRunAnswer answer = new EvalRunAnswer(evalCase.id(), side, repeat, asked.parsedAnswer(),
                     verdictsOn(subject, evalCase, asked));
             PromptTrialResult stored = asked;
-            transactions.executeWithoutResult(status -> {
-                store.addAnswer(run.id(), answer, stored);
-                store.addSpend(run.id(), side, stored.modelCalls(), stored.inputTokens(), stored.outputTokens(),
-                        stored.model());
-            });
-            return true;
+            // The spend first: it takes the run's row, so the claim cannot change hands before the answer lands.
+            boolean kept = Boolean.TRUE.equals(transactions.execute(status -> {
+                if (!store.addSpend(claimed, side, stored.modelCalls(), stored.inputTokens(),
+                        stored.outputTokens(), stored.model())) {
+                    return false;
+                }
+                store.addAnswer(claimed, answer, stored);
+                return true;
+            }));
+            return kept ? AskOutcome.ANSWERED : AskOutcome.CLAIM_LOST;
         }
-        return false;
+        return AskOutcome.MODEL_SILENT;
     }
 
     private Map<String, EvalCheckVerdict> verdictsOn(EvalSubject subject, EvalRunCase evalCase,
@@ -253,22 +284,24 @@ public class EvalRunWorker {
         if (!ended || ending.status() == EvalRunStatus.CANCELLED) {
             return;
         }
-        store.find(claimed.run().id()).ifPresent(run -> {
-            AuditService.Builder event = audit.event(PlatformEventType.EVAL_RUN_FINISHED)
-                    .actor(run.startedBy())
-                    .target("eval_run", run.id())
-                    .detail("number", run.number())
-                    .detail("prompt", run.promptId())
-                    .detail("status", run.status().name())
-                    .detailIfPresent("verdict", verdict == null ? null : verdict.name())
-                    .detailIfPresent("failure", ending.failure() == null ? null : ending.failure().name())
-                    .detail("calls", run.callsMade())
-                    .detail("tokens", run.inputTokens() + run.outputTokens());
-            if (ending.status() == EvalRunStatus.FAILED) {
-                event.failed();
-            }
-            event.record();
-        });
+        store.find(claimed.run().id()).ifPresent(this::auditEnded);
+    }
+
+    private void auditEnded(EvalRun run) {
+        AuditService.Builder event = audit.event(PlatformEventType.EVAL_RUN_FINISHED)
+                .actor(run.startedBy())
+                .target("eval_run", run.id())
+                .detail("number", run.number())
+                .detail("prompt", run.promptId())
+                .detail("status", run.status().name())
+                .detailIfPresent("verdict", run.verdict() == null ? null : run.verdict().name())
+                .detailIfPresent("failure", run.failure() == null ? null : run.failure().name())
+                .detail("calls", run.callsMade())
+                .detail("tokens", run.inputTokens() + run.outputTokens());
+        if (run.status() == EvalRunStatus.FAILED) {
+            event.failed();
+        }
+        event.record();
     }
 
     private ServedPrompt versionOf(EvalRun run, int version) {
@@ -281,15 +314,15 @@ public class EvalRunWorker {
         return clock.instant().minus(settings.staleAfter());
     }
 
-    private static String keyOf(Object caseId, EvalRunSide side, int repeat) {
-        return caseId + ":" + side + ":" + repeat;
-    }
-
     @PreDestroy
     void stop() {
         shuttingDown = true;
         thread.shutdownNow();
     }
+
+    private enum AskOutcome { ANSWERED, MODEL_SILENT, CLAIM_LOST, STOP_REQUESTED, CALL_CAP_REACHED }
+
+    private record AnswerSlot(UUID caseId, EvalRunSide side, int repeat) {}
 
     /** How a run this worker held came to an end. */
     private record Ending(EvalRunStatus status, EvalRunFailure failure, EvalRunSummary summary) {

@@ -7,23 +7,24 @@ import app.lightmove.api.prompteval.constant.EvalRunFailure;
 import app.lightmove.api.prompteval.constant.EvalRunSide;
 import app.lightmove.api.prompteval.constant.EvalRunStatus;
 import app.lightmove.api.prompteval.constant.EvalRunVerdict;
+import app.lightmove.api.prompteval.dto.EvalRunSummary;
 import app.lightmove.api.prompteval.model.ClaimedEvalRun;
 import app.lightmove.api.prompteval.model.EvalCallAverages;
 import app.lightmove.api.prompteval.model.EvalRun;
 import app.lightmove.api.prompteval.model.EvalRunAnswer;
 import app.lightmove.api.prompteval.model.EvalRunCase;
 import app.lightmove.api.prompteval.model.EvalRunPulse;
-import app.lightmove.api.prompteval.dto.EvalRunSummary;
 import app.lightmove.api.prompteval.model.NewEvalRun;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Instant;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
@@ -44,16 +45,21 @@ public class EvalRunStore {
 
     private static final int MODEL_NAME_LENGTH = 80;
 
-    private static final String RUNS = """
-            SELECT r.id, r.number, r.prompt_id, r.dataset_id, d.name AS dataset_name, r.split, r.candidate_version,
+    private static final String RUN_COLUMNS = """
+            r.id, r.number, r.prompt_id, r.dataset_id, d.name AS dataset_name, r.split, r.candidate_version,
                    r.baseline_version, r.candidate_model, r.baseline_model, r.repeats, r.status, r.verdict, r.failure,
                    r.gate_ready, r.case_count, r.calls_planned, r.calls_made, r.call_cap, r.input_tokens,
                    r.output_tokens, r.summary::text AS summary, r.started_by, starter.full_name AS started_by_name,
                    r.created_at, r.started_at, r.finished_at
+            """;
+
+    private static final String RUN_TABLES = """
             FROM app_lm_eval_run r
             JOIN app_lm_eval_dataset d ON d.id = r.dataset_id
             LEFT JOIN app_lm_user starter ON starter.id = r.started_by
             """;
+
+    private static final String RUNS = "SELECT " + RUN_COLUMNS + RUN_TABLES;
 
     private static final TypeReference<Map<String, EvalCheckVerdict>> VERDICTS = new TypeReference<>() { };
 
@@ -116,19 +122,25 @@ public class EvalRunStore {
                 .single();
     }
 
-    /**
-     * Takes the waiting run for this instance, if there is one: one statement, so two instances never both get it.
-     * One claimed {@link #MAX_CLAIMS} times already is failed instead.
-     */
-    Optional<ClaimedEvalRun> claim(Instant staleBefore) {
-        jdbc.sql("""
+    /** Fails each quiet run claimed {@link #MAX_CLAIMS} times already, and answers the ones it failed. */
+    List<UUID> giveUpOnOverclaimed(Instant staleBefore) {
+        return jdbc.sql("""
                         UPDATE app_lm_eval_run
                         SET status = 'FAILED', failure = 'STOPPED_UNEXPECTEDLY', finished_at = now()
                         WHERE status = 'RUNNING' AND heartbeat_at < :staleBefore AND claims >= :maxClaims
+                        RETURNING id
                         """)
                 .param("staleBefore", Timestamp.from(staleBefore))
                 .param("maxClaims", MAX_CLAIMS)
-                .update();
+                .query(UUID.class)
+                .list();
+    }
+
+    /**
+     * Takes the waiting run for this instance, if there is one: one statement, so two instances never both get it.
+     * Asked after {@link #giveUpOnOverclaimed}, which leaves it none claimed too often.
+     */
+    Optional<ClaimedEvalRun> claim(Instant staleBefore) {
         UUID token = UUID.randomUUID();
         return jdbc.sql("""
                         UPDATE app_lm_eval_run
@@ -194,17 +206,24 @@ public class EvalRunStore {
                 .list();
     }
 
-    /** One answer, once: a run picked up again that asks a case it had answered stores nothing new. */
-    void addAnswer(UUID runId, EvalRunAnswer answer, PromptTrialResult asked) {
+    /**
+     * One answer, once: a run picked up again that asks a case it had answered stores nothing new, and neither does
+     * a worker whose run was taken over while the model was answering.
+     */
+    void addAnswer(ClaimedEvalRun claimed, EvalRunAnswer answer, PromptTrialResult asked) {
         jdbc.sql("""
                         INSERT INTO app_lm_eval_result
                             (run_id, case_id, side, repeat, answer, raw_answer, finish, input_tokens, output_tokens,
                              took_millis, verdicts)
-                        VALUES (:runId, :caseId, :side, :repeat, CAST(:answer AS jsonb), :rawAnswer, :finish,
-                                :inputTokens, :outputTokens, :tookMillis, CAST(:verdicts AS jsonb))
+                        SELECT :runId, :caseId, :side, :repeat, CAST(:answer AS jsonb), CAST(:rawAnswer AS text),
+                               CAST(:finish AS varchar), :inputTokens, :outputTokens, :tookMillis,
+                               CAST(:verdicts AS jsonb)
+                        WHERE EXISTS (SELECT 1 FROM app_lm_eval_run
+                                      WHERE id = :runId AND status = 'RUNNING' AND claim_token = :token)
                         ON CONFLICT (run_id, case_id, side, repeat) DO NOTHING
                         """)
-                .param("runId", runId)
+                .param("runId", claimed.run().id())
+                .param("token", claimed.claimToken())
                 .param("caseId", answer.caseId())
                 .param("side", answer.side().name())
                 .param("repeat", answer.repeat())
@@ -218,23 +237,28 @@ public class EvalRunStore {
                 .update();
     }
 
-    /** What an ask cost, answered or not, and the model that answered for that side. */
-    void addSpend(UUID runId, EvalRunSide side, int calls, long inputTokens, long outputTokens, String model) {
+    /**
+     * What an ask cost, answered or not, and the model that answered for that side. False when the run is no longer
+     * this worker's: nothing was counted, and it must write nothing more.
+     */
+    boolean addSpend(ClaimedEvalRun claimed, EvalRunSide side, int calls, long inputTokens, long outputTokens,
+                     String model) {
         String modelColumn = side == EvalRunSide.CANDIDATE ? "candidate_model" : "baseline_model";
-        jdbc.sql("""
+        return jdbc.sql("""
                         UPDATE app_lm_eval_run
                         SET calls_made = calls_made + :calls, input_tokens = input_tokens + :inputTokens,
                             output_tokens = output_tokens + :outputTokens,
                             %1$s = coalesce(:model, %1$s)
-                        WHERE id = :id
+                        WHERE id = :id AND status = 'RUNNING' AND claim_token = :token
                         """.formatted(modelColumn))
-                .param("id", runId)
+                .param("id", claimed.run().id())
+                .param("token", claimed.claimToken())
                 .param("calls", calls)
                 .param("inputTokens", inputTokens)
                 .param("outputTokens", outputTokens)
                 .param("model", model == null || model.isBlank() ? null
                         : model.substring(0, Math.min(model.length(), MODEL_NAME_LENGTH)))
-                .update();
+                .update() == 1;
     }
 
     boolean finish(ClaimedEvalRun claimed, EvalRunVerdict verdict, EvalRunSummary summary) {
@@ -307,21 +331,20 @@ public class EvalRunStore {
 
     /**
      * For each version of a prompt, its latest finished run on held-back cases against {@code baselineVersion} that
-     * was started on a reviewed dataset: the only runs a put live rests on.
+     * was started while the prompt's subject let its runs count: the only runs a put live rests on.
      */
     Map<Integer, EvalRun> latestCountingRuns(String promptId, int baselineVersion) {
-        Map<Integer, EvalRun> byCandidate = new LinkedHashMap<>();
-        jdbc.sql(RUNS + """
+        return jdbc.sql("SELECT DISTINCT ON (r.candidate_version) " + RUN_COLUMNS + RUN_TABLES + """
                         WHERE r.prompt_id = :promptId AND r.baseline_version = :baseline AND r.status = 'FINISHED'
                           AND r.split = 'HOLDOUT' AND r.gate_ready
-                        ORDER BY r.finished_at DESC
+                        ORDER BY r.candidate_version, r.finished_at DESC
                         """)
                 .param("promptId", promptId)
                 .param("baseline", baselineVersion)
                 .query(this::run)
                 .list()
-                .forEach(run -> byCandidate.putIfAbsent(run.candidateVersion(), run));
-        return byCandidate;
+                .stream()
+                .collect(Collectors.toMap(EvalRun::candidateVersion, Function.identity()));
     }
 
     private JsonNode nodeOf(String stored) {

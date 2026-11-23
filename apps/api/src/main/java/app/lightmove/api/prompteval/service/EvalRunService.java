@@ -130,6 +130,10 @@ public class EvalRunService {
         try {
             runId = transactions.execute(status -> {
                 UUID id = store.queue(queued).orElseThrow(() -> ApiException.of(ErrorCode.EVAL_NO_CASES));
+                // The run's cases are counted as it is stored: one imported since the plan can take it over the cap.
+                if (require(id).callsPlanned() > settings.maxCallsPerRun()) {
+                    throw ApiException.of(ErrorCode.EVAL_RUN_TOO_LARGE);
+                }
                 events.publishEvent(new EvalRunQueued(id));
                 return id;
             });
