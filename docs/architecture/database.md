@@ -541,10 +541,10 @@ per finish reason for each prompt version, provider, model and UTC day, raised b
 scope (`prompts` today), raised in the transaction that changes platform configuration and watched by every
 instance (`PlatformConfigReload`).
 
-V237 adds `app_lm_start_page` (docs/architecture/features.md, Start page): where a member's Uncava opens in one workspace, unique on (`workspace_id`, `user_id`), both cascading, no row for Home. `kind` `POSITIONS` | `CANDIDATES` | `TASKS` | `DASHBOARD` | `POSITION`; `dashboard_id` (cascade) for a dashboard, `project_id` (cascade) and `section` (`BRIEF` | `STRATEGY` | `UNIVERSE` | `OUTREACH` | `DASHBOARD`) for a position, a CHECK holding each shape. The target is checked against the member's access on every read, so a page lost since does not open. Copies every V233 `landing = 'POSITIONS'` here and leaves `app_lm_home_layout.landing` in place, unread, so the revision still serving during a deploy keeps working; a later migration drops it once this release is live everywhere (expand, then contract). Forced RLS on its `workspace_id`. Every member, a pure client included.
-
 V236 seeds the platform actions `PROMPT_MANAGE` (read the prompts, save a version, try it) and `PROMPT_PROMOTE` (move
 the production label), both granted to `SUPER_ADMIN` (#1317). No table changes.
+
+V237 adds `app_lm_start_page` (docs/architecture/features.md, Start page): where a member's Uncava opens in one workspace, unique on (`workspace_id`, `user_id`), both cascading, no row for Home. `kind` `POSITIONS` | `CANDIDATES` | `TASKS` | `DASHBOARD` | `POSITION`; `dashboard_id` (cascade) for a dashboard, `project_id` (cascade) and `section` (`BRIEF` | `STRATEGY` | `UNIVERSE` | `OUTREACH` | `DASHBOARD`) for a position, a CHECK holding each shape. The target is checked against the member's access on every read, so a page lost since does not open. Copies every V233 `landing = 'POSITIONS'` here and leaves `app_lm_home_layout.landing` in place, unread, so the revision still serving during a deploy keeps working; a later migration drops it once this release is live everywhere (expand, then contract). Forced RLS on its `workspace_id`. Every member, a pure client included.
 
 V238 adds the eval datasets (#1319, docs/eval/README.md), two platform tables with no `workspace_id` and no reference
 into a tenant table, and seeds the platform action `EVAL_RUN`, granted to `SUPER_ADMIN`. `app_lm_eval_dataset`: one

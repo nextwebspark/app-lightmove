@@ -124,6 +124,12 @@ does not, and harden.sql's step 2c does the same as their owner, idempotently. U
 that they wait on it rather than refusing (`TenantTableGuard.HARDEN_OWNED`): the deploy has already migrated, and a
 refused revision would leave the one before it serving the new policies. **Re-run harden.sql after V190 deploys.**
 
+**harden.sql also takes UPDATE and DELETE from the runtime role on the platform console's records**: step 2d for a
+prompt's versions and label moves (V235), step 2e for a variable's history (V241). Each is append-only by trigger
+already; the step makes it a privilege the application cannot give itself back. Re-run it after either migration
+first deploys. Once 2d has run, `app_lm_platform_prompt_version` belongs to `postgres`, so a later migration cannot
+add a foreign key into it (V239 says so).
+
 **Rollback.** `ALTER TABLE <t> NO FORCE ROW LEVEL SECURITY; ALTER TABLE <t> DISABLE ROW LEVEL SECURITY;` on the
 protected tables, as their owner, restores the pre-V184 behaviour; the columns, trigger and functions can stay.
 
