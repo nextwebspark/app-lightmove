@@ -119,9 +119,9 @@ public class JudgeCalibrationService {
         Optional<CalibrationCheck> latest = Optional.ofNullable(standing.check());
         List<CalibrationPair> pairs = finished.isPresent() ? store.pairsOf(rubric.id()) : List.of();
         List<CalibrationLabel> labels = finished.isPresent() ? store.labelsOf(rubric.id()) : List.of();
-        Map<String, CalibrationPick> picks = new HashMap<>();
+        Map<PairCriterion, CalibrationPick> picks = new HashMap<>();
         finished.ifPresent(check -> store.picksOf(check.id())
-                .forEach(pick -> picks.put(pick.pairId() + ":" + pick.criterionKey(), pick)));
+                .forEach(pick -> picks.put(new PairCriterion(pick.pairId(), pick.criterionKey()), pick)));
 
         List<EvalRubricCriterionDetail> criteria = new ArrayList<>();
         for (RubricCriterion criterion : rubric.criteria()) {
@@ -144,7 +144,7 @@ public class JudgeCalibrationService {
                 .sorted((one, other) -> Integer.compare(pairById.get(one.pairId()).position(),
                         pairById.get(other.pairId()).position()))
                 .map(label -> {
-                    CalibrationPick pick = picks.get(label.pairId() + ":" + label.criterionKey());
+                    CalibrationPick pick = picks.get(new PairCriterion(label.pairId(), label.criterionKey()));
                     return new EvalRubricDifference(pairById.get(label.pairId()).caseKey(), label.criterionKey(),
                             criterionNames.get(label.criterionKey()), label.pick(),
                             pick == null ? null : pick.pick(), pick == null ? null : pick.reason());
@@ -299,8 +299,8 @@ public class JudgeCalibrationService {
                 .toList());
     }
 
-    private static boolean isAgreed(CalibrationLabel label, Map<String, CalibrationPick> picks) {
-        CalibrationPick pick = picks.get(label.pairId() + ":" + label.criterionKey());
+    private static boolean isAgreed(CalibrationLabel label, Map<PairCriterion, CalibrationPick> picks) {
+        CalibrationPick pick = picks.get(new PairCriterion(label.pairId(), label.criterionKey()));
         return pick != null && pick.pick() == label.pick();
     }
 
@@ -314,4 +314,6 @@ public class JudgeCalibrationService {
                 .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND, "Eval dataset " + datasetId
                         + " has no rubric"));
     }
+
+    private record PairCriterion(UUID pairId, String criterionKey) {}
 }

@@ -4,11 +4,11 @@ import app.lightmove.api.prompteval.constant.EvalCaseOutcome;
 import app.lightmove.api.prompteval.constant.JudgePick;
 import app.lightmove.api.prompteval.constant.JudgedWinner;
 import app.lightmove.api.prompteval.dto.EvalCaseJudgedCriterion;
+import app.lightmove.api.prompteval.dto.EvalRunJudged;
+import app.lightmove.api.prompteval.dto.JudgedCriterionScore;
 import app.lightmove.api.prompteval.model.EvalJudgement;
 import app.lightmove.api.prompteval.model.EvalRubric;
 import app.lightmove.api.prompteval.model.EvalRun;
-import app.lightmove.api.prompteval.dto.EvalRunJudged;
-import app.lightmove.api.prompteval.dto.JudgedCriterionScore;
 import app.lightmove.api.prompteval.model.RubricCriterion;
 import app.lightmove.api.prompteval.model.RubricStanding;
 import java.util.ArrayList;
@@ -37,8 +37,8 @@ final class JudgedScorer {
     /** {@code standing} is the rubric's as the run finishes: whether its criteria count is fixed with the run. */
     static EvalRunJudged judgedOf(EvalRubric rubric, EvalRun run, RubricStanding standing,
                                   List<EvalJudgement> judgements) {
-        Set<String> pairs = new HashSet<>();
-        judgements.forEach(judgement -> pairs.add(judgement.caseId() + ":" + judgement.repeat()));
+        Set<JudgedPair> pairs = new HashSet<>();
+        judgements.forEach(judgement -> pairs.add(new JudgedPair(judgement.caseId(), judgement.repeat())));
         List<JudgedCriterionScore> scores = new ArrayList<>();
         for (RubricCriterion criterion : rubric.criteria()) {
             List<EvalJudgement> ofCriterion = judgements.stream()
@@ -120,4 +120,6 @@ final class JudgedScorer {
     private static Double rounded(Double value) {
         return value == null ? null : Math.round(value * 10) / 10.0;
     }
+
+    private record JudgedPair(UUID caseId, int repeat) {}
 }

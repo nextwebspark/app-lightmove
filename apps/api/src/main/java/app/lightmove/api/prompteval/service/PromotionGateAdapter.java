@@ -2,10 +2,10 @@ package app.lightmove.api.prompteval.service;
 
 import app.lightmove.api.prompteval.constant.EvalRunVerdict;
 import app.lightmove.api.prompteval.dto.EvalCheckScore;
-import app.lightmove.api.prompteval.model.EvalRun;
 import app.lightmove.api.prompteval.dto.EvalRunJudged;
 import app.lightmove.api.prompteval.dto.EvalRunSummary;
 import app.lightmove.api.prompteval.dto.JudgedCriterionScore;
+import app.lightmove.api.prompteval.model.EvalRun;
 import app.lightmove.api.promptregistry.constant.PromotionGateState;
 import app.lightmove.api.promptregistry.dto.PromotionGateFailedCheck;
 import app.lightmove.api.promptregistry.dto.PromotionGateJudged;

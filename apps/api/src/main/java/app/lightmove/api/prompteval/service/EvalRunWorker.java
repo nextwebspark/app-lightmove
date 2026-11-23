@@ -290,13 +290,17 @@ public class EvalRunWorker {
         Optional<JudgeReading> answered = judge.judgeUntilAnswered(judgeVersion, rubric.criteria(), evalCase.input(),
                 candidateFirst ? candidate : baseline, candidateFirst ? baseline : candidate,
                 () -> {
-                    if (drainer.isShuttingDown()) {
+                    if (drainer.isShuttingDown() || stopped.get() != null) {
                         return true;
                     }
                     stopBeforeCall(claimed).ifPresent(stopped::set);
                     return stopped.get() != null;
                 },
-                unanswered -> store.addJudgeSpend(claimed, unanswered));
+                unanswered -> {
+                    if (!store.addJudgeSpend(claimed, unanswered)) {
+                        stopped.set(left(claimed));
+                    }
+                });
         if (stopped.get() != null) {
             return Optional.of(stopped.get());
         }

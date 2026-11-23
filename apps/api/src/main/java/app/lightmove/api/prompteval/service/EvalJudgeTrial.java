@@ -34,7 +34,7 @@ class EvalJudgeTrial implements PromptTrial {
 
     @Override
     public String promptId() {
-        return "eval-judge";
+        return EvalJudge.PROMPT_ID;
     }
 
     @Override
