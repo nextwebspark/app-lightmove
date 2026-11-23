@@ -503,6 +503,42 @@ describe("routes — returning to where the guard interrupted", () => {
 });
 
 /**
+ * Signing out is a decision to leave, not a page to come back to: the next sign-in opens the start page. An expiry is
+ * the opposite, and still returns the person to the page it interrupted.
+ */
+describe("routes — what a sign-in returns to after the session ended", () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+    vi.mocked(restoreSession).mockResolvedValue("token");
+    vi.mocked(authApi.me).mockResolvedValue(userWith(["MEMBER"]));
+    vi.mocked(projectsApi.projects).mockResolvedValue([]);
+  });
+
+  it("forgets the page the person signed out from", async () => {
+    vi.mocked(authApi.logout).mockResolvedValue(undefined);
+    const user = userEvent.setup();
+    renderAt("/projects");
+    await user.click(await screen.findByRole("button", { name: /^Account: / }));
+
+    await user.click(await screen.findByRole("menuitem", { name: "Sign out" }));
+
+    await waitFor(() => expect(screen.getByTestId("pathname")).toHaveTextContent("/login"));
+    expect(screen.getByTestId("from")).toHaveTextContent("");
+  });
+
+  it("keeps the page an expired session interrupted", async () => {
+    renderAt("/projects");
+    await screen.findByRole("button", { name: /^Account: / });
+
+    const sessionLost = vi.mocked(onSessionExpired).mock.calls.at(-1)?.[0];
+    act(() => sessionLost?.());
+
+    await waitFor(() => expect(screen.getByTestId("pathname")).toHaveTextContent("/login"));
+    expect(screen.getByTestId("from")).toHaveTextContent("/projects");
+  });
+});
+
+/**
  * A typo'd URL, a stale bookmark, a deleted mandate and one the caller is not seated on all used to
  * bounce silently to the positions list, leaving the four indistinguishable. They now render a screen that
  * says so — and keep the URL, so the address bar still shows what was asked for.
