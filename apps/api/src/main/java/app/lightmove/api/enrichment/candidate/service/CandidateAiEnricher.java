@@ -26,7 +26,7 @@ import org.springframework.stereotype.Service;
 @Slf4j
 public class CandidateAiEnricher {
 
-    private static final String PROMPT_ID = "candidate-ai-enrich";
+    static final String PROMPT_ID = "candidate-ai-enrich";
 
     private static final int MIN_PLAUSIBLE_YEARS = 0;
     private static final int MAX_PLAUSIBLE_YEARS = 60;

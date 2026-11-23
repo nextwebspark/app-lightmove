@@ -45,7 +45,10 @@ public enum PlatformPrompt {
     POSITION_REPORTING("position-extract-reporting", "Position reporting",
             "Reads the reporting line from a position description.", PromptKind.STRUCTURED),
     POSITION_ASSESSMENT("position-extract-assessment", "Position assessment",
-            "Reads the competencies and weights from a position description.", PromptKind.STRUCTURED);
+            "Reads the competencies and weights from a position description.", PromptKind.STRUCTURED),
+    EVAL_JUDGE("eval-judge", "Eval judge",
+            "Compares two answers to the same eval case against a rubric and picks the better.",
+            PromptKind.STRUCTURED);
 
     private final String promptId;
     private final String displayName;

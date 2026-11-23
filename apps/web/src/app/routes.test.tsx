@@ -10,6 +10,7 @@ import { AuthProvider } from "../features/auth/AuthProvider";
 import * as authApi from "../features/auth/api/authApi";
 import * as clientsApi from "../features/clients/api/clientsApi";
 import * as consentApi from "../features/oauth/api/oauthConsentApi";
+import * as evalApi from "../features/platform/evals/api/evalApi";
 import * as promptApi from "../features/platform/prompts/api/promptApi";
 import { detail as promptDetail, model as aiModel } from "../features/platform/prompts/pages/promptFixtures";
 import * as projectsApi from "../features/projects/api/projectsApi";
@@ -43,6 +44,10 @@ vi.mock("../features/platform/prompts/api/promptApi", async (importOriginal) => 
   getPrompt: vi.fn(),
   getPromptBody: vi.fn(),
   listAiModels: vi.fn(),
+}));
+vi.mock("../features/platform/evals/api/evalApi", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../features/platform/evals/api/evalApi")>()),
+  listDatasets: vi.fn(),
 }));
 vi.mock("../features/workspace/api/workspaceApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../features/workspace/api/workspaceApi")>()),
@@ -420,6 +425,27 @@ describe("routes — the platform gate", () => {
 
     await waitFor(() => expect(screen.getByTestId("pathname").textContent).toBe("/platform/templates"));
     expect(promptApi.getPrompt).not.toHaveBeenCalled();
+  });
+
+  it("keeps someone who holds only the template library out of Evals, and reads nothing for them", async () => {
+    vi.mocked(authApi.me).mockResolvedValue(superAdmin());
+
+    renderAt("/platform/evals");
+
+    await waitFor(() => expect(screen.getByTestId("pathname").textContent).toBe("/platform/templates"));
+    expect(screen.queryByRole("link", { name: "Evals" })).not.toBeInTheDocument();
+    expect(evalApi.listDatasets).not.toHaveBeenCalled();
+  });
+
+  it("opens Evals for someone who may run them, from its own item in the console", async () => {
+    vi.mocked(authApi.me).mockResolvedValue({ ...superAdmin(), platformActions: ["EVAL_RUN" as const] });
+    vi.mocked(evalApi.listDatasets).mockResolvedValue([]);
+
+    renderAt("/platform");
+
+    expect(await screen.findByRole("table", { name: "Datasets" })).toBeInTheDocument();
+    expect(screen.getByTestId("pathname").textContent).toBe("/platform/evals");
+    expect(screen.getAllByRole("link", { name: "Evals" }).length).toBeGreaterThan(0);
   });
 
   it("names the open prompt in the console's breadcrumb, under a link back to Prompts", async () => {

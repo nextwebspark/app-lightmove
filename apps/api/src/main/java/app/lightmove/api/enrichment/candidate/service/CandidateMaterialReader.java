@@ -60,16 +60,34 @@ class CandidateMaterialReader {
 
     MaterialText read(UUID projectId, UUID candidateId) {
         CandidateMaterial filed = material.materialOf(projectId, candidateId);
-        List<String> notes = notesOf(filed.notes());
-        List<String> documents = documentsOf(filed.documents());
+        return written(filed.notes(), filed.documents().stream().map(this::toRead).toList());
+    }
+
+    MaterialText readForAssessment(UUID projectId, UUID candidateId) {
+        return withCalls(read(projectId, candidateId), material.transcriptsOf(projectId, candidateId));
+    }
+
+    /**
+     * Notes and documents written out for a prompt, whoever holds them: what is on file for a person, or an eval
+     * case's fictional material, which is therefore cut, labelled and stripped of contacts exactly as a real one is.
+     */
+    static MaterialText written(List<NoteOnFile> filedNotes, List<DocumentToRead> filedDocuments) {
+        List<String> notes = notesOf(filedNotes);
+        List<String> documents = documentsOf(filedDocuments);
         int notesSent = notes.size() - (notes.contains(OLDER_NOTES_LEFT_OUT) ? 1 : 0);
         return new MaterialText(joined(notes, "\n"), joined(documents, "\n\n"), notesSent, documents.size());
     }
 
-    MaterialText readForAssessment(UUID projectId, UUID candidateId) {
-        List<String> calls = transcriptsOf(material.transcriptsOf(projectId, candidateId));
+    static MaterialText withCalls(MaterialText text, List<TranscriptOnFile> transcripts) {
+        List<String> calls = transcriptsOf(transcripts);
         int callsSent = calls.size() - (calls.contains(EARLIER_CALLS_LEFT_OUT) ? 1 : 0);
-        return read(projectId, candidateId).withTranscripts(joined(calls, "\n\n"), callsSent);
+        return text.withTranscripts(joined(calls, "\n\n"), callsSent);
+    }
+
+    private DocumentToRead toRead(DocumentOnFile document) {
+        return new DocumentToRead(document.title(), document.category(),
+                maxCharacters -> READABLE.contains(document.file().contentType())
+                        ? textOf(document, maxCharacters) : null);
     }
 
     /**
@@ -144,19 +162,16 @@ class CandidateMaterialReader {
     }
 
     /** A file that still fits is cut to what is left of the budget, so a long one never shuts out the next. */
-    private List<String> documentsOf(List<DocumentOnFile> documents) {
+    private static List<String> documentsOf(List<DocumentToRead> documents) {
         List<String> read = new ArrayList<>();
         int left = MAX_DOCUMENTS;
-        for (DocumentOnFile document : documents) {
+        for (DocumentToRead document : documents) {
             String heading = "=== %s: %s ===\n".formatted(labelOf(document.category().name()), document.title());
             int room = Math.min(MAX_DOCUMENT, left - heading.length() - CUT.length());
             if (room <= 0) {
                 break;
             }
-            if (!READABLE.contains(document.file().contentType())) {
-                continue;
-            }
-            String text = textOf(document, room);
+            String text = document.textUpTo().apply(room);
             if (text == null) {
                 continue;
             }

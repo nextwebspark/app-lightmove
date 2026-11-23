@@ -9,12 +9,14 @@ import app.lightmove.api.common.constant.Seniority;
 import app.lightmove.api.core.llm.model.BlockedAnswer;
 import app.lightmove.api.core.llm.service.StructuredPrompt;
 import app.lightmove.api.core.llm.service.StructuredPromptFactory;
+import app.lightmove.api.enrichment.candidate.model.GoldenRow;
+import app.lightmove.api.enrichment.candidate.model.GoldenRowPrediction;
 import app.lightmove.api.enrichment.candidate.service.CandidateAiEnricher;
 import app.lightmove.api.enrichment.candidate.service.CandidateNationalityClassifier;
+import app.lightmove.api.enrichment.candidate.service.GoldenRowScorer;
+import app.lightmove.api.enrichment.candidate.service.GoldenRows;
 import com.google.genai.Client;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -32,7 +34,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.google.genai.GoogleGenAiChatModel;
 import org.springframework.ai.google.genai.GoogleGenAiChatOptions;
-import tools.jackson.databind.json.JsonMapper;
 
 /**
  * The nationality and seniority golden-set eval, against the real model. Excluded from {@code ./mvnw test}
@@ -53,36 +54,35 @@ import tools.jackson.databind.json.JsonMapper;
 @Tag("eval")
 class NationalityEval {
 
-    static final String SYNTHETIC = "classpath:eval/nationality-synthetic.jsonl";
     private static final Path REPORT = Path.of("..", "..", "docs", "eval", "nationality-eval.md");
     private static final String BASELINE_PROMPT_ID = "candidate-ai-enrich-baseline";
-    private static final JsonMapper JSON = JsonMapper.builder().build();
 
     @Test
     void run() throws IOException {
-        String golden = envOr("LIGHTMOVE_EVAL_GOLDEN", SYNTHETIC);
+        String golden = envOr("LIGHTMOVE_EVAL_GOLDEN", null);
         String subject = envOr("LIGHTMOVE_EVAL_SUBJECT", "classifier");
-        List<GoldenRow> rows = readGolden(golden);
+        List<GoldenRow> rows = GoldenRows.typed(golden == null ? GoldenRows.synthetic()
+                : GoldenRows.parse(Files.readString(Path.of(golden), StandardCharsets.UTF_8)));
         StructuredPromptFactory prompts = TestLlmCallPolicy.promptsOver(vertexModel());
 
-        List<EvalPrediction> predictions = switch (subject) {
+        List<GoldenRowPrediction> predictions = switch (subject) {
             case "classifier" -> predictWithClassifier(rows, prompts);
             case "baseline" -> predictWithBaseline(rows, prompts);
             default -> throw new IllegalArgumentException("LIGHTMOVE_EVAL_SUBJECT is classifier or baseline");
         };
 
-        String report = EvalScorer.markdown(subject, (golden.equals(SYNTHETIC) ? "synthetic fixtures" : "private set") + ", " + model(),
-                LocalDate.now(ZoneOffset.UTC).toString(), EvalScorer.score(rows, predictions));
+        String report = GoldenRowScorer.markdown(subject, (golden == null ? "synthetic fixtures" : "private set") + ", " + model(),
+                LocalDate.now(ZoneOffset.UTC).toString(), GoldenRowScorer.score(rows, predictions));
         Files.createDirectories(REPORT.getParent());
         Files.writeString(REPORT, report, StandardCharsets.UTF_8,
                 StandardOpenOption.CREATE, StandardOpenOption.APPEND);
         System.out.println(report);
     }
 
-    private static List<EvalPrediction> predictWithClassifier(List<GoldenRow> rows, StructuredPromptFactory prompts) {
+    private static List<GoldenRowPrediction> predictWithClassifier(List<GoldenRow> rows, StructuredPromptFactory prompts) {
         CandidateNationalityClassifier classifier = new CandidateNationalityClassifier(prompts);
         CandidateAiEnricher enricher = new CandidateAiEnricher(prompts);
-        List<EvalPrediction> predictions = new ArrayList<>();
+        List<GoldenRowPrediction> predictions = new ArrayList<>();
         for (GoldenRow row : rows) {
             NationalityReading reading = classifier
                     .classify(row.dossierMissing(EnumSet.of(BackgroundField.NATIONALITY)))
@@ -90,8 +90,8 @@ class NationalityEval {
             Seniority seniority = enricher.infer(row.dossierMissing(EnumSet.of(BackgroundField.SENIORITY)))
                     .map(InferredBackground::seniority)
                     .orElse(null);
-            predictions.add(new EvalPrediction(row.id(),
-                    reading == null ? EvalScorer.UNKNOWN : reading.category(),
+            predictions.add(new GoldenRowPrediction(row.id(),
+                    reading == null ? GoldenRowScorer.UNKNOWN : reading.category(),
                     reading == null ? null : reading.confidence(),
                     seniority == null ? null : seniority.value()));
         }
@@ -99,10 +99,10 @@ class NationalityEval {
     }
 
     /** The single call as it shipped before #563: always answers, states no confidence and no level. */
-    private static List<EvalPrediction> predictWithBaseline(List<GoldenRow> rows, StructuredPromptFactory prompts) {
+    private static List<GoldenRowPrediction> predictWithBaseline(List<GoldenRow> rows, StructuredPromptFactory prompts) {
         StructuredPrompt baseline = prompts.create(BASELINE_PROMPT_ID,
                 "{\"summary\":\"" + BlockedAnswer.MARKER + "\"}");
-        List<EvalPrediction> predictions = new ArrayList<>();
+        List<GoldenRowPrediction> predictions = new ArrayList<>();
         for (GoldenRow row : rows) {
             CandidateDossier dossier = row.dossierMissing(EnumSet.of(BackgroundField.NATIONALITY));
             BaselineAnswer answered;
@@ -150,27 +150,10 @@ class NationalityEval {
                 System.err.println("Baseline call failed for " + row.id() + ": " + failed);
                 answered = null;
             }
-            predictions.add(new EvalPrediction(row.id(),
-                    answered == null ? EvalScorer.UNKNOWN : EvalScorer.canonical(answered.nationality()), null, null));
+            predictions.add(new GoldenRowPrediction(row.id(),
+                    answered == null ? GoldenRowScorer.UNKNOWN : GoldenRowScorer.canonical(answered.nationality()), null, null));
         }
         return predictions;
-    }
-
-    static List<GoldenRow> readGolden(String location) {
-        try (InputStream in = location.startsWith("classpath:")
-                ? NationalityEval.class.getClassLoader().getResourceAsStream(location.substring("classpath:".length()))
-                : Files.newInputStream(Path.of(location))) {
-            if (in == null) {
-                throw new IllegalStateException("No golden set at " + location);
-            }
-            return new String(in.readAllBytes(), StandardCharsets.UTF_8).lines()
-                    .map(String::strip)
-                    .filter(line -> !line.isEmpty() && !line.startsWith("//"))
-                    .map(line -> JSON.readValue(line, GoldenRow.class))
-                    .toList();
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
     }
 
     private static ChatModel vertexModel() {

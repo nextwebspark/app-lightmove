@@ -706,8 +706,8 @@ configured model, an explicit choice (the editor's Default model): the editor op
 "defaults to the previous version's" is the SPA's, and the API never guesses. Settings with no model whose bounds are
 known are refused rather than checked against another model's. Try it's fictional inputs live in code, one per
 `PromptTrial`, not stored with the prompt, and a trial is never counted in `app_lm_platform_prompt_call_daily`.
-`PROMPT_PROMOTE` with a fresh two-factor code moves `production` (`PUT …/production`, a reason required until the eval
-gate of #1320), which is also how a rollback is made, and reloads every instance; a version whose model
+`PROMPT_PROMOTE` with a fresh two-factor code moves `production` (`PUT …/production`, a written reason required
+unless the eval gate below passed), which is also how a rollback is made, and reloads every instance; a version whose model
 `AiModelCatalog.unusableBecause` refuses today (retired since it was saved, say) is `PROMPT_MODEL_UNAVAILABLE`, so a
 rollback cannot quietly hand a prompt to the configured model. Saving never changes what serves. Every act is audited
 (`PROMPT_VERSION_SAVED`, `PROMPT_TRIED`, `PROMPT_PUT_LIVE`, `PROMPT_ROLLED_BACK`) with the prompt id, version, model
@@ -721,8 +721,115 @@ under a live edit, a model within 60 days of retirement, or a live model the con
 history, an **Editor** (text, model from the catalogue with unusable ones disabled and their reason, the three settings
 with the model's range, the read-only message the feature sends, a required change note, **Save as new version**),
 **Compare versions** (`lineDiff`, plus model and settings) and **Try it**. **Put version N live** and **Roll back to
-version N** show only to a holder of `PROMPT_PROMOTE` and open `PutLiveDialog`, which always asks a reason until the
-eval gate (#1321); the code before it is the app's own step-up dialog.
+version N** show only to a holder of `PROMPT_PROMOTE` and open `PutLiveDialog`, which draws the eval gate below and
+asks a reason unless it passed; the code before it is the app's own step-up dialog.
+What a version is scored on are the **eval datasets** (#1319, `prompteval`, V238, under `/api/v1/platform/evals`,
+`EVAL_RUN`): a dataset per prompt, its cases synthetic only (`source` has the one value), each `DEV` or `HOLDOUT`,
+added and retired but never edited, so a run can name what it scored. The committed synthetic sets under
+`resources/eval/` are recorded at boot (`EvalDatasetSeed`, a case once by its key); more arrive by a JSONL import that
+previews, names every row at fault by its line, and commits all or nothing. A prompt can take cases and be run only
+if it has an `EvalSubject` (`core/llm`, beside its caller like its `PromptTrial`), which checks a case's shape and
+asks the model with it through the feature's own code; nationality and seniority have one. The scoring the offline
+`@Tag("eval")` suites use is the same main code (`GoldenRowScorer`, `LooseTextMatch`). `docs/eval/README.md` has the
+splits, case authoring, runs and why real data stays offline.
+The **assessment draft** has its subject, checks and pack (#1326, `enrichment/candidate`): a case is a fictional
+profile with dated notes, call transcripts, documents and a brief, and `CandidateScorecardEvalSubject` hands it to
+`CandidateScorecardDrafter` after `CandidateMaterialReader.written` / `withCalls` have written the material out, the
+same code that writes a real person's (contacts removed, the team marked, long material cut). A subject lists its
+`EvalCheck`s, each a deterministic verdict on the model's own answer; the assessment draft has eight
+(`AssessmentDraftChecks`: ids, score range, source named, evidence found in the input, no contact, nothing from a
+colleague or an unidentified speaker, score inside the labelled band, self-report capped at 7), and is answered three
+times a case. Pack v1 (30 cases, 12 held out) is seeded; `isGateReady` is false unless a subject opts in, and the
+assessment draft does not until a consultant has reviewed the pack,
+so no run on it will let a version go live unexplained. `docs/eval/assessment-draft-eval.md` has the case shape, the
+labels and the first real-model runs.
+An **eval run** (#1320, V239, `/api/v1/platform/evals/runs`, `EVAL_RUN`) has a candidate version and a baseline (the
+one serving, unless another is named) answer the same split of a dataset's cases, each on its own model and settings,
+through `PromptTrialRunner`'s per-thread version swap, so every call is the feature's own and none is counted in
+`app_lm_platform_prompt_call_daily`. A case is answered once, three times when either version's temperature is above
+0, and never fewer times than its subject asks (`EvalRunPlanner`). `POST …/runs/estimate` says what a start would
+take; a start planning more calls than `lightmove.platform.eval.max-calls-per-run` (200) is `EVAL_RUN_TOO_LARGE`, one
+with no case in the split `EVAL_NO_CASES`, and it spends one of the starter's `LlmBudget.EVAL_RUN`. **One run goes at
+a time, platform-wide**: a partial unique index refuses a second (`EVAL_RUN_IN_PROGRESS`), never queues it. The start
+stores a `QUEUED` row and returns; `EvalRunWorker` claims it in one statement on a thread of its own (after the
+commit, and from a timer for a run no start handed over), makes the calls one after another, and stores each answer
+with every check's verdict as it lands. Before each ask (an answer takes up to three) it raises the run's heartbeat
+and reads the stop flag and the calls made, so a cancel (`POST …/runs/{id}/cancel`) and the call cap (a repair's
+second ask counts) both stop it; a run whose worker went quiet for `stale-after` is claimed again and goes on from
+the answers stored, and one claimed three times is given up on (`STOPPED_UNEXPECTEDLY`, audited like any ending).
+Every worker write, the spend and the answer included, names its claim token and a `RUNNING` row, so a worker whose
+run was taken over counts and stores nothing. A call the model never answered is
+asked three times and then fails the run (`MODEL_UNAVAILABLE`) rather than being scored: two versions failing alike in
+an outage would read as no worse. `EvalRunScorer` gives each check the share of answers that pass per version (the
+mean over the repeats), the change in points, how far scores moved between repeats, and the cases the two did
+differently on (`GET …/runs/{id}/cases`, regressions first, each scored thing side by side through the subject's
+`readingsOf`). The verdict is `PASS` when no check fell by more than the subject's `tolerancePoints` (3 for the
+assessment draft, 0 otherwise). **The gate:** `promptregistry` declares `PromotionGate` and `prompteval` answers it
+(`PromotionGateAdapter`), so the registry never learns that runs exist. A version's gate is its latest finished run
+on `HOLDOUT` against the version serving **now**, started while its subject was `isGateReady`: `PASSED`, `FAILED` or
+`NONE`. `isGateReady` is the prompt's, not a dataset's: a run on any dataset of that prompt counts. `PromptPromotionService.putLive` reads it under the prompt's lock; only `PASSED` lets a version go live with
+no reason, and a rollback always asks for one (`VALIDATION_FAILED` on `reason`). Each `PromptVersionSummary` carries
+its `gate` (run number, date, check counts, the checks that failed), so the dialog needs no eval route. Audited:
+`EVAL_RUN_STARTED`, `EVAL_RUN_FINISHED`, `EVAL_RUN_CANCELLED`, `EVAL_GATE_OVERRIDDEN` (a put live over a failed
+run), and `PROMPT_PUT_LIVE` names the gate's state and run.
+The **judge** (#1322, V240) scores what no check can: free text, and the assessment draft's evidence. A dataset may
+carry a **rubric** (`app_lm_eval_rubric`: versioned, append-only, criteria of a key, a name and what the better answer
+does), which ships with its pack (`eval/*-rubric.json`; `EvalDatasetSeed` records a changed file as the next version).
+A run on such a dataset has `EvalJudge` compare each pair of answers (the candidate's and the baseline's to the same
+case and repeat) once, on every criterion, **in an order drawn at random and stored** (`app_lm_eval_judgement`,
+`candidate_shown_as`), and answer A, B or a tie with one sentence of reason. Pairwise, never a score. The judge is a
+registry prompt like any other, `eval-judge` (`PlatformPrompt.EVAL_JUDGE`, answered at temperature 0 by
+`lightmove.platform.eval.judge-model` where its version names no model; `EvalJudgeTrial` is its Try it), asked through
+`PromptTrialRunner` under a named version, so a run knows which judge made its picks and the calls are not counted as
+a workspace's. **A run keeps the judge it was first worked with** (`judge_version`, set on the first claim and never
+again), so one picked up after a restart is not judged by two; a start is refused while the judge has no version
+serving. **Its calls are the run's**: planned (`cases × repeats` more), made, capped and paid for with the answers. A judge that answers nothing
+three times over fails the run; a pick it leaves unreadable, or a call the injection guard refuses, is stored with no
+winner and counts for neither side. `JudgedScorer` counts each criterion in pairs (candidate won, baseline won, tie)
+and its net in points; past **10 points** against the candidate a criterion is worse. **A rubric gates only once
+calibrated** (`JudgeCalibrationService`): a person labels **20 pairs** by hand (`…/rubric/pairs`, drawn once per
+rubric version from two versions' answers to the same **dev** case in a finished run, so holdout cases stay unseen;
+which answer is A is random and neither the versions nor the judge's picks are served), then `…/rubric/check` has
+`JudgeCalibrationWorker` make the judge's own picks on the same pairs, under a run's own claim rules (the spend and the
+picks name the claim token, the pulse is raised before each ask, and a check claimed three times is given up on and
+audited). While the two agree on **80%** of the picks,
+taken over every criterion together, the rubric is `COUNTS`; otherwise its criteria are judged and shown and change
+no result (`SHOWN_ONLY`, `UNLABELLED`, `UNCHECKED`, `CHECKING`, and `STALE` once the judge's live version or a label
+changes, until it is checked again on the same labels). Whether it counted is read as a run finishes and stored in
+its summary: labelling later changes no run. It is read **for the judge version that made the run's picks**
+(`standingFor`), never the one serving by then: a judge put live and checked while a run went does not make an
+unchecked judge's picks count. A prompt with no checks (`outreach-opener`, whose subject drafts through
+`OutreachOpenerDrafter` and whose cases carry no label) is scored by the judge alone, so its run finishes with **no
+verdict** while its rubric does not count, which the gate reports as `NO_RESULT` and treats as no run. Audited:
+`EVAL_PAIR_LABELLED`, `EVAL_JUDGE_CHECK_STARTED`, `EVAL_JUDGE_CHECK_FINISHED`.
+Its screens (#1321, `features/platform/evals`, behind `EVAL_RUN` in `platformSections`): `/platform/evals` has two
+tabs. **Datasets** lists each with its prompt, cases and split, and opens `/platform/evals/datasets/:id`: the cases,
+**Retire** on each (no confirmation is drawn; the row stays, marked Retired) and **Import cases** (the file is read
+first, every row at fault is named by its line, and Add N cases sends the same file again). **Runs**
+(`/platform/evals?tab=runs`) lists what each run found, cost and who started it, and **Start a run** offers only the
+prompts whose cases can be run, the newest version against the live one, and the server's estimate before anything
+starts. `/platform/evals/runs/:id` polls while a run goes (calls made of calls planned, a guess at the time left,
+**Cancel run**), then draws the comparison: one sentence on what the run means for putting the candidate live, the
+checks with both pass rates and the change, and **Cases that changed**, regressions first, each opening to both
+versions' scores and evidence (or, for a prompt that scores nothing, the checks that moved). **Put the candidate
+live…** shows to a holder of `PROMPT_PROMOTE` and `PROMPT_MANAGE` and opens the prompt's page with the dialog already open
+(`?version=N&putLive=1`). `PutLiveDialog` draws the gate from the version's own `gate` block: **No worse** with its
+run and no reason field, **Regressed** naming the checks that fell with the reason field, or no finished holdout run
+with a link to Runs and the reason field; a rollback draws no gate and always asks why. The judge's screens (#1322):
+the Datasets list has a **Rubric** column, and a dataset opens on **Cases · Rubric** (`?view=rubric`). Rubric says
+whether the judged criteria count and why, lists the criteria with the judge's agreement on each and the picks where
+it and the person differ, and offers **Label pairs**, **Review labels** and **Check the judge** as the state allows
+(it polls while a check goes). `/platform/evals/datasets/:id/calibration` is Label pairs: one pair at a time, the
+case's input on request, Answer A and Answer B, and **A better · Tie · B better** on each criterion, saved pair by
+pair. A run's page draws **Judged criteria** under Checks (the pairs each side won, the net, **Counts** or **Shown
+only**), the judge's picks, reasons and the order it saw each pair in on every changed case, both answers as written
+for a prompt answered in words, and **No result** for a run nothing counted on. Start a run's estimate names the
+judge's calls; Put live names what the judge found, sends a no-result run to its rubric, and warns when the prompt
+being put live is the judge.
+These screens lean on `PROMPT_MANAGE` reads: Start a run lists a prompt's versions from `GET /platform/prompts/{id}` and
+the comparison names models from `/ai-models` (a refused read leaves the model's id), so `EVAL_RUN` is granted with
+`PROMPT_MANAGE`, as the seed does. Not drawn, so not built: a
+case's own page, creating a dataset, writing a case by hand, editing a rubric.
 
 
 ## Layout

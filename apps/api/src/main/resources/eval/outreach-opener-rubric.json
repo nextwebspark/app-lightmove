@@ -1,0 +1,17 @@
+[
+  {
+    "key": "specific",
+    "name": "Specific to the person",
+    "better": "It could only have been written to this person: it names something from their profile."
+  },
+  {
+    "key": "supported",
+    "name": "Claims nothing the profile does not show",
+    "better": "It states no role, move or result the profile does not hold."
+  },
+  {
+    "key": "plain",
+    "name": "Plain and brief",
+    "better": "One or two plain sentences, with no praise and no question."
+  }
+]
