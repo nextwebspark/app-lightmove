@@ -1,5 +1,6 @@
 package app.lightmove.api.core.llm.service;
 
+import app.lightmove.api.core.llm.model.PromptCallSpec;
 import app.lightmove.api.core.llm.model.PromptGuardSpec;
 import lombok.RequiredArgsConstructor;
 import org.springframework.ai.chat.client.ChatClient;
@@ -22,8 +23,13 @@ public class StructuredPromptFactory {
 
     /** A prompt answered as JSON. {@code blockedAnswer} is what the guard replies with, and must bind too. */
     public StructuredPrompt create(String promptId, String blockedAnswer) {
+        return create(promptId, blockedAnswer, null);
+    }
+
+    /** The same, answered by {@code defaultModel} rather than the deployment's where the serving version names none. */
+    public StructuredPrompt create(String promptId, String blockedAnswer, String defaultModel) {
         Resource schema = new ClassPathResource("prompts/" + promptId + "-schema.json");
-        return new StructuredPrompt(chatClient, prompts, promptId,
+        return new StructuredPrompt(chatClient, prompts, PromptCallSpec.structured(promptId, defaultModel),
                 llmCalls.forPrompt(PromptGuardSpec.structured(promptId, schema, blockedAnswer)));
     }
 }

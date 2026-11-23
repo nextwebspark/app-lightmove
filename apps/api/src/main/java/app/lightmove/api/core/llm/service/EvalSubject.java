@@ -50,6 +50,14 @@ public interface EvalSubject {
     }
 
     /**
+     * An answer as a person reads it, for a prompt answered in words: the opener itself. Null for a prompt whose
+     * readings say what it answered, and for no answer.
+     */
+    default String proseOf(JsonNode answer) {
+        return null;
+    }
+
+    /**
      * Whether a run on this prompt's cases may let a version go live without a written reason. False until a person
      * has reviewed the cases the check would rest on; a run still scores and reports either way.
      */

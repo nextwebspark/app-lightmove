@@ -45,12 +45,21 @@ public enum PlatformPrompt {
     POSITION_REPORTING("position-extract-reporting", "Position reporting",
             "Reads the reporting line from a position description.", PromptKind.STRUCTURED),
     POSITION_ASSESSMENT("position-extract-assessment", "Position assessment",
-            "Reads the competencies and weights from a position description.", PromptKind.STRUCTURED);
+            "Reads the competencies and weights from a position description.", PromptKind.STRUCTURED),
+    EVAL_JUDGE("eval-judge", "Eval judge",
+            "Compares two answers to the same eval case against a rubric and picks the better.",
+            PromptKind.STRUCTURED, "gemini-3.8-flash");
 
     private final String promptId;
     private final String displayName;
     private final String description;
     private final PromptKind kind;
+    /** The model a version naming none is answered by, where that is not the deployment's. Null for most. */
+    private final String pinnedModel;
+
+    PlatformPrompt(String promptId, String displayName, String description, PromptKind kind) {
+        this(promptId, displayName, description, kind, null);
+    }
 
     public static Optional<PlatformPrompt> of(String promptId) {
         return Arrays.stream(values()).filter(prompt -> prompt.promptId.equals(promptId)).findFirst();

@@ -9,9 +9,11 @@ import app.lightmove.api.prompteval.dto.EvalDatasetDetail;
 import app.lightmove.api.prompteval.dto.EvalDatasetOverview;
 import app.lightmove.api.prompteval.model.EvalCase;
 import app.lightmove.api.prompteval.model.EvalDataset;
+import app.lightmove.api.prompteval.model.EvalRubric;
 import app.lightmove.api.promptregistry.constant.PlatformPrompt;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -24,18 +26,25 @@ public class EvalDatasetService {
 
     private final EvalDatasetStore store;
     private final EvalSubjects subjects;
+    private final EvalRubricStore rubrics;
+    private final JudgeCalibrationService calibration;
     private final AuditService audit;
 
     @Transactional(readOnly = true)
     public List<EvalDatasetOverview> list() {
-        return store.datasets().stream().map(this::overviewOf).toList();
+        Map<UUID, EvalRubric> rubricByDataset = rubrics.latestByDataset();
+        return store.datasets().stream()
+                .map(dataset -> overviewOf(dataset, rubricByDataset.get(dataset.id())))
+                .toList();
     }
 
     @Transactional(readOnly = true)
     public EvalDatasetDetail get(UUID datasetId) {
         EvalDataset dataset = require(datasetId);
-        return new EvalDatasetDetail(overviewOf(dataset),
-                store.casesOf(datasetId).stream().map(EvalDatasetService::summaryOf).toList());
+        EvalRubric rubric = rubrics.latestOf(datasetId).orElse(null);
+        return new EvalDatasetDetail(overviewOf(dataset, rubric),
+                store.casesOf(datasetId).stream().map(EvalDatasetService::summaryOf).toList(),
+                rubric == null ? null : calibration.detailOf(dataset, rubric));
     }
 
     /** Retiring a case twice is the first retirement: the runs that scored it still name it either way. */
@@ -59,11 +68,11 @@ public class EvalDatasetService {
                 .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND, "No eval dataset " + datasetId));
     }
 
-    private EvalDatasetOverview overviewOf(EvalDataset dataset) {
+    private EvalDatasetOverview overviewOf(EvalDataset dataset, EvalRubric rubric) {
         return new EvalDatasetOverview(dataset.id(), dataset.name(), dataset.description(), dataset.promptId(),
                 PlatformPrompt.of(dataset.promptId()).map(PlatformPrompt::getDisplayName).orElse(dataset.promptId()),
                 dataset.cases(), dataset.dev(), dataset.holdout(), dataset.updatedAt(),
-                subjects.of(dataset.promptId()).isPresent());
+                subjects.of(dataset.promptId()).isPresent(), calibration.summaryOf(rubric).orElse(null));
     }
 
     private static EvalCaseSummary summaryOf(EvalCase evalCase) {

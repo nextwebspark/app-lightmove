@@ -7,9 +7,15 @@ import app.lightmove.api.prompteval.constant.EvalRepeatsReason;
 
 /** A run as it would be started: both versions resolved, and how many calls answering every case would take. */
 public record EvalRunPlan(EvalDataset dataset, EvalSubject subject, EvalCaseSplit split, ServedPrompt candidate,
-                          ServedPrompt baseline, int cases, int repeats, EvalRepeatsReason repeatsReason) {
+                          ServedPrompt baseline, int cases, int repeats, EvalRepeatsReason repeatsReason,
+                          EvalRubric rubric) {
+
+    /** One for each pair of answers, where the dataset has a rubric. */
+    public int judgeCalls() {
+        return rubric == null ? 0 : cases * repeats;
+    }
 
     public int calls() {
-        return cases * 2 * repeats;
+        return cases * 2 * repeats + judgeCalls();
     }
 }

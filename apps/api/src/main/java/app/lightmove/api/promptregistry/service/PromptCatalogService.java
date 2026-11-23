@@ -138,7 +138,7 @@ public class PromptCatalogService {
     private PromptCallSpec specOf(PlatformPrompt prompt) {
         String promptId = prompt.getPromptId();
         return switch (prompt.getKind()) {
-            case STRUCTURED -> PromptCallSpec.structured(promptId);
+            case STRUCTURED -> PromptCallSpec.structured(promptId, prompt.getPinnedModel());
             case PROSE -> PromptCallSpec.prose(promptId);
             case TOOL_CALLING -> PromptCallSpec.toolCalling(promptId, promptId, properties.assistant().model(),
                     properties.assistant().generationDefaults());

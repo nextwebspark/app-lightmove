@@ -68,7 +68,7 @@ class PromptManagementIntegrationTest extends PositionTemplateFlowSupport {
         String admin = superAdmin();
 
         JsonNode list = getJson(admin, PROMPTS);
-        assertThat(list).hasSize(16);
+        assertThat(list).hasSize(17);
         JsonNode assessment = promptIn(list, "candidate-scorecard-draft");
         assertThat(assessment.get("name").asString()).isEqualTo("Assessment draft");
         assertThat(assessment.get("origin").asString()).isEqualTo("BUNDLED");
@@ -317,7 +317,7 @@ class PromptManagementIntegrationTest extends PositionTemplateFlowSupport {
     @Test
     @DisplayName("every prompt answered as a document can be tried: its fictional input reaches the model")
     void everyStructuredPromptCanBeTried() {
-        assertThat(trials).hasSize(14);
+        assertThat(trials).hasSize(15);
         for (PromptTrial trial : trials) {
             String id = trial.promptId();
             model.reset();

@@ -30,6 +30,7 @@ class EvalRunPlanner {
 
     private final EvalDatasetService datasets;
     private final EvalSubjects subjects;
+    private final EvalRubricStore rubrics;
     private final PromptCatalogService catalog;
     private final PromptRegistryStore registry;
     private final AiModelCatalog models;
@@ -56,7 +57,8 @@ class EvalRunPlanner {
         EvalRepeatsReason reason = subject.minimumRepeats() >= repeats && repeats > 1 ? EvalRepeatsReason.PROMPT_VARIES
                 : variesByTemperature ? EvalRepeatsReason.TEMPERATURE : EvalRepeatsReason.ONCE;
         int cases = request.split() == EvalCaseSplit.HOLDOUT ? dataset.holdout() : dataset.dev();
-        return new EvalRunPlan(dataset, subject, request.split(), candidate, baseline, cases, repeats, reason);
+        return new EvalRunPlan(dataset, subject, request.split(), candidate, baseline, cases, repeats, reason,
+                rubrics.latestOf(dataset.id()).orElse(null));
     }
 
     /** The temperature a version is answered at: its own, else the one its prompt's calls default to. */
