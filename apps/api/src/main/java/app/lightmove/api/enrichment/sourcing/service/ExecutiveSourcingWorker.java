@@ -67,12 +67,13 @@ class ExecutiveSourcingWorker {
     private final UsageRecorder usage;
     private final Clock clock;
     private final ExecutiveSourcingSettings settings;
+    private final SourcingLimits limits;
     private final Duration peopleCacheTtl;
 
     ExecutiveSourcingWorker(SourcingRunStore store, SuggestionStore suggestions, CompanySearch companySearch,
                             LiveProfiles live, PeopleCache cache, SourcingCriteriaService criteria,
                             SuppressionGate suppression, PositionService positions, AuditService audit, UsageRecorder usage, Clock clock,
-                            LightMoveProperties properties) {
+                            LightMoveProperties properties, SourcingLimits limits) {
         this.store = store;
         this.suggestions = suggestions;
         this.companySearch = companySearch;
@@ -85,6 +86,7 @@ class ExecutiveSourcingWorker {
         this.usage = usage;
         this.clock = clock;
         this.settings = properties.enrichment().sourcing();
+        this.limits = limits;
         this.peopleCacheTtl = properties.enrichment().peopleCacheTtl();
     }
 
@@ -116,7 +118,7 @@ class ExecutiveSourcingWorker {
         suggestions.purgeCreatedBefore(Instant.now(clock).minus(peopleCacheTtl));
         Run run = new Run(request, brief, searched, Instant.now(clock).plus(settings.runDeadline()));
 
-        try (ExecutorService pool = Executors.newFixedThreadPool(settings.parallelism(),
+        try (ExecutorService pool = Executors.newFixedThreadPool(limits.parallelism(),
                 Thread.ofVirtual().factory())) {
             started.getCompanies().forEach(company ->
                     pool.execute(ThreadContextPropagation.wrap(() -> run.record(company, run.searchOne(company)))));

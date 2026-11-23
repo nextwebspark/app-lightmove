@@ -29,4 +29,9 @@ public class SourcingLimits {
     public int titleChecksPerCompany() {
         return variables.intValue(ApplicationVariable.SOURCING_TITLE_CHECKS_PER_COMPANY);
     }
+
+    /** Companies searched at once. */
+    public int parallelism() {
+        return variables.intValue(ApplicationVariable.SOURCING_PARALLELISM);
+    }
 }
