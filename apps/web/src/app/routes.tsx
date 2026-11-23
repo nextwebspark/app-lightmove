@@ -289,7 +289,6 @@ function UnknownAddress() {
 
 function RequireAuth({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();
-  const location = useLocation();
 
   if (loading) return <Booting />;
 
@@ -297,10 +296,17 @@ function RequireAuth({ children }: { children: ReactNode }) {
   if (!user) {
     // Remember where they were headed, so signing in returns them to it rather than dumping them on
     // the home page.
-    return <Navigate to="/login" replace state={{ from: location.pathname + location.search }} />;
+    return <ToLogin />;
   }
 
   return <>{children}</>;
+}
+
+/** The login page, carrying the page left behind unless the person ended the session themselves. */
+function ToLogin() {
+  const { endedOnPurpose } = useAuth();
+  const location = useLocation();
+  return <Navigate to="/login" replace state={endedOnPurpose ? undefined : { from: location.pathname + location.search }} />;
 }
 
 /** Signup past the gate. An unverified user is sent back to the step they skipped. */
@@ -322,13 +328,12 @@ function RequireVerified({ children }: { children: ReactNode }) {
  */
 function RequireWorkspace({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();
-  const location = useLocation();
 
   if (loading) return <Booting />;
   // Carries the destination the way RequireAuth does. /extension/connect is the reason: pairing is a
   // one-gesture flow, and dropping it here dead-ends the consultant on the projects list with the
   // extension still unpaired.
-  if (!user) return <Navigate to="/login" replace state={{ from: location.pathname + location.search }} />;
+  if (!user) return <ToLogin />;
   if (!user.workspace) return <Navigate to={homeFor(user)} replace />;
 
   return <>{children}</>;
