@@ -774,10 +774,12 @@ does), which ships with its pack (`eval/*-rubric.json`; `EvalDatasetSeed` record
 A run on such a dataset has `EvalJudge` compare each pair of answers (the candidate's and the baseline's to the same
 case and repeat) once, on every criterion, **in an order drawn at random and stored** (`app_lm_eval_judgement`,
 `candidate_shown_as`), and answer A, B or a tie with one sentence of reason. Pairwise, never a score. The judge is a
-registry prompt like any other, `eval-judge` (`PlatformPrompt.EVAL_JUDGE`, pinned to a catalogue model at temperature
-0 where its version names none; `EvalJudgeTrial` is its Try it), asked through `PromptTrialRunner` under a named
-version, so a run knows which judge made its picks and the calls are not counted as a workspace's. **Its calls are the
-run's**: planned (`cases × repeats` more), made, capped and paid for with the answers. A judge that answers nothing
+registry prompt like any other, `eval-judge` (`PlatformPrompt.EVAL_JUDGE`, answered at temperature 0 by
+`lightmove.platform.eval.judge-model` where its version names no model; `EvalJudgeTrial` is its Try it), asked through
+`PromptTrialRunner` under a named version, so a run knows which judge made its picks and the calls are not counted as
+a workspace's. **A run keeps the judge it was first worked with** (`judge_version`, set on the first claim and never
+again), so one picked up after a restart is not judged by two; a start is refused while the judge has no version
+serving. **Its calls are the run's**: planned (`cases × repeats` more), made, capped and paid for with the answers. A judge that answers nothing
 three times over fails the run; a pick it leaves unreadable, or a call the injection guard refuses, is stored with no
 winner and counts for neither side. `JudgedScorer` counts each criterion in pairs (candidate won, baseline won, tie)
 and its net in points; past **10 points** against the candidate a criterion is worse. **A rubric gates only once
@@ -788,7 +790,9 @@ which answer is A is random and neither the versions nor the judge's picks are s
 taken over every criterion together, the rubric is `COUNTS`; otherwise its criteria are judged and shown and change
 no result (`SHOWN_ONLY`, `UNLABELLED`, `UNCHECKED`, `CHECKING`, and `STALE` once the judge's live version or a label
 changes, until it is checked again on the same labels). Whether it counted is read as a run finishes and stored in
-its summary: labelling later changes no run. A prompt with no checks (`outreach-opener`, whose subject drafts through
+its summary: labelling later changes no run. It is read **for the judge version that made the run's picks**
+(`standingFor`), never the one serving by then: a judge put live and checked while a run went does not make an
+unchecked judge's picks count. A prompt with no checks (`outreach-opener`, whose subject drafts through
 `OutreachOpenerDrafter` and whose cases carry no label) is scored by the judge alone, so its run finishes with **no
 verdict** while its rubric does not count, which the gate reports as `NO_RESULT` and treats as no run. Audited:
 `EVAL_PAIR_LABELLED`, `EVAL_JUDGE_CHECK_STARTED`, `EVAL_JUDGE_CHECK_FINISHED`.

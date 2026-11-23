@@ -82,7 +82,8 @@ text change.
 
 Free text has no one right answer, so no check can score it, and a check cannot say whether evidence is balanced. For
 those, a dataset carries a **rubric**: a few criteria, each a name and one sentence on what the better answer does. On
-a run, the judge (the registry prompt `eval-judge`, on a pinned model at temperature 0) is shown the case and the two
+a run, the judge (the registry prompt `eval-judge`, on the model `lightmove.platform.eval.judge-model` names, at
+temperature 0) is shown the case and the two
 versions' answers as A and B, **in a random order that is stored**, and picks the better on each criterion, or a tie,
 with one sentence of reason. One call per pair of answers covers every criterion; the calls are counted in the run's
 estimate, cost and cap. Results are counted in pairs, never as a score: per criterion, how many pairs the candidate
@@ -103,7 +104,8 @@ a check does. Below it, or before it is measured, the criteria are **shown only*
 version of the judge, or a changed label, makes the rubric shown only until the judge is checked again on the same
 labels; nothing needs labelling again. A rubric ships with its pack (`eval/*-rubric.json`) and is not edited in the
 console; a changed file is a new version, which starts with no labels. Whether the rubric counted is fixed when a run
-finishes: labelling later changes no earlier run.
+finishes: labelling later changes no earlier run. A run is judged throughout by the judge that was live when it began,
+and its criteria count only if that version of the judge was the one checked.
 
 A prompt with no checks is scored by the judge alone. While its rubric does not count, its run finishes with **no
 result**, and put live treats that as no run: a pass with nothing counted would let a version through on no evidence.
