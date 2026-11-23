@@ -33,7 +33,10 @@ public enum PlatformEventType implements AuditEventType {
     EVAL_GATE_OVERRIDDEN,
     EVAL_PAIR_LABELLED,
     EVAL_JUDGE_CHECK_STARTED,
-    EVAL_JUDGE_CHECK_FINISHED;
+    EVAL_JUDGE_CHECK_FINISHED,
+
+    PLATFORM_SETTING_CHANGED,
+    PLATFORM_SETTING_RESET;
 
     @Override
     public String code() {

@@ -44,11 +44,6 @@ public record ExecutiveSourcingSettings(
         @DefaultValue BusinessSearchSettings businessSearch
 ) {
 
-    /** Past this a run still marked in progress was lost with its instance: the deadline, and a minute's grace. */
-    public Duration lostAfter() {
-        return runDeadline.plusMinutes(1);
-    }
-
     public ExecutiveSourcingSettings {
         if (maxCompaniesPerRun < 1 || picksPerCompany < 1 || parallelism < 1 || indexPeoplePerCompany < 1) {
             throw new IllegalArgumentException(

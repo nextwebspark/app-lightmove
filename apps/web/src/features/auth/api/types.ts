@@ -26,7 +26,8 @@ export type PlatformAction =
   | "WORKSPACE_LIFECYCLE_MANAGE"
   | "PROMPT_MANAGE"
   | "PROMPT_PROMOTE"
-  | "EVAL_RUN";
+  | "EVAL_RUN"
+  | "PLATFORM_SETTINGS_MANAGE";
 
 export interface WorkspaceSummary {
   id: string;

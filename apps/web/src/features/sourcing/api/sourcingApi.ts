@@ -114,6 +114,8 @@ export interface SourcingRun {
   startedAt: string | null;
   finishedAt: string | null;
   error: string | null;
+  /** The run's own deadline and grace; absent on a run that recorded none, where the config's figure answers. */
+  lostAfterSeconds?: number | null;
 }
 
 export type SuggestionVerdict = "FITS" | "NO_TITLE" | "NOT_FIT";

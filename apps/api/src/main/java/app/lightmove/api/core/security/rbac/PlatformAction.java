@@ -22,5 +22,8 @@ public enum PlatformAction {
     PROMPT_PROMOTE,
 
     /** Read the eval datasets, import and retire synthetic cases, and run a prompt version against them. */
-    EVAL_RUN
+    EVAL_RUN,
+
+    /** Read the application variables and their history, change one and reset it to its default. */
+    PLATFORM_SETTINGS_MANAGE
 }

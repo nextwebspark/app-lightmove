@@ -1,8 +1,6 @@
 package app.lightmove.api.enrichment.sourcing.service;
 
 import app.lightmove.api.core.concurrent.service.ThreadContextPropagation;
-import app.lightmove.api.core.config.ExecutiveSourcingSettings;
-import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.enrichment.sourcing.constant.SearchLevel;
 import app.lightmove.api.enrichment.sourcing.dto.SourcingCountsResponse;
 import app.lightmove.api.enrichment.sourcing.dto.SourcingCountsResponse.CompanyCount;
@@ -39,20 +37,20 @@ public class SourcingCounts {
     private final LiveProfiles live;
     private final PeopleCache cache;
     private final SourcingCompanies companies;
-    private final ExecutiveSourcingSettings settings;
+    private final SourcingLimits limits;
 
     public SourcingCounts(LiveProfiles live, PeopleCache cache, SourcingCompanies companies,
-                          LightMoveProperties properties) {
+                          SourcingLimits limits) {
         this.live = live;
         this.cache = cache;
         this.companies = companies;
-        this.settings = properties.enrichment().sourcing();
+        this.limits = limits;
     }
 
     public SourcingCountsResponse count(UUID workspaceId, UUID projectId, List<UUID> companyIds,
                                         SearchCriteria criteria) {
         List<SourcingCompany> chosen = companies.chosen(workspaceId, projectId, companyIds,
-                settings.maxCompaniesPerRun());
+                limits.maxCompaniesPerRun());
         SearchWords words = criteria.words();
         boolean counted = live.isOffered() && words.isSearchable();
         List<SourcingCompany> searchable = chosen.stream().filter(company -> company.linkedinSlug() != null).toList();
