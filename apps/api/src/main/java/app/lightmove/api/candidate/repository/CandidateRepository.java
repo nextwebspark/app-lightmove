@@ -2,6 +2,7 @@ package app.lightmove.api.candidate.repository;
 
 import app.lightmove.api.candidate.model.Candidate;
 import app.lightmove.api.candidate.model.MappedProfile;
+import app.lightmove.api.candidate.model.PersonPlacement;
 import app.lightmove.api.candidate.model.CandidateAttribution;
 import app.lightmove.api.candidate.model.CandidateCount;
 import app.lightmove.api.candidate.model.CandidateStatusCount;
@@ -233,6 +234,10 @@ public interface CandidateRepository extends JpaRepository<Candidate, UUID>, Jpa
     /** Every profile URL the mandate holds — a sourcing run's "already mapped" set, settled on the slug by the caller. */
     @Query("select c.person.linkedinUrl from Candidate c where c.projectId = :projectId and c.person.linkedinUrl is not null")
     List<String> findLinkedinUrlsByProjectId(UUID projectId);
+
+    @Query("select new app.lightmove.api.candidate.model.PersonPlacement(c.person.id, c.projectId, c.id) "
+            + "from Candidate c where c.projectId in :projectIds and c.person.id in :personIds")
+    List<PersonPlacement> findPlacements(Collection<UUID> projectIds, Collection<UUID> personIds);
 
     @Query("select new app.lightmove.api.candidate.model.MappedProfile(c.id, c.person.linkedinUrl) from Candidate c "
             + "where c.projectId = :projectId and c.person.linkedinUrl is not null")
