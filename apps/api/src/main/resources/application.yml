@@ -443,7 +443,7 @@ lightmove:
     # Find executives on the In-universe page: one model call turns the brief into search words, then each
     # company is searched in two places. The live index (ContactOut's People Search, on the contactout key
     # above) holds today's titles: it is counted free and bought a credit a profile, the role's own level
-    # first, at most profiles-per-company. The profile index (Bright Data's Business Search, on the
+    # first, at most the number per company the consultant picks on the screen. The profile index (Bright Data's Business Search, on the
     # brightdata key, whatever `provider` says) is asked once a company, about $0.002, who names the
     # function in their title, past titles or About; each with no title on record is checked by a free
     # live count narrowed to their name, up to title-checks-per-company. Measured against researchers' own
@@ -451,8 +451,6 @@ lightmove:
     # position's country, the Gulf neighbours and each company's own country.
     sourcing:
       max-companies-per-run: ${SOURCING_MAX_COMPANIES_PER_RUN:5}
-      profiles-per-company: ${SOURCING_PROFILES_PER_COMPANY:3}
-      picks-per-company: ${SOURCING_PICKS_PER_COMPANY:3}
       index-people-per-company: ${SOURCING_INDEX_PEOPLE_PER_COMPANY:100}
       title-checks-per-company: ${SOURCING_TITLE_CHECKS_PER_COMPANY:100}
       parallelism: ${SOURCING_PARALLELISM:4}
