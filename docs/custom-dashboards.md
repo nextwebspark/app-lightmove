@@ -82,7 +82,7 @@ Errors: `DASHBOARD_NOT_FOUND` (not visible), `DASHBOARD_READ_ONLY` (a teammate's
 
 Home is no longer drawn on the dashboard grid and holds no charts: it is the same three cards for everyone
 (docs/architecture/features.md, Home). The per-member layout it once kept (V233 `app_lm_home_layout`, `/me/home`,
-`HomeLayoutService`) was removed and its table dropped by V243; charts live on the workspace's Dashboards.
+`HomeLayoutService`) was removed and its table dropped by V244; charts live on the workspace's Dashboards.
 
 ## Not built yet
 

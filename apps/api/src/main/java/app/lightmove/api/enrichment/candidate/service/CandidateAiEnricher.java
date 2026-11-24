@@ -5,6 +5,7 @@ import app.lightmove.api.candidate.constant.Gender;
 import app.lightmove.api.candidate.model.CandidateDossier;
 import app.lightmove.api.candidate.model.InferredBackground;
 import app.lightmove.api.common.constant.Seniority;
+import app.lightmove.api.core.llm.model.AttributedAnswer;
 import app.lightmove.api.core.llm.model.BlockedAnswer;
 import app.lightmove.api.core.llm.service.StructuredPrompt;
 import app.lightmove.api.core.llm.service.StructuredPromptFactory;
@@ -79,21 +80,29 @@ public class CandidateAiEnricher {
      * prompt is refused instead.
      */
     Optional<InferredBackground> infer(CandidateDossier dossier, MaterialText material, Set<BackgroundField> asked) {
-        ModelAnswer answered;
+        return inferAttributed(dossier, material, asked).map(AttributedAnswer::answer);
+    }
+
+    Optional<AttributedAnswer<InferredBackground>> inferAttributed(CandidateDossier dossier, MaterialText material,
+                                                                   Set<BackgroundField> asked) {
+        AttributedAnswer<ModelAnswer> answered;
         try {
             answered = ask(dossier, material, asked);
         } catch (RuntimeException e) {
             log.warn("Candidate AI background skipped: {}", e.toString());
             return Optional.empty();
         }
-        if (answered != null && BlockedAnswer.matches(answered.gender())) {
+        ModelAnswer found = answered.answer();
+        if (found != null && BlockedAnswer.matches(found.gender())) {
             throw AiRefusals.blockedText();
         }
-        return Optional.ofNullable(answered).map(found -> backgroundOf(found, asked));
+        return Optional.ofNullable(found)
+                .map(read -> new AttributedAnswer<>(backgroundOf(read, asked), answered.answeredBy()));
     }
 
-    private ModelAnswer ask(CandidateDossier dossier, MaterialText material, Set<BackgroundField> asked) {
-        return prompt.ask(ModelAnswer.class, user -> user.text(USER_MESSAGE)
+    private AttributedAnswer<ModelAnswer> ask(CandidateDossier dossier, MaterialText material,
+                                              Set<BackgroundField> asked) {
+        return prompt.askAttributed(ModelAnswer.class, user -> user.text(USER_MESSAGE)
                 .param("profile", DossierText.of(dossier))
                 .param("notes", material.notes())
                 .param("documents", material.documents())

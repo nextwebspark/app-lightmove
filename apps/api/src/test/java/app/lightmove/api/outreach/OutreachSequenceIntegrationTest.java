@@ -196,6 +196,41 @@ class OutreachSequenceIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("a drafted opener sent as written is counted as kept, a rewritten one as changed, a typed one not at all")
+    void aDraftedOpenersFateIsCountedAgainstItsVersion() throws Exception {
+        String sequenceId = createSequence("Counted approach");
+        String priya = executive("Priya Raman", "priya@target.example", null);
+        String rajesh = executive("Rajesh Menon", "rajesh@target.example", null);
+        String sara = executive("Sara Haddad", "sara@target.example", null);
+        connectMailbox();
+        int version = jdbc.queryForObject("select version from app_lm_platform_prompt_label "
+                + "where prompt_id = 'outreach-opener' and label = 'production'", Integer.class);
+        Map<String, Object> before = openerDecisions(version);
+
+        start(sequenceId, List.of(
+                drafted(person(priya, "priya@target.example", "Your move into treasury stood out.", false), version),
+                drafted(person(rajesh, "rajesh@target.example", "Rewritten by the consultant.", true), version),
+                person(sara, "sara@target.example", "Typed from scratch.", true)))
+                .andExpect(status().isCreated());
+
+        Map<String, Object> after = openerDecisions(version);
+        assertThat(((Number) after.get("accepted")).longValue() - ((Number) before.get("accepted")).longValue())
+                .isEqualTo(1);
+        assertThat(((Number) after.get("changed")).longValue() - ((Number) before.get("changed")).longValue())
+                .isEqualTo(1);
+    }
+
+    private Map<String, Object> openerDecisions(int version) {
+        return jdbc.queryForMap("select coalesce(sum(accepted), 0) as accepted, coalesce(sum(changed), 0) as changed "
+                + "from app_lm_platform_prompt_outcome_daily where prompt_id = 'outreach-opener' and version = ?",
+                version);
+    }
+
+    private static String drafted(String person, int promptVersion) {
+        return person.substring(0, person.lastIndexOf('}')) + ",\"openerPromptVersion\":" + promptVersion + "}";
+    }
+
+    @Test
     @DisplayName("Start schedules each person with their own reviewed email, a timeline line, and sends nothing")
     void startFreezesEachPersonsOwnEmail() throws Exception {
         String sequenceId = createSequence("First approach");

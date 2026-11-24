@@ -8,6 +8,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.ToolResponseMessage;
+import org.springframework.ai.chat.metadata.ChatGenerationMetadata;
 import org.springframework.ai.chat.metadata.ChatResponseMetadata;
 import org.springframework.ai.chat.metadata.DefaultUsage;
 import org.springframework.ai.chat.model.ChatModel;
@@ -37,6 +38,7 @@ public class StubChatModel implements ChatModel {
     private volatile Prompt lastPrompt;
     private final List<Prompt> prompts = new CopyOnWriteArrayList<>();
     private volatile String reply = REPLY;
+    private volatile String finishReason;
     private final Map<String, String> repliesBySystemText = new ConcurrentHashMap<>();
     private final Map<String, AssistantMessage.ToolCall> toolCallsBySystemText = new ConcurrentHashMap<>();
     private final Map<String, RuntimeException> failuresBySystemText = new ConcurrentHashMap<>();
@@ -124,8 +126,14 @@ public class StubChatModel implements ChatModel {
         reply = text;
     }
 
+    /** Every answer until {@link #reset} reports it stopped for {@code reason}, e.g. {@code MAX_TOKENS}. */
+    public void finishWith(String reason) {
+        finishReason = reason;
+    }
+
     public void reset() {
         reply = REPLY;
+        finishReason = null;
         repliesBySystemText.clear();
         toolCallsBySystemText.clear();
         failuresBySystemText.clear();
@@ -150,8 +158,9 @@ public class StubChatModel implements ChatModel {
         return !instructions.isEmpty() && instructions.getLast() instanceof ToolResponseMessage;
     }
 
-    private static ChatResponse chunk(String text) {
-        return new ChatResponse(List.of(new Generation(new AssistantMessage(text))),
+    private ChatResponse chunk(String text) {
+        ChatGenerationMetadata finish = ChatGenerationMetadata.builder().finishReason(finishReason).build();
+        return new ChatResponse(List.of(new Generation(new AssistantMessage(text), finish)),
                 ChatResponseMetadata.builder().usage(new DefaultUsage(PROMPT_TOKENS, COMPLETION_TOKENS)).build());
     }
 

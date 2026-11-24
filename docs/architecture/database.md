@@ -541,10 +541,10 @@ per finish reason for each prompt version, provider, model and UTC day, raised b
 scope (`prompts` today), raised in the transaction that changes platform configuration and watched by every
 instance (`PlatformConfigReload`).
 
-V237 adds `app_lm_start_page` (docs/architecture/features.md, Start page): where a member's Uncava opens in one workspace, unique on (`workspace_id`, `user_id`), both cascading, no row for Home. `kind` `POSITIONS` | `CANDIDATES` | `TASKS` | `DASHBOARD` | `POSITION`; `dashboard_id` (cascade) for a dashboard, `project_id` (cascade) and `section` (`BRIEF` | `STRATEGY` | `UNIVERSE` | `OUTREACH` | `DASHBOARD`) for a position, a CHECK holding each shape. The target is checked against the member's access on every read, so a page lost since does not open. Copies every V233 `landing = 'POSITIONS'` here and leaves `app_lm_home_layout.landing` in place, unread, so the revision still serving during a deploy keeps working; a later migration drops it once this release is live everywhere (expand, then contract). Forced RLS on its `workspace_id`. Every member, a pure client included.
-
 V236 seeds the platform actions `PROMPT_MANAGE` (read the prompts, save a version, try it) and `PROMPT_PROMOTE` (move
 the production label), both granted to `SUPER_ADMIN` (#1317). No table changes.
+
+V237 adds `app_lm_start_page` (docs/architecture/features.md, Start page): where a member's Uncava opens in one workspace, unique on (`workspace_id`, `user_id`), both cascading, no row for Home. `kind` `POSITIONS` | `CANDIDATES` | `TASKS` | `DASHBOARD` | `POSITION`; `dashboard_id` (cascade) for a dashboard, `project_id` (cascade) and `section` (`BRIEF` | `STRATEGY` | `UNIVERSE` | `OUTREACH` | `DASHBOARD`) for a position, a CHECK holding each shape. The target is checked against the member's access on every read, so a page lost since does not open. Copies every V233 `landing = 'POSITIONS'` here and leaves `app_lm_home_layout.landing` in place, unread, so the revision still serving during a deploy keeps working; a later migration drops it once this release is live everywhere (expand, then contract). Forced RLS on its `workspace_id`. Every member, a pure client included.
 
 V238 adds the eval datasets (#1319, docs/eval/README.md), two platform tables with no `workspace_id` and no reference
 into a tenant table, and seeds the platform action `EVAL_RUN`, granted to `SUPER_ADMIN`. `app_lm_eval_dataset`: one
@@ -594,7 +594,19 @@ and who and when; append-only by trigger, an UPDATE of `changed_by` alone let th
 `harden.sql` step 2e takes UPDATE and DELETE from the runtime role besides. No workspace and no reference into a
 tenant table. A change bumps the `settings` scope of `app_lm_platform_config_version` (V235).
 
-V243 drops `app_lm_home_layout` (V233): Home is fixed again (docs/architecture/features.md, Home) and nothing reads a
+V243 is per-version monitoring (#1323). `app_lm_platform_prompt_call_daily` gains three counters:
+`guard_refusals` (the injection guard answered in the model's place, so no call is counted beside it),
+`schema_reasks` (an answer failed its schema and was asked again; the re-ask is also a call) and `schema_failures`
+(the model answered in full and the answer still would not bind; one cut off or stopped by the safety filter is
+counted under its finish reason only). `app_lm_platform_prompt_outcome_daily`
+(`prompt_id`, `version`, `day`, `accepted`, `changed`) counts what a person did with an answer a screen asked
+them to keep or change, on the UTC day of the decision; a row is written only for a version that has served (a `production` move names it). Both are
+platform tables holding keys and counts: no content, no person, no workspace. `app_lm_person` gains
+`ai_inferred_by` jsonb: for each key still in `ai_inferred_fields`, the `{promptId, version}` that proposed it,
+so the decision on it is counted against that version; null, or a key missing, is a value proposed before the
+column. Staff-only like the flags, and it names a prompt version, never a reading.
+
+V244 drops `app_lm_home_layout` (V233): Home is fixed again (docs/architecture/features.md, Home) and nothing reads a
 saved layout; where a member lands was already V237's `app_lm_start_page`.
 
 V231 adds `app_lm_dashboard` (docs/custom-dashboards.md): a member's custom dashboard on a position (`project_id`, composite key to the project's workspace) or across the workspace (null) — `owner_user_id` (cascade with the account), `name` (≤ 80, never blank), `shared`, and `widgets` jsonb, an array of `{queryId, chart, options, title, layout: {x, y, w, h}}` (twelve-column grid; rows saved before it carry `size` instead, flowed into place by the SPA) naming charts of the server's query library. The choice only, never a figure: every chart is answered live. Forced RLS on its `workspace_id`. Staff-only.

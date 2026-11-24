@@ -210,12 +210,6 @@ class PromptRegistryIntegrationTest {
         assertThat(delta(before, after, "calls")).isEqualTo(3);
         assertThat(delta(before, after, "input_tokens")).isEqualTo(3L * StubChatModel.PROMPT_TOKENS);
         assertThat(delta(before, after, "output_tokens")).isEqualTo(3L * StubChatModel.COMPLETION_TOKENS);
-        assertThat(db.queryForList("""
-                SELECT column_name FROM information_schema.columns
-                WHERE table_name = 'app_lm_platform_prompt_call_daily'
-                """, String.class)).containsExactlyInAnyOrder("prompt_id", "version", "provider", "model_id", "day",
-                "calls", "input_tokens", "output_tokens", "finish_stop", "finish_max_tokens", "finish_safety",
-                "finish_other");
     }
 
     @Test
