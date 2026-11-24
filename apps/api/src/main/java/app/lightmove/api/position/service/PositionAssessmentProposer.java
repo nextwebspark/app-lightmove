@@ -4,6 +4,7 @@ import app.lightmove.api.common.constant.CompetencyPanel;
 import app.lightmove.api.common.constant.CriterionMode;
 import app.lightmove.api.core.llm.model.BlockedAnswer;
 import app.lightmove.api.core.llm.model.Pseudonyms;
+import app.lightmove.api.core.llm.model.AttributedAnswer;
 import app.lightmove.api.core.llm.service.StructuredPrompt;
 import app.lightmove.api.core.llm.service.StructuredPromptFactory;
 import app.lightmove.api.core.llm.service.TextPseudonymiser.Redaction;
@@ -38,7 +39,7 @@ import org.springframework.stereotype.Service;
 public class PositionAssessmentProposer {
 
     private static final String LABEL = "Assessment extraction";
-    private static final String PROMPT_ID = "position-extract-assessment";
+    static final String PROMPT_ID = "position-extract-assessment";
 
     /** Binds to {@link ModelAssessmentAnswer}, whose only required field is {@code criteria}. */
     private static final String BLOCKED =
@@ -98,7 +99,8 @@ public class PositionAssessmentProposer {
 
     /** The model call and what follows it, on a document already redacted: no budget, no table. */
     ProposedAssessment read(String redactedText, String vocabulary, Pseudonyms pseudonyms, String originalText) {
-        ModelAssessmentAnswer answered = ask(redactedText, vocabulary);
+        AttributedAnswer<ModelAssessmentAnswer> attributed = ask(redactedText, vocabulary);
+        ModelAssessmentAnswer answered = attributed.answer();
         if (answered == null || wasBlocked(answered)) {
             if (answered != null) {
                 log.warn("Assessment extraction blocked before reaching the model: the document "
@@ -106,11 +108,11 @@ public class PositionAssessmentProposer {
             }
             return finish(empty());
         }
-        return finish(reconcile(answered, pseudonyms, originalText));
+        return finish(reconcile(answered, pseudonyms, originalText)).answeredBy(attributed.answeredBy());
     }
 
-    private ModelAssessmentAnswer ask(String redactedText, String vocabulary) {
-        return prompt.ask(ModelAssessmentAnswer.class, user -> user.text(USER_MESSAGE)
+    private AttributedAnswer<ModelAssessmentAnswer> ask(String redactedText, String vocabulary) {
+        return prompt.askAttributed(ModelAssessmentAnswer.class, user -> user.text(USER_MESSAGE)
                 .param("text", redactedText)
                 .param("vocabulary", vocabulary));
     }

@@ -284,6 +284,22 @@ own values still win over whatever the template just seeded.
   apart (to give each its own message, say) needs reading the file's own storage directory, which
   nothing here does yet.
 
+## Accept rate (#1452)
+
+What people kept of a reading is counted per field against the prompt version that answered it, for the Prompts
+screen's Usage tab, and only **when the brief is published**: a reading fills the brief at once through autosave, and
+a person may change any field afterwards, so publishing is the moment the brief is said to be done.
+
+- Each extraction response names its `promptVersion` (null when the heuristic answered, or the bundled prompt).
+- The fill's write for each step sends it back once as `readingVersion` (`PositionPage.tsx`'s `readingVersions`); a
+  later edit never does. `PositionSuggestions` then records, in `app_lm_position_suggested_field` (V244), every
+  field of that step still `DOCUMENT`: a scalar by its key, a list by its name with how many rows came from the
+  document. A re-read replaces what it fills again; a field a person changed keeps its record.
+- At publish each record counts once: a scalar is **kept** while its source is still `DOCUMENT`, a list while that
+  many rows still are; otherwise **changed** (edited, cleared or undone). The records are then deleted, so a
+  republish counts only what a later reading filled. An unpublished brief counts nothing.
+- The version is the client's word, so it counts only against a version that has served (`docs/llm-guardrails.md`).
+
 ## Out of scope (this slice)
 
 - `.xlsx` and `.pptx` themselves. `PositionDocumentTextReader`'s reader-per-format design (see above)

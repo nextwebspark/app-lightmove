@@ -4,6 +4,7 @@ import app.lightmove.api.common.constant.EmploymentType;
 import app.lightmove.api.common.constant.Seniority;
 import app.lightmove.api.core.llm.model.BlockedAnswer;
 import app.lightmove.api.core.llm.model.Pseudonyms;
+import app.lightmove.api.core.llm.model.AttributedAnswer;
 import app.lightmove.api.core.llm.service.StructuredPrompt;
 import app.lightmove.api.core.llm.service.StructuredPromptFactory;
 import app.lightmove.api.core.llm.service.TextPseudonymiser.Redaction;
@@ -32,7 +33,7 @@ import org.springframework.stereotype.Service;
 @Slf4j
 public class PositionDetailsProposer {
 
-    private static final String PROMPT_ID = "position-extract-details";
+    static final String PROMPT_ID = "position-extract-details";
     private static final String LABEL = "Position extraction";
 
     /** The guard's answer when it blocks a call; binds to {@link ModelDetailsAnswer}'s one required field. */
@@ -88,7 +89,8 @@ public class PositionDetailsProposer {
     /** The model call and what follows it, on a document already redacted and read once: no budget, no table. */
     ProposedPositionDetails read(String redactedText, Pseudonyms pseudonyms, String originalText,
                                  ProposedPositionDetails heuristic) {
-        ModelDetailsAnswer answered = ask(redactedText);
+        AttributedAnswer<ModelDetailsAnswer> attributed = ask(redactedText);
+        ModelDetailsAnswer answered = attributed.answer();
         if (answered == null) {
             return finish(heuristic);
         }
@@ -97,11 +99,11 @@ public class PositionDetailsProposer {
                     + "the injection word list. Falling back to the heuristic reader.");
             return finish(heuristic);
         }
-        return finish(reconcile(answered, pseudonyms, originalText, heuristic));
+        return finish(reconcile(answered, pseudonyms, originalText, heuristic)).answeredBy(attributed.answeredBy());
     }
 
-    private ModelDetailsAnswer ask(String redactedText) {
-        return prompt.ask(ModelDetailsAnswer.class, user -> user.text(USER_MESSAGE)
+    private AttributedAnswer<ModelDetailsAnswer> ask(String redactedText) {
+        return prompt.askAttributed(ModelDetailsAnswer.class, user -> user.text(USER_MESSAGE)
                 .param("text", redactedText));
     }
 

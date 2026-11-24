@@ -4,6 +4,7 @@ import app.lightmove.api.common.constant.NoticePeriod;
 import app.lightmove.api.common.constant.NoticeUnit;
 import app.lightmove.api.core.llm.model.BlockedAnswer;
 import app.lightmove.api.core.llm.model.Pseudonyms;
+import app.lightmove.api.core.llm.model.AttributedAnswer;
 import app.lightmove.api.core.llm.service.StructuredPrompt;
 import app.lightmove.api.core.llm.service.StructuredPromptFactory;
 import app.lightmove.api.core.llm.service.TextPseudonymiser.Redaction;
@@ -31,7 +32,7 @@ import org.springframework.stereotype.Service;
 public class PositionReportingProposer {
 
     private static final String LABEL = "Reporting extraction";
-    private static final String PROMPT_ID = "position-extract-reporting";
+    static final String PROMPT_ID = "position-extract-reporting";
 
     /** Binds to {@link ModelReportingAnswer}, whose only required field is {@code reportsToTitle}. */
     private static final String BLOCKED = "{\"reportsToTitle\":\"" + BlockedAnswer.MARKER + "\"}";
@@ -81,7 +82,8 @@ public class PositionReportingProposer {
 
     /** The model call and what follows it, on a document already redacted: no budget, no table. */
     ProposedReportingStructure read(String redactedText, Pseudonyms pseudonyms, String originalText) {
-        ModelReportingAnswer answered = ask(redactedText);
+        AttributedAnswer<ModelReportingAnswer> attributed = ask(redactedText);
+        ModelReportingAnswer answered = attributed.answer();
         if (answered == null || wasBlocked(answered)) {
             if (answered != null) {
                 log.warn("Reporting extraction blocked before reaching the model: the document "
@@ -89,11 +91,11 @@ public class PositionReportingProposer {
             }
             return finish(empty());
         }
-        return finish(reconcile(answered, pseudonyms, originalText));
+        return finish(reconcile(answered, pseudonyms, originalText)).answeredBy(attributed.answeredBy());
     }
 
-    private ModelReportingAnswer ask(String redactedText) {
-        return prompt.ask(ModelReportingAnswer.class, user -> user.text(USER_MESSAGE)
+    private AttributedAnswer<ModelReportingAnswer> ask(String redactedText) {
+        return prompt.askAttributed(ModelReportingAnswer.class, user -> user.text(USER_MESSAGE)
                 .param("text", redactedText));
     }
 

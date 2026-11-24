@@ -257,4 +257,7 @@ export interface PositionExtraction {
    * no template. Optional here rather than required: #398 is what starts reading it, and marking it
    * required now would force every existing test fixture to supply a value it does not yet use. */
   usualDirectReports?: string[] | null;
+  /** The prompt version that answered; null when the heuristic did, or the bundled prompt. The step's write that
+   * fills what this reading found sends it back as `readingVersion` (#1452). */
+  promptVersion?: number | null;
 }

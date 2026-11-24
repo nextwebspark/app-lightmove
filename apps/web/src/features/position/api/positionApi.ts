@@ -58,19 +58,34 @@ export function applyTemplate(projectId: string, templateId: string): Promise<Po
   });
 }
 
-export function putDetails(projectId: string, details: PositionDetails): Promise<Position> {
-  return request<Position>(`${base(projectId)}/details`, { method: "PUT", body: details });
+/**
+ * `readingVersion` on a step's write: the document reading whose suggestions it carries, sent once, with the write a
+ * fill schedules, so the brief's publish can count what people kept of them (#1452).
+ */
+function withReading<T extends object>(body: T, readingVersion: number | null | undefined): T {
+  return readingVersion == null ? body : { ...body, readingVersion };
 }
 
-export function putContext(projectId: string, context: MandateContext): Promise<Position> {
-  return request<Position>(`${base(projectId)}/context`, { method: "PUT", body: context });
+export function putDetails(projectId: string, details: PositionDetails, readingVersion?: number | null): Promise<Position> {
+  return request<Position>(`${base(projectId)}/details`, { method: "PUT", body: withReading(details, readingVersion) });
 }
 
-export function putReporting(projectId: string, reporting: ReportingStructure): Promise<Position> {
+export function putContext(projectId: string, context: MandateContext, readingVersion?: number | null): Promise<Position> {
+  return request<Position>(`${base(projectId)}/context`, { method: "PUT", body: withReading(context, readingVersion) });
+}
+
+export function putReporting(
+  projectId: string,
+  reporting: ReportingStructure,
+  readingVersion?: number | null,
+): Promise<Position> {
   // The target date is the project's and this step only displays it, so it is dropped rather than
   // echoed back: the server has no field for it, and sending one implies an owner this screen is not.
   const { targetStart: _targetStart, ...editable } = reporting;
-  return request<Position>(`${base(projectId)}/reporting`, { method: "PUT", body: editable });
+  return request<Position>(`${base(projectId)}/reporting`, {
+    method: "PUT",
+    body: withReading(editable, readingVersion),
+  });
 }
 
 export function putCompensation(projectId: string, compensation: Compensation): Promise<Position> {
@@ -80,8 +95,11 @@ export function putCompensation(projectId: string, compensation: Compensation): 
   });
 }
 
-export function putCriteria(projectId: string, criteria: Criterion[]): Promise<Position> {
-  return request<Position>(`${base(projectId)}/criteria`, { method: "PUT", body: { criteria } });
+export function putCriteria(projectId: string, criteria: Criterion[], readingVersion?: number | null): Promise<Position> {
+  return request<Position>(`${base(projectId)}/criteria`, {
+    method: "PUT",
+    body: withReading({ criteria }, readingVersion),
+  });
 }
 
 export function putCompetencies(
@@ -89,10 +107,11 @@ export function putCompetencies(
   technical: Competency[],
   behavioural: Competency[],
   technicalShare: number,
+  readingVersion?: number | null,
 ): Promise<Position> {
   return request<Position>(`${base(projectId)}/competencies`, {
     method: "PUT",
-    body: { technical, behavioural, technicalShare },
+    body: withReading({ technical, behavioural, technicalShare }, readingVersion),
   });
 }
 

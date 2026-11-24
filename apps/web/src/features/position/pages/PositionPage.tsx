@@ -139,6 +139,9 @@ export function PositionPage() {
   return <PositionBrief key={project.id} projectId={project.id} position={position} />;
 }
 
+/** The autosave channels a document reading fills, each sending the reading's version once (#1452). */
+type ReadingChannel = "details" | "context" | "reporting" | "criteria" | "competencies";
+
 /**
  * The brief editor: five steps behind a rail, the step in the URL. No Save button — each section autosaves its
  * own PUT and gets the whole brief back; "Save draft" flushes. The Role Brief writes through three channels.
@@ -214,6 +217,26 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
    */
   const serially = useSerialQueue();
 
+  /**
+   * The version of the document reading each channel's next write carries (#1452): set by a fill for the channels it
+   * schedules, sent with that write and then dropped, so an ordinary edit never claims a reading. Kept while the
+   * write fails, for the autosave's retry.
+   */
+  const readingVersions = useRef<Partial<Record<ReadingChannel, number>>>({});
+  const carryingReading = async (
+    channel: ReadingChannel,
+    write: (readingVersion: number | null) => Promise<Position>,
+  ) => {
+    const version = readingVersions.current[channel] ?? null;
+    const saved = await write(version);
+    if (version !== null && readingVersions.current[channel] === version) delete readingVersions.current[channel];
+    return saved;
+  };
+  const rememberReading = (channel: ReadingChannel, version: number | null | undefined) => {
+    if (version == null) delete readingVersions.current[channel];
+    else readingVersions.current[channel] = version;
+  };
+
   /** Shared persistence shape: cache the returned snapshot. A refusal is the autosave's to report. */
   const persist =
     <T,>(call: (payload: T) => Promise<Position>, onSaved?: () => void) =>
@@ -225,17 +248,25 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
 
   const detailsSave = useAutosave(
     // The Role Brief writes the mandate's own role title, so the projects list's Role column goes stale.
-    persist((next: PositionDetails) => positionApi.putDetails(projectId, next), () => {
-      void queryClient.invalidateQueries({ queryKey: projectsApi.PROJECTS_KEY });
-    }),
+    persist(
+      (next: PositionDetails) =>
+        carryingReading("details", (version) => positionApi.putDetails(projectId, next, version)),
+      () => {
+        void queryClient.invalidateQueries({ queryKey: projectsApi.PROJECTS_KEY });
+      },
+    ),
     autosaveOptions,
   );
   const contextSave = useAutosave(
-    persist((next: MandateContext) => positionApi.putContext(projectId, next)),
+    persist((next: MandateContext) =>
+      carryingReading("context", (version) => positionApi.putContext(projectId, next, version)),
+    ),
     autosaveOptions,
   );
   const reportingSave = useAutosave(
-    persist((next: ReportingStructure) => positionApi.putReporting(projectId, next)),
+    persist((next: ReportingStructure) =>
+      carryingReading("reporting", (version) => positionApi.putReporting(projectId, next, version)),
+    ),
     autosaveOptions,
   );
   const compensationSave = useAutosave(
@@ -243,12 +274,16 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
     autosaveOptions,
   );
   const criteriaSave = useAutosave(
-    persist((next: Criterion[]) => positionApi.putCriteria(projectId, next)),
+    persist((next: Criterion[]) =>
+      carryingReading("criteria", (version) => positionApi.putCriteria(projectId, next, version)),
+    ),
     autosaveOptions,
   );
   const competenciesSave = useAutosave(
     persist((panels: { technical: Competency[]; behavioural: Competency[]; technicalShare: number }) =>
-      positionApi.putCompetencies(projectId, panels.technical, panels.behavioural, panels.technicalShare),
+      carryingReading("competencies", (version) =>
+        positionApi.putCompetencies(projectId, panels.technical, panels.behavioural, panels.technicalShare, version),
+      ),
     ),
     autosaveOptions,
   );
@@ -672,13 +707,18 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
       setUsualDirectReports(results.reporting?.usualDirectReports ?? null);
 
       if (outcome.changed.has("brief") || outcome.changed.has("reporting")) {
+        rememberReading("reporting", results.reporting?.promptVersion);
         reportingSave.schedule(outcome.next.reporting);
       }
       if (outcome.changed.has("brief")) {
+        rememberReading("details", results.details?.promptVersion);
+        rememberReading("context", results.context?.promptVersion);
         detailsSave.schedule(outcome.next.details);
         contextSave.schedule(outcome.next.context);
       }
       if (outcome.changed.has("assessment")) {
+        rememberReading("criteria", results.assessment?.promptVersion);
+        rememberReading("competencies", results.assessment?.promptVersion);
         criteriaSave.schedule(outcome.next.criteria);
         competenciesSave.schedule({
           technical: outcome.next.technical,

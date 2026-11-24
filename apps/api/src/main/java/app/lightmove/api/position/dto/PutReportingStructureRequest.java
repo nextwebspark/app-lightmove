@@ -6,6 +6,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 import java.util.List;
 import java.util.Map;
@@ -28,5 +29,10 @@ public record PutReportingStructureRequest(
         NoticeUnit noticeUnit,
 
         /** Null defaults every key of this step to {@code MANUAL}. */
-        Map<String, FieldSource> fieldSources
+        Map<String, FieldSource> fieldSources,
+        /**
+         * The {@code promptVersion} of the document reading this write carries, sent once, with the write that
+         * fills it (#1452). The client's word: counted only against a version that has served.
+         */
+        @Positive Integer readingVersion
 ) {}
