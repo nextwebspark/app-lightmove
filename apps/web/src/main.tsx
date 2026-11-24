@@ -1,6 +1,6 @@
 // First, so no schema is parsed before zod is told to skip its eval probe.
 import "./lib/zodConfig";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { MutationCache, QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
@@ -15,13 +15,15 @@ import { BillingRefusalSheets } from "./features/billing/components/BillingRefus
 import { applyStoredTheme } from "./features/theme/useTheme";
 import { DateTimeBoundary } from "./lib/datetime/DateTimeBoundary";
 import { redrawFaviconOnColorSchemeChange } from "./lib/favicon";
+import { markOverviewsStale } from "./lib/overviewQueries";
 import "./styles/global.css";
 
 // Before the first paint, so a dark-mode user is not flashed a white login screen on the way in.
 applyStoredTheme();
 redrawFaviconOnColorSchemeChange();
 
-const queryClient = new QueryClient({
+const queryClient: QueryClient = new QueryClient({
+  mutationCache: new MutationCache({ onSuccess: () => markOverviewsStale(queryClient) }),
   defaultOptions: {
     queries: {
       // The apiClient already retries a 401 once, after refreshing. A second retry on top of that

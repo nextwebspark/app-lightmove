@@ -30,6 +30,7 @@ const TONE: Record<AttentionReason, string> = {
  */
 export function NeedsAttention({
   lines,
+  comingUp,
   more,
   clientOf,
   myUserId,
@@ -43,6 +44,8 @@ export function NeedsAttention({
   now = new Date(),
 }: {
   lines: AttentionLine[];
+  /** Tasks not due yet, left to My tasks and only counted here. */
+  comingUp: number;
   /** More wait than the server sent. */
   more: boolean;
   clientOf: (projectId: string) => string | undefined;
@@ -92,9 +95,12 @@ export function NeedsAttention({
               {expanded ? "Show fewer" : `Show ${hidden} more`}
             </button>
           )}
-          <Link to="/tasks" className="ml-auto font-medium text-u-accent hover:underline">
-            All my tasks
-          </Link>
+          <span className="ml-auto flex items-center gap-3">
+            {comingUp > 0 && <span className="text-u-text3">{comingUp} coming up</span>}
+            <Link to="/tasks" className="font-medium text-u-accent hover:underline">
+              All my tasks
+            </Link>
+          </span>
         </>
         )
       }
@@ -130,7 +136,11 @@ export function NeedsAttention({
           <CardEmpty
             icon={ICONS.check}
             title="You're all caught up"
-            body="Replies, follow-ups and tasks land here as they come in."
+            body={
+              comingUp > 0
+                ? `Nothing is due today. ${comingUp === 1 ? "1 task is" : `${comingUp} tasks are`} coming up on My tasks.`
+                : "Replies, follow-ups and tasks land here as they come in."
+            }
             action={
               <Link to="/tasks" className={buttonClassName("secondary", "px-3 py-1.5 text-note")}>
                 Open My tasks

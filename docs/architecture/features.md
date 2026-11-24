@@ -470,7 +470,8 @@ arranged or added to (the customisable grid, V233–V243, is gone).
   `MyOutreachQueueService`, each position's own `ConversationService.list`; **Team** for a lead reads the whole queue
   of the positions they lead) and their overdue and today's tasks, a task a row already carries never drawn twice.
   One list, most urgent first (`attentionOf`): overdue, then replies and delivery problems (newest first), then what
-  is due today and later. Each line names the position and its unit (from the positions list), carries a chip
+  is due today. A task due tomorrow or later is not listed, even a follow-up an executive's outreach row carries; the
+  foot counts it ("N coming up") beside All my tasks. Each line names the position and its unit (from the positions list), carries a chip
   (`2d overdue`, `24m ago`, `Due 16:00`, `Delivery problem`) and one action — Reply or Resolve into the position's
   queue, Follow up or Open on the executive's record — the first line's drawn primary.
 - **Today** — the meetings on the caller's own calendar today (`GET /me/meetings/today?tz=`, `MyMeetingsService`:
@@ -482,6 +483,11 @@ arranged or added to (the customisable grid, V233–V243, is gone).
   the **next milestone** (`nextMilestoneOf`, from the position's dates: Universe mapped by `mappingTargetDate` until
   outreach is live, Map/Shortlist delivered by `deliveryDate` until delivered, then Target start while ahead; a date
   passed and unmet is overdue) and the due date (`deliveryDate`, else `targetDate`).
+
+Home never needs a reload. It draws the cached answer at once and reads again behind it: any successful write anywhere
+marks its queries stale (`OVERVIEW_QUERY` meta, `markOverviewsStale` on the `MutationCache` in `main.tsx`), so a task
+completed on My tasks or a reply sent from Outreach is gone when Home opens; it also reads again on tab focus and
+every two minutes while open, for replies and calendar changes that arrive by webhook.
 
 **Start page** (`startpage`, Settings → Profile → Start page, `uncava-design` `Settings.dc.html?startPage=…`) is where
 Uncava opens in a workspace: Home (the default, no row), Positions, Candidates, Tasks, one of the member's workspace

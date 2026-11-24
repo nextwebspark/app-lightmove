@@ -7,6 +7,7 @@ import { StagePill } from "../../../components/ui/Badge";
 import { cn } from "../../../lib/cn";
 import { formatShortDate, formatWeekdayDate, todayKey } from "../../../lib/datetime/format";
 import { getDateTimePreferences } from "../../../lib/datetime/preferences";
+import { OVERVIEW_QUERY, OVERVIEW_REFRESH_MS } from "../../../lib/overviewQueries";
 import { useAuth } from "../../auth/AuthProvider";
 import { StartPageNotice } from "../../startpage/components/StartPageNotice";
 import { isPureClient, seesEveryPosition } from "../../auth/roles";
@@ -115,32 +116,39 @@ function StaffHome({ projects, header }: { projects: Project[]; header: HeaderFn
   const clientNames = useMemo(() => new Map(projects.map((project) => [project.id, project.clientName])), [projects]);
   const clientOf = (projectId: string) => clientNames.get(projectId);
 
-  // Each read runs every position's own queue on the server, so it is kept a minute rather than redone on every focus.
+  // Home shows the cached answer at once and reads again behind it: after any write anywhere (OVERVIEW_QUERY), on
+  // coming back to the tab, and every two minutes while open. No refresh button: what it shows is never older than that.
+  const live = { meta: OVERVIEW_QUERY, refetchOnWindowFocus: true, refetchInterval: OVERVIEW_REFRESH_MS } as const;
+  // Each read runs every position's own queue on the server, so it is kept a minute unless something changed.
   const outreach = useQuery({
     queryKey: homeApi.MY_OUTREACH_NEEDS_KEY(shownScope),
     queryFn: ({ signal }) => homeApi.getMyOutreachNeeds(shownScope, signal),
     staleTime: 60_000,
-    refetchOnWindowFocus: false,
+    ...live,
   });
   // Home's own keys, never under My tasks' `["tasks", "mine"]`: that card writes its ticks into every entry under its
   // prefix as pages of an infinite list, and a plain answer there made each tick fail.
   const today = useQuery({
     queryKey: homeApi.HOME_TASKS_KEY("today"),
     queryFn: ({ signal }) => tasksApi.getMyTasks("today", { size: 50, signal }),
+    ...live,
   });
   const overdue = useQuery({
     queryKey: homeApi.HOME_TASKS_KEY("overdue"),
     queryFn: ({ signal }) => tasksApi.getMyTasks("overdue", { size: 50, signal }),
+    ...live,
   });
   const assigned = useQuery({
     queryKey: homeApi.HOME_TASKS_KEY("assigned_by_me"),
     queryFn: ({ signal }) => tasksApi.getMyTasks("assigned_by_me", { size: 50, signal }),
+    ...live,
     enabled: shownScope === "team",
   });
   const meetings = useQuery({
     queryKey: homeApi.MY_MEETINGS_TODAY_KEY,
     queryFn: ({ signal }) => homeApi.getMyMeetingsToday(signal),
     staleTime: 60_000,
+    ...live,
   });
 
   // Team reads what the caller handed out that is due by the end of today, and the whole queue of the positions they
@@ -153,7 +161,7 @@ function StaffHome({ projects, header }: { projects: Project[]; header: HeaderFn
       (task) => task.status === "open" && task.dueAt !== null && todayKey(new Date(task.dueAt), timeZone) <= endOfToday,
     );
   }, [shownScope, assigned.data, overdue.data, today.data]);
-  const lines = useMemo(
+  const { lines, comingUp } = useMemo(
     () => attentionOf(needsYouOf(outreach.data?.rows ?? [], ownTasks)),
     [outreach.data, ownTasks],
   );
@@ -185,6 +193,7 @@ function StaffHome({ projects, header }: { projects: Project[]; header: HeaderFn
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1.85fr)_minmax(0,1fr)]">
           <NeedsAttention
             lines={lines}
+            comingUp={comingUp}
             more={outreach.data?.truncated ?? false}
             clientOf={clientOf}
             myUserId={user?.id}

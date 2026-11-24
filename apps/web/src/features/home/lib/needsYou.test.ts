@@ -96,7 +96,16 @@ describe("needsYouOf", () => {
 describe("attentionOf", () => {
   const now = new Date("2026-10-14T10:00:00Z");
 
-  it("ranks overdue first, then replies and delivery problems, then today, then later", () => {
+  // A follow-up an outreach row carried showed whatever its date, while the caller's own task due the same day did not.
+  it("leaves out a follow-up due next week even when an executive's outreach row carries it", () => {
+    const quiet = conversation("quiet", "FOLLOW_UP", "t9");
+    quiet.row = { ...quiet.row, action: { ...quiet.row.action!, dueAt: "2026-10-21T09:00:00Z" } };
+    const { lines, comingUp } = attentionOf(needsYouOf([quiet, conversation("reply", "NEEDS_REPLY")], [], now), now);
+    expect(lines.map((line) => line.key)).toEqual(["c:p1:reply"]);
+    expect(comingUp).toBe(1);
+  });
+
+  it("ranks overdue first, then replies and delivery problems, then today, and only counts what is due later", () => {
     const items = needsYouOf(
       [conversation("bounced", "ATTENTION"), conversation("reply", "NEEDS_REPLY")],
       [
@@ -107,14 +116,14 @@ describe("attentionOf", () => {
       ],
       now,
     );
-    expect(attentionOf(items, now).map((line) => [line.key, line.reason])).toEqual([
+    const { lines, comingUp } = attentionOf(items, now);
+    expect(lines.map((line) => [line.key, line.reason])).toEqual([
       ["t:late", "overdue"],
       ["c:p1:reply", "reply"],
       ["c:p1:bounced", "delivery"],
       ["t:today", "today"],
-      ["t:later", "later"],
-      ["t:undated", "later"],
     ]);
+    expect(comingUp).toBe(2);
   });
 
   it("puts the longest-late first, and the newest reply first", () => {
@@ -126,7 +135,7 @@ describe("attentionOf", () => {
       [task("yesterday", { dueAt: "2026-10-13T09:00:00Z" }), task("lastWeek", { dueAt: "2026-10-07T09:00:00Z" })],
       now,
     );
-    expect(attentionOf(items, now).map((line) => line.key)).toEqual([
+    expect(attentionOf(items, now).lines.map((line) => line.key)).toEqual([
       "t:lastWeek",
       "t:yesterday",
       "c:p1:newer",
@@ -135,7 +144,7 @@ describe("attentionOf", () => {
   });
 
   it("draws a follow-up row as the task it waits on", () => {
-    const [line] = attentionOf(needsYouOf([conversation("quiet", "FOLLOW_UP", "t9")], [], now), now);
+    const [line] = attentionOf(needsYouOf([conversation("quiet", "FOLLOW_UP", "t9")], [], now), now).lines;
     expect(line).toMatchObject({ group: "FOLLOW_UP", taskKind: "follow_up", taskTitle: "Reply", reason: "overdue" });
   });
 });

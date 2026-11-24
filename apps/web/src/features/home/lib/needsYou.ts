@@ -75,11 +75,18 @@ export interface AttentionLine {
 
 const REASON_ORDER: Record<AttentionReason, number> = { overdue: 0, reply: 1, delivery: 2, today: 3, later: 4 };
 
+/** What Home lists, and how many tasks it leaves to My tasks because they are not due yet. */
+export interface Attention {
+  lines: AttentionLine[];
+  comingUp: number;
+}
+
 /**
- * Needs your attention, in one list: overdue first (longest late at the top), then replies and delivery problems
- * (newest first), then what is due today and later (soonest first, undated last).
+ * Needs your attention, in one list of what to act on now: overdue first (longest late at the top), then replies and
+ * delivery problems (newest first), then what is due today (soonest first). A task due tomorrow or later is not on it,
+ * whether it is the caller's own or a follow-up an executive's outreach row carries; it is only counted.
  */
-export function attentionOf(items: readonly NeedsItem[], now: Date = new Date()): AttentionLine[] {
+export function attentionOf(items: readonly NeedsItem[], now: Date = new Date()): Attention {
   const today = dayKeyOf(now);
   const reasonOfDue = (dueAt: string | null): AttentionReason => {
     if (!dueAt) return "later";
@@ -134,7 +141,7 @@ export function attentionOf(items: readonly NeedsItem[], now: Date = new Date())
       at: row.action.dueAt,
     };
   });
-  return lines.sort((left, right) => {
+  const sorted = lines.sort((left, right) => {
     const byReason = REASON_ORDER[left.reason] - REASON_ORDER[right.reason];
     if (byReason !== 0) return byReason;
     if (left.at === right.at) return 0;
@@ -143,4 +150,6 @@ export function attentionOf(items: readonly NeedsItem[], now: Date = new Date())
     const earlierFirst = left.at < right.at ? -1 : 1;
     return left.reason === "reply" || left.reason === "delivery" ? -earlierFirst : earlierFirst;
   });
+  const due = sorted.filter((line) => line.reason !== "later");
+  return { lines: due, comingUp: sorted.length - due.length };
 }
