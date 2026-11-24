@@ -858,8 +858,8 @@ be on it, and a key off it is a 404 on every route. First on it are five of Find
 worker takes one `SourcingRunLimits` when the run starts, and the run row records the `run-deadline` it was requested
 under (V242), so a change reaches the runs requested after it; a run is read as lost past its own deadline and a
 minute's grace (`lostAfterSeconds` on the run, which the SPA prefers to the config's), never past one lowered while
-it was live. `picks-per-company` and
-`profiles-per-company` are bound from yml and read by nothing, so they are not listed. **The read seam is
+it was live. How many live profiles a run buys per company is the consultant's choice on the screen
+(`SearchCriteria.perCompany`), not a setting (#1447). **The read seam is
 `ApplicationVariables.intValue`**: the stored override, else the yml value. Overrides are cached per instance and
 dropped through `core/reload` (scope `settings`: a bump in the writing transaction, the `NOTIFY`, and the 30-second
 re-read; the cache itself is `ReloadableSnapshot`, shared with the prompt registry), so a change is live everywhere
