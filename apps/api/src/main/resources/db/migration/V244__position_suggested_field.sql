@@ -1,6 +1,6 @@
 -- #1452: what a document reading filled on a position's brief, kept until the brief is published, when each field
 -- is counted once against the prompt version that suggested it: kept if it still holds the suggestion, changed if a
--- person edited, cleared or undid it (PositionSuggestionCounter). Keys and counts only, never a value.
+-- person edited, cleared or undid it (PositionSuggestions). Keys and counts only, never a value.
 --
 -- field_key is a scalar's brief key (PositionFieldKeys) or a list's name; for a list, document_items is how many of
 -- its rows the reading left, and it is kept only while that many still carry the document as their source.
