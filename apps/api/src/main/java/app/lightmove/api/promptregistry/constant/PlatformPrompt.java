@@ -10,7 +10,7 @@ import lombok.RequiredArgsConstructor;
  * The prompts the platform console lists, by registry id: the name and the line a super admin reads, and how the
  * answer is read. {@code PlatformPromptTest} holds this to the shipped {@code prompts/*.st}, both ways.
  * {@code decisionsCounted}: a screen asks a person to keep or change this prompt's answer, and reports it through
- * {@code PromptOutcomes}, so its usage has a kept share.
+ * {@code PromptOutcomes}, so its usage has a kept share; {@code PlatformPromptTest} holds it to those callers.
  */
 @Getter
 @RequiredArgsConstructor
