@@ -17,6 +17,7 @@ import type {
   Compensation,
   Competency,
   Criterion,
+  DocumentReading,
   MandateContext,
   Position,
   PositionDetails,
@@ -45,6 +46,7 @@ import {
   type PositionSnapshot,
   type Receipts,
 } from "../lib/documentFill";
+import { documentReadingsOf, type ReadingChannel } from "../lib/documentReading";
 import { addSuggestedSeat } from "../lib/orgChart";
 import {
   CONTEXT_FIELD_KEYS,
@@ -214,6 +216,22 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
    */
   const serially = useSerialQueue();
 
+  /**
+   * The document reading each channel's next write carries (#1452): set by a fill for the channels it schedules, sent
+   * with that write and then dropped, so an ordinary edit never claims a reading. Kept while the write fails, for the
+   * autosave's retry. Dropped by identity, so a newer fill's reading survives an older write still in flight.
+   */
+  const pendingReadings = useRef<Partial<Record<ReadingChannel, DocumentReading>>>({});
+  const carryingReading = async (
+    channel: ReadingChannel,
+    write: (reading: DocumentReading | null) => Promise<Position>,
+  ) => {
+    const reading = pendingReadings.current[channel] ?? null;
+    const saved = await write(reading);
+    if (reading !== null && pendingReadings.current[channel] === reading) delete pendingReadings.current[channel];
+    return saved;
+  };
+
   /** Shared persistence shape: cache the returned snapshot. A refusal is the autosave's to report. */
   const persist =
     <T,>(call: (payload: T) => Promise<Position>, onSaved?: () => void) =>
@@ -225,17 +243,25 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
 
   const detailsSave = useAutosave(
     // The Role Brief writes the mandate's own role title, so the projects list's Role column goes stale.
-    persist((next: PositionDetails) => positionApi.putDetails(projectId, next), () => {
-      void queryClient.invalidateQueries({ queryKey: projectsApi.PROJECTS_KEY });
-    }),
+    persist(
+      (next: PositionDetails) =>
+        carryingReading("details", (version) => positionApi.putDetails(projectId, next, version)),
+      () => {
+        void queryClient.invalidateQueries({ queryKey: projectsApi.PROJECTS_KEY });
+      },
+    ),
     autosaveOptions,
   );
   const contextSave = useAutosave(
-    persist((next: MandateContext) => positionApi.putContext(projectId, next)),
+    persist((next: MandateContext) =>
+      carryingReading("context", (version) => positionApi.putContext(projectId, next, version)),
+    ),
     autosaveOptions,
   );
   const reportingSave = useAutosave(
-    persist((next: ReportingStructure) => positionApi.putReporting(projectId, next)),
+    persist((next: ReportingStructure) =>
+      carryingReading("reporting", (version) => positionApi.putReporting(projectId, next, version)),
+    ),
     autosaveOptions,
   );
   const compensationSave = useAutosave(
@@ -243,12 +269,16 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
     autosaveOptions,
   );
   const criteriaSave = useAutosave(
-    persist((next: Criterion[]) => positionApi.putCriteria(projectId, next)),
+    persist((next: Criterion[]) =>
+      carryingReading("criteria", (version) => positionApi.putCriteria(projectId, next, version)),
+    ),
     autosaveOptions,
   );
   const competenciesSave = useAutosave(
     persist((panels: { technical: Competency[]; behavioural: Competency[]; technicalShare: number }) =>
-      positionApi.putCompetencies(projectId, panels.technical, panels.behavioural, panels.technicalShare),
+      carryingReading("competencies", (version) =>
+        positionApi.putCompetencies(projectId, panels.technical, panels.behavioural, panels.technicalShare, version),
+      ),
     ),
     autosaveOptions,
   );
@@ -671,14 +701,25 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
       setReceipts((current) => ({ ...current, ...outcome.receipts }));
       setUsualDirectReports(results.reporting?.usualDirectReports ?? null);
 
+      const readings = documentReadingsOf(outcome.next, {
+        details: results.details?.promptVersion,
+        context: results.context?.promptVersion,
+        reporting: results.reporting?.promptVersion,
+        assessment: results.assessment?.promptVersion,
+      });
       if (outcome.changed.has("brief") || outcome.changed.has("reporting")) {
+        pendingReadings.current.reporting = readings.reporting;
         reportingSave.schedule(outcome.next.reporting);
       }
       if (outcome.changed.has("brief")) {
+        pendingReadings.current.details = readings.details;
+        pendingReadings.current.context = readings.context;
         detailsSave.schedule(outcome.next.details);
         contextSave.schedule(outcome.next.context);
       }
       if (outcome.changed.has("assessment")) {
+        pendingReadings.current.criteria = readings.criteria;
+        pendingReadings.current.competencies = readings.competencies;
         criteriaSave.schedule(outcome.next.criteria);
         competenciesSave.schedule({
           technical: outcome.next.technical,
