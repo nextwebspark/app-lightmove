@@ -238,12 +238,21 @@ class PromptManagementIntegrationTest extends PositionTemplateFlowSupport {
         assertThat(health.get("warnings")).extracting(JsonNode::asString)
                 .containsExactly("MORE_FAILURES", "FEWER_ACCEPTED");
         assertThat(health.get("days").asInt()).isEqualTo(1);
+        assertThat(health.get("daysLive").asInt()).isEqualTo(1);
         assertThat(health.get("liveCalls").asLong()).isEqualTo(100);
         assertThat(health.get("liveFailureRate").asDouble()).isEqualTo(0.2);
         assertThat(health.get("previousFailureRate").asDouble()).isEqualTo(0.02);
         assertThat(health.get("liveAcceptRate").asDouble()).isEqualTo(0.4);
         assertThat(health.get("previousAcceptRate").asDouble()).isEqualTo(0.75);
         assertThat(getJson(admin, SHORTLIST).get("prompt").get("health").get("warnings")).hasSize(2);
+
+        db.update("""
+                INSERT INTO app_lm_platform_prompt_label_move (prompt_id, label, from_version, to_version, moved_at)
+                VALUES ('recruiter-shortlist', 'production', ?, ?, now() - interval '1416 hours')
+                """, shipped, edited);
+        JsonNode longLive = promptIn(getJson(admin, PROMPTS), "recruiter-shortlist").get("health");
+        assertThat(longLive.get("days").asInt()).as("the comparison stops at its first thirty days").isEqualTo(30);
+        assertThat(longLive.get("daysLive").asInt()).isEqualTo(60);
     }
 
     private void forgetShortlistCounts() {

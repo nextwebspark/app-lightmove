@@ -41,8 +41,8 @@ final class PromptHealthRules {
             warnings.add(PromptHealthWarning.FEWER_ACCEPTED);
         }
         return new PromptLiveHealth(List.copyOf(warnings), compared.previousVersion(), compared.liveSince(),
-                compared.days(), compared.liveCalls(), liveFailureRate, compared.previousCalls(), previousFailureRate,
-                liveDecisions, liveAcceptRate, previousDecisions, previousAcceptRate);
+                compared.days(), compared.daysLive(), compared.liveCalls(), liveFailureRate, compared.previousCalls(),
+                previousFailureRate, liveDecisions, liveAcceptRate, previousDecisions, previousAcceptRate);
     }
 
     private static Double rateOf(long part, long whole) {

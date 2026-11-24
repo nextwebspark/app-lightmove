@@ -120,6 +120,22 @@ describe("PromptListPage", () => {
     expect(screen.queryByText("Call changes")).not.toBeInTheDocument();
   });
 
+  it("titles the pill with the first days live on a version live longer than the comparison", async () => {
+    vi.mocked(promptApi.listPrompts).mockResolvedValue([
+      overview({ id: "meeting-summary", name: "Meeting summary", health: health({ days: 30, daysLive: 61 }) }),
+    ]);
+    renderPage();
+
+    expect(await screen.findByText("Fails more than v1")).toHaveAttribute(
+      "title",
+      "In its first 30 days live, 8.1% of 412 calls failed, against 2.3% of 1,960 for version 1 over the 30 days before.",
+    );
+    expect(screen.getByText("Kept less than v1")).toHaveAttribute(
+      "title",
+      "In its first 30 days live, people kept 61% of 118 answers as written, against 78% of 240 for version 1 over the 30 days before.",
+    );
+  });
+
   it("opens a prompt from its row", async () => {
     vi.mocked(promptApi.listPrompts).mockResolvedValue(PROMPTS);
     const user = userEvent.setup();

@@ -11,7 +11,7 @@ import {
   compactNumber,
   DEFAULT_USAGE_SPAN,
   failuresOf,
-  percentLabel,
+  fractionPercentLabel,
   USAGE_SPANS,
   versionLabel,
   type UsageSpan,
@@ -142,7 +142,7 @@ function FailedCell({ model }: { model: PromptModelUsage }) {
     <>
       <span className="block font-u-num text-body text-u-text">
         {formatNumber(failed)}
-        {model.calls > 0 && ` · ${percentLabel(failed / model.calls)}`}
+        {model.calls > 0 && ` · ${fractionPercentLabel(failed / model.calls)}`}
       </span>
       <span className="block text-xs text-u-text3">
         {formatNumber(model.finishMaxTokens)} cut off · {formatNumber(model.finishSafety)} safety ·{" "}
@@ -158,7 +158,7 @@ function KeptCell({ version, decisionsCounted }: { version: PromptVersionUsage; 
   return (
     <>
       <span className={cn("block font-u-num text-body", decided > 0 ? "text-u-text" : "text-u-text3")}>
-        {decided > 0 ? percentLabel(version.accepted / decided) : "None decided"}
+        {decided > 0 ? fractionPercentLabel(version.accepted / decided) : "None decided"}
       </span>
       <span className="block text-xs text-u-text3">
         {formatNumber(version.accepted)} kept · {formatNumber(version.changed)} changed

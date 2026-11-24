@@ -114,8 +114,8 @@ export type UsageSpan = (typeof USAGE_SPANS)[number];
 export const DEFAULT_USAGE_SPAN: UsageSpan = 30;
 
 /** 0.0812 → "8.1%". */
-export function percentLabel(fraction: number): string {
-  return `${Math.round(fraction * 1000) / 10}%`;
+export function fractionPercentLabel(fraction: number): string {
+  return `${formatNumber(Math.round(fraction * 1000) / 10)}%`;
 }
 
 // en-US: en-GB writes "4.1m", which reads as metres beside a token count.
@@ -131,6 +131,11 @@ export function failuresOf(usage: PromptModelUsage): number {
   return usage.finishMaxTokens + usage.finishSafety + usage.schemaFailures;
 }
 
+/** Red for a version that fails more, amber for one whose answers are kept less. */
+export function healthTone(warning: PromptHealthWarning): "danger" | "warning" {
+  return warning === "MORE_FAILURES" ? "danger" : "warning";
+}
+
 /** "Fails more than v2": the list's pill for one warning. */
 export function healthPillLabel(warning: PromptHealthWarning, health: PromptLiveHealth): string {
   return `${warning === "MORE_FAILURES" ? "Fails more than" : "Kept less than"} ${versionLabel(health.comparedWithVersion)}`;
@@ -141,28 +146,38 @@ function daysBefore(days: number): string {
 }
 
 function shareOf(rate: number | null, calls: number): string {
-  return `${percentLabel(rate ?? 0)} of ${formatNumber(calls)}`;
+  return `${fractionPercentLabel(rate ?? 0)} of ${formatNumber(calls)}`;
+}
+
+// The server compares a version's first days live at most, so one live longer is not described from its go-live on.
+function firstDaysLive(health: PromptLiveHealth): string | null {
+  if (health.daysLive <= health.days) return null;
+  return health.days === 1 ? "its first day" : `its first ${health.days} days`;
 }
 
 /** The pill's title: both sides' figures, as the server compared them. */
 export function healthPillTitle(warning: PromptHealthWarning, health: PromptLiveHealth): string {
+  const first = firstDaysLive(health);
+  const span = first ? `In ${first} live` : "Since it went live";
   const before = `version ${health.comparedWithVersion} over ${daysBefore(health.days)}`;
   return warning === "MORE_FAILURES"
-    ? `Since it went live, ${shareOf(health.liveFailureRate, health.liveCalls)} calls failed, against ` +
+    ? `${span}, ${shareOf(health.liveFailureRate, health.liveCalls)} calls failed, against ` +
         `${shareOf(health.previousFailureRate, health.previousCalls)} for ${before}.`
-    : `Since it went live, people kept ${shareOf(health.liveAcceptRate, health.liveDecisions)} answers as ` +
+    : `${span}, people kept ${shareOf(health.liveAcceptRate, health.liveDecisions)} answers as ` +
         `written, against ${shareOf(health.previousAcceptRate, health.previousDecisions)} for ${before}.`;
 }
 
 /** The prompt page's note for one warning, which points at Usage. */
 export function healthNote(warning: PromptHealthWarning, health: PromptLiveHealth, liveVersion: number): string {
+  const first = firstDaysLive(health);
   const since = formatShortDate(health.liveSince);
+  const span = first ? `in ${first} after going live on ${since}` : `since it went live on ${since}`;
   const before = `in ${daysBefore(health.days)}. Usage has the detail.`;
   return warning === "MORE_FAILURES"
     ? `Version ${liveVersion} fails more often than version ${health.comparedWithVersion} did: ` +
-        `${shareOf(health.liveFailureRate, health.liveCalls)} calls since it went live on ${since}, against ` +
+        `${shareOf(health.liveFailureRate, health.liveCalls)} calls ${span}, against ` +
         `${shareOf(health.previousFailureRate, health.previousCalls)} ${before}`
     : `Version ${liveVersion} is kept as written less often than version ${health.comparedWithVersion} was: ` +
-        `${shareOf(health.liveAcceptRate, health.liveDecisions)} answers since it went live on ${since}, against ` +
+        `${shareOf(health.liveAcceptRate, health.liveDecisions)} answers ${span}, against ` +
         `${shareOf(health.previousAcceptRate, health.previousDecisions)} ${before}`;
 }

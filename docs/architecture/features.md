@@ -708,9 +708,10 @@ enrolment request, and is counted only if that version has served), and a candid
 changed or confirmed on the profile screen (`app_lm_person.ai_inferred_by`; a spreadsheet re-import overwriting one
 decides nothing and is not counted). Position extraction does not yet: its suggestions are merged
 in the browser. `GET …/prompts/{id}/usage?days=` (`PROMPT_MANAGE`, 30 days unless asked, 90 at most) answers each
-version by model; each list row carries `health`, the live version since it went live beside the one it replaced
-over as many days before (30 at most), with `MORE_FAILURES` (failure rate up five points or more, 50 calls a side)
-and `FEWER_ACCEPTED` (accept rate down ten points or more, 20 decisions a side) from `PromptHealthRules`. A
+version by model; each list row carries `health`, the live version's first days live beside the one it replaced
+over as many days before (30 at most, `daysLive` saying when it has been live longer), with `MORE_FAILURES`
+(failure rate up five points or more, 50 calls a side) and `FEWER_ACCEPTED` (accept rate down ten points or
+more, 20 decisions a side) from `PromptHealthRules`. A
 failure there is a call cut off, stopped by the safety filter, or unbindable (one per call: a cut-off answer that
 also would not bind is counted once); a guard refusal is the input's, not
 the prompt's, and is shown but not held against a version.

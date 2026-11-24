@@ -44,15 +44,16 @@ export interface PromptOverview {
 export type PromptHealthWarning = "MORE_FAILURES" | "FEWER_ACCEPTED";
 
 /**
- * The live version since it went live (`liveSince`, a UTC day) beside the version it replaced, over the same number
- * of days before. A rate is a fraction, null where nothing was counted; `warnings` is empty unless both sides have
- * enough to compare.
+ * The live version over its first `days` days from `liveSince` (a UTC day) beside the version it replaced, over as
+ * many days before. `daysLive` is above `days` once the comparison stops short of today. A rate is a fraction, null
+ * where nothing was counted; `warnings` is empty unless both sides have enough to compare.
  */
 export interface PromptLiveHealth {
   warnings: PromptHealthWarning[];
   comparedWithVersion: number;
   liveSince: string;
   days: number;
+  daysLive: number;
   liveCalls: number;
   liveFailureRate: number | null;
   previousCalls: number;

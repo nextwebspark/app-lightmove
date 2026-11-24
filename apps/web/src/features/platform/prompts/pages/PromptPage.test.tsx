@@ -680,6 +680,20 @@ describe("PromptPage", () => {
     expect(screen.getByRole("note")).toHaveTextContent("against 2.3% of 1,960 in the day before. Usage has the detail.");
   });
 
+  it("names the first days live, not the time since, on a version live longer than the comparison", async () => {
+    vi.mocked(promptApi.getPrompt).mockResolvedValue(
+      detail({ prompt: overview({ health: health({ liveSince: "2026-09-25", days: 30, daysLive: 61 }) }) }),
+    );
+    renderPage();
+    await editor();
+
+    const notes = screen.getAllByRole("note");
+    expect(notes[0]).toHaveTextContent(
+      "Version 2 fails more often than version 1 did: 8.1% of 412 calls in its first 30 days after going live on 25 Sep, against 2.3% of 1,960 in the 30 days before. Usage has the detail.",
+    );
+    expect(notes[1]).toHaveTextContent("61% of 118 answers in its first 30 days after going live on 25 Sep, against");
+  });
+
   it("says nothing about the live version where the comparison found no gap", async () => {
     vi.mocked(promptApi.getPrompt).mockResolvedValue(detail({ prompt: overview({ health: health({ warnings: [] }) }) }));
     renderPage();

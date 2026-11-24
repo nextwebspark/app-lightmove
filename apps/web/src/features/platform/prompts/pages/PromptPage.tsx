@@ -21,6 +21,7 @@ import { VersionCompareTab } from "../components/VersionCompareTab";
 import {
   changedLabel,
   healthNote,
+  healthTone,
   PROMPTS_PATH,
   PUT_LIVE_PARAM,
   VERSION_PARAM,
@@ -31,6 +32,11 @@ import {
 type PromptTab = "editor" | "compare" | "try" | "usage";
 
 const TAB_ID = "prompt";
+
+const HEALTH_NOTE_TONE = {
+  danger: { note: "bg-u-offlimits-tint", icon: "text-u-offlimits" },
+  warning: { note: "bg-u-accent-tint", icon: "text-u-accent" },
+} as const;
 
 /** Platform → Prompts → one prompt: its versions, the editor, a comparison of any two, Try it, and its usage. */
 export default function PromptPage() {
@@ -155,13 +161,13 @@ export default function PromptPage() {
           role="note"
           className={cn(
             "mb-4 flex gap-2.5 rounded-lg border border-u-border px-3.5 py-[11px] text-xs text-u-text",
-            warning === "MORE_FAILURES" ? "bg-u-offlimits-tint" : "bg-u-accent-tint",
+            HEALTH_NOTE_TONE[healthTone(warning)].note,
           )}
         >
           <Icon
             d={ICONS.info}
             size={15}
-            className={cn("mt-0.5 flex-none", warning === "MORE_FAILURES" ? "text-u-offlimits" : "text-u-accent")}
+            className={cn("mt-0.5 flex-none", HEALTH_NOTE_TONE[healthTone(warning)].icon)}
           />
           <span>{healthNote(warning, health, prompt.liveVersion)}</span>
         </div>

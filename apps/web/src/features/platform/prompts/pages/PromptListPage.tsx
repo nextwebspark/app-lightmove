@@ -16,6 +16,7 @@ import {
   changedLabel,
   healthPillLabel,
   healthPillTitle,
+  healthTone,
   isRetiringSoon,
   needsAttention,
   promptPath,
@@ -168,7 +169,7 @@ function HealthPills({ health }: { health: PromptLiveHealth }) {
   return health.warnings.map((warning) => (
     <PromptPill
       key={warning}
-      tone={warning === "MORE_FAILURES" ? "danger" : "warning"}
+      tone={healthTone(warning)}
       title={healthPillTitle(warning, health)}
     >
       {healthPillLabel(warning, health)}

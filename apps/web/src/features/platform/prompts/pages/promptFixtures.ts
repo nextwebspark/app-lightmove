@@ -33,6 +33,7 @@ export const health = (overrides: Partial<PromptLiveHealth> = {}): PromptLiveHea
   comparedWithVersion: 1,
   liveSince: "2026-11-04",
   days: 20,
+  daysLive: 20,
   liveCalls: 412,
   liveFailureRate: 0.0812,
   previousCalls: 1960,
