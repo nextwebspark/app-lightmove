@@ -88,10 +88,15 @@ The call path every prompt goes through is `docs/llm-guardrails.md`. The second 
   guard refusals, schema re-asks and answers that would not bind.
 - `app_lm_platform_prompt_outcome_daily`: per version and day, the answers a person kept as written and those
   they changed. Counted for the outreach opener and for a candidate's AI-inferred background values.
-- `GET /api/v1/platform/prompts/{id}/usage?days=` reads both. A Try it and an eval run are not counted.
-- Each prompt's `health` compares the live version since it went live with the one it replaced over the same
-  number of days before (30 at most): `MORE_FAILURES` when the failure rate is up five points with 50 calls a
+- `GET /api/v1/platform/prompts/{id}/usage?days=` reads both; `decisionsCounted` says whether the prompt has a kept
+  share at all (`PlatformPrompt`, held to the callers of `PromptOutcomes` by `PlatformPromptTest`). A Try it and an
+  eval run are not counted.
+- Each prompt's `health` compares the live version's first days live with the one it replaced over the same
+  number of days before (30 at most; `daysLive` above `days` says the screen names "its first 30 days", not the
+  time since it went live): `MORE_FAILURES` when the failure rate is up five points with 50 calls a
   side, `FEWER_ACCEPTED` when the kept share is down ten points with 20 decisions a side (`PromptHealthRules`).
+- On screen: a prompt's **Usage** tab is the table by version and model over the last 7, 30 or 90 days; a warning is
+  a pill on the list (which counts it as needing attention) and a note on the prompt's page.
 
 ## Evals
 

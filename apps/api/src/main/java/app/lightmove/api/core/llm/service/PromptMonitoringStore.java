@@ -7,6 +7,7 @@ import app.lightmove.api.core.llm.model.PromptModelUsage;
 import app.lightmove.api.core.llm.model.PromptVersionOutcomes;
 import app.lightmove.api.core.llm.model.PromptVersionRef;
 import java.sql.Types;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
@@ -87,7 +88,7 @@ public class PromptMonitoringStore {
     }
 
     /**
-     * Every prompt whose live version replaced another: the live one from the day it went live, the replaced one
+     * Every prompt whose live version replaced another: the live one over its first days live, the replaced one
      * over as many days before that, {@code maxDays} at most. The day of the move counts for the live version only.
      */
     public List<LiveVersionComparison> liveVersionComparisons(int maxDays) {
@@ -113,11 +114,12 @@ public class PromptMonitoringStore {
                             ORDER BY m.prompt_id, m.id DESC
                         ), compared AS (
                             SELECT prompt_id, from_version, to_version, moved_on,
-                                   LEAST(:maxDays, (now() AT TIME ZONE 'UTC')::date - moved_on + 1) AS days
+                                   LEAST(:maxDays, (now() AT TIME ZONE 'UTC')::date - moved_on + 1) AS days,
+                                   (now() AT TIME ZONE 'UTC')::date - moved_on + 1 AS days_live
                             FROM last_move
                             WHERE from_version IS NOT NULL AND from_version <> to_version
                         )
-                        SELECT c.prompt_id, c.from_version, c.days,
+                        SELECT c.prompt_id, c.from_version, c.moved_on, c.days, c.days_live,
                                live.calls AS live_calls, live.failures AS live_failures,
                                previous.calls AS previous_calls, previous.failures AS previous_failures,
                                live_outcome.accepted AS live_accepted, live_outcome.changed AS live_changed,
@@ -157,8 +159,8 @@ public class PromptMonitoringStore {
                 .param("onlyPromptId", onlyPromptId, Types.VARCHAR)
                 .param("maxDays", maxDays)
                 .query((row, index) -> new LiveVersionComparison(row.getString("prompt_id"),
-                        row.getInt("from_version"), row.getInt("days"),
-                        row.getLong("live_calls"), row.getLong("live_failures"),
+                        row.getInt("from_version"), row.getObject("moved_on", LocalDate.class), row.getInt("days"),
+                        row.getInt("days_live"), row.getLong("live_calls"), row.getLong("live_failures"),
                         row.getLong("previous_calls"), row.getLong("previous_failures"),
                         row.getLong("live_accepted"), row.getLong("live_changed"),
                         row.getLong("previous_accepted"), row.getLong("previous_changed")))
