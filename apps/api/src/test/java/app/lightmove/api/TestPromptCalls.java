@@ -2,6 +2,7 @@ package app.lightmove.api;
 
 import app.lightmove.api.core.llm.model.PromptCallCount;
 import app.lightmove.api.core.llm.model.ServedPrompt;
+import app.lightmove.api.core.llm.service.AiModelCatalog;
 import app.lightmove.api.core.llm.service.BundledPrompts;
 import app.lightmove.api.core.llm.service.PromptCallCountWriter;
 import app.lightmove.api.core.llm.service.PromptCallCounter;
@@ -24,8 +25,8 @@ public final class TestPromptCalls {
     public static PromptCalls bundledUnless(PromptTrialRunner trials) {
         BundledPrompts bundled = new BundledPrompts();
         return new PromptCalls((promptId, kind) -> ServedPrompt.bundled(promptId, bundled.bodyOf(promptId)),
-                new VertexGeminiChatModelProvider(null, null, null), new PromptCallCounter(new UncountedCalls()),
-                trials);
+                new VertexGeminiChatModelProvider(new AiModelCatalog(), null, null, null),
+                new PromptCallCounter(new UncountedCalls()), trials);
     }
 
     private static final class UncountedCalls extends PromptCallCountWriter {
