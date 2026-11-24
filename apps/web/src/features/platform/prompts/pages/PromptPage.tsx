@@ -16,9 +16,11 @@ import { PromptEditorTab } from "../components/PromptEditorTab";
 import { OriginPill, PromptPill } from "../components/PromptPill";
 import { PutLiveDialog } from "../components/PutLiveDialog";
 import { TrialTab } from "../components/TrialTab";
+import { UsageTab } from "../components/UsageTab";
 import { VersionCompareTab } from "../components/VersionCompareTab";
 import {
   changedLabel,
+  healthNote,
   PROMPTS_PATH,
   PUT_LIVE_PARAM,
   VERSION_PARAM,
@@ -26,11 +28,11 @@ import {
   versionModelLine,
 } from "../lib/promptLabels";
 
-type PromptTab = "editor" | "compare" | "try";
+type PromptTab = "editor" | "compare" | "try" | "usage";
 
 const TAB_ID = "prompt";
 
-/** Platform → Prompts → one prompt: its versions, the editor, a comparison of any two, and Try it. */
+/** Platform → Prompts → one prompt: its versions, the editor, a comparison of any two, Try it, and its usage. */
 export default function PromptPage() {
   const { promptId = "" } = useParams();
   const { user } = useAuth();
@@ -84,6 +86,7 @@ export default function PromptPage() {
   if (!detail || !open) return <FormError message={error ? messageFor(error) : "This prompt could not be opened."} />;
 
   const { prompt } = detail;
+  const { health } = prompt;
   const openIsLive = open.version === prompt.liveVersion;
   const moving: PromptVersionSummary | null =
     detail.versions.find((version) => version.version === chosenToMove) ?? null;
@@ -92,6 +95,7 @@ export default function PromptPage() {
     { value: "editor", label: "Editor" },
     { value: "compare", label: "Compare versions" },
     ...(detail.trial ? [{ value: "try" as const, label: "Try it" }] : []),
+    { value: "usage", label: "Usage" },
   ];
 
   const keep = (updated: PromptDetail) => {
@@ -144,6 +148,24 @@ export default function PromptPage() {
           </span>
         </div>
       )}
+
+      {health?.warnings.map((warning) => (
+        <div
+          key={warning}
+          role="note"
+          className={cn(
+            "mb-4 flex gap-2.5 rounded-lg border border-u-border px-3.5 py-[11px] text-xs text-u-text",
+            warning === "MORE_FAILURES" ? "bg-u-offlimits-tint" : "bg-u-accent-tint",
+          )}
+        >
+          <Icon
+            d={ICONS.info}
+            size={15}
+            className={cn("mt-0.5 flex-none", warning === "MORE_FAILURES" ? "text-u-offlimits" : "text-u-accent")}
+          />
+          <span>{healthNote(warning, health, prompt.liveVersion)}</span>
+        </div>
+      ))}
 
       {prompt.shippedChanged && detail.newestShippedVersion !== null && (
         <div role="note" className="mb-4 flex gap-2.5 rounded-lg border border-u-border bg-u-accent-tint px-3.5 py-[11px] text-xs text-u-text">
@@ -212,6 +234,7 @@ export default function PromptPage() {
               ))}
             {tab === "compare" && <VersionCompareTab key={open.version} detail={detail} openVersion={open.version} />}
             {tab === "try" && <TrialTab detail={detail} version={open.version} />}
+            {tab === "usage" && <UsageTab promptId={prompt.id} />}
           </div>
         </div>
       </div>

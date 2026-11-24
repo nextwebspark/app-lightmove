@@ -19,6 +19,8 @@ import app.lightmove.api.core.llm.service.PromptTrialRunner;
 import app.lightmove.api.core.llm.service.RegistryPromptSource;
 import app.lightmove.api.core.reload.PlatformConfigReload;
 import app.lightmove.api.positiontemplate.PositionTemplateFlowSupport;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.AfterEach;
@@ -187,6 +189,9 @@ class PromptManagementIntegrationTest extends PositionTemplateFlowSupport {
         JsonNode usage = getJson(admin, SHORTLIST + "/usage?days=30");
 
         assertThat(usage.get("days").asInt()).isEqualTo(30);
+        assertThat(usage.get("decisionsCounted").asBoolean())
+                .as("no screen asks a person to keep or change a shortlist").isFalse();
+        assertThat(getJson(admin, PROMPTS + "/outreach-opener/usage").get("decisionsCounted").asBoolean()).isTrue();
         JsonNode version = usage.get("versions").get(0);
         assertThat(version.get("version").asInt()).isEqualTo(live);
         assertThat(version.get("live").asBoolean()).isTrue();
@@ -222,6 +227,7 @@ class PromptManagementIntegrationTest extends PositionTemplateFlowSupport {
 
         JsonNode few = promptIn(getJson(admin, PROMPTS), "recruiter-shortlist").get("health");
         assertThat(few.get("comparedWithVersion").asInt()).isEqualTo(shipped);
+        assertThat(few.get("liveSince").asString()).isEqualTo(LocalDate.now(ZoneOffset.UTC).toString());
         assertThat(few.get("warnings")).as("thirty calls are too few to call it worse").isEmpty();
 
         counted("recruiter-shortlist", edited, "gemini-3.8-flash", 0, 70, 14);

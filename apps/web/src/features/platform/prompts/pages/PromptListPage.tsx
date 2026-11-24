@@ -10,10 +10,12 @@ import { cn } from "../../../../lib/cn";
 import { codeOf, messageFor } from "../../../../lib/errorCodes";
 import { PlatformTwoFactorRequired } from "../../components/PlatformTwoFactorRequired";
 import * as promptApi from "../api/promptApi";
-import type { PromptOverview } from "../api/types";
+import type { PromptLiveHealth, PromptOverview } from "../api/types";
 import { OriginPill, PromptPill } from "../components/PromptPill";
 import {
   changedLabel,
+  healthPillLabel,
+  healthPillTitle,
   isRetiringSoon,
   needsAttention,
   promptPath,
@@ -114,6 +116,7 @@ function PromptRow({ prompt, onOpen }: { prompt: PromptOverview; onOpen: () => v
       <span role="cell" className="block min-w-0">
         <span className="flex flex-wrap items-center gap-2">
           <span className="text-body font-semibold text-u-text">{prompt.name}</span>
+          {prompt.health && <HealthPills health={prompt.health} />}
           {prompt.shippedChanged && (
             <PromptPill
               tone="warning"
@@ -158,6 +161,19 @@ function PromptRow({ prompt, onOpen }: { prompt: PromptOverview; onOpen: () => v
       </span>
     </div>
   );
+}
+
+/** The live version is clearly doing worse than the one it replaced: red for failures, amber for answers kept less. */
+function HealthPills({ health }: { health: PromptLiveHealth }) {
+  return health.warnings.map((warning) => (
+    <PromptPill
+      key={warning}
+      tone={warning === "MORE_FAILURES" ? "danger" : "warning"}
+      title={healthPillTitle(warning, health)}
+    >
+      {healthPillLabel(warning, health)}
+    </PromptPill>
+  ));
 }
 
 function matching(prompts: PromptOverview[], query: string, filter: PromptFilter): PromptOverview[] {

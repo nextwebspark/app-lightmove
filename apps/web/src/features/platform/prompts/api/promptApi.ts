@@ -4,6 +4,7 @@ import type {
   PromptDetail,
   PromptOverview,
   PromptTrialResult,
+  PromptUsage,
   PromptVersionBody,
   SavePromptVersionRequest,
 } from "./types";
@@ -13,6 +14,8 @@ export const PROMPTS_KEY = ["platform-prompts"] as const;
 export const PROMPT_KEY = (promptId: string) => ["platform-prompts", promptId] as const;
 export const PROMPT_BODY_KEY = (promptId: string, version: number) =>
   ["platform-prompts", promptId, "version", version] as const;
+export const PROMPT_USAGE_KEY = (promptId: string, days: number) =>
+  ["platform-prompts", promptId, "usage", days] as const;
 export const AI_MODELS_KEY = ["platform-ai-models"] as const;
 
 const promptUrl = (promptId: string) => `/platform/prompts/${encodeURIComponent(promptId)}`;
@@ -27,6 +30,10 @@ export function getPrompt(promptId: string, signal?: AbortSignal): Promise<Promp
 
 export function getPromptBody(promptId: string, version: number, signal?: AbortSignal): Promise<PromptVersionBody> {
   return request<PromptVersionBody>(`${promptUrl(promptId)}/versions/${version}`, { signal });
+}
+
+export function getPromptUsage(promptId: string, days: number, signal?: AbortSignal): Promise<PromptUsage> {
+  return request<PromptUsage>(`${promptUrl(promptId)}/usage?days=${days}`, { signal });
 }
 
 export function listAiModels(signal?: AbortSignal): Promise<AiModel[]> {

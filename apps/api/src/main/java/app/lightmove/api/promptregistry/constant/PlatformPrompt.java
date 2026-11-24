@@ -9,6 +9,8 @@ import lombok.RequiredArgsConstructor;
 /**
  * The prompts the platform console lists, by registry id: the name and the line a super admin reads, and how the
  * answer is read. {@code PlatformPromptTest} holds this to the shipped {@code prompts/*.st}, both ways.
+ * {@code decisionsCounted}: a screen asks a person to keep or change this prompt's answer, and reports it through
+ * {@code PromptOutcomes}, so its usage has a kept share.
  */
 @Getter
 @RequiredArgsConstructor
@@ -21,7 +23,7 @@ public enum PlatformPrompt {
     MEETING_SUMMARY("meeting-summary", "Meeting summary",
             "Summarises a recorded call into decisions and next steps.", PromptKind.STRUCTURED),
     OUTREACH_OPENER("outreach-opener", "Outreach opener",
-            "Writes the first line of an email from a person's profile.", PromptKind.STRUCTURED),
+            "Writes the first line of an email from a person's profile.", PromptKind.STRUCTURED, true),
     CALL_CHANGES("call-changes", "Call changes",
             "Lists what a call changed about a candidate.", PromptKind.STRUCTURED),
     INTERVIEW_PLAN("interview-plan", "Interview plan",
@@ -29,9 +31,9 @@ public enum PlatformPrompt {
     INTERVIEW_COACH("interview-coach", "Interview coach",
             "Suggests the next question during a call.", PromptKind.STRUCTURED),
     PROFILE_ENRICHMENT("candidate-ai-enrich", "Profile enrichment",
-            "Reads seniority and function from a profile.", PromptKind.STRUCTURED),
+            "Reads seniority and function from a profile.", PromptKind.STRUCTURED, true),
     NATIONALITY("candidate-nationality", "Nationality",
-            "Proposes a nationality from a profile, with its reason.", PromptKind.STRUCTURED),
+            "Proposes a nationality from a profile, with its reason.", PromptKind.STRUCTURED, true),
     SOURCING_SEARCH_WORDS("executive-sourcing-words", "Sourcing search words",
             "Turns a brief into the words a people search uses.", PromptKind.STRUCTURED),
     SHORTLIST("recruiter-shortlist", "Shortlist",
@@ -54,6 +56,11 @@ public enum PlatformPrompt {
     private final String displayName;
     private final String description;
     private final PromptKind kind;
+    private final boolean decisionsCounted;
+
+    PlatformPrompt(String promptId, String displayName, String description, PromptKind kind) {
+        this(promptId, displayName, description, kind, false);
+    }
 
     public static Optional<PlatformPrompt> of(String promptId) {
         return Arrays.stream(values()).filter(prompt -> prompt.promptId.equals(promptId)).findFirst();

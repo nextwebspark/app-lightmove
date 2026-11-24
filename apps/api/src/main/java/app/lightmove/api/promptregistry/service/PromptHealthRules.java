@@ -40,8 +40,8 @@ final class PromptHealthRules {
                 && previousAcceptRate - liveAcceptRate >= ACCEPT_RATE_MARGIN) {
             warnings.add(PromptHealthWarning.FEWER_ACCEPTED);
         }
-        return new PromptLiveHealth(List.copyOf(warnings), compared.previousVersion(), compared.days(),
-                compared.liveCalls(), liveFailureRate, compared.previousCalls(), previousFailureRate,
+        return new PromptLiveHealth(List.copyOf(warnings), compared.previousVersion(), compared.liveSince(),
+                compared.days(), compared.liveCalls(), liveFailureRate, compared.previousCalls(), previousFailureRate,
                 liveDecisions, liveAcceptRate, previousDecisions, previousAcceptRate);
     }
 

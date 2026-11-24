@@ -1,9 +1,12 @@
-import { formatDate } from "../../../../lib/datetime/format";
+import { formatDate, formatShortDate } from "../../../../lib/datetime/format";
 import { formatNumber } from "../../../../lib/format";
 import type {
   AiModel,
   AiProvider,
   ModelCapability,
+  PromptHealthWarning,
+  PromptLiveHealth,
+  PromptModelUsage,
   PromptOverview,
   PromptVersionSummary,
   SettingKey,
@@ -42,7 +45,12 @@ export function changedLabel(at: string, by: string | null): string {
 }
 
 export function needsAttention(prompt: PromptOverview): boolean {
-  return prompt.shippedChanged || prompt.modelUnavailable || isRetiringSoon(prompt.modelRetiresInDays);
+  return (
+    prompt.shippedChanged ||
+    prompt.modelUnavailable ||
+    isRetiringSoon(prompt.modelRetiresInDays) ||
+    (prompt.health?.warnings.length ?? 0) > 0
+  );
 }
 
 export function isRetiringSoon(retiresInDays: number | null): boolean {
@@ -98,4 +106,63 @@ export function parseSetting(text: string, integer: boolean): number | null | "i
   const trimmed = text.trim();
   if (trimmed === "") return null;
   return (integer ? WHOLE_NUMBER : DECIMAL).test(trimmed) ? Number(trimmed) : "invalid";
+}
+
+/** The spans the Usage tab offers, in days; the server reads at most 90. */
+export const USAGE_SPANS = [7, 30, 90] as const;
+export type UsageSpan = (typeof USAGE_SPANS)[number];
+export const DEFAULT_USAGE_SPAN: UsageSpan = 30;
+
+/** 0.0812 → "8.1%". */
+export function percentLabel(fraction: number): string {
+  return `${Math.round(fraction * 1000) / 10}%`;
+}
+
+// en-US: en-GB writes "4.1m", which reads as metres beside a token count.
+const COMPACT = new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 });
+
+/** 4_100_000 → "4.1M": a token total, where the order of magnitude is the point. */
+export function compactNumber(value: number): string {
+  return COMPACT.format(value);
+}
+
+/** A call cut off at the output limit, stopped by the safety filter, or answered in a way the feature could not read. */
+export function failuresOf(usage: PromptModelUsage): number {
+  return usage.finishMaxTokens + usage.finishSafety + usage.schemaFailures;
+}
+
+/** "Fails more than v2": the list's pill for one warning. */
+export function healthPillLabel(warning: PromptHealthWarning, health: PromptLiveHealth): string {
+  return `${warning === "MORE_FAILURES" ? "Fails more than" : "Kept less than"} ${versionLabel(health.comparedWithVersion)}`;
+}
+
+function daysBefore(days: number): string {
+  return days === 1 ? "the day before" : `the ${days} days before`;
+}
+
+function shareOf(rate: number | null, calls: number): string {
+  return `${percentLabel(rate ?? 0)} of ${formatNumber(calls)}`;
+}
+
+/** The pill's title: both sides' figures, as the server compared them. */
+export function healthPillTitle(warning: PromptHealthWarning, health: PromptLiveHealth): string {
+  const before = `version ${health.comparedWithVersion} over ${daysBefore(health.days)}`;
+  return warning === "MORE_FAILURES"
+    ? `Since it went live, ${shareOf(health.liveFailureRate, health.liveCalls)} calls failed, against ` +
+        `${shareOf(health.previousFailureRate, health.previousCalls)} for ${before}.`
+    : `Since it went live, people kept ${shareOf(health.liveAcceptRate, health.liveDecisions)} answers as ` +
+        `written, against ${shareOf(health.previousAcceptRate, health.previousDecisions)} for ${before}.`;
+}
+
+/** The prompt page's note for one warning, which points at Usage. */
+export function healthNote(warning: PromptHealthWarning, health: PromptLiveHealth, liveVersion: number): string {
+  const since = formatShortDate(health.liveSince);
+  const before = `in ${daysBefore(health.days)}. Usage has the detail.`;
+  return warning === "MORE_FAILURES"
+    ? `Version ${liveVersion} fails more often than version ${health.comparedWithVersion} did: ` +
+        `${shareOf(health.liveFailureRate, health.liveCalls)} calls since it went live on ${since}, against ` +
+        `${shareOf(health.previousFailureRate, health.previousCalls)} ${before}`
+    : `Version ${liveVersion} is kept as written less often than version ${health.comparedWithVersion} was: ` +
+        `${shareOf(health.liveAcceptRate, health.liveDecisions)} answers since it went live on ${since}, against ` +
+        `${shareOf(health.previousAcceptRate, health.previousDecisions)} ${before}`;
 }
