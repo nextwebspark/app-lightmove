@@ -126,6 +126,37 @@ Staff only (`docs/platform-console.md`). A caller holding no platform action is 
 | Platform evals: Label pairs (a pick on each criterion) | Save and next is held until every criterion of the pair has a pick; the picks made so far are shown again on return | the pair exists (`NOT_FOUND`); exactly one pick, `A`, `B` or `TIE`, for every criterion of its rubric (`VALIDATION_FAILED` on `picks`); starting needs 20 pairs from finished runs on the dev cases (`EVAL_CALIBRATION_NO_PAIRS`) | toast |
 | Platform evals: Check the judge | offered only once every pair is labelled, and not while a check goes | every pair labelled on every criterion (`EVAL_CALIBRATION_INCOMPLETE`); no check of that rubric queued or going (`EVAL_JUDGE_CHECK_IN_PROGRESS`) | toast |
 
+### Position templates
+
+One editor (`TemplateEditorPage`) for a firm's own templates (Settings → Templates, `scope="workspace"`) and the
+platform library (Platform → Templates, `scope="library"`, staff only). The server's rules are
+`PositionTemplateValidator`'s, which the import runs too; they mirror the brief's own limits, so a template never
+seeds a brief its own write would refuse. Save is held while the draft is unchanged or a rule listed under the form
+fails; a server refusal names every field at fault in the banner above the form.
+
+| Field | Client | Server | Shown as |
+|---|---|---|---|
+| Template title | required (Save held, "Give the template a title."); ≤ 160 by `maxLength` | trimmed, `@NotBlank @Size(160)` | banner |
+| Discipline, seniority | selects, always one chosen | `@NotNull` | banner |
+| Summary | ≤ 300 by `maxLength` | trimmed, blank stored as none, `@Size(300)` | banner |
+| Match keywords | chips: ≤ 20, each ≤ 80, lower-cased as typed | trimmed, lower-cased, blanks and repeats dropped; ≤ 20, each ≤ 80 on `keywords` | banner |
+| Department | ≤ 160 by `maxLength` | `@Size(160)` on `body.department` | banner |
+| Key responsibilities | chips: ≤ 20, each ≤ 200 | ≤ 20, each ≤ 200 | banner |
+| Ideal profile | ≤ 4,000 by `maxLength` | ≤ 4,000 on `body.narrative` | banner |
+| Strategic priorities | chips: ≤ 20, each ≤ 120 | ≤ 20, each ≤ 120; two sharing a name, case and outer spaces ignored, refused | banner |
+| Reports to | ≤ 160 by `maxLength` | ≤ 160 on `body.reportsTo` | banner |
+| Notice period | a picker of the brief's five periods; a pair recorded outside them stays offered, "(as recorded)" | `body.noticeValue` 0–999 | banner |
+| Direct reports | chips: ≤ 30, each ≤ 160 | ≤ 30, each ≤ 160 | banner |
+| Currency | `CurrencySelect` over the served list; a new template opens on the workspace's currency | three capital letters and an ISO 4217 code (`body.currency`) | banner |
+| Target bonus and basis | a number, two decimals by `step`; basis optional | ≥ 0, ≤ 999,999,999,999.99, two decimals; inside the basis's own ceiling (`BonusBasis.admits`, the brief's rule) on `body.bonusValue` | banner |
+| Incentive vesting | ≤ 200 by `maxLength` | ≤ 200 on `body.incentiveVesting` | banner |
+| Benefits | ≤ 20 rows (Add hidden at 20), name ≤ 120; a blank name holds Save ("Name every benefit.") | ≤ 20; every one named, ≤ 120 | banner |
+| Screening criteria | ≤ 30 rows (the add row hidden at 30), text ≤ 300; a blank one holds Save ("Every criterion needs its text.") | ≤ 30; every one with text, ≤ 300 | banner |
+| Competencies (each panel) | ≤ 10 rows a panel; name ≤ 120, description ≤ 300; a blank name holds Save; weights 0–100 each, and a panel with rows must total 100 (Save held) | ≤ 10 a panel; every one named and given a panel, name ≤ 120, description ≤ 300, weight 0–100, and a panel with rows totals 100 (`body.competencies.technical` / `.behavioural`) | banner |
+| Save over someone else's save | sends the version it opened | `TEMPLATE_STALE` (409) unless the version matches | banner with Reload |
+| Archive (library) or hide (a firm's view of a library template) | the fallback template offers neither; a firm's own copy of a library template offers Reset, not Hide | the fallback is never archived or hidden (`TEMPLATE_FALLBACK_REQUIRED`); hiding a library template the firm has its own copy of is `CONFLICT` ("Reset your firm's copy of this template before hiding it") | toast |
+| Import templates (the file) | the file is read and checked before anything is written; Import is held while a row is at fault or nothing would be written | each row against the rules above; a commit with any row at fault writes none (`TEMPLATE_IMPORT_INVALID`) | every row at fault listed in the dialog; other refusals as a banner there |
+
 ### Projects and clients
 | Field | Client | Server | Shown as |
 |---|---|---|---|
