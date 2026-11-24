@@ -9,5 +9,7 @@ import java.util.List;
 public record PutCriteriaRequest(
         @NotNull
         @Size(max = 30, message = "That is too many criteria")
-        List<@Valid CriterionRequest> criteria
+        List<@Valid CriterionRequest> criteria,
+        /** Only on the write a document fill schedules. */
+        @Valid DocumentReadingRequest reading
 ) {}

@@ -87,7 +87,8 @@ The call path every prompt goes through is `docs/llm-guardrails.md`. The second 
 - `app_lm_platform_prompt_call_daily`: per version, model and UTC day, the calls, tokens and finish reasons, plus
   guard refusals, schema re-asks and answers that would not bind.
 - `app_lm_platform_prompt_outcome_daily`: per version and day, the answers a person kept as written and those
-  they changed. Counted for the outreach opener and for a candidate's AI-inferred background values.
+  they changed. Counted for the outreach opener, a candidate's AI-inferred background values, and the four
+  position extraction prompts, each field a reading filled once, when the brief is published (#1452).
 - `GET /api/v1/platform/prompts/{id}/usage?days=` reads both; `decisionsCounted` says whether the prompt has a kept
   share at all (`PlatformPrompt`, held to the callers of `PromptOutcomes` by `PlatformPromptTest`). A Try it and an
   eval run are not counted.
@@ -154,6 +155,5 @@ billed model call when the machine has Vertex credentials. The e2e matrix runs w
 - Per-workspace prompt or variable overrides, and any workspace-level model choice.
 - Editing a response schema, the answer format or the user message from the screen.
 - A second model provider (#1325).
-- Accept rate for position extraction, whose suggestions are merged in the browser.
 - Editors for a boolean, a choice or a decimal variable; a case's own page; creating a dataset or editing a rubric
   on screen.

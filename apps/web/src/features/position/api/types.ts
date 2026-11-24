@@ -257,4 +257,16 @@ export interface PositionExtraction {
    * no template. Optional here rather than required: #398 is what starts reading it, and marking it
    * required now would force every existing test fixture to supply a value it does not yet use. */
   usualDirectReports?: string[] | null;
+  /** The prompt version that answered; null when the heuristic did, or the bundled prompt (#1452). */
+  promptVersion?: number | null;
+}
+
+/**
+ * What a document reading set on one step, sent with the write its fill schedules (#1452). `version` null: no prompt
+ * version answered it, so the server forgets what an earlier reading filled in the same fields.
+ */
+export interface DocumentReading {
+  version: number | null;
+  fields: string[];
+  listItems: Record<string, number>;
 }
