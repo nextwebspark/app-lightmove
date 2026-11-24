@@ -32,7 +32,8 @@ const TONE: Record<AttentionReason, string> = {
 export function NeedsAttention({
   lines,
   comingUp,
-  more,
+  moreOutreach,
+  moreTasks,
   clientOf,
   myUserId,
   pending,
@@ -47,8 +48,10 @@ export function NeedsAttention({
   lines: AttentionLine[];
   /** Tasks not due yet, left to My tasks and only counted here. */
   comingUp: number;
-  /** More wait than the server sent. */
-  more: boolean;
+  /** More outreach rows wait than the server sent. */
+  moreOutreach: boolean;
+  /** More of the caller's tasks are due than one read holds. */
+  moreTasks: boolean;
   clientOf: (projectId: string) => string | undefined;
   myUserId: string | undefined;
   pending: boolean;
@@ -64,7 +67,7 @@ export function NeedsAttention({
   const [expanded, setExpanded] = useState(false);
   const shown = expanded ? lines : lines.slice(0, VISIBLE);
   const hidden = lines.length - shown.length;
-  const count = `${lines.length}${more ? "+" : ""}`;
+  const count = `${lines.length}${moreOutreach || moreTasks ? "+" : ""}`;
 
   return (
     <HomeCard
@@ -85,12 +88,15 @@ export function NeedsAttention({
         ) : undefined
       }
       footer={
-        lines.length === 0 ? undefined : (
+        refused || pending || lines.length === 0 ? undefined : (
         <>
           <span className="text-u-text3">
-            {scope === "team" ? "You're seeing what waits across the positions you lead" : "You're seeing actions assigned to you"}
+            {scope === "team"
+              ? "You're seeing your actions and what waits across the positions you lead"
+              : "You're seeing actions assigned to you"}
           </span>
-          {more && <span className="text-u-text3">More wait on each position's Outreach page.</span>}
+          {moreOutreach && <span className="text-u-text3">More wait on each position's Outreach page.</span>}
+          {moreTasks && !moreOutreach && <span className="text-u-text3">More are on My tasks.</span>}
           {(expanded || hidden > 0) && (
             <button type="button" onClick={() => setExpanded(!expanded)} className="font-medium text-u-accent hover:underline">
               {expanded ? "Show fewer" : `Show ${hidden} more`}

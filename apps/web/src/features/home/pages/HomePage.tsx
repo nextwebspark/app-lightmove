@@ -5,8 +5,7 @@ import { Icon, ICONS } from "../../../components/layout/Icon";
 import { Button, buttonClassName, CardsSkeleton, EmptyState } from "../../../components/ui";
 import { StagePill } from "../../../components/ui/Badge";
 import { cn } from "../../../lib/cn";
-import { formatShortDate, formatWeekdayDate, todayKey } from "../../../lib/datetime/format";
-import { getDateTimePreferences } from "../../../lib/datetime/preferences";
+import { formatShortDate, formatWeekdayDate } from "../../../lib/datetime/format";
 import { OVERVIEW_QUERY, OVERVIEW_REFRESH_MS } from "../../../lib/overviewQueries";
 import { useNow } from "../../../lib/useNow";
 import { useAuth } from "../../auth/AuthProvider";
@@ -28,14 +27,9 @@ import * as homeApi from "../api/homeApi";
 import { NeedsAttention, type MailboxGap } from "../components/NeedsAttention";
 import { PositionsTable } from "../components/PositionsTable";
 import { TodayPanel } from "../components/TodayPanel";
+import { greetingOf } from "../lib/greeting";
 import { attentionOf, isTodayAgendaOf, needsYouOf } from "../lib/needsYou";
 import { todayEventsOf } from "../lib/today";
-
-function greetingOf(firstName: string | undefined, now = new Date()): string {
-  const hour = now.getHours();
-  const part = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
-  return firstName ? `${part}, ${firstName}.` : `${part}.`;
-}
 
 const plural = (count: number, one: string, many: string) => `${count} ${count === 1 ? one : many}`;
 
@@ -162,19 +156,16 @@ function StaffHome({ projects, header }: { projects: Project[]; header: HeaderFn
     ...live,
   });
 
-  // Team reads what the caller handed out that is due by the end of today, and the whole queue of the positions they
-  // lead; Mine, their own overdue and today's tasks.
+  // Mine: the caller's own overdue and today's tasks. Team adds what they handed out, and the whole queue of the
+  // positions they lead; attentionOf leaves what is not due yet to the count, by the minute clock.
   const ownTasks = useMemo(() => {
-    if (shownScope !== "team") return [...(overdue.data?.tasks ?? []), ...(today.data?.tasks ?? [])];
-    const { timeZone } = getDateTimePreferences();
-    const endOfToday = todayKey(new Date(), timeZone);
-    return (assigned.data?.tasks ?? []).filter(
-      (task) => task.status === "open" && task.dueAt !== null && todayKey(new Date(task.dueAt), timeZone) <= endOfToday,
-    );
+    const own = [...(overdue.data?.tasks ?? []), ...(today.data?.tasks ?? [])];
+    return shownScope === "team" ? [...own, ...(assigned.data?.tasks ?? [])] : own;
   }, [shownScope, assigned.data, overdue.data, today.data]);
+  const ownUpcoming = (today.data ?? overdue.data)?.counts.upcoming ?? 0;
   const { lines, comingUp } = useMemo(
-    () => attentionOf(needsYouOf(outreach.data?.rows ?? [], ownTasks, user?.id, now), now),
-    [outreach.data, ownTasks, user?.id, now],
+    () => attentionOf(needsYouOf(outreach.data?.rows ?? [], ownTasks, user?.id, now), now, { myUserId: user?.id, ownUpcoming }),
+    [outreach.data, ownTasks, user?.id, now, ownUpcoming],
   );
   const events = useMemo(() => {
     const agenda = (today.data?.tasks ?? []).filter(
@@ -182,17 +173,22 @@ function StaffHome({ projects, header }: { projects: Project[]; header: HeaderFn
     );
     return todayEventsOf(meetings.data ?? [], agenda, (projectId) => clientNames.get(projectId), (task) => taskKindOf(task.kind).label);
   }, [today.data, meetings.data, clientNames, user?.id, now]);
-  const tasksPending = shownScope === "team" ? assigned.isPending : today.isPending || overdue.isPending;
-  const needsPending = outreach.isPending || tasksPending;
-  const todayPending = today.isPending || meetings.isPending;
+  const taskReads = shownScope === "team" ? [today, overdue, assigned] : [today, overdue];
+  // A read that never answered is not an empty one: "You're all caught up" over a failed read hid what was overdue.
+  // A failed refresh behind an answer keeps that answer on screen.
+  const needsRefused = outreach.isLoadingError || taskReads.some((read) => read.isLoadingError);
+  const needsPending = !needsRefused && (outreach.isPending || taskReads.some((read) => read.isPending));
+  const moreTasks = taskReads.some((read) => read.data?.hasMore);
+  const todayPending = (today.isPending && !today.isLoadingError) || (meetings.isPending && !meetings.isLoadingError);
+  const todayRefused = today.isLoadingError || meetings.isLoadingError;
 
   const summary = [
-    needsPending
+    needsPending || needsRefused
       ? null
       : lines.length === 0
         ? "Nothing needs your attention"
         : `${plural(lines.length, "action needs", "actions need")} attention`,
-    todayPending ? null : events.length === 0 ? "Nothing on today's calendar" : `${plural(events.length, "event", "events")} today`,
+    todayPending || todayRefused ? null : events.length === 0 ? "Nothing on today's calendar" : `${plural(events.length, "event", "events")} today`,
     active.length === 0 ? "No positions yet" : plural(active.length, "active position", "active positions"),
   ]
     .filter(Boolean)
@@ -207,11 +203,12 @@ function StaffHome({ projects, header }: { projects: Project[]; header: HeaderFn
           <NeedsAttention
             lines={lines}
             comingUp={comingUp}
-            more={outreach.data?.truncated ?? false}
+            moreOutreach={outreach.data?.truncated ?? false}
+            moreTasks={moreTasks}
             clientOf={clientOf}
             myUserId={user?.id}
             pending={needsPending}
-            refused={outreach.isError}
+            refused={needsRefused}
             scope={shownScope}
             onScopeChange={setScope}
             showScope={leadsAny}
@@ -222,7 +219,8 @@ function StaffHome({ projects, header }: { projects: Project[]; header: HeaderFn
           <TodayPanel
             events={events}
             pending={todayPending}
-            calendarRefused={meetings.isError}
+            calendarRefused={meetings.isLoadingError}
+            tasksRefused={today.isLoadingError}
             mailboxGap={mailboxGap}
             now={now}
           />
@@ -273,7 +271,7 @@ function ClientHome({ projects, header }: { projects: Project[]; header: HeaderF
                 </span>
                 <span className="flex flex-wrap items-center gap-x-3 gap-y-1 text-note text-u-text2">
                   <StagePill stage={project.stage} />
-                  <span>{project.candidates > 0 ? `${project.candidates} executives` : `${project.companies} companies`}</span>
+                  <span>{project.candidates > 0 ? plural(project.candidates, "executive", "executives") : plural(project.companies, "company", "companies")}</span>
                   {project.targetDate && <span className="ml-auto text-u-text3">Due {formatShortDate(project.targetDate)}</span>}
                 </span>
               </Link>
