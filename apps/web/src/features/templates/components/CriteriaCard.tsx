@@ -3,6 +3,9 @@ import { Button, Input } from "../../../components/ui";
 import type { Criterion, CriterionMode } from "../../position/api/types";
 import { SectionHeading } from "./fields";
 
+const MAX_CRITERIA = 30;
+const MAX_CRITERION_LENGTH = 300;
+
 /** The candidate criteria list: inline edit, Required/Preferred segmented toggle, add and remove. */
 export function CriteriaCard({
   criteria,
@@ -30,6 +33,7 @@ export function CriteriaCard({
           >
             <input
               value={criterion.text}
+              maxLength={MAX_CRITERION_LENGTH}
               aria-label={`Criterion ${index + 1}`}
               onChange={(e) => patch(index, { text: e.target.value })}
               className="min-w-0 flex-1 border-b border-transparent bg-transparent py-1 text-[13px] font-medium text-u-text outline-none transition hover:border-u-border-strong focus:border-u-accent"
@@ -64,20 +68,23 @@ export function CriteriaCard({
           </div>
         ))}
 
-        <div className="mt-3 flex gap-2">
-          <Input
-            value={draft}
-            placeholder="Add a criterion…"
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") add();
-            }}
-            className="bg-u-surface"
-          />
-          <Button variant="secondary" onClick={add} className="flex-none">
-            Add
-          </Button>
-        </div>
+        {criteria.length < MAX_CRITERIA && (
+          <div className="mt-3 flex gap-2">
+            <Input
+              value={draft}
+              maxLength={MAX_CRITERION_LENGTH}
+              placeholder="Add a criterion…"
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") add();
+              }}
+              className="bg-u-surface"
+            />
+            <Button variant="secondary" onClick={add} className="flex-none">
+              Add
+            </Button>
+          </div>
+        )}
       </div>
     </div>
   );

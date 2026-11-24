@@ -214,6 +214,7 @@ function CompetencyRow({
 
       <input
         value={row.name}
+        maxLength={120}
         aria-label={`${panelTitle} competency ${index + 1} name`}
         onChange={(e) => onPatch({ name: e.target.value })}
         className="min-w-0 bg-transparent text-[13px] font-semibold text-u-text outline-none"
@@ -221,6 +222,7 @@ function CompetencyRow({
 
       <input
         value={row.description ?? ""}
+        maxLength={300}
         aria-label={`${named} description`}
         placeholder="What this measures…"
         onChange={(e) => onPatch({ description: e.target.value || null })}
