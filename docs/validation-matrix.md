@@ -165,6 +165,7 @@ is held back rather than sent (the step does not save until it is named) and the
 | Competency name / description | ≤ 120 / 300, blank name held | same | toast + rail |
 | Competency weight, technical share | 0–100 | 0–100, DB CHECK | — |
 | Criteria | ≤ 30 × 300, no duplicates, blank held | ≤ 30 × 300 | toast + rail |
+| `reading` on a step's write (#1452, never typed) | sent only by a document fill: the version, the scalars and row counts the fill left as the document's | `version` `@Positive` or null; ≤ 12 `fields` × 64; ≤ 6 `listItems` × 64, each 1–60; keys outside the step ignored; a version counts only once it has served | — |
 | Document | `accept`; ≤ 10 MB before upload | ≤ 10 MB; name **and bytes** must agree on PDF / DOC / DOCX / TXT — the declared type decides nothing | sentence |
 
 ### Strategy

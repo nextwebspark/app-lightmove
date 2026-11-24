@@ -4,7 +4,6 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 import java.util.List;
 
@@ -24,9 +23,6 @@ public record PutCompetenciesRequest(
         @Min(value = 0, message = "The technical share is between 0 and 100")
         @Max(value = 100, message = "The technical share is between 0 and 100")
         Integer technicalShare,
-        /**
-         * The {@code promptVersion} of the document reading this write carries, sent once, with the write that
-         * fills it (#1452). The client's word: counted only against a version that has served.
-         */
-        @Positive Integer readingVersion
+        /** Only on the write a document fill schedules. */
+        @Valid DocumentReadingRequest reading
 ) {}

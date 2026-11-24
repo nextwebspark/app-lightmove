@@ -5,7 +5,6 @@ import app.lightmove.api.common.constant.Seniority;
 import app.lightmove.api.position.constant.FieldSource;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 import java.util.List;
 import java.util.Map;
@@ -33,9 +32,6 @@ public record PutPositionDetailsRequest(
 
         /** Null defaults every key of this step to {@code MANUAL}. */
         Map<String, FieldSource> fieldSources,
-        /**
-         * The {@code promptVersion} of the document reading this write carries, sent once, with the write that
-         * fills it (#1452). The client's word: counted only against a version that has served.
-         */
-        @Positive Integer readingVersion
+        /** Only on the write a document fill schedules. */
+        @Valid DocumentReadingRequest reading
 ) {}

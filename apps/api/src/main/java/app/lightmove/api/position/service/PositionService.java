@@ -144,7 +144,7 @@ public class PositionService {
                 request.seniority(), responsibilitiesOf(request.responsibilities()), request.narrative(),
                 fieldSourcesOf(request.fieldSources(), PositionFieldKeys.DETAILS)));
         brief.project().rename(request.roleTitle());
-        suggestions.recordDetails(brief.position(), request.readingVersion());
+        suggestions.recordDetails(brief.position(), request.reading());
         return saved(brief, userId, workspaceId, projectId, "details", httpRequest);
     }
 
@@ -157,7 +157,7 @@ public class PositionService {
                 prioritiesOf(request.strategicPriorities()),
                 request.confidential(), request.internalContext(),
                 fieldSourcesOf(request.fieldSources(), PositionFieldKeys.CONTEXT)));
-        suggestions.recordContext(brief.position(), request.readingVersion());
+        suggestions.recordContext(brief.position(), request.reading());
         return saved(brief, userId, workspaceId, projectId, "context", httpRequest);
     }
 
@@ -174,7 +174,7 @@ public class PositionService {
                         .toList(),
                 request.teamSize(), request.noticeValue(), request.noticeUnit(),
                 fieldSourcesOf(request.fieldSources(), PositionFieldKeys.REPORTING)));
-        suggestions.recordReporting(brief.position(), request.readingVersion());
+        suggestions.recordReporting(brief.position(), request.reading());
         return saved(brief, userId, workspaceId, projectId, "reporting", httpRequest);
     }
 
@@ -204,7 +204,7 @@ public class PositionService {
                 .map(criterion -> PositionCriterion.of(
                         criterion.text(), criterion.mode(), FieldSource.orManual(criterion.source())))
                 .toList());
-        suggestions.recordCriteria(brief.position(), request.readingVersion());
+        suggestions.recordCriteria(brief.position(), request.reading());
         return saved(brief, userId, workspaceId, projectId, "criteria", httpRequest);
     }
 
@@ -222,7 +222,7 @@ public class PositionService {
                                         competency.name(), competency.description(), competency.weight(),
                                         FieldSource.orManual(competency.source()))))
                 .toList(), request.technicalShare());
-        suggestions.recordCompetencies(brief.position(), request.readingVersion());
+        suggestions.recordCompetencies(brief.position(), request.reading());
         return saved(brief, userId, workspaceId, projectId, "competencies", httpRequest);
     }
 

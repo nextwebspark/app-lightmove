@@ -17,6 +17,7 @@ import type {
   Compensation,
   Competency,
   Criterion,
+  DocumentReading,
   MandateContext,
   Position,
   PositionDetails,
@@ -45,6 +46,7 @@ import {
   type PositionSnapshot,
   type Receipts,
 } from "../lib/documentFill";
+import { documentReadingsOf, type ReadingChannel } from "../lib/documentReading";
 import { addSuggestedSeat } from "../lib/orgChart";
 import {
   CONTEXT_FIELD_KEYS,
@@ -139,9 +141,6 @@ export function PositionPage() {
   return <PositionBrief key={project.id} projectId={project.id} position={position} />;
 }
 
-/** The autosave channels a document reading fills, each sending the reading's version once (#1452). */
-type ReadingChannel = "details" | "context" | "reporting" | "criteria" | "competencies";
-
 /**
  * The brief editor: five steps behind a rail, the step in the URL. No Save button — each section autosaves its
  * own PUT and gets the whole brief back; "Save draft" flushes. The Role Brief writes through three channels.
@@ -218,23 +217,19 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
   const serially = useSerialQueue();
 
   /**
-   * The version of the document reading each channel's next write carries (#1452): set by a fill for the channels it
-   * schedules, sent with that write and then dropped, so an ordinary edit never claims a reading. Kept while the
-   * write fails, for the autosave's retry.
+   * The document reading each channel's next write carries (#1452): set by a fill for the channels it schedules, sent
+   * with that write and then dropped, so an ordinary edit never claims a reading. Kept while the write fails, for the
+   * autosave's retry. Dropped by identity, so a newer fill's reading survives an older write still in flight.
    */
-  const readingVersions = useRef<Partial<Record<ReadingChannel, number>>>({});
+  const pendingReadings = useRef<Partial<Record<ReadingChannel, DocumentReading>>>({});
   const carryingReading = async (
     channel: ReadingChannel,
-    write: (readingVersion: number | null) => Promise<Position>,
+    write: (reading: DocumentReading | null) => Promise<Position>,
   ) => {
-    const version = readingVersions.current[channel] ?? null;
-    const saved = await write(version);
-    if (version !== null && readingVersions.current[channel] === version) delete readingVersions.current[channel];
+    const reading = pendingReadings.current[channel] ?? null;
+    const saved = await write(reading);
+    if (reading !== null && pendingReadings.current[channel] === reading) delete pendingReadings.current[channel];
     return saved;
-  };
-  const rememberReading = (channel: ReadingChannel, version: number | null | undefined) => {
-    if (version == null) delete readingVersions.current[channel];
-    else readingVersions.current[channel] = version;
   };
 
   /** Shared persistence shape: cache the returned snapshot. A refusal is the autosave's to report. */
@@ -706,19 +701,25 @@ function PositionBrief({ projectId, position }: { projectId: string; position: P
       setReceipts((current) => ({ ...current, ...outcome.receipts }));
       setUsualDirectReports(results.reporting?.usualDirectReports ?? null);
 
+      const readings = documentReadingsOf(outcome.next, {
+        details: results.details?.promptVersion,
+        context: results.context?.promptVersion,
+        reporting: results.reporting?.promptVersion,
+        assessment: results.assessment?.promptVersion,
+      });
       if (outcome.changed.has("brief") || outcome.changed.has("reporting")) {
-        rememberReading("reporting", results.reporting?.promptVersion);
+        pendingReadings.current.reporting = readings.reporting;
         reportingSave.schedule(outcome.next.reporting);
       }
       if (outcome.changed.has("brief")) {
-        rememberReading("details", results.details?.promptVersion);
-        rememberReading("context", results.context?.promptVersion);
+        pendingReadings.current.details = readings.details;
+        pendingReadings.current.context = readings.context;
         detailsSave.schedule(outcome.next.details);
         contextSave.schedule(outcome.next.context);
       }
       if (outcome.changed.has("assessment")) {
-        rememberReading("criteria", results.assessment?.promptVersion);
-        rememberReading("competencies", results.assessment?.promptVersion);
+        pendingReadings.current.criteria = readings.criteria;
+        pendingReadings.current.competencies = readings.competencies;
         criteriaSave.schedule(outcome.next.criteria);
         competenciesSave.schedule({
           technical: outcome.next.technical,

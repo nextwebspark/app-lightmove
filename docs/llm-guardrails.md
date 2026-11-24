@@ -184,7 +184,10 @@ gets the system text, the provider's options and the wiring that counts the call
   browser, so a staff member could send another. It is counted only against a version of `outreach-opener` that
   has served (a `production` move names it), which bounds it to platform metrics on versions that were live; a
   signed draft token was judged more than that is worth.
-  A position extraction's `readingVersion` (#1452) is the client's word the same way, and bounded the same way.
+  A position extraction's `reading` (#1452) is the client's word too, and only its version is bounded that way:
+  which fields it names and the rows' sources are the client's as well, and publish can be repeated, so a member
+  with `WORK_EXECUTE` can add kept decisions against a served version without limit. It reaches platform metrics
+  only, never a workspace's data.
   A bundled prompt has no version, so with the registry off none of it is counted.
 
 The answer schema (`-schema.json`), the answer format and the user message stay in code: code parses the

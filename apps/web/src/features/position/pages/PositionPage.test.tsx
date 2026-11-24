@@ -739,7 +739,7 @@ describe("PositionPage", () => {
       expect(screen.queryByRole("button", { name: "Read from the document" })).not.toBeInTheDocument();
     });
 
-    it("sends the reading's version with the write that fills it, and never with a later edit", async () => {
+    it("sends what the reading filled with the write that fills it, and never with a later edit", async () => {
       vi.mocked(positionApi.attachDocument).mockResolvedValue(attached);
       vi.mocked(positionApi.extractDetails).mockResolvedValue({
         extractionSource: "model",
@@ -758,7 +758,7 @@ describe("PositionPage", () => {
       const input = await screen.findByLabelText("Position description file");
       await person.upload(input, new File(["%PDF-1.4"], "CFO-brief.pdf", { type: "application/pdf" }));
       await waitFor(() => expect(positionApi.putDetails).toHaveBeenCalled());
-      expect(lastCall(positionApi.putDetails)[2]).toBe(4);
+      expect(lastCall(positionApi.putDetails)[2]).toEqual({ version: 4, fields: ["locationCity"], listItems: {} });
       const fillWrites = vi.mocked(positionApi.putDetails).mock.calls.length;
 
       const city = screen.getByRole("textbox", { name: "City" });
@@ -767,6 +767,28 @@ describe("PositionPage", () => {
 
       await waitFor(() => expect(vi.mocked(positionApi.putDetails).mock.calls.length).toBeGreaterThan(fillWrites));
       expect(lastCall(positionApi.putDetails)[2]).toBeNull();
+    });
+
+    it("tells the server about a fill the heuristic answered, with no version", async () => {
+      vi.mocked(positionApi.attachDocument).mockResolvedValue(attached);
+      vi.mocked(positionApi.extractDetails).mockResolvedValue({
+        extractionSource: "documentHeadings",
+        fields: [{ id: 1, fieldKey: "locationCity", value: "Dubai", confidence: "low", snippet: "based in Dubai", origin: "document" }],
+        suggestedTemplate: null,
+        usualDirectReports: null,
+        promptVersion: null,
+      });
+      vi.mocked(positionApi.extractContext).mockResolvedValue(emptyExtraction);
+      vi.mocked(positionApi.extractReporting).mockResolvedValue(emptyExtraction);
+      vi.mocked(positionApi.extractAssessment).mockResolvedValue(emptyExtraction);
+      vi.mocked(positionApi.putDetails).mockResolvedValue(seeded);
+      renderPage();
+      const person = userEvent.setup();
+
+      const input = await screen.findByLabelText("Position description file");
+      await person.upload(input, new File(["%PDF-1.4"], "CFO-brief.pdf", { type: "application/pdf" }));
+      await waitFor(() => expect(positionApi.putDetails).toHaveBeenCalled());
+      expect(lastCall(positionApi.putDetails)[2]).toEqual({ version: null, fields: ["locationCity"], listItems: {} });
     });
 
     it("undoes a field a reading filled, restoring what was there before", async () => {

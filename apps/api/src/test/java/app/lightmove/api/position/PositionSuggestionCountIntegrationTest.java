@@ -63,7 +63,7 @@ class PositionSuggestionCountIntegrationTest extends FlowTestSupport {
         int version = liveVersionOf(DETAILS);
         long[] before = decisionsOf(DETAILS, version);
 
-        putDetails(admin, projectId, "C_SUITE", "DOCUMENT", "DOCUMENT", version);
+        putDetails(admin, projectId, "C_SUITE", "DOCUMENT", "DOCUMENT", detailsReading(version));
         putDetails(admin, projectId, "BOARD", "MANUAL", "DOCUMENT", null);
         publish(admin, projectId);
 
@@ -78,6 +78,37 @@ class PositionSuggestionCountIntegrationTest extends FlowTestSupport {
 
         publish(admin, projectId);
         assertThat(decisionsOf(DETAILS, version)).as("a second publish counts nothing again").isEqualTo(after);
+    }
+
+    @Test
+    @DisplayName("a field edited before the fill's own write went out is counted as changed")
+    void anEditBeforeTheFillsWriteIsChanged() throws Exception {
+        String admin = adminOf("Quick Edit Firm");
+        String projectId = projectOf(admin);
+        int version = liveVersionOf(DETAILS);
+        long[] before = decisionsOf(DETAILS, version);
+
+        putDetails(admin, projectId, "BOARD", "MANUAL", "DOCUMENT", detailsReading(version));
+        publish(admin, projectId);
+
+        long[] after = decisionsOf(DETAILS, version);
+        assertThat(after[0] - before[0]).as("the department and the responsibilities").isEqualTo(2);
+        assertThat(after[1] - before[1]).as("the seniority, filled and then changed").isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("a re-read the heuristic answered forgets what an earlier version filled in the same fields")
+    void aHeuristicReReadIsNotCreditedToTheEarlierVersion() throws Exception {
+        String admin = adminOf("Re-read Firm");
+        String projectId = projectOf(admin);
+        int version = liveVersionOf(DETAILS);
+        long[] before = decisionsOf(DETAILS, version);
+
+        putDetails(admin, projectId, "C_SUITE", "DOCUMENT", "DOCUMENT", detailsReading(version));
+        putDetails(admin, projectId, "BOARD", "DOCUMENT", "DOCUMENT", detailsReading(null));
+        publish(admin, projectId);
+
+        assertThat(decisionsOf(DETAILS, version)).isEqualTo(before);
     }
 
     @Test
@@ -109,13 +140,20 @@ class PositionSuggestionCountIntegrationTest extends FlowTestSupport {
         publish(admin, projectId);
         assertThat(decisionsOf(DETAILS, version)).isEqualTo(before);
 
-        putDetails(admin, projectId, "C_SUITE", "DOCUMENT", "DOCUMENT", 9_999);
+        putDetails(admin, projectId, "C_SUITE", "DOCUMENT", "DOCUMENT", detailsReading(9_999));
         publish(admin, projectId);
         assertThat(decisionsOf(DETAILS, 9_999)).isEqualTo(new long[] {0, 0});
     }
 
+    /** The fill set the department, the seniority and both responsibilities. */
+    private static String detailsReading(Integer version) {
+        return """
+                {"version":%s,"fields":["department","seniority"],"listItems":{"responsibilities":2}}"""
+                .formatted(version);
+    }
+
     private void putDetails(String token, String projectId, String seniority, String senioritySource,
-                            String responsibilitySource, Integer readingVersion) throws Exception {
+                            String responsibilitySource, String reading) throws Exception {
         mvc.perform(put(positionUrl(projectId) + "/details")
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -125,12 +163,12 @@ class PositionSuggestionCountIntegrationTest extends FlowTestSupport {
                                  "responsibilities":[{"text":"Own the group's reporting","source":"%s"},
                                                      {"text":"Lead the audit","source":"DOCUMENT"}],
                                  "fieldSources":{"department":"DOCUMENT","seniority":"%s"},
-                                 "readingVersion":%s}""".formatted(seniority, responsibilitySource,
-                                senioritySource, readingVersion)))
+                                 "reading":%s}""".formatted(seniority, responsibilitySource,
+                                senioritySource, reading)))
                 .andExpect(status().isOk());
     }
 
-    private void putCriteria(String token, String projectId, String firstSource, Integer readingVersion)
+    private void putCriteria(String token, String projectId, String firstSource, Integer version)
             throws Exception {
         mvc.perform(put(positionUrl(projectId) + "/criteria")
                         .header("Authorization", "Bearer " + token)
@@ -138,8 +176,14 @@ class PositionSuggestionCountIntegrationTest extends FlowTestSupport {
                         .content("""
                                 {"criteria":[{"text":"Has led a listing","mode":"REQUIRED","source":"%s"},
                                              {"text":"Arabic speaker","mode":"REQUIRED","source":"DOCUMENT"}],
-                                 "readingVersion":%s}""".formatted(firstSource, readingVersion)))
+                                 "reading":%s}""".formatted(firstSource, criteriaReading(version))))
                 .andExpect(status().isOk());
+    }
+
+    /** The fill set both criteria; none at all when this is an ordinary save. */
+    private static String criteriaReading(Integer version) {
+        return version == null ? null : """
+                {"version":%d,"listItems":{"criteria":2}}""".formatted(version);
     }
 
     private void publish(String token, String projectId) throws Exception {

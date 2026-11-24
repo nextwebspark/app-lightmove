@@ -6,13 +6,15 @@ import app.lightmove.api.core.llm.model.PromptVersionRef;
 import app.lightmove.api.core.llm.service.PromptOutcomes;
 import app.lightmove.api.position.constant.FieldSource;
 import app.lightmove.api.position.constant.PositionFieldKeys;
+import app.lightmove.api.position.dto.DocumentReadingRequest;
 import app.lightmove.api.position.model.Position;
 import app.lightmove.api.position.model.PositionCompetency;
 import app.lightmove.api.position.model.PositionCriterion;
 import app.lightmove.api.position.model.PositionOrgNode;
 import app.lightmove.api.position.model.PositionPriority;
 import app.lightmove.api.position.model.PositionResponsibility;
-import java.sql.Types;
+import app.lightmove.api.position.model.PositionSuggestedField;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -20,7 +22,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 import lombok.RequiredArgsConstructor;
-import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
 
 /**
@@ -39,110 +40,87 @@ public class PositionSuggestions {
     static final String TECHNICAL_COMPETENCIES = "technicalCompetencies";
     static final String BEHAVIOURAL_COMPETENCIES = "behaviouralCompetencies";
 
-    private final JdbcClient jdbc;
+    private static final Map<String, Function<Position, Long>> DOCUMENT_ROWS = Map.of(
+            RESPONSIBILITIES, position -> fromDocument(position.getResponsibilities(),
+                    PositionResponsibility::getSource),
+            STRATEGIC_PRIORITIES, position -> fromDocument(position.getStrategicPriorities(),
+                    PositionPriority::getSource),
+            ORG_CHART, position -> fromDocument(position.getOrgChart(), PositionOrgNode::getSource),
+            CRITERIA, position -> fromDocument(position.getCriteria(), PositionCriterion::getSource),
+            TECHNICAL_COMPETENCIES, position -> fromDocument(competenciesOf(position, CompetencyPanel.TECHNICAL),
+                    PositionCompetency::getSource),
+            BEHAVIOURAL_COMPETENCIES, position -> fromDocument(competenciesOf(position, CompetencyPanel.BEHAVIOURAL),
+                    PositionCompetency::getSource));
+
+    private final PositionSuggestedFieldStore store;
     private final PromptOutcomes outcomes;
 
-    void recordDetails(Position position, Integer readingVersion) {
-        record(position, PositionDetailsProposer.PROMPT_ID, readingVersion, PositionFieldKeys.DETAILS,
-                List.of(RESPONSIBILITIES));
+    void recordDetails(Position position, DocumentReadingRequest reading) {
+        record(position, PositionDetailsProposer.PROMPT_ID, reading, PositionFieldKeys.DETAILS,
+                Set.of(RESPONSIBILITIES));
     }
 
-    void recordContext(Position position, Integer readingVersion) {
-        record(position, PositionContextProposer.PROMPT_ID, readingVersion, PositionFieldKeys.CONTEXT,
-                List.of(STRATEGIC_PRIORITIES));
+    void recordContext(Position position, DocumentReadingRequest reading) {
+        record(position, PositionContextProposer.PROMPT_ID, reading, PositionFieldKeys.CONTEXT,
+                Set.of(STRATEGIC_PRIORITIES));
     }
 
-    void recordReporting(Position position, Integer readingVersion) {
-        record(position, PositionReportingProposer.PROMPT_ID, readingVersion, PositionFieldKeys.REPORTING,
-                List.of(ORG_CHART));
+    void recordReporting(Position position, DocumentReadingRequest reading) {
+        record(position, PositionReportingProposer.PROMPT_ID, reading, PositionFieldKeys.REPORTING,
+                Set.of(ORG_CHART));
     }
 
-    void recordCriteria(Position position, Integer readingVersion) {
-        record(position, PositionAssessmentProposer.PROMPT_ID, readingVersion, Set.of(), List.of(CRITERIA));
+    void recordCriteria(Position position, DocumentReadingRequest reading) {
+        record(position, PositionAssessmentProposer.PROMPT_ID, reading, Set.of(), Set.of(CRITERIA));
     }
 
-    void recordCompetencies(Position position, Integer readingVersion) {
-        record(position, PositionAssessmentProposer.PROMPT_ID, readingVersion, Set.of(),
-                List.of(TECHNICAL_COMPETENCIES, BEHAVIOURAL_COMPETENCIES));
+    void recordCompetencies(Position position, DocumentReadingRequest reading) {
+        record(position, PositionAssessmentProposer.PROMPT_ID, reading, Set.of(),
+                Set.of(TECHNICAL_COMPETENCIES, BEHAVIOURAL_COMPETENCIES));
     }
 
     /**
      * Each field the readings in force filled, counted against its version, then forgotten: a later publish counts
-     * only what a later reading fills. A field a person changed and a re-read then filled again counts once, as the
-     * re-read's.
+     * only what a later reading fills.
      */
     void countAtPublish(Position position) {
-        List<SuggestedField> suggested = jdbc.sql("""
-                        SELECT field_key, prompt_id, version, document_items
-                        FROM app_lm_position_suggested_field
-                        WHERE position_id = :positionId
-                        """)
-                .param("positionId", position.getId())
-                .query((row, index) -> new SuggestedField(row.getString("field_key"), row.getString("prompt_id"),
-                        row.getInt("version"), (Integer) row.getObject("document_items")))
-                .list();
+        List<PositionSuggestedField> suggested = store.suggestedOn(position.getId());
         if (suggested.isEmpty()) {
             return;
         }
-        Map<String, Long> documentRows = documentRowsOf(position);
-        for (SuggestedField field : suggested) {
+        for (PositionSuggestedField field : suggested) {
             boolean kept = field.documentItems() == null
                     ? position.getFieldSources().get(field.fieldKey()) == FieldSource.DOCUMENT
-                    : documentRows.getOrDefault(field.fieldKey(), 0L) == field.documentItems().longValue();
+                    : DOCUMENT_ROWS.get(field.fieldKey()).apply(position) == field.documentItems().longValue();
             outcomes.record(new PromptVersionRef(field.promptId(), field.version()),
                     kept ? PromptOutcome.ACCEPTED : PromptOutcome.CHANGED);
         }
-        jdbc.sql("DELETE FROM app_lm_position_suggested_field WHERE position_id = :positionId")
-                .param("positionId", position.getId())
-                .update();
+        store.forgetAll(position.getId());
     }
 
-    /** {@code readingVersion} null: an ordinary save, which leaves what earlier readings filled as it was. */
-    private void record(Position position, String promptId, Integer readingVersion, Set<String> scalarKeys,
-                        List<String> lists) {
-        if (readingVersion == null) {
+    /**
+     * A reading no version answered (the heuristic's) forgets what an earlier one filled in the same fields, or those
+     * values, now the heuristic's, would be credited to it. Keys outside this step are ignored.
+     */
+    private void record(Position position, String promptId, DocumentReadingRequest reading, Set<String> scalarKeys,
+                        Set<String> lists) {
+        if (reading == null) {
             return;
         }
-        scalarKeys.stream()
-                .filter(key -> position.getFieldSources().get(key) == FieldSource.DOCUMENT)
-                .forEach(key -> upsert(position, key, promptId, readingVersion, null));
-        Map<String, Long> documentRows = documentRowsOf(position);
-        for (String list : lists) {
-            long filled = documentRows.getOrDefault(list, 0L);
-            if (filled > 0) {
-                upsert(position, list, promptId, readingVersion, (int) filled);
-            }
+        List<String> filledScalars = reading.fields().stream().filter(scalarKeys::contains).toList();
+        Map<String, Integer> filledLists = new LinkedHashMap<>(reading.listItems());
+        filledLists.keySet().retainAll(lists);
+        if (reading.version() == null) {
+            List<String> forgotten = new ArrayList<>(filledScalars);
+            forgotten.addAll(filledLists.keySet());
+            store.forget(position.getId(), forgotten);
+            return;
         }
-    }
-
-    private void upsert(Position position, String fieldKey, String promptId, int version, Integer documentItems) {
-        jdbc.sql("""
-                        INSERT INTO app_lm_position_suggested_field
-                            (position_id, field_key, prompt_id, version, document_items)
-                        VALUES (:positionId, :fieldKey, :promptId, :version, :documentItems)
-                        ON CONFLICT (position_id, field_key) DO UPDATE
-                            SET prompt_id = EXCLUDED.prompt_id, version = EXCLUDED.version,
-                                document_items = EXCLUDED.document_items, suggested_at = now()
-                        """)
-                .param("positionId", position.getId())
-                .param("fieldKey", fieldKey)
-                .param("promptId", promptId)
-                .param("version", version)
-                .param("documentItems", documentItems, Types.INTEGER)
-                .update();
-    }
-
-    private static Map<String, Long> documentRowsOf(Position position) {
-        Map<String, Long> rows = new LinkedHashMap<>();
-        rows.put(RESPONSIBILITIES, fromDocument(position.getResponsibilities(), PositionResponsibility::getSource));
-        rows.put(STRATEGIC_PRIORITIES, fromDocument(position.getStrategicPriorities(), PositionPriority::getSource));
-        rows.put(ORG_CHART, fromDocument(position.getOrgChart(), PositionOrgNode::getSource));
-        rows.put(CRITERIA, fromDocument(position.getCriteria(), PositionCriterion::getSource));
-        rows.put(TECHNICAL_COMPETENCIES, fromDocument(competenciesOf(position, CompetencyPanel.TECHNICAL),
-                PositionCompetency::getSource));
-        rows.put(BEHAVIOURAL_COMPETENCIES, fromDocument(competenciesOf(position, CompetencyPanel.BEHAVIOURAL),
-                PositionCompetency::getSource));
-        return rows;
+        int version = reading.version();
+        filledScalars.forEach(key ->
+                store.remember(position.getId(), new PositionSuggestedField(key, promptId, version, null)));
+        filledLists.forEach((list, items) ->
+                store.remember(position.getId(), new PositionSuggestedField(list, promptId, version, items)));
     }
 
     private static List<PositionCompetency> competenciesOf(Position position, CompetencyPanel panel) {
@@ -151,8 +129,5 @@ public class PositionSuggestions {
 
     private static <T> long fromDocument(Collection<T> rows, Function<T, FieldSource> sourceOf) {
         return rows.stream().filter(row -> sourceOf.apply(row) == FieldSource.DOCUMENT).count();
-    }
-
-    private record SuggestedField(String fieldKey, String promptId, int version, Integer documentItems) {
     }
 }
