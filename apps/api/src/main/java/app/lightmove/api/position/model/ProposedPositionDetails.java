@@ -8,7 +8,8 @@ import java.util.List;
  * A proposed reading of step one, and what produced it — the extraction's twin of {@code
  * dataimport}'s {@code ProposedColumnMappings}.
  */
-public record ProposedPositionDetails(ExtractionSource source, List<ExtractedField> fields, PromptVersionRef answeredBy) {
+public record ProposedPositionDetails(ExtractionSource source, List<ExtractedField> fields,
+                                      PromptVersionRef answeredBy) {
 
     public ProposedPositionDetails {
         fields = List.copyOf(fields);
@@ -18,7 +19,6 @@ public record ProposedPositionDetails(ExtractionSource source, List<ExtractedFie
         this(source, fields, null);
     }
 
-    /** {@code answeredBy} null: the heuristic answered, or the bundled prompt, which has no version. */
     public ProposedPositionDetails answeredBy(PromptVersionRef version) {
         return new ProposedPositionDetails(source, fields, version);
     }

@@ -8,7 +8,8 @@ import java.util.List;
  * A proposed reading of step five, and what produced it — the assessment twin of
  * {@link ProposedPositionDetails}.
  */
-public record ProposedAssessment(ExtractionSource source, List<ExtractedField> fields, PromptVersionRef answeredBy) {
+public record ProposedAssessment(ExtractionSource source, List<ExtractedField> fields,
+                                 PromptVersionRef answeredBy) {
 
     public ProposedAssessment {
         fields = List.copyOf(fields);
@@ -18,7 +19,6 @@ public record ProposedAssessment(ExtractionSource source, List<ExtractedField> f
         this(source, fields, null);
     }
 
-    /** {@code answeredBy} null: the heuristic answered, or the bundled prompt, which has no version. */
     public ProposedAssessment answeredBy(PromptVersionRef version) {
         return new ProposedAssessment(source, fields, version);
     }

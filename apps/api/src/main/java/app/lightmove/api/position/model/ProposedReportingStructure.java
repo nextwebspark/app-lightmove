@@ -11,7 +11,8 @@ import java.util.List;
  * <p>Every field here is a title or a scalar, never a chart: see {@code PositionReportingProposer}'s
  * class doc for why this proposer must not answer with an {@code OrgNode} tree of its own.
  */
-public record ProposedReportingStructure(ExtractionSource source, List<ExtractedField> fields, PromptVersionRef answeredBy) {
+public record ProposedReportingStructure(ExtractionSource source, List<ExtractedField> fields,
+                                         PromptVersionRef answeredBy) {
 
     public ProposedReportingStructure {
         fields = List.copyOf(fields);
@@ -21,7 +22,6 @@ public record ProposedReportingStructure(ExtractionSource source, List<Extracted
         this(source, fields, null);
     }
 
-    /** {@code answeredBy} null: the heuristic answered, or the bundled prompt, which has no version. */
     public ProposedReportingStructure answeredBy(PromptVersionRef version) {
         return new ProposedReportingStructure(source, fields, version);
     }

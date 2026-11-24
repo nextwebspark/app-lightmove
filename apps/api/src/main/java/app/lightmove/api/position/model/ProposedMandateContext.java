@@ -8,7 +8,8 @@ import java.util.List;
  * A proposed reading of step two, and what produced it — the mandate-context twin of
  * {@link ProposedPositionDetails}.
  */
-public record ProposedMandateContext(ExtractionSource source, List<ExtractedField> fields, PromptVersionRef answeredBy) {
+public record ProposedMandateContext(ExtractionSource source, List<ExtractedField> fields,
+                                     PromptVersionRef answeredBy) {
 
     public ProposedMandateContext {
         fields = List.copyOf(fields);
@@ -18,7 +19,6 @@ public record ProposedMandateContext(ExtractionSource source, List<ExtractedFiel
         this(source, fields, null);
     }
 
-    /** {@code answeredBy} null: the heuristic answered, or the bundled prompt, which has no version. */
     public ProposedMandateContext answeredBy(PromptVersionRef version) {
         return new ProposedMandateContext(source, fields, version);
     }
