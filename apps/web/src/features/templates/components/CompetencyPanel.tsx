@@ -10,6 +10,8 @@ import { AddRowButton, ColumnLabel, RemoveRowButton } from "./fields";
 
 /** What PutCompetenciesRequest accepts; an 11th row would fail the autosave, not just the step. */
 const MAX_ROWS = 10;
+const MAX_NAME_LENGTH = 120;
+const MAX_DESCRIPTION_LENGTH = 300;
 
 // Header strip and rows share one template so their columns cannot drift apart. Below md the row
 // wraps to three lines — a 390px viewport cannot hold seven columns without scrolling sideways.
@@ -214,7 +216,7 @@ function CompetencyRow({
 
       <input
         value={row.name}
-        maxLength={120}
+        maxLength={MAX_NAME_LENGTH}
         aria-label={`${panelTitle} competency ${index + 1} name`}
         onChange={(e) => onPatch({ name: e.target.value })}
         className="min-w-0 bg-transparent text-[13px] font-semibold text-u-text outline-none"
@@ -222,7 +224,7 @@ function CompetencyRow({
 
       <input
         value={row.description ?? ""}
-        maxLength={300}
+        maxLength={MAX_DESCRIPTION_LENGTH}
         aria-label={`${named} description`}
         placeholder="What this measures…"
         onChange={(e) => onPatch({ description: e.target.value || null })}
