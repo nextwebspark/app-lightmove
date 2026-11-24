@@ -1,51 +1,61 @@
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { LeaveGuard } from "../../../components/layout/LeaveGuard";
-import { PageHeader } from "../../../components/layout/PageHeader";
 import { Icon, ICONS } from "../../../components/layout/Icon";
-import { Button, buttonClassName, CardsSkeleton, EmptyState, useToast } from "../../../components/ui";
+import { Button, buttonClassName, CardsSkeleton, EmptyState } from "../../../components/ui";
 import { StagePill } from "../../../components/ui/Badge";
 import { cn } from "../../../lib/cn";
-import { messageFor } from "../../../lib/errorCodes";
 import { formatShortDate, formatWeekdayDate, todayKey } from "../../../lib/datetime/format";
 import { getDateTimePreferences } from "../../../lib/datetime/preferences";
+import { OVERVIEW_QUERY, OVERVIEW_REFRESH_MS } from "../../../lib/overviewQueries";
+import { useNow } from "../../../lib/useNow";
 import { useAuth } from "../../auth/AuthProvider";
 import { StartPageNotice } from "../../startpage/components/StartPageNotice";
 import { isPureClient, seesEveryPosition } from "../../auth/roles";
 import * as clientsApi from "../../clients/api/clientsApi";
 import { liveClients } from "../../clients/lib/filtering";
-import * as dashboardsApi from "../../dashboards/api/dashboardsApi";
-import { ChartCard } from "../../dashboards/components/ChartCard";
-import { ChartLibraryDrawer, draftFor, type ChartDraft } from "../../dashboards/components/ChartLibraryDrawer";
-import { defaultTitle } from "../../dashboards/lib/chartRules";
-import { useRelabel } from "../../dashboards/lib/useRelabel";
 import type { ConversationScope } from "../../outreach/api/conversationApi";
+import { mailboxStateOf } from "../../outreach/lib/mailboxState";
+import { useMailbox } from "../../outreach/lib/useMailbox";
 import * as projectsApi from "../../projects/api/projectsApi";
 import type { Project } from "../../projects/api/types";
 import { NewProjectModal } from "../../projects/components/NewProjectModal";
 import { isSeatedOn, STAGE_ORDER } from "../../projects/lib/filtering";
 import * as tasksApi from "../../tasks/api/tasksApi";
+import { taskKindOf } from "../../tasks/lib/taskKinds";
 import { useWorkspaceVocabulary } from "../../workspace/lib/vocabulary";
 import * as homeApi from "../api/homeApi";
-import { PositionsSection, TodaySection } from "../components/HomeSections";
-import { HomeGrid } from "../components/HomeGrid";
-import { HomeOptions } from "../components/HomeOptions";
-import { NeedsYou } from "../components/NeedsYou";
-import { MAX_HOME_CHARTS, sameLayout, type ChartTile, type HomeTile } from "../lib/homeLayout";
-import { useHomeEditor } from "../lib/useHomeEditor";
-import { useHomeLayout } from "../lib/useHomeLayout";
-import { isAgendaTask, needsYouOf } from "../lib/needsYou";
+import { NeedsAttention, type MailboxGap } from "../components/NeedsAttention";
+import { PositionsTable } from "../components/PositionsTable";
+import { TodayPanel } from "../components/TodayPanel";
+import { attentionOf, isTodayAgendaOf, needsYouOf } from "../lib/needsYou";
+import { todayEventsOf } from "../lib/today";
 
 function greetingOf(firstName: string | undefined, now = new Date()): string {
   const hour = now.getHours();
   const part = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
-  return firstName ? `${part}, ${firstName}` : part;
+  return firstName ? `${part}, ${firstName}.` : `${part}.`;
+}
+
+const plural = (count: number, one: string, many: string) => `${count} ${count === 1 ? one : many}`;
+
+function HomeHeader({ firstName, summary, action }: { firstName: string | undefined; summary: string; action?: React.ReactNode }) {
+  const now = new Date();
+  return (
+    <header className="mb-6 flex flex-col gap-3 border-b border-u-border pb-5 sm:flex-row sm:items-end sm:gap-4">
+      <div className="min-w-0">
+        <div className="type-micro-label text-u-text3">{formatWeekdayDate(now)}</div>
+        <h1 className="mt-1.5 text-figure font-semibold tracking-tight">{greetingOf(firstName, now)}</h1>
+        {summary && <p className="mt-1.5 text-body text-u-text3">{summary}</p>}
+      </div>
+      {action && <div className="flex flex-wrap gap-2 sm:ml-auto">{action}</div>}
+    </header>
+  );
 }
 
 /**
- * Home, the page after sign-in. Staff see what needs them across the positions they are on, beside the sections
- * they chose; a pure client sees the positions shared with them; a new workspace sees how to set it up.
+ * Home, the page after sign-in. Staff see what needs them, what today holds and where their positions stand; a pure
+ * client sees the positions shared with them; a new workspace sees how to set it up.
  */
 export function HomePage() {
   const { user } = useAuth();
@@ -57,8 +67,8 @@ export function HomePage() {
     queryFn: projectsApi.projects,
   });
 
-  const header = (subtitle: string, action?: React.ReactNode) => (
-    <PageHeader title={greetingOf(firstName)} subtitle={`${formatWeekdayDate(new Date())} · ${subtitle}`} action={action} />
+  const header = (summary: string, action?: React.ReactNode) => (
+    <HomeHeader firstName={firstName} summary={summary} action={action} />
   );
 
   if (isPending) {
@@ -86,57 +96,70 @@ export function HomePage() {
   return <StaffHome projects={projects} header={header} />;
 }
 
-type HeaderFn = (subtitle: string, action?: React.ReactNode) => React.ReactNode;
+type HeaderFn = (summary: string, action?: React.ReactNode) => React.ReactNode;
 
 function StaffHome({ projects, header }: { projects: Project[]; header: HeaderFn }) {
   const { user } = useAuth();
-  const toast = useToast();
-  const owner = { userId: user?.id ?? "", workspaceId: user?.workspace?.id ?? "" };
-  const home = useHomeLayout(owner);
-  const editor = useHomeEditor(home.layout);
-  const { editing, layout } = editor;
-  const [optionsOpen, setOptionsOpen] = useState(false);
-  const [libraryDraft, setLibraryDraft] = useState<ChartDraft | null | "library">(null);
   const [scope, setScope] = useState<ConversationScope>("mine");
+  const [newPositionOpen, setNewPositionOpen] = useState(false);
+  const mailboxState = mailboxStateOf(useMailbox());
+  const mailboxGap: MailboxGap =
+    mailboxState.kind === "none"
+      ? "missing"
+      : mailboxState.kind === "error" || mailboxState.kind === "readScopeMissing"
+        ? "broken"
+        : null;
+  // Ranking, "Due 16:00" turning overdue and the timeline's next call all turn on the clock, not only on new data.
+  const now = useNow(60_000);
+  const { data: clients = [] } = useQuery({
+    queryKey: clientsApi.CLIENTS_KEY,
+    queryFn: clientsApi.clients,
+    enabled: newPositionOpen,
+  });
 
   const leadsAny = projects.some((project) => isSeatedOn(project, user?.id, "LEAD"));
   const shownScope: ConversationScope = leadsAny ? scope : "mine";
-  const seated = projects.filter((project) => isSeatedOn(project, user?.id));
+  // Live as the server's queue and calendar read it (`ProjectStage.isDone`): a delivered position is done.
+  const active = projects.filter(
+    (project) =>
+      isSeatedOn(project, user?.id) && !project.archivedAt && project.stage !== "DELIVERED" && project.stage !== "CLOSED",
+  );
+  const clientNames = useMemo(() => new Map(projects.map((project) => [project.id, project.clientName])), [projects]);
+  const clientOf = (projectId: string) => clientNames.get(projectId);
 
-  // Each read runs every position's own queue on the server, so it is kept a minute rather than redone on every focus.
+  // Home shows the cached answer at once and reads again behind it: after any write anywhere (OVERVIEW_QUERY), on
+  // coming back to the tab, and every two minutes while open. No refresh button: what it shows is never older than that.
+  const live = { meta: OVERVIEW_QUERY, refetchOnWindowFocus: true, refetchInterval: OVERVIEW_REFRESH_MS } as const;
+  // Each read runs every position's own queue on the server, so it is kept a minute unless something changed.
   const outreach = useQuery({
     queryKey: homeApi.MY_OUTREACH_NEEDS_KEY(shownScope),
     queryFn: ({ signal }) => homeApi.getMyOutreachNeeds(shownScope, signal),
     staleTime: 60_000,
-    refetchOnWindowFocus: false,
+    ...live,
   });
   // Home's own keys, never under My tasks' `["tasks", "mine"]`: that card writes its ticks into every entry under its
   // prefix as pages of an infinite list, and a plain answer there made each tick fail.
   const today = useQuery({
     queryKey: homeApi.HOME_TASKS_KEY("today"),
     queryFn: ({ signal }) => tasksApi.getMyTasks("today", { size: 50, signal }),
+    ...live,
   });
   const overdue = useQuery({
     queryKey: homeApi.HOME_TASKS_KEY("overdue"),
     queryFn: ({ signal }) => tasksApi.getMyTasks("overdue", { size: 50, signal }),
+    ...live,
   });
   const assigned = useQuery({
     queryKey: homeApi.HOME_TASKS_KEY("assigned_by_me"),
     queryFn: ({ signal }) => tasksApi.getMyTasks("assigned_by_me", { size: 50, signal }),
+    ...live,
     enabled: shownScope === "team",
   });
-  const library = useQuery({
-    queryKey: dashboardsApi.CHART_LIBRARY_KEY(homeApi.WORKSPACE_CHARTS),
-    queryFn: ({ signal }) => dashboardsApi.getChartLibrary(homeApi.WORKSPACE_CHARTS, signal),
-    staleTime: 5 * 60_000,
-  });
-  const charts = layout.tiles.filter((tile): tile is ChartTile => tile.kind === "CHART");
-  // Every chart on Home in one request, over one read of the data they share, as a dashboard asks for its charts.
-  const answers = useQuery({
-    queryKey: dashboardsApi.CHART_ANSWERS_KEY(homeApi.WORKSPACE_CHARTS, charts),
-    queryFn: ({ signal }) => dashboardsApi.getChartAnswers(homeApi.WORKSPACE_CHARTS, charts, signal),
-    enabled: charts.length > 0,
+  const meetings = useQuery({
+    queryKey: homeApi.MY_MEETINGS_TODAY_KEY,
+    queryFn: ({ signal }) => homeApi.getMyMeetingsToday(signal),
     staleTime: 60_000,
+    ...live,
   });
 
   // Team reads what the caller handed out that is due by the end of today, and the whole queue of the positions they
@@ -149,153 +172,67 @@ function StaffHome({ projects, header }: { projects: Project[]; header: HeaderFn
       (task) => task.status === "open" && task.dueAt !== null && todayKey(new Date(task.dueAt), timeZone) <= endOfToday,
     );
   }, [shownScope, assigned.data, overdue.data, today.data]);
-  const items = useMemo(
-    () => needsYouOf(outreach.data?.rows ?? [], ownTasks, layout.kinds),
-    [outreach.data, ownTasks, layout.kinds],
+  const { lines, comingUp } = useMemo(
+    () => attentionOf(needsYouOf(outreach.data?.rows ?? [], ownTasks, user?.id, now), now),
+    [outreach.data, ownTasks, user?.id, now],
   );
-  const agenda = useMemo(
-    () =>
-      (today.data?.tasks ?? [])
-        .filter((task) => task.status === "open" && isAgendaTask(task))
-        .sort((left, right) => (left.dueAt ?? "").localeCompare(right.dueAt ?? "")),
-    [today.data],
-  );
-  const tasksPending = shownScope === "team" ? assigned.isPending : today.isPending || overdue.isPending;
-  const queries = useMemo(() => new Map((library.data ?? []).map((query) => [query.id, query])), [library.data]);
-  const queryOf = (id: string) => queries.get(id);
-  const relabel = useRelabel();
-  const count = seated.length === 1 ? "1 position you work on" : `${seated.length} positions you work on`;
-
-  const labelOf = (tile: HomeTile) => {
-    if (tile.kind !== "CHART") return SECTION_LABELS[tile.kind];
-    const query = queryOf(tile.queryId);
-    return tile.title || (query ? relabel(defaultTitle(query, tile.options)) : "Chart");
-  };
-
-  const handleCommit = (chart: ChartDraft) => {
-    if (!editor.commitChart(chart)) toast.error(`Home can hold up to ${MAX_HOME_CHARTS} charts. Remove one to add another.`);
-  };
-
-  const chartEditor = (index: number) => {
-    const tile = layout.tiles[index];
-    const query = tile.kind === "CHART" ? queryOf(tile.queryId) : undefined;
-    return tile.kind === "CHART" && query ? () => setLibraryDraft(draftFor(query, tile, index)) : null;
-  };
-
-  const handleSave = () => {
-    if (!editor.draft) return;
-    home.save.mutate(editor.draft, {
-      onSuccess: () => {
-        editor.stop();
-        setOptionsOpen(false);
-        toast.success("Home saved");
-      },
-      onError: (error) => toast.error(messageFor(error)),
-    });
-  };
-
-  const renderTile = (tile: HomeTile) => {
-    if (tile.kind === "NEEDS") {
-      return (
-        <NeedsYou
-          items={items}
-          more={outreach.data?.truncated ?? false}
-          myUserId={user?.id}
-          pending={outreach.isPending || tasksPending}
-          refused={outreach.isError}
-          scope={shownScope}
-          onScopeChange={setScope}
-          showScope={leadsAny}
-        />
-      );
-    }
-    if (tile.kind === "TODAY") return <TodaySection agenda={agenda} pending={today.isPending} />;
-    if (tile.kind !== "CHART") return <PositionsSection positions={seated} />;
-    const chartIndex = charts.indexOf(tile);
-    return (
-      <ChartCard
-        scope={homeApi.WORKSPACE_CHARTS}
-        widget={tile}
-        query={library.isPending ? undefined : queryOf(tile.queryId)}
-        answer={answers.data?.[chartIndex]}
-        isPending={answers.isPending || library.isPending}
-        isError={answers.isError || library.isError}
-        className="border-u-border-strong"
-      />
+  const events = useMemo(() => {
+    const agenda = (today.data?.tasks ?? []).filter(
+      (task) => task.status === "open" && isTodayAgendaOf(task, user?.id, now),
     );
-  };
+    return todayEventsOf(meetings.data ?? [], agenda, (projectId) => clientNames.get(projectId), (task) => taskKindOf(task.kind).label);
+  }, [today.data, meetings.data, clientNames, user?.id, now]);
+  const tasksPending = shownScope === "team" ? assigned.isPending : today.isPending || overdue.isPending;
+  const needsPending = outreach.isPending || tasksPending;
+  const todayPending = today.isPending || meetings.isPending;
 
-  const actions = editing ? (
-    <div className="flex flex-wrap items-center gap-2">
-      <Button variant="secondary" size="sm" onClick={() => setLibraryDraft("library")}>
-        <Icon d={ICONS.plus} size={14} />
-        Add chart
-      </Button>
-      <Button variant="secondary" size="sm" onClick={() => setOptionsOpen(true)}>
-        <Icon d={ICONS.sliders} size={14} />
-        Options
-      </Button>
-      <Button variant="secondary" size="sm" onClick={() => { editor.stop(); setOptionsOpen(false); }}>
-        Cancel
-      </Button>
-      <Button size="sm" loading={home.save.isPending} onClick={handleSave}>
-        Save layout
-      </Button>
-    </div>
-  ) : (
-    <Button variant="secondary" size="sm" disabled={home.pending} onClick={editor.start}>
-      <Icon d={ICONS.sliders} size={14} />
-      Customize
-    </Button>
-  );
+  const summary = [
+    needsPending
+      ? null
+      : lines.length === 0
+        ? "Nothing needs your attention"
+        : `${plural(lines.length, "action needs", "actions need")} attention`,
+    todayPending ? null : events.length === 0 ? "Nothing on today's calendar" : `${plural(events.length, "event", "events")} today`,
+    active.length === 0 ? "No positions yet" : plural(active.length, "active position", "active positions"),
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   return (
     <>
-      {header(count, actions)}
+      {header(summary)}
       <StartPageNotice />
-
-      {editing && (
-        <p className="rounded-u-chip bg-u-accent-tint px-3.5 py-2.5 text-note text-u-text2">
-          Drag a tile anywhere to move it, and its edge or corner to resize it. × takes a section or a chart off Home;
-          Options brings a section back. Nothing changes until you save.
-        </p>
-      )}
-
-      {home.pending ? (
-        <CardsSkeleton cards={3} />
-      ) : (
-        <HomeGrid
-          tiles={layout.tiles}
-          editing={editing}
-          labelOf={labelOf}
-          renderTile={renderTile}
-          onRelayout={editor.relayout}
-          onEditChart={chartEditor}
-          onRemove={editor.remove}
-          onAddChart={() => setLibraryDraft("library")}
-        />
-      )}
-
-      <LeaveGuard hasUnsavedChanges={editor.draft !== null && !sameLayout(editor.draft, home.layout)} />
-      {editing && (
-        <HomeOptions open={optionsOpen} onClose={() => setOptionsOpen(false)} layout={layout} onChange={editor.update} />
-      )}
-      {libraryDraft !== null && (
-        <ChartLibraryDrawer
-          scope={homeApi.WORKSPACE_CHARTS}
-          library={library.data ?? []}
-          onCountLabel={`${library.data?.length ?? 0} ready-made charts · ${charts.length} on Home`}
-          initialDraft={libraryDraft === "library" ? null : libraryDraft}
-          addLabel="Add to Home"
-          onCommit={handleCommit}
-          onClose={() => setLibraryDraft(null)}
-        />
-      )}
+      <div className="flex flex-col gap-4">
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1.85fr)_minmax(0,1fr)]">
+          <NeedsAttention
+            lines={lines}
+            comingUp={comingUp}
+            more={outreach.data?.truncated ?? false}
+            clientOf={clientOf}
+            myUserId={user?.id}
+            pending={needsPending}
+            refused={outreach.isError}
+            scope={shownScope}
+            onScopeChange={setScope}
+            showScope={leadsAny}
+            mailboxGap={mailboxGap}
+            onAnyPosition={active.length > 0}
+            now={now}
+          />
+          <TodayPanel
+            events={events}
+            pending={todayPending}
+            calendarRefused={meetings.isError}
+            mailboxGap={mailboxGap}
+            now={now}
+          />
+        </div>
+        <PositionsTable positions={active} onNewPosition={() => setNewPositionOpen(true)} />
+      </div>
+      {newPositionOpen && <NewProjectModal open onClose={() => setNewPositionOpen(false)} clients={liveClients(clients)} />}
     </>
   );
 }
-
-const SECTION_LABELS = { NEEDS: "Needs you", TODAY: "Today", POSITIONS: "Your positions" } as const;
 
 /** A pure client: the positions shared with them, how far each has come. No AI, nothing staff-only. */
 function ClientHome({ projects, header }: { projects: Project[]; header: HeaderFn }) {
@@ -382,7 +319,7 @@ function SetUpHome({ header }: { header: HeaderFn }) {
   ];
   return (
     <>
-      {header("a new workspace")}
+      {header("A new workspace, ready to set up")}
       <section aria-label={`Set up ${user?.workspace?.name ?? ""}`} className="overflow-hidden rounded-u-card border border-u-border-strong bg-u-surface">
         <div className="border-b border-u-border px-4 py-3.5">
           <h2 className="text-body font-semibold">Set up {user?.workspace?.name}</h2>

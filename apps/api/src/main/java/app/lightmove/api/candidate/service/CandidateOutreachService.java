@@ -11,6 +11,7 @@ import app.lightmove.api.candidate.model.CandidateContact;
 import app.lightmove.api.candidate.model.CandidateDossier;
 import app.lightmove.api.candidate.model.CandidateStatusDefinition;
 import app.lightmove.api.candidate.model.OutreachRecipient;
+import app.lightmove.api.candidate.model.PersonPlacement;
 import app.lightmove.api.candidate.model.Person;
 import app.lightmove.api.candidate.model.PersonEmailKey;
 import app.lightmove.api.candidate.model.RecipientEmail;
@@ -98,6 +99,14 @@ public class CandidateOutreachService {
                 .filter(person -> person.getWorkspaceId().equals(workspaceId))
                 .forEach(person -> names.put(person.getId(), person.getFullName()));
         return names;
+    }
+
+    @Transactional(readOnly = true)
+    public List<PersonPlacement> placementsOf(Collection<UUID> projectIds, Collection<UUID> personIds) {
+        if (projectIds.isEmpty() || personIds.isEmpty()) {
+            return List.of();
+        }
+        return candidates.findPlacements(projectIds, personIds);
     }
 
     /** One executive as they stand now — what a send re-checks. Empty once they are off the position. */
