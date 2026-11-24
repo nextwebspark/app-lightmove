@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiRequestError } from "../../../../lib/apiClient";
 import * as promptApi from "../api/promptApi";
 import PromptListPage from "./PromptListPage";
-import { overview } from "./promptFixtures";
+import { health, overview } from "./promptFixtures";
 
 vi.mock("../api/promptApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api/promptApi")>()),
@@ -95,6 +95,45 @@ describe("PromptListPage", () => {
 
     await user.type(screen.getByLabelText("Search prompts"), "assistant-core");
     expect(screen.getByText("No prompts match. Clear the search or pick another filter.")).toBeInTheDocument();
+  });
+
+  it("flags a live version doing worse than the one it replaced, with both sides' figures, as needing attention", async () => {
+    vi.mocked(promptApi.listPrompts).mockResolvedValue([
+      overview({ id: "meeting-summary", name: "Meeting summary", health: health() }),
+      overview({ id: "call-changes", name: "Call changes", health: health({ warnings: [] }) }),
+    ]);
+    const user = userEvent.setup();
+    renderPage();
+
+    const failing = await screen.findByText("Fails more than v1");
+    expect(failing).toHaveAttribute(
+      "title",
+      "Since it went live, 8.1% of 412 calls failed, against 2.3% of 1,960 for version 1 over the 20 days before.",
+    );
+    expect(screen.getByText("Kept less than v1")).toHaveAttribute(
+      "title",
+      "Since it went live, people kept 61% of 118 answers as written, against 78% of 240 for version 1 over the 20 days before.",
+    );
+
+    await user.click(screen.getByRole("radio", { name: "Needs attention" }));
+    expect(screen.getByText("Meeting summary")).toBeInTheDocument();
+    expect(screen.queryByText("Call changes")).not.toBeInTheDocument();
+  });
+
+  it("titles the pill with the first days live on a version live longer than the comparison", async () => {
+    vi.mocked(promptApi.listPrompts).mockResolvedValue([
+      overview({ id: "meeting-summary", name: "Meeting summary", health: health({ days: 30, daysLive: 61 }) }),
+    ]);
+    renderPage();
+
+    expect(await screen.findByText("Fails more than v1")).toHaveAttribute(
+      "title",
+      "In its first 30 days live, 8.1% of 412 calls failed, against 2.3% of 1,960 for version 1 over the 30 days before.",
+    );
+    expect(screen.getByText("Kept less than v1")).toHaveAttribute(
+      "title",
+      "In its first 30 days live, people kept 61% of 118 answers as written, against 78% of 240 for version 1 over the 30 days before.",
+    );
   });
 
   it("opens a prompt from its row", async () => {

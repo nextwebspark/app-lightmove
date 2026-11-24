@@ -8,6 +8,7 @@ import app.lightmove.api.core.llm.model.PromptVersionOutcomes;
 import app.lightmove.api.core.llm.service.AiModelCatalog;
 import app.lightmove.api.core.llm.service.PromptMonitoringStore;
 import app.lightmove.api.core.llm.service.PromptRegistryStore;
+import app.lightmove.api.promptregistry.constant.PlatformPrompt;
 import app.lightmove.api.promptregistry.dto.PromptLiveHealth;
 import app.lightmove.api.promptregistry.dto.PromptModelUsageResponse;
 import app.lightmove.api.promptregistry.dto.PromptUsageResponse;
@@ -33,7 +34,8 @@ public class PromptMonitoringService {
     private final PromptRegistryStore registry;
     private final AiModelCatalog models;
 
-    PromptUsageResponse usage(String promptId, Integer requestedDays) {
+    PromptUsageResponse usage(PlatformPrompt prompt, Integer requestedDays) {
+        String promptId = prompt.getPromptId();
         int days = requestedDays == null ? DEFAULT_DAYS : Math.clamp(requestedDays, 1, MAX_DAYS);
         Integer liveVersion = registry.productionOf(promptId).map(ProductionVersion::version).orElse(null);
         Map<Integer, List<PromptModelUsage>> calls = monitoring.usageOf(promptId, days).stream()
@@ -43,7 +45,7 @@ public class PromptMonitoringService {
         TreeSet<Integer> versions = new TreeSet<>(Comparator.reverseOrder());
         versions.addAll(calls.keySet());
         versions.addAll(outcomes.keySet());
-        return new PromptUsageResponse(days, versions.stream().map(version -> {
+        return new PromptUsageResponse(days, prompt.isDecisionsCounted(), versions.stream().map(version -> {
             PromptVersionOutcomes decided = outcomes.get(version);
             return new PromptVersionUsage(version, version.equals(liveVersion),
                     decided == null ? 0 : decided.accepted(), decided == null ? 0 : decided.changed(),

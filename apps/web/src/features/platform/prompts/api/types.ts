@@ -21,7 +21,7 @@ export interface SettingRange {
 /**
  * `modelId` null is the configured model; `lastChangedBy` null means a release shipped the live version.
  * `modelUnavailable`: the live version's model is retired, no longer offered or cannot answer this prompt, so the
- * default model is answering it.
+ * default model is answering it. `health` is null unless the live version replaced another.
  */
 export interface PromptOverview {
   id: string;
@@ -38,6 +38,62 @@ export interface PromptOverview {
   shippedChanged: boolean;
   lastChangedAt: string;
   lastChangedBy: string | null;
+  health: PromptLiveHealth | null;
+}
+
+export type PromptHealthWarning = "MORE_FAILURES" | "FEWER_ACCEPTED";
+
+/**
+ * The live version over its first `days` days from `liveSince` (a UTC day) beside the version it replaced, over as
+ * many days before. `daysLive` is above `days` once the comparison stops short of today. A rate is a fraction, null
+ * where nothing was counted; `warnings` is empty unless both sides have enough to compare.
+ */
+export interface PromptLiveHealth {
+  warnings: PromptHealthWarning[];
+  comparedWithVersion: number;
+  liveSince: string;
+  days: number;
+  daysLive: number;
+  liveCalls: number;
+  liveFailureRate: number | null;
+  previousCalls: number;
+  previousFailureRate: number | null;
+  liveDecisions: number;
+  liveAcceptRate: number | null;
+  previousDecisions: number;
+  previousAcceptRate: number | null;
+}
+
+/** One version's calls on one model. Counts and token totals only. */
+export interface PromptModelUsage {
+  provider: AiProvider;
+  modelId: string;
+  modelName: string;
+  calls: number;
+  inputTokens: number;
+  outputTokens: number;
+  finishStop: number;
+  finishMaxTokens: number;
+  finishSafety: number;
+  finishOther: number;
+  guardRefusals: number;
+  schemaReasks: number;
+  schemaFailures: number;
+}
+
+export interface PromptVersionUsage {
+  version: number;
+  live: boolean;
+  accepted: number;
+  changed: number;
+  models: PromptModelUsage[];
+}
+
+/** `decisionsCounted` false: no screen asks a person to keep or change this prompt's answer. Newest version first. */
+export interface PromptUsage {
+  days: number;
+  decisionsCounted: boolean;
+  versions: PromptVersionUsage[];
 }
 
 /** `NO_RESULT`: a run finished and nothing it measured counts, so it asks for a reason as no run does. */

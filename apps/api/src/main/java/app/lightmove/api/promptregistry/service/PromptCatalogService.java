@@ -105,8 +105,7 @@ public class PromptCatalogService {
     /** Each version's calls and decisions over the last {@code days} days; 30 when none is asked for. */
     @Transactional(readOnly = true)
     public PromptUsageResponse usage(String promptId, Integer days) {
-        require(promptId);
-        return monitoring.usage(promptId, days);
+        return monitoring.usage(require(promptId), days);
     }
 
     public List<AiModelResponse> models() {
