@@ -31,7 +31,10 @@ class PlatformPromptTest {
     private static final Map<String, Set<String>> DECISIONS_REPORTED_BY = Map.of(
             "app/lightmove/api/outreach/service/OutreachEnrollmentService.java", Set.of("outreach-opener"),
             "app/lightmove/api/candidate/service/CandidateService.java",
-            Set.of("candidate-ai-enrich", "candidate-nationality"));
+            Set.of("candidate-ai-enrich", "candidate-nationality"),
+            "app/lightmove/api/position/service/PositionSuggestions.java",
+            Set.of("position-extract-details", "position-extract-context", "position-extract-reporting",
+                    "position-extract-assessment"));
 
     @Test
     @DisplayName("the console lists exactly the prompts that ship")
