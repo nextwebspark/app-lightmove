@@ -28,5 +28,7 @@ public record PutReportingStructureRequest(
         NoticeUnit noticeUnit,
 
         /** Null defaults every key of this step to {@code MANUAL}. */
-        Map<String, FieldSource> fieldSources
+        Map<String, FieldSource> fieldSources,
+        /** Only on the write a document fill schedules. */
+        @Valid DocumentReadingRequest reading
 ) {}

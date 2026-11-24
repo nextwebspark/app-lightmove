@@ -19,6 +19,8 @@ import app.lightmove.api.core.llm.service.PromptTrialRunner;
 import app.lightmove.api.core.llm.service.RegistryPromptSource;
 import app.lightmove.api.core.reload.PlatformConfigReload;
 import app.lightmove.api.positiontemplate.PositionTemplateFlowSupport;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.AfterEach;
@@ -187,6 +189,9 @@ class PromptManagementIntegrationTest extends PositionTemplateFlowSupport {
         JsonNode usage = getJson(admin, SHORTLIST + "/usage?days=30");
 
         assertThat(usage.get("days").asInt()).isEqualTo(30);
+        assertThat(usage.get("decisionsCounted").asBoolean())
+                .as("no screen asks a person to keep or change a shortlist").isFalse();
+        assertThat(getJson(admin, PROMPTS + "/outreach-opener/usage").get("decisionsCounted").asBoolean()).isTrue();
         JsonNode version = usage.get("versions").get(0);
         assertThat(version.get("version").asInt()).isEqualTo(live);
         assertThat(version.get("live").asBoolean()).isTrue();
@@ -222,6 +227,7 @@ class PromptManagementIntegrationTest extends PositionTemplateFlowSupport {
 
         JsonNode few = promptIn(getJson(admin, PROMPTS), "recruiter-shortlist").get("health");
         assertThat(few.get("comparedWithVersion").asInt()).isEqualTo(shipped);
+        assertThat(few.get("liveSince").asString()).isEqualTo(LocalDate.now(ZoneOffset.UTC).toString());
         assertThat(few.get("warnings")).as("thirty calls are too few to call it worse").isEmpty();
 
         counted("recruiter-shortlist", edited, "gemini-3.8-flash", 0, 70, 14);
@@ -232,12 +238,21 @@ class PromptManagementIntegrationTest extends PositionTemplateFlowSupport {
         assertThat(health.get("warnings")).extracting(JsonNode::asString)
                 .containsExactly("MORE_FAILURES", "FEWER_ACCEPTED");
         assertThat(health.get("days").asInt()).isEqualTo(1);
+        assertThat(health.get("daysLive").asInt()).isEqualTo(1);
         assertThat(health.get("liveCalls").asLong()).isEqualTo(100);
         assertThat(health.get("liveFailureRate").asDouble()).isEqualTo(0.2);
         assertThat(health.get("previousFailureRate").asDouble()).isEqualTo(0.02);
         assertThat(health.get("liveAcceptRate").asDouble()).isEqualTo(0.4);
         assertThat(health.get("previousAcceptRate").asDouble()).isEqualTo(0.75);
         assertThat(getJson(admin, SHORTLIST).get("prompt").get("health").get("warnings")).hasSize(2);
+
+        db.update("""
+                INSERT INTO app_lm_platform_prompt_label_move (prompt_id, label, from_version, to_version, moved_at)
+                VALUES ('recruiter-shortlist', 'production', ?, ?, now() - interval '1416 hours')
+                """, shipped, edited);
+        JsonNode longLive = promptIn(getJson(admin, PROMPTS), "recruiter-shortlist").get("health");
+        assertThat(longLive.get("days").asInt()).as("the comparison stops at its first thirty days").isEqualTo(30);
+        assertThat(longLive.get("daysLive").asInt()).isEqualTo(60);
     }
 
     private void forgetShortlistCounts() {

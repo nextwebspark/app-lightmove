@@ -6,6 +6,7 @@ import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.config.PositionExtractionSettings;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
+import app.lightmove.api.core.llm.model.PromptVersionRef;
 import app.lightmove.api.position.dto.PositionExtractionResponse;
 import app.lightmove.api.position.dto.ProposedFieldDto;
 import app.lightmove.api.position.model.ExtractedField;
@@ -72,7 +73,7 @@ public class PositionExtractionService {
                 userId, text, document.clientId(), workspaceId);
         recordAudit(userId, workspaceId, projectId, httpRequest, proposed.source().value());
         PositionTemplateSummary suggestedTemplate = suggestedTemplateFor(proposed.fields(), workspaceId);
-        return assemble(proposed.source().value(), proposed.fields(), suggestedTemplate, null);
+        return assemble(proposed.source().value(), proposed.fields(), suggestedTemplate, null, proposed.answeredBy());
     }
 
     public PositionExtractionResponse extractContext(UUID userId, UUID workspaceId, UUID projectId,
@@ -82,7 +83,7 @@ public class PositionExtractionService {
         ProposedMandateContext proposed = contextProposer.propose(
                 userId, text, document.clientId(), workspaceId);
         recordAudit(userId, workspaceId, projectId, httpRequest, proposed.source().value());
-        return assemble(proposed.source().value(), proposed.fields(), null, null);
+        return assemble(proposed.source().value(), proposed.fields(), null, null, proposed.answeredBy());
     }
 
     public PositionExtractionResponse extractAssessment(UUID userId, UUID workspaceId, UUID projectId,
@@ -92,7 +93,7 @@ public class PositionExtractionService {
         ProposedAssessment proposed = assessmentProposer.propose(
                 userId, text, document.clientId(), workspaceId, document.roleTitle());
         recordAudit(userId, workspaceId, projectId, httpRequest, proposed.source().value());
-        return assemble(proposed.source().value(), proposed.fields(), null, null);
+        return assemble(proposed.source().value(), proposed.fields(), null, null, proposed.answeredBy());
     }
 
     public PositionExtractionResponse extractReporting(UUID userId, UUID workspaceId, UUID projectId,
@@ -103,7 +104,8 @@ public class PositionExtractionService {
                 userId, text, document.clientId(), workspaceId);
         recordAudit(userId, workspaceId, projectId, httpRequest, proposed.source().value());
         List<String> usualDirectReports = usualDirectReportsFor(workspaceId, document.roleTitle());
-        return assemble(proposed.source().value(), proposed.fields(), null, usualDirectReports);
+        return assemble(proposed.source().value(), proposed.fields(), null, usualDirectReports,
+                proposed.answeredBy());
     }
 
     /** Never the generic fallback: an unmatched title suggests nothing. */
@@ -159,12 +161,14 @@ public class PositionExtractionService {
 
     private static PositionExtractionResponse assemble(String extractionSource, List<ExtractedField> fields,
                                                         PositionTemplateSummary suggestedTemplate,
-                                                        List<String> usualDirectReports) {
+                                                        List<String> usualDirectReports,
+                                                        PromptVersionRef answeredBy) {
         List<ProposedFieldDto> dtos = new ArrayList<>(fields.size());
         for (int i = 0; i < fields.size(); i++) {
             dtos.add(toDto(i, fields.get(i)));
         }
-        return new PositionExtractionResponse(extractionSource, dtos, suggestedTemplate, usualDirectReports);
+        return new PositionExtractionResponse(extractionSource, dtos, suggestedTemplate, usualDirectReports,
+                answeredBy == null ? null : answeredBy.version());
     }
 
     private static ProposedFieldDto toDto(int id, ExtractedField field) {

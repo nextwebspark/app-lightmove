@@ -9,7 +9,7 @@ import type { PlatformAction } from "../../../auth/api/types";
 import * as promptApi from "../api/promptApi";
 import type { PromotionGate, PromptDetail } from "../api/types";
 import PromptPage from "./PromptPage";
-import { detail, model, overview, version } from "./promptFixtures";
+import { detail, health, model, modelUsage, overview, version } from "./promptFixtures";
 
 vi.mock("../api/promptApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api/promptApi")>()),
@@ -19,6 +19,7 @@ vi.mock("../api/promptApi", async (importOriginal) => ({
   savePromptVersion: vi.fn(),
   tryPromptVersion: vi.fn(),
   putPromptLive: vi.fn(),
+  getPromptUsage: vi.fn(),
 }));
 
 const held = vi.hoisted(() => ({ actions: [] as string[] }));
@@ -588,6 +589,117 @@ describe("PromptPage", () => {
       "Version 2 names gemini-1.0-pro, which is retired, no longer offered or cannot answer this prompt.",
     );
     expect(screen.getByText("gemini-1.0-pro is no longer offered. The default model answers this version.")).toBeInTheDocument();
+  });
+
+  it("counts each version's calls by model on Usage, and says a prompt nobody decides on has no kept share", async () => {
+    vi.mocked(promptApi.getPromptUsage).mockResolvedValue({
+      days: 30,
+      decisionsCounted: false,
+      versions: [
+        {
+          version: 2,
+          live: true,
+          accepted: 0,
+          changed: 0,
+          models: [modelUsage(), modelUsage({ modelId: "gemini-3.1-flash-lite", modelName: "Gemini 3.1 Flash-Lite", calls: 96 })],
+        },
+        { version: 1, live: false, accepted: 0, changed: 0, models: [modelUsage({ calls: 2210, schemaReasks: 88 })] },
+      ],
+    });
+    const user = userEvent.setup();
+    renderPage();
+    await editor();
+
+    await user.click(screen.getByRole("tab", { name: "Usage" }));
+
+    const table = await screen.findByRole("table", { name: "Usage by version and model" });
+    const rows = within(table).getAllByRole("row").slice(1);
+    expect(rows).toHaveLength(3);
+    expect(within(rows[0]).getByText("v2")).toBeInTheDocument();
+    expect(within(rows[0]).getByText("Live")).toBeInTheDocument();
+    expect(within(rows[0]).getByText("1,284")).toBeInTheDocument();
+    expect(within(rows[0]).getByText("31 · 2.4%")).toBeInTheDocument();
+    expect(within(rows[0]).getByText("22 cut off · 3 safety · 6 unreadable")).toBeInTheDocument();
+    expect(within(rows[0]).getByText("4.1M in · 520K out")).toBeInTheDocument();
+    expect(within(rows[0]).getByText("Not counted")).toBeInTheDocument();
+    expect(within(rows[1]).getByText("Gemini 3.1 Flash-Lite")).toBeInTheDocument();
+    expect(within(rows[1]).queryByText("Not counted")).not.toBeInTheDocument();
+    expect(within(rows[2]).getByText("88")).toBeInTheDocument();
+    expect(screen.getByText(/Kept is not counted for this prompt/)).toBeInTheDocument();
+    expect(promptApi.getPromptUsage).toHaveBeenCalledWith("candidate-scorecard-draft", 30, expect.anything());
+  });
+
+  it("shows the share of answers kept where a person decides, and reads another span when asked", async () => {
+    vi.mocked(promptApi.getPromptUsage).mockImplementation((_id, days) =>
+      Promise.resolve(
+        days === 7
+          ? { days: 7, decisionsCounted: true, versions: [] }
+          : {
+              days: 30,
+              decisionsCounted: true,
+              versions: [{ version: 2, live: true, accepted: 72, changed: 46, models: [modelUsage({ calls: 644 })] }],
+            },
+      ),
+    );
+    const user = userEvent.setup();
+    renderPage();
+    await editor();
+    await user.click(screen.getByRole("tab", { name: "Usage" }));
+
+    expect(await screen.findByText("61%")).toBeInTheDocument();
+    expect(screen.getByText("72 kept · 46 changed")).toBeInTheDocument();
+    expect(screen.getByText(/Kept: of the answers a person decided on/)).toBeInTheDocument();
+
+    await user.click(screen.getByRole("radio", { name: "Last 7 days" }));
+
+    expect(await screen.findByText("No calls in the last 7 days.")).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "Last 7 days" })).toHaveAttribute("aria-checked", "true");
+  });
+
+  it("says when the live version is doing worse than the one it replaced, and points at Usage", async () => {
+    vi.mocked(promptApi.getPrompt).mockResolvedValue(detail({ prompt: overview({ health: health() }) }));
+    renderPage();
+    await editor();
+
+    const notes = screen.getAllByRole("note");
+    expect(notes[0]).toHaveTextContent(
+      "Version 2 fails more often than version 1 did: 8.1% of 412 calls since it went live on 4 Nov, against 2.3% of 1,960 in the 20 days before. Usage has the detail.",
+    );
+    expect(notes[1]).toHaveTextContent(
+      "Version 2 is kept as written less often than version 1 was: 61% of 118 answers since it went live on 4 Nov, against 78% of 240 in the 20 days before.",
+    );
+  });
+
+  it("says the day before, not the 1 days before, on a version put live today", async () => {
+    vi.mocked(promptApi.getPrompt).mockResolvedValue(
+      detail({ prompt: overview({ health: health({ warnings: ["MORE_FAILURES"], days: 1 }) }) }),
+    );
+    renderPage();
+    await editor();
+
+    expect(screen.getByRole("note")).toHaveTextContent("against 2.3% of 1,960 in the day before. Usage has the detail.");
+  });
+
+  it("names the first days live, not the time since, on a version live longer than the comparison", async () => {
+    vi.mocked(promptApi.getPrompt).mockResolvedValue(
+      detail({ prompt: overview({ health: health({ liveSince: "2026-09-25", days: 30, daysLive: 61 }) }) }),
+    );
+    renderPage();
+    await editor();
+
+    const notes = screen.getAllByRole("note");
+    expect(notes[0]).toHaveTextContent(
+      "Version 2 fails more often than version 1 did: 8.1% of 412 calls in its first 30 days after going live on 25 Sep, against 2.3% of 1,960 in the 30 days before. Usage has the detail.",
+    );
+    expect(notes[1]).toHaveTextContent("61% of 118 answers in its first 30 days after going live on 25 Sep, against");
+  });
+
+  it("says nothing about the live version where the comparison found no gap", async () => {
+    vi.mocked(promptApi.getPrompt).mockResolvedValue(detail({ prompt: overview({ health: health({ warnings: [] }) }) }));
+    renderPage();
+    await editor();
+
+    expect(screen.queryByRole("note")).not.toBeInTheDocument();
   });
 
   it("draws no Try it for a prompt that has none", async () => {

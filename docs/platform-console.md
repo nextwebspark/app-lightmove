@@ -87,11 +87,17 @@ The call path every prompt goes through is `docs/llm-guardrails.md`. The second 
 - `app_lm_platform_prompt_call_daily`: per version, model and UTC day, the calls, tokens and finish reasons, plus
   guard refusals, schema re-asks and answers that would not bind.
 - `app_lm_platform_prompt_outcome_daily`: per version and day, the answers a person kept as written and those
-  they changed. Counted for the outreach opener and for a candidate's AI-inferred background values.
-- `GET /api/v1/platform/prompts/{id}/usage?days=` reads both. A Try it and an eval run are not counted.
-- Each prompt's `health` compares the live version since it went live with the one it replaced over the same
-  number of days before (30 at most): `MORE_FAILURES` when the failure rate is up five points with 50 calls a
+  they changed. Counted for the outreach opener, a candidate's AI-inferred background values, and the four
+  position extraction prompts, each field a reading filled once, when the brief is published (#1452).
+- `GET /api/v1/platform/prompts/{id}/usage?days=` reads both; `decisionsCounted` says whether the prompt has a kept
+  share at all (`PlatformPrompt`, held to the callers of `PromptOutcomes` by `PlatformPromptTest`). A Try it and an
+  eval run are not counted.
+- Each prompt's `health` compares the live version's first days live with the one it replaced over the same
+  number of days before (30 at most; `daysLive` above `days` says the screen names "its first 30 days", not the
+  time since it went live): `MORE_FAILURES` when the failure rate is up five points with 50 calls a
   side, `FEWER_ACCEPTED` when the kept share is down ten points with 20 decisions a side (`PromptHealthRules`).
+- On screen: a prompt's **Usage** tab is the table by version and model over the last 7, 30 or 90 days; a warning is
+  a pill on the list (which counts it as needing attention) and a note on the prompt's page.
 
 ## Evals
 
@@ -149,6 +155,5 @@ billed model call when the machine has Vertex credentials. The e2e matrix runs w
 - Per-workspace prompt or variable overrides, and any workspace-level model choice.
 - Editing a response schema, the answer format or the user message from the screen.
 - A second model provider (#1325).
-- Accept rate for position extraction, whose suggestions are merged in the browser.
 - Editors for a boolean, a choice or a decimal variable; a case's own page; creating a dataset or editing a rubric
   on screen.

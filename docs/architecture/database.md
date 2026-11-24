@@ -606,6 +606,12 @@ platform tables holding keys and counts: no content, no person, no workspace. `a
 so the decision on it is counted against that version; null, or a key missing, is a value proposed before the
 column. Staff-only like the flags, and it names a prompt version, never a reading.
 
+V244 is `app_lm_position_suggested_field` (#1452): for each field a document reading filled on a brief, the
+`prompt_id` and `version` that suggested it, keyed by (`position_id`, `field_key`), until the brief is published and
+each is counted once into `app_lm_platform_prompt_outcome_daily`, then deleted. `field_key` is a scalar's brief key
+or a list's name; for a list, `document_items` is how many rows the reading left. A child of `app_lm_position`
+with V190's policy. Keys and counts only, never a value.
+
 V231 adds `app_lm_dashboard` (docs/custom-dashboards.md): a member's custom dashboard on a position (`project_id`, composite key to the project's workspace) or across the workspace (null) — `owner_user_id` (cascade with the account), `name` (≤ 80, never blank), `shared`, and `widgets` jsonb, an array of `{queryId, chart, options, title, layout: {x, y, w, h}}` (twelve-column grid; rows saved before it carry `size` instead, flowed into place by the SPA) naming charts of the server's query library. The choice only, never a figure: every chart is answered live. Forced RLS on its `workspace_id`. Staff-only.
 
 V230 cancels the open tasks an executive's removal orphaned before #1402 (`candidate_id` null and an `UNMAPPED` activity line for the person on the position at or after the task's creation; a rule task filed for someone never mapped has no such line and stays open), releasing a rule task's key as `Task.releaseRuleKey` does. Data only.

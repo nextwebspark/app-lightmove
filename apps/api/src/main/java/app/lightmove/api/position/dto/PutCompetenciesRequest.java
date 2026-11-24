@@ -22,5 +22,7 @@ public record PutCompetenciesRequest(
 
         @Min(value = 0, message = "The technical share is between 0 and 100")
         @Max(value = 100, message = "The technical share is between 0 and 100")
-        Integer technicalShare
+        Integer technicalShare,
+        /** Only on the write a document fill schedules. */
+        @Valid DocumentReadingRequest reading
 ) {}
