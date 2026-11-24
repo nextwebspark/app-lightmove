@@ -464,7 +464,7 @@ depends back.
 card on the list are gone. The list is the server's answer: every position for a holder of `PROJECT_BROWSE_ALL`
 (V232, ADMIN), only the ones the caller holds a seat on for anyone else. A staff member's Home is three fixed cards
 under a greeting that counts what waits, today's meetings and the caller's active positions — nothing on it is
-arranged or added to (the customisable grid, V233–V244, is gone).
+arranged or added to (the customisable grid of V233 is gone; its table stays unread until a later migration drops it).
 
 - **Needs your attention** — their outreach To do across the positions they work (`GET /me/outreach/needs`,
   `MyOutreachQueueService`, each position's own `ConversationService.list`; **Team** for a lead reads the whole queue
