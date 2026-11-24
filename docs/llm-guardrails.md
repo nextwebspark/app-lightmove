@@ -162,8 +162,13 @@ gets the system text, the provider's options and the wiring that counts the call
   configured model and logged once. The same rule (`AiModelCatalog.unusableBecause`) refuses saving such a
   version and putting one live, so this fallback is only for a model that retires while its version serves.
 - **`ChatModelProvider`** is the one seam to a vendor: `VertexGeminiChatModelProvider` owns the JSON mime type,
-  the thinking budget and the labels (`prompt`, and `prompt_version` when the registry served the text). A
+  the thinking setting and the labels (`prompt`, and `prompt_version` when the registry served the text). A
   second provider is a second implementation and catalogue entries.
+- **Gemini 3 and later reason by level, not budget.** Google deprecates `thinking_budget` on Gemini 3 (an
+  intermittent `400 INVALID_ARGUMENT`) and refuses it on Gemini 4. A budget set by a feature or a version is sent
+  to a catalogued model as the nearest `thinking_level` it offers (`AiModel.thinkingLevels`): 0 is its least
+  (MINIMAL, or LOW where MINIMAL is refused), up to 1,024 LOW, up to 8,192 MEDIUM, above that HIGH. None of them can
+  switch thinking off. A model the catalogue does not list (Gemini 2.5) still gets the budget.
 - **The reload** is `PlatformConfigReload`: the transaction that moves `production` bumps the `prompts` counter
   and notifies on `lm_platform_config` through `core/stream`'s listener; every instance drops its cache. Each
   also re-reads the counters every `lightmove.platform.config-reload-check` (30 s), for a notification it

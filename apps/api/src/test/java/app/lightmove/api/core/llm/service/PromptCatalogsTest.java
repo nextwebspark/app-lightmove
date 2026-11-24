@@ -16,6 +16,7 @@ import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.google.genai.GoogleGenAiChatOptions;
+import org.springframework.ai.google.genai.common.GoogleGenAiThinkingLevel;
 
 /** The lists the registry keeps in code: the bundled prompts, the model catalogue, and the provider's options. */
 class PromptCatalogsTest {
@@ -58,29 +59,64 @@ class PromptCatalogsTest {
             assertThat(model.temperature()).as(model.modelId()).isNotNull();
             assertThat(model.thinkingBudget()).as(model.modelId()).isNotNull();
             assertThat(model.maxOutputTokens()).as(model.modelId()).isNotNull();
+            assertThat(model.thinkingLevels()).as("%s: Gemini 3 and later reason by level", model.modelId())
+                    .isNotEmpty().isSorted();
         }
     }
 
     @Test
     @DisplayName("a structured call asks for JSON and carries the prompt and its version as labels")
     void theVertexAdapterMapsACall() {
-        GoogleGenAiChatOptions options = (GoogleGenAiChatOptions) new VertexGeminiChatModelProvider(null, null, null)
+        GoogleGenAiChatOptions options = (GoogleGenAiChatOptions) new VertexGeminiChatModelProvider(new AiModelCatalog(), null, null, null)
                 .optionsFor(new PromptCallOptions("call-changes", 7, PromptKind.STRUCTURED, "gemini-3.8-flash",
                         new GenerationSettings(0.0, 0, 2048)))
                 .build();
 
         assertThat(options.getModel()).isEqualTo("gemini-3.8-flash");
         assertThat(options.getTemperature()).isEqualTo(0.0);
-        assertThat(options.getThinkingBudget()).isEqualTo(0);
+        assertThat(options.getThinkingBudget()).as("deprecated on Gemini 3, refused by Gemini 4").isNull();
+        assertThat(options.getThinkingLevel()).as("3.8 Flash refuses MINIMAL").isEqualTo(GoogleGenAiThinkingLevel.LOW);
         assertThat(options.getMaxOutputTokens()).isEqualTo(2048);
         assertThat(options.getResponseMimeType()).isEqualTo("application/json");
         assertThat(options.getLabels()).containsEntry("prompt", "call-changes").containsEntry("prompt_version", "7");
     }
 
     @Test
+    @DisplayName("a thinking budget reaches a listed model as the nearest level it offers, and any other as a budget")
+    void aBudgetIsReadAsALevelOnTheModelsThatTakeOne() {
+        assertThat(thinkingOf("gemini-3.5-flash", 0).getThinkingLevel()).isEqualTo(GoogleGenAiThinkingLevel.MINIMAL);
+        assertThat(thinkingOf("gemini-4-argon", 0).getThinkingLevel()).isEqualTo(GoogleGenAiThinkingLevel.LOW);
+        assertThat(thinkingOf("gemini-4-argon", 512).getThinkingLevel()).isEqualTo(GoogleGenAiThinkingLevel.LOW);
+        assertThat(thinkingOf("gemini-3.5-flash-lite", 4096).getThinkingLevel())
+                .isEqualTo(GoogleGenAiThinkingLevel.MEDIUM);
+        assertThat(thinkingOf("gemini-3.1-flash-lite", 20000).getThinkingLevel())
+                .isEqualTo(GoogleGenAiThinkingLevel.HIGH);
+
+        GoogleGenAiChatOptions unlisted = thinkingOf("gemini-2.5-flash", 0);
+        assertThat(unlisted.getThinkingBudget()).isEqualTo(0);
+        assertThat(unlisted.getThinkingLevel()).isNull();
+
+        GoogleGenAiChatOptions configured = (GoogleGenAiChatOptions)
+                new VertexGeminiChatModelProvider(new AiModelCatalog(), "gemini-3.5-flash-lite", null, null)
+                        .optionsFor(new PromptCallOptions("assistant-core", null, PromptKind.TOOL_CALLING, null,
+                                new GenerationSettings(null, 512, null)))
+                        .build();
+        assertThat(configured.getThinkingLevel()).as("the configured model when a call names none")
+                .isEqualTo(GoogleGenAiThinkingLevel.LOW);
+        assertThat(configured.getThinkingBudget()).isNull();
+    }
+
+    private static GoogleGenAiChatOptions thinkingOf(String modelId, int budget) {
+        return (GoogleGenAiChatOptions) new VertexGeminiChatModelProvider(new AiModelCatalog(), null, null, null)
+                .optionsFor(new PromptCallOptions("call-changes", 1, PromptKind.STRUCTURED, modelId,
+                        new GenerationSettings(0.0, budget, null)))
+                .build();
+    }
+
+    @Test
     @DisplayName("a prose call from the bundled file asks for no answer format and carries no version label")
     void aProseCallFromTheBundledFileNamesOnlyItsPrompt() {
-        GoogleGenAiChatOptions options = (GoogleGenAiChatOptions) new VertexGeminiChatModelProvider(null, null, null)
+        GoogleGenAiChatOptions options = (GoogleGenAiChatOptions) new VertexGeminiChatModelProvider(new AiModelCatalog(), null, null, null)
                 .optionsFor(new PromptCallOptions("recruiter-shortlist", null, PromptKind.PROSE, null,
                         GenerationSettings.UNSET))
                 .build();
