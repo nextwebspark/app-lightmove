@@ -9,16 +9,13 @@ import app.lightmove.api.outreach.dto.ConversationListResponse;
 import app.lightmove.api.outreach.dto.MyConversationRowResponse;
 import app.lightmove.api.outreach.dto.MyOutreachQueueResponse;
 import app.lightmove.api.project.model.Project;
-import app.lightmove.api.project.model.ProjectMember;
 import app.lightmove.api.project.repository.ProjectMemberRepository;
-import app.lightmove.api.project.repository.ProjectRepository;
 import app.lightmove.api.workspace.model.WorkspaceMember;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
-import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.stereotype.Service;
@@ -39,19 +36,13 @@ public class MyOutreachQueueService {
     private final WorkspaceAccess workspaceAccess;
     private final ProjectAccess projectAccess;
     private final ProjectMemberRepository seats;
-    private final ProjectRepository projects;
+    private final MySeatedPositions seatedPositions;
     private final ConversationService conversations;
 
     @Transactional(readOnly = true)
     public MyOutreachQueueResponse needsOf(UUID userId, UUID workspaceId, ConversationScope scope) {
         WorkspaceMember member = workspaceAccess.requireStaff(userId, workspaceId);
-        Set<UUID> seated = seats.findByMemberId(member.getId()).stream()
-                .map(ProjectMember::getProjectId).collect(Collectors.toSet());
-        List<Project> live = projects.findAllById(seated).stream()
-                .filter(project -> project.getWorkspaceId().equals(workspaceId) && !project.isArchived()
-                        && !project.getStage().isDone())
-                .sorted(Comparator.comparing(Project::getCreatedAt).reversed())
-                .toList();
+        List<Project> live = seatedPositions.liveOf(member);
         if (live.isEmpty()) {
             return new MyOutreachQueueResponse(List.of(), false);
         }

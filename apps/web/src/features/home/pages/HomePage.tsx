@@ -8,6 +8,7 @@ import { cn } from "../../../lib/cn";
 import { formatShortDate, formatWeekdayDate, todayKey } from "../../../lib/datetime/format";
 import { getDateTimePreferences } from "../../../lib/datetime/preferences";
 import { OVERVIEW_QUERY, OVERVIEW_REFRESH_MS } from "../../../lib/overviewQueries";
+import { useNow } from "../../../lib/useNow";
 import { useAuth } from "../../auth/AuthProvider";
 import { StartPageNotice } from "../../startpage/components/StartPageNotice";
 import { isPureClient, seesEveryPosition } from "../../auth/roles";
@@ -27,7 +28,7 @@ import * as homeApi from "../api/homeApi";
 import { NeedsAttention, type MailboxGap } from "../components/NeedsAttention";
 import { PositionsTable } from "../components/PositionsTable";
 import { TodayPanel } from "../components/TodayPanel";
-import { attentionOf, isAgendaTask, needsYouOf } from "../lib/needsYou";
+import { attentionOf, isTodayAgendaOf, needsYouOf } from "../lib/needsYou";
 import { todayEventsOf } from "../lib/today";
 
 function greetingOf(firstName: string | undefined, now = new Date()): string {
@@ -103,7 +104,13 @@ function StaffHome({ projects, header }: { projects: Project[]; header: HeaderFn
   const [newPositionOpen, setNewPositionOpen] = useState(false);
   const mailboxState = mailboxStateOf(useMailbox());
   const mailboxGap: MailboxGap =
-    mailboxState.kind === "none" ? "missing" : mailboxState.kind === "error" ? "broken" : null;
+    mailboxState.kind === "none"
+      ? "missing"
+      : mailboxState.kind === "error" || mailboxState.kind === "readScopeMissing"
+        ? "broken"
+        : null;
+  // Ranking, "Due 16:00" turning overdue and the timeline's next call all turn on the clock, not only on new data.
+  const now = useNow(60_000);
   const { data: clients = [] } = useQuery({
     queryKey: clientsApi.CLIENTS_KEY,
     queryFn: clientsApi.clients,
@@ -112,7 +119,11 @@ function StaffHome({ projects, header }: { projects: Project[]; header: HeaderFn
 
   const leadsAny = projects.some((project) => isSeatedOn(project, user?.id, "LEAD"));
   const shownScope: ConversationScope = leadsAny ? scope : "mine";
-  const active = projects.filter((project) => isSeatedOn(project, user?.id) && !project.archivedAt && project.stage !== "CLOSED");
+  // Live as the server's queue and calendar read it (`ProjectStage.isDone`): a delivered position is done.
+  const active = projects.filter(
+    (project) =>
+      isSeatedOn(project, user?.id) && !project.archivedAt && project.stage !== "DELIVERED" && project.stage !== "CLOSED",
+  );
   const clientNames = useMemo(() => new Map(projects.map((project) => [project.id, project.clientName])), [projects]);
   const clientOf = (projectId: string) => clientNames.get(projectId);
 
@@ -162,13 +173,15 @@ function StaffHome({ projects, header }: { projects: Project[]; header: HeaderFn
     );
   }, [shownScope, assigned.data, overdue.data, today.data]);
   const { lines, comingUp } = useMemo(
-    () => attentionOf(needsYouOf(outreach.data?.rows ?? [], ownTasks)),
-    [outreach.data, ownTasks],
+    () => attentionOf(needsYouOf(outreach.data?.rows ?? [], ownTasks, user?.id, now), now),
+    [outreach.data, ownTasks, user?.id, now],
   );
   const events = useMemo(() => {
-    const agenda = (today.data?.tasks ?? []).filter((task) => task.status === "open" && isAgendaTask(task));
+    const agenda = (today.data?.tasks ?? []).filter(
+      (task) => task.status === "open" && isTodayAgendaOf(task, user?.id, now),
+    );
     return todayEventsOf(meetings.data ?? [], agenda, (projectId) => clientNames.get(projectId), (task) => taskKindOf(task.kind).label);
-  }, [today.data, meetings.data, clientNames]);
+  }, [today.data, meetings.data, clientNames, user?.id, now]);
   const tasksPending = shownScope === "team" ? assigned.isPending : today.isPending || overdue.isPending;
   const needsPending = outreach.isPending || tasksPending;
   const todayPending = today.isPending || meetings.isPending;
@@ -179,7 +192,7 @@ function StaffHome({ projects, header }: { projects: Project[]; header: HeaderFn
       : lines.length === 0
         ? "Nothing needs your attention"
         : `${plural(lines.length, "action needs", "actions need")} attention`,
-    todayPending ? null : events.length === 0 ? "No meetings today" : `${plural(events.length, "meeting", "meetings")} today`,
+    todayPending ? null : events.length === 0 ? "Nothing on today's calendar" : `${plural(events.length, "event", "events")} today`,
     active.length === 0 ? "No positions yet" : plural(active.length, "active position", "active positions"),
   ]
     .filter(Boolean)
@@ -204,8 +217,15 @@ function StaffHome({ projects, header }: { projects: Project[]; header: HeaderFn
             showScope={leadsAny}
             mailboxGap={mailboxGap}
             onAnyPosition={active.length > 0}
+            now={now}
           />
-          <TodayPanel events={events} pending={todayPending} calendarRefused={meetings.isError} mailboxGap={mailboxGap} />
+          <TodayPanel
+            events={events}
+            pending={todayPending}
+            calendarRefused={meetings.isError}
+            mailboxGap={mailboxGap}
+            now={now}
+          />
         </div>
         <PositionsTable positions={active} onNewPosition={() => setNewPositionOpen(true)} />
       </div>

@@ -3,49 +3,54 @@ import type { ConversationGroup } from "../../outreach/api/conversationApi";
 import type { TaskKind, TaskPerson, TaskResponse } from "../../tasks/api/types";
 import type { MyConversationRow } from "../api/homeApi";
 
-export type NeedsKind = ConversationGroup;
-
 /** One row of the queue as the server and the caller's tasks give it: an executive waiting in outreach, or a task. */
 export type NeedsItem =
-  | { kind: "conversation"; key: string; group: NeedsKind; entry: MyConversationRow }
+  | { kind: "conversation"; key: string; group: ConversationGroup; entry: MyConversationRow }
   | { kind: "task"; key: string; task: TaskResponse };
 
 /**
- * A call or meeting still to come is today's agenda, drawn under Today rather than in the queue. One whose time has
- * passed is owed like any other task, so it stays in the queue: Today only lists what is still ahead.
+ * A call or meeting of the caller's own, later today, is drawn under Today rather than in the queue — exactly what
+ * Today lists. Anything else stays in the queue: a call whose time has passed is owed like any other task, and a call
+ * on another day, or a teammate's under Team, has no other place on Home.
  */
-export function isAgendaTask(task: Pick<TaskResponse, "kind" | "dueAt">, now: Date = new Date()): boolean {
-  return (task.kind === "call" || task.kind === "meeting") && task.dueAt !== null && new Date(task.dueAt) >= now;
+export function isTodayAgendaOf(
+  task: Pick<TaskResponse, "kind" | "dueAt" | "assignee">,
+  myUserId: string | undefined,
+  now: Date = new Date(),
+): boolean {
+  if ((task.kind !== "call" && task.kind !== "meeting") || task.dueAt === null) return false;
+  const due = new Date(task.dueAt);
+  return task.assignee.userId === myUserId && due >= now && dayKeyOf(due) === dayKeyOf(now);
 }
 
 /**
- * The queue: every outreach row, then the caller's open tasks. A task a row already carries as its next action is
- * that row, so it is never drawn twice.
+ * The queue: every outreach row, then the caller's open tasks, less what Today draws. A task a row already carries as
+ * its next action is that row, so it is never drawn twice.
  */
 export function needsYouOf(
   conversations: readonly MyConversationRow[],
   tasks: readonly TaskResponse[],
+  myUserId: string | undefined,
   now: Date = new Date(),
 ): NeedsItem[] {
-  // A follow-up or preparation row only waiting on a call still ahead is today's agenda, as the bare task is.
   const shown = conversations.filter(
     (entry) =>
       entry.row.group !== null &&
       !(
         (entry.row.group === "FOLLOW_UP" || entry.row.group === "PREPARATION") &&
         entry.row.action &&
-        isAgendaTask({ kind: entry.row.action.kind, dueAt: entry.row.action.dueAt }, now)
+        isTodayAgendaOf(entry.row.action, myUserId, now)
       ),
   );
   const carried = new Set(shown.map((entry) => entry.row.action?.taskId).filter(Boolean));
   const rows = shown.map((entry): NeedsItem => ({
     kind: "conversation",
     key: `c:${entry.projectId}:${entry.row.candidateId}`,
-    group: entry.row.group as NeedsKind,
+    group: entry.row.group as ConversationGroup,
     entry,
   }));
   const own = tasks
-    .filter((task) => task.status === "open" && !carried.has(task.id) && !isAgendaTask(task, now))
+    .filter((task) => task.status === "open" && !carried.has(task.id) && !isTodayAgendaOf(task, myUserId, now))
     .map((task): NeedsItem => ({ kind: "task", key: `t:${task.id}`, task }));
   return [...rows, ...own];
 }
@@ -60,7 +65,7 @@ export interface AttentionLine {
   /** A task's own kind; null for a reply or a delivery problem, which is no task. */
   taskKind: TaskKind | null;
   /** The outreach group that put it here; null for one of the caller's own tasks. */
-  group: NeedsKind | null;
+  group: ConversationGroup | null;
   /** A task's title; null where the line is worded from the person ("… replied to your outreach"). */
   taskTitle: string | null;
   /** When it was due, or when the executive last wrote. */

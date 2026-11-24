@@ -101,7 +101,6 @@ public class CandidateOutreachService {
         return names;
     }
 
-    /** Where each of these people is mapped among these positions. */
     @Transactional(readOnly = true)
     public List<PersonPlacement> placementsOf(Collection<UUID> projectIds, Collection<UUID> personIds) {
         if (projectIds.isEmpty() || personIds.isEmpty()) {

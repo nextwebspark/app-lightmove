@@ -100,6 +100,18 @@ class MyMeetingsIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("an executive on a delivered position is listed without it, as Home's Your positions leaves it out")
+    void aDeliveredPositionIsNotLive() throws Exception {
+        executive("Karim Nassar", "karim@" + domain);
+        gateway.calendarHolds(List.of(
+                event("first", "Screening", startOfToday.plus(Duration.ofMinutes(5)), "karim@" + domain)));
+        connectMailbox();
+        jdbc.update("update app_lm_project set stage = 'DELIVERED' where id = ?::uuid", projectId);
+
+        assertThat(today().get("meetings").get(0).get("projectId").isNull()).isTrue();
+    }
+
+    @Test
     @DisplayName("with no calendar connected, today is empty")
     void noCalendarMeansNoMeetings() throws Exception {
         assertThat(today().get("meetings")).isEmpty();

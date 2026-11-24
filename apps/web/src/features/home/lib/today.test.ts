@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { TaskResponse } from "../../tasks/api/types";
 import type { MyMeeting } from "../api/homeApi";
-import { lengthOf, todayEventsOf } from "./today";
+import { isOverAt, lengthOf, todayEventsOf } from "./today";
 
 const meeting = (id: string, startsAt: string, personId = "x1"): MyMeeting => ({
   id,
@@ -70,5 +70,15 @@ describe("todayEventsOf", () => {
 describe("lengthOf", () => {
   it("says a call's length in minutes and hours", () => {
     expect([lengthOf(30), lengthOf(60), lengthOf(90)]).toEqual(["30 min", "1 h", "1 h 30 min"]);
+  });
+});
+
+describe("isOverAt", () => {
+  it("keeps a meeting under way current until it ends, and a call task past once its time has come", () => {
+    const [underWay] = todayEventsOf([meeting("m1", "2026-11-23T10:00:00.000Z")], [], () => undefined, () => "Call");
+    expect(isOverAt(underWay, new Date("2026-11-23T10:05:00Z"))).toBe(false);
+    expect(isOverAt(underWay, new Date("2026-11-23T10:45:00Z"))).toBe(true);
+    const [call] = todayEventsOf([], [callTask("t1", "2026-11-23T10:00:00.000Z")], () => undefined, () => "Call");
+    expect(isOverAt(call, new Date("2026-11-23T10:01:00Z"))).toBe(true);
   });
 });

@@ -4,7 +4,7 @@ import { buttonClassName, LinesSkeleton } from "../../../components/ui";
 import { cn } from "../../../lib/cn";
 import { formatInstantTime, formatWeekdayDate } from "../../../lib/datetime/format";
 import { recordPath } from "../lib/taskPath";
-import { lengthOf, type TodayEvent } from "../lib/today";
+import { isOverAt, lengthOf, type TodayEvent } from "../lib/today";
 import { CardEmpty, HomeCard } from "./HomeCard";
 import type { MailboxGap } from "./NeedsAttention";
 
@@ -17,16 +17,16 @@ export function TodayPanel({
   pending,
   calendarRefused,
   mailboxGap,
-  now = new Date(),
+  now,
 }: {
   events: TodayEvent[];
   pending: boolean;
   calendarRefused: boolean;
   mailboxGap: MailboxGap;
-  now?: Date;
+  now: Date;
 }) {
-  const next = events.find((event) => new Date(event.startsAt) >= now);
-  const nextWithPerson = events.find((event) => new Date(event.startsAt) >= now && event.personName);
+  const next = events.find((event) => !isOverAt(event, now));
+  const nextWithPerson = events.find((event) => !isOverAt(event, now) && event.personName);
 
   return (
     <HomeCard
@@ -72,7 +72,7 @@ export function TodayPanel({
               <TimelineItem
                 key={event.key}
                 event={event}
-                past={new Date(event.startsAt) < now}
+                past={isOverAt(event, now)}
                 isNext={event === next}
                 last={index === events.length - 1}
               />

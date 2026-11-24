@@ -57,12 +57,12 @@ const conversation = (candidateId: string, group: MyConversationRow["row"]["grou
 
 describe("needsYouOf", () => {
   it("puts the outreach rows first, then the caller's own tasks", () => {
-    const items = needsYouOf([conversation("reply", "NEEDS_REPLY")], [task("t1")]);
+    const items = needsYouOf([conversation("reply", "NEEDS_REPLY")], [task("t1")], "u1");
     expect(items.map((item) => item.key)).toEqual(["c:p1:reply", "t:t1"]);
   });
 
   it("never draws a task twice when a row already carries it as its next action", () => {
-    const items = needsYouOf([conversation("reply", "NEEDS_REPLY", "t1")], [task("t1"), task("t2")]);
+    const items = needsYouOf([conversation("reply", "NEEDS_REPLY", "t1")], [task("t1"), task("t2")], "u1");
     expect(items.map((item) => item.key)).toEqual(["c:p1:reply", "t:t2"]);
   });
 
@@ -71,24 +71,49 @@ describe("needsYouOf", () => {
     const items = needsYouOf(
       [],
       [task("call", { kind: "call", dueAt: "2026-10-14T11:00:00Z" }), task("done", { status: "done" }), task("t1")],
+      "u1",
       now,
     );
     expect(items.map((item) => item.key)).toEqual(["t:t1"]);
   });
 
-  it("leaves a follow-up row waiting only on a call still ahead to Today", () => {
+  it("leaves a follow-up row waiting only on the caller's own call later today to Today", () => {
     const now = new Date("2026-10-14T08:00:00Z");
     const calling = conversation("caller", "PREPARATION", "t5");
     calling.row = { ...calling.row, action: { ...calling.row.action!, kind: "call", dueAt: "2026-10-14T11:00:00Z" } };
-    expect(needsYouOf([calling, conversation("reply", "NEEDS_REPLY")], [], now).map((item) => item.key)).toEqual([
+    expect(needsYouOf([calling, conversation("reply", "NEEDS_REPLY")], [], "u1", now).map((item) => item.key)).toEqual([
       "c:p1:reply",
     ]);
+  });
+
+  // A follow-up waiting on a call tomorrow, or on a teammate's call under Team, showed in neither Needs nor Today.
+  it("keeps a row whose call is on another day or is a teammate's", () => {
+    const now = new Date("2026-10-14T08:00:00Z");
+    const tomorrow = conversation("tomorrow", "FOLLOW_UP", "t6");
+    tomorrow.row = { ...tomorrow.row, action: { ...tomorrow.row.action!, kind: "call", dueAt: "2026-10-15T11:00:00Z" } };
+    const teammates = conversation("teammate", "FOLLOW_UP", "t7");
+    teammates.row = {
+      ...teammates.row,
+      action: {
+        ...teammates.row.action!,
+        kind: "call",
+        dueAt: "2026-10-14T11:00:00Z",
+        assignee: { userId: "u2", fullName: "Omar Khalil", avatarUrl: null },
+      },
+    };
+    const omar = { userId: "u2", fullName: "Omar Khalil", avatarUrl: null };
+    const theirs = task("theirs", { kind: "call", dueAt: "2026-10-14T11:00:00Z", assignee: omar });
+    const items = needsYouOf([tomorrow, teammates], [theirs], "u1", now);
+    expect(items.map((item) => item.key)).toEqual(["c:p1:tomorrow", "c:p1:teammate", "t:theirs"]);
+    const { lines, comingUp } = attentionOf(items, now);
+    expect(lines.map((line) => line.key)).toEqual(["c:p1:teammate", "t:theirs"]);
+    expect(comingUp).toBe(1);
   });
 
   // An overdue call fell between Today (still ahead only) and the queue, and showed nowhere.
   it("keeps a call whose time has passed in the queue", () => {
     const now = new Date("2026-10-14T12:00:00Z");
-    const items = needsYouOf([], [task("missed", { kind: "call", dueAt: "2026-10-14T09:00:00Z" })], now);
+    const items = needsYouOf([], [task("missed", { kind: "call", dueAt: "2026-10-14T09:00:00Z" })], "u1", now);
     expect(items.map((item) => item.key)).toEqual(["t:missed"]);
   });
 });
@@ -100,7 +125,7 @@ describe("attentionOf", () => {
   it("leaves out a follow-up due next week even when an executive's outreach row carries it", () => {
     const quiet = conversation("quiet", "FOLLOW_UP", "t9");
     quiet.row = { ...quiet.row, action: { ...quiet.row.action!, dueAt: "2026-10-21T09:00:00Z" } };
-    const { lines, comingUp } = attentionOf(needsYouOf([quiet, conversation("reply", "NEEDS_REPLY")], [], now), now);
+    const { lines, comingUp } = attentionOf(needsYouOf([quiet, conversation("reply", "NEEDS_REPLY")], [], "u1", now), now);
     expect(lines.map((line) => line.key)).toEqual(["c:p1:reply"]);
     expect(comingUp).toBe(1);
   });
@@ -114,6 +139,7 @@ describe("attentionOf", () => {
         task("late", { dueAt: "2026-10-12T09:00:00Z" }),
         task("undated", { dueAt: null }),
       ],
+      "u1",
       now,
     );
     const { lines, comingUp } = attentionOf(items, now);
@@ -133,6 +159,7 @@ describe("attentionOf", () => {
     const items = needsYouOf(
       [older, newer],
       [task("yesterday", { dueAt: "2026-10-13T09:00:00Z" }), task("lastWeek", { dueAt: "2026-10-07T09:00:00Z" })],
+      "u1",
       now,
     );
     expect(attentionOf(items, now).lines.map((line) => line.key)).toEqual([
@@ -144,7 +171,7 @@ describe("attentionOf", () => {
   });
 
   it("draws a follow-up row as the task it waits on", () => {
-    const [line] = attentionOf(needsYouOf([conversation("quiet", "FOLLOW_UP", "t9")], [], now), now).lines;
+    const [line] = attentionOf(needsYouOf([conversation("quiet", "FOLLOW_UP", "t9")], [], "u1", now), now).lines;
     expect(line).toMatchObject({ group: "FOLLOW_UP", taskKind: "follow_up", taskTitle: "Reply", reason: "overdue" });
   });
 });

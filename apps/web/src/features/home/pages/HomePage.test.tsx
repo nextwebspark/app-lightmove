@@ -207,7 +207,7 @@ describe("HomePage", () => {
     expect(reply).toHaveAttribute("href", "/projects/p1/outreach?view=needs&who=mine&candidate=c9");
     expect(reply.className).not.toEqual(within(items[0]).getByRole("link", { name: /^Open/ }).className);
     expect(within(needs).getByRole("radio", { name: "Team" })).toBeInTheDocument();
-    expect(screen.getByText(/2 actions need attention · No meetings today · 1 active position/)).toBeInTheDocument();
+    expect(screen.getByText(/2 actions need attention · Nothing on today's calendar · 1 active position/)).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Your positions" })).toHaveTextContent("Product Planning");
   });
 
@@ -290,7 +290,7 @@ describe("HomePage", () => {
     const positions = screen.getByRole("region", { name: "Your positions" });
     expect(within(positions).getByText("You're not on any position yet")).toBeInTheDocument();
     expect(within(positions).getByRole("button", { name: "New position" })).toBeInTheDocument();
-    expect(screen.getByText("Nothing needs your attention · No meetings today · No positions yet")).toBeInTheDocument();
+    expect(screen.getByText("Nothing needs your attention · Nothing on today's calendar · No positions yet")).toBeInTheDocument();
   });
 
   it("asks for the mailbox to be connected again when it has stopped working", async () => {

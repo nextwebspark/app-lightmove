@@ -75,6 +75,12 @@ export function todayEventsOf(
   );
 }
 
+/** Whether an entry is behind the caller: a meeting once it has ended, so one under way is still the current one. */
+export function isOverAt(event: TodayEvent, now: Date): boolean {
+  const ends = new Date(event.startsAt).getTime() + (event.minutes ?? 0) * 60_000;
+  return now.getTime() >= ends;
+}
+
 /** 30 → "30 min", 60 → "1 h", 90 → "1 h 30 min". */
 export function lengthOf(minutes: number): string {
   if (minutes < 60) return `${minutes} min`;

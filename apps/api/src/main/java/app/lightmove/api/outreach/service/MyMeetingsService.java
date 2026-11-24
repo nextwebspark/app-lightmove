@@ -11,10 +11,7 @@ import app.lightmove.api.outreach.model.PersonMeeting;
 import app.lightmove.api.outreach.repository.PersonMeetingRepository;
 import app.lightmove.api.project.model.Client;
 import app.lightmove.api.project.model.Project;
-import app.lightmove.api.project.model.ProjectMember;
 import app.lightmove.api.project.repository.ClientRepository;
-import app.lightmove.api.project.repository.ProjectMemberRepository;
-import app.lightmove.api.project.repository.ProjectRepository;
 import app.lightmove.api.workspace.model.WorkspaceMember;
 import java.time.Clock;
 import java.time.DateTimeException;
@@ -44,8 +41,7 @@ public class MyMeetingsService {
 
     private final WorkspaceAccess workspaceAccess;
     private final ProjectAccess projectAccess;
-    private final ProjectMemberRepository seats;
-    private final ProjectRepository projects;
+    private final MySeatedPositions seatedPositions;
     private final ClientRepository clients;
     private final PersonMeetingRepository meetings;
     private final CandidateOutreachService candidates;
@@ -86,7 +82,7 @@ public class MyMeetingsService {
             PersonPlacement placement = placementOf.get(row.getPersonId());
             Project project = placement == null ? null : byId.get(placement.projectId());
             return new MyMeetingResponse(row.getId(), row.getTitle(), row.getStartsAt(), row.getEndsAt(),
-                    row.getEndsAt().isAfter(now) ? row.getJoinUrl() : null, row.getConferencingProvider(),
+                    row.getEndsAt().isAfter(now) ? safeLinkOf(row.getJoinUrl()) : null, row.getConferencingProvider(),
                     row.getPersonId(), names.get(row.getPersonId()),
                     project == null ? null : project.getId(), placement == null ? null : placement.candidateId(),
                     project == null ? null : project.getPositionTitle(),
@@ -95,16 +91,15 @@ public class MyMeetingsService {
     }
 
     private List<Project> workablePositionsOf(WorkspaceMember member, UUID userId, UUID workspaceId) {
-        Set<UUID> seated = seats.findByMemberId(member.getId()).stream()
-                .map(ProjectMember::getProjectId).collect(Collectors.toSet());
-        List<Project> live = projects.findAllById(seated).stream()
-                .filter(project -> project.getWorkspaceId().equals(workspaceId) && !project.isArchived()
-                        && !project.getStage().isDone())
-                .sorted(Comparator.comparing(Project::getCreatedAt).reversed())
-                .toList();
+        List<Project> live = seatedPositions.liveOf(member);
         Set<UUID> workable = projectAccess.projectsWithAction(userId, workspaceId,
                 live.stream().map(Project::getId).toList(), ProjectAction.WORK_EXECUTE);
         return live.stream().filter(project -> workable.contains(project.getId())).toList();
+    }
+
+    /** A calendar's link is drawn as a link: only an https one is handed on. */
+    private static String safeLinkOf(String joinUrl) {
+        return joinUrl != null && joinUrl.regionMatches(true, 0, "https://", 0, 8) ? joinUrl : null;
     }
 
     private static ZoneId zoneOf(String zone) {

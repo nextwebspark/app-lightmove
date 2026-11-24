@@ -5,6 +5,7 @@ import { buttonClassName, LinesSkeleton, SegmentedControl } from "../../../compo
 import { cn } from "../../../lib/cn";
 import { formatInstantTime, formatShortDate } from "../../../lib/datetime/format";
 import { dayKeyOf, daysBetween } from "../../../lib/datetime/zone";
+import { formatTimeAgoShort } from "../../../lib/format";
 import type { ConversationScope } from "../../outreach/api/conversationApi";
 import { taskKindOf } from "../../tasks/lib/taskKinds";
 import type { AttentionLine, AttentionReason } from "../lib/needsYou";
@@ -41,7 +42,7 @@ export function NeedsAttention({
   showScope,
   mailboxGap,
   onAnyPosition,
-  now = new Date(),
+  now,
 }: {
   lines: AttentionLine[];
   /** Tasks not due yet, left to My tasks and only counted here. */
@@ -58,7 +59,7 @@ export function NeedsAttention({
   mailboxGap: MailboxGap;
   /** Whether the caller holds a seat on any live position: with none, nothing can be owed yet. */
   onAnyPosition: boolean;
-  now?: Date;
+  now: Date;
 }) {
   const [expanded, setExpanded] = useState(false);
   const shown = expanded ? lines : lines.slice(0, VISIBLE);
@@ -265,17 +266,9 @@ function chipOf(line: AttentionLine, now: Date): string | null {
   if (line.reason === "delivery") return "Delivery problem";
   if (!line.at) return null;
   const at = new Date(line.at);
-  if (line.reason === "reply") return agoOf(at, now);
+  if (line.reason === "reply") return formatTimeAgoShort(line.at, now);
   const days = daysBetween(dayKeyOf(at), dayKeyOf(now));
   if (line.reason === "overdue") return days > 0 ? `${days}d overdue` : "Overdue";
   if (line.reason === "today") return `Due ${formatInstantTime(at)}`;
   return days === -1 ? "Due tomorrow" : `Due ${formatShortDate(at)}`;
-}
-
-function agoOf(at: Date, now: Date): string {
-  const minutes = Math.max(1, Math.floor((now.getTime() - at.getTime()) / 60_000));
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  return `${Math.floor(hours / 24)}d ago`;
 }
