@@ -6,19 +6,14 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
 
 /**
  * Find executives — {@code lightmove.enrichment.sourcing.*}. A live profile is the only thing a run buys
- * by the profile, so {@code maxCompaniesPerRun × profilesPerCompany} is one press's ceiling of them (the
- * profile index bills a search, about $0.002 a company, and a title check is a free count).
+ * by the profile, and how many per company is the consultant's choice on the screen
+ * ({@code SearchCriteria.perCompany}); the profile index bills a search, about $0.002 a company, and a
+ * title check is a free count.
  */
 public record ExecutiveSourcingSettings(
 
         /** Companies one run may take; the screen offers that many when nothing is ticked. */
         @DefaultValue("5") int maxCompaniesPerRun,
-
-        /** Live profiles bought per company at most, the role's own level first. */
-        @DefaultValue("3") int profilesPerCompany,
-
-        /** Executives filed per company at most, best fit first. */
-        @DefaultValue("3") int picksPerCompany,
 
         /** People the profile index returns per company to be checked. */
         @DefaultValue("100") int indexPeoplePerCompany,
@@ -45,13 +40,13 @@ public record ExecutiveSourcingSettings(
 ) {
 
     public ExecutiveSourcingSettings {
-        if (maxCompaniesPerRun < 1 || picksPerCompany < 1 || parallelism < 1 || indexPeoplePerCompany < 1) {
+        if (maxCompaniesPerRun < 1 || parallelism < 1 || indexPeoplePerCompany < 1) {
             throw new IllegalArgumentException(
-                    "lightmove.enrichment.sourcing's company, pick, index and parallelism limits must be positive");
+                    "lightmove.enrichment.sourcing's company, index and parallelism limits must be positive");
         }
-        if (profilesPerCompany < 0 || titleChecksPerCompany < 0) {
+        if (titleChecksPerCompany < 0) {
             throw new IllegalArgumentException(
-                    "lightmove.enrichment.sourcing's profile and title-check budgets cannot be negative");
+                    "lightmove.enrichment.sourcing.title-checks-per-company cannot be negative");
         }
         if (runDeadline == null || runDeadline.isNegative() || runDeadline.isZero()) {
             throw new IllegalArgumentException("lightmove.enrichment.sourcing.run-deadline must be positive");

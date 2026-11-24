@@ -194,7 +194,7 @@ class PlatformSettingsIntegrationTest extends PositionTemplateFlowSupport {
         String admin = superAdmin();
 
         for (String key : List.of("auth.jwt.access-token-ttl", "platform.require-two-factor",
-                "enrichment.sourcing.picks-per-company", "nothing")) {
+                "enrichment.sourcing.neighbour-country-codes", "nothing")) {
             refused(404, "NOT_FOUND", putJson(admin, SETTINGS + "/" + key, CHANGE.formatted(1, "Tested")));
             refused(404, "NOT_FOUND", postJson(admin, SETTINGS + "/" + key + "/reset", RESET.formatted("Tested")));
             refused(404, "NOT_FOUND",
