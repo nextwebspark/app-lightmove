@@ -67,7 +67,8 @@ class PromptCatalogsTest {
     @Test
     @DisplayName("a structured call asks for JSON and carries the prompt and its version as labels")
     void theVertexAdapterMapsACall() {
-        GoogleGenAiChatOptions options = (GoogleGenAiChatOptions) new VertexGeminiChatModelProvider(new AiModelCatalog(), null, null, null)
+        GoogleGenAiChatOptions options = (GoogleGenAiChatOptions)
+                new VertexGeminiChatModelProvider(new AiModelCatalog(), null, null, null)
                 .optionsFor(new PromptCallOptions("call-changes", 7, PromptKind.STRUCTURED, "gemini-3.8-flash",
                         new GenerationSettings(0.0, 0, 2048)))
                 .build();
@@ -82,7 +83,7 @@ class PromptCatalogsTest {
     }
 
     @Test
-    @DisplayName("a thinking budget reaches a listed model as the nearest level it offers, and any other as a budget")
+    @DisplayName("a budget reaches Gemini 3 and later as the nearest level offered, and Gemini 2.5 as a budget")
     void aBudgetIsReadAsALevelOnTheModelsThatTakeOne() {
         assertThat(thinkingOf("gemini-3.5-flash", 0).getThinkingLevel()).isEqualTo(GoogleGenAiThinkingLevel.MINIMAL);
         assertThat(thinkingOf("gemini-4-argon", 0).getThinkingLevel()).isEqualTo(GoogleGenAiThinkingLevel.LOW);
@@ -92,9 +93,14 @@ class PromptCatalogsTest {
         assertThat(thinkingOf("gemini-3.1-flash-lite", 20000).getThinkingLevel())
                 .isEqualTo(GoogleGenAiThinkingLevel.HIGH);
 
-        GoogleGenAiChatOptions unlisted = thinkingOf("gemini-2.5-flash", 0);
-        assertThat(unlisted.getThinkingBudget()).isEqualTo(0);
-        assertThat(unlisted.getThinkingLevel()).isNull();
+        GoogleGenAiChatOptions budgetGeneration = thinkingOf("gemini-2.5-flash", 0);
+        assertThat(budgetGeneration.getThinkingBudget()).isEqualTo(0);
+        assertThat(budgetGeneration.getThinkingLevel()).isNull();
+
+        GoogleGenAiChatOptions unlisted = thinkingOf("gemini-4-pro-preview", 0);
+        assertThat(unlisted.getThinkingBudget()).as("Gemini 4 refuses a budget, listed or not").isNull();
+        assertThat(unlisted.getThinkingLevel()).as("the least every level-era model offers")
+                .isEqualTo(GoogleGenAiThinkingLevel.LOW);
 
         GoogleGenAiChatOptions configured = (GoogleGenAiChatOptions)
                 new VertexGeminiChatModelProvider(new AiModelCatalog(), "gemini-3.5-flash-lite", null, null)
@@ -116,7 +122,8 @@ class PromptCatalogsTest {
     @Test
     @DisplayName("a prose call from the bundled file asks for no answer format and carries no version label")
     void aProseCallFromTheBundledFileNamesOnlyItsPrompt() {
-        GoogleGenAiChatOptions options = (GoogleGenAiChatOptions) new VertexGeminiChatModelProvider(new AiModelCatalog(), null, null, null)
+        GoogleGenAiChatOptions options = (GoogleGenAiChatOptions)
+                new VertexGeminiChatModelProvider(new AiModelCatalog(), null, null, null)
                 .optionsFor(new PromptCallOptions("recruiter-shortlist", null, PromptKind.PROSE, null,
                         GenerationSettings.UNSET))
                 .build();

@@ -71,7 +71,8 @@ The call path every prompt goes through is `docs/llm-guardrails.md`. The second 
 - **A version carries its model and settings.** The model comes from `AiModelCatalog` (provider and model id, in
   code, GA models only); temperature, thinking budget and max output tokens stay inside that model's bounds. Unset
   means the calling feature's own default. Gemini 3 and later take the budget as the nearest thinking level
-  (`docs/llm-guardrails.md`), and 3.5 Flash-Lite and 4 Argon ignore a custom temperature. A model change is a version like any other.
+  (`docs/llm-guardrails.md`), and 3.5 Flash-Lite and 4 Argon ignore a custom temperature. A model change is a
+  version like any other.
 - **What stays in code:** the answer schema, the answer format and the user message. The user message decides
   which data reaches the model, so editing a prompt cannot change that.
 - **Try it** runs one version on a fictional input through the feature's own call path. It is not counted as a

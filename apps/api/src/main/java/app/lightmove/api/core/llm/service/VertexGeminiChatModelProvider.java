@@ -36,8 +36,18 @@ public class VertexGeminiChatModelProvider implements ChatModelProvider {
     static final String PROMPT_VERSION_LABEL = "prompt_version";
 
     /** A budget up to this reads as LOW, up to {@link #MEDIUM_UP_TO} as MEDIUM, and past it as HIGH. */
-    static final int LOW_UP_TO = 1024;
-    static final int MEDIUM_UP_TO = 8192;
+    private static final int LOW_UP_TO = 1024;
+    private static final int MEDIUM_UP_TO = 8192;
+
+    /** The model generations that still reason by budget; any other id reasons by level. */
+    private static final List<String> BUDGET_GENERATION_PREFIXES = List.of("gemini-1.", "gemini-2.");
+
+    /**
+     * What an id the catalogue does not list is assumed to offer: every Gemini 3 and later model takes these, and
+     * some refuse MINIMAL, so a {@code LLM_CHAT_MODEL} pointed at a new id never gets the budget Gemini 4 refuses.
+     */
+    private static final List<ThinkingLevel> LEVELS_OF_AN_UNLISTED_MODEL =
+            List.of(ThinkingLevel.LOW, ThinkingLevel.MEDIUM, ThinkingLevel.HIGH);
 
     private final AiModelCatalog models;
     private final String configuredModel;
@@ -83,8 +93,7 @@ public class VertexGeminiChatModelProvider implements ChatModelProvider {
             if (levels.isEmpty()) {
                 options.thinkingBudget(settings.thinkingBudget());
             } else {
-                options.thinkingLevel(GoogleGenAiThinkingLevel.valueOf(
-                        levelFor(settings.thinkingBudget(), levels).name()));
+                options.thinkingLevel(toGoogle(levelFor(settings.thinkingBudget(), levels)));
             }
         }
         if (settings.maxOutputTokens() != null) {
@@ -97,10 +106,14 @@ public class VertexGeminiChatModelProvider implements ChatModelProvider {
         return options;
     }
 
-    /** Empty for a model the catalogue does not list with levels, which still takes a budget (Gemini 2.5). */
+    /** Empty for a model that still takes a budget: Gemini 2.5 and earlier, or no model named at all. */
     private List<ThinkingLevel> thinkingLevelsOf(String modelId) {
-        return modelId == null ? List.of()
-                : models.find(AiProvider.VERTEX_GEMINI, modelId).map(AiModel::thinkingLevels).orElse(List.of());
+        if (modelId == null) {
+            return List.of();
+        }
+        return models.find(AiProvider.VERTEX_GEMINI, modelId).map(AiModel::thinkingLevels)
+                .orElseGet(() -> BUDGET_GENERATION_PREFIXES.stream().anyMatch(modelId::startsWith)
+                        ? List.of() : LEVELS_OF_AN_UNLISTED_MODEL);
     }
 
     /**
@@ -115,6 +128,15 @@ public class VertexGeminiChatModelProvider implements ChatModelProvider {
                 : ThinkingLevel.HIGH;
         return offered.stream().filter(level -> level.compareTo(wanted) >= 0).findFirst()
                 .orElse(offered.getLast());
+    }
+
+    private static GoogleGenAiThinkingLevel toGoogle(ThinkingLevel level) {
+        return switch (level) {
+            case MINIMAL -> GoogleGenAiThinkingLevel.MINIMAL;
+            case LOW -> GoogleGenAiThinkingLevel.LOW;
+            case MEDIUM -> GoogleGenAiThinkingLevel.MEDIUM;
+            case HIGH -> GoogleGenAiThinkingLevel.HIGH;
+        };
     }
 
     private static Map<String, String> labelsOf(PromptCallOptions call) {
