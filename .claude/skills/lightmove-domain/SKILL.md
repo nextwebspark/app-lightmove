@@ -582,3 +582,8 @@ ownership, so it can carry what the login response must not. Note the lockout co
 five failures lock for 15 minutes, and after the lock lapses the counter is still five, so the next
 wrong password re-locks immediately. Only a successful login or a password reset clears it — deliberate,
 since a decaying counter gives an attacker a free retry budget every window.
+
+**SSO answers one sentence for every address until it ships.** `POST /auth/sso/discover` reads no account, domain or
+workspace and is always `SSO_NOT_CONFIGURED`: an answer that varied by address would tell anyone which firms are
+customers. The real per-workspace SSO (verified domains, OIDC/SAML) replaces the body of that endpoint and keeps the
+screen; whatever it answers for a domain nobody verified must stay this same sentence.

@@ -12,6 +12,7 @@ import { chromium } from "playwright";
 import { readFileSync, mkdirSync, appendFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { fillSignIn } from "./sign-in.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const RUN_DIR = process.env.RUN_DIR ?? join(HERE, "..", "results", "current");
@@ -98,9 +99,7 @@ policy.includes("script-src 'self'")
   ? pass("TP1", "the page arrives with the full policy")
   : fail("TP1", "the page arrives with the full policy", `got [${policy}]`);
 
-await page.getByLabel("Email").fill(EMAIL);
-await page.getByLabel("Password").fill(PASSWORD);
-await page.getByRole("button", { name: "Continue", exact: true }).click();
+await fillSignIn(page, EMAIL, PASSWORD);
 await page.waitForURL((url) => !url.pathname.startsWith("/login"), { timeout: 15000 });
 
 const SCREENS = [

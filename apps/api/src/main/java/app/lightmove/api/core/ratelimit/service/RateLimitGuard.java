@@ -52,6 +52,10 @@ public class RateLimitGuard {
         checkRateLimit("password-reset", email, request, config.passwordResetRequestsPerHour(), Duration.ofHours(1));
     }
 
+    public void checkSsoLookup(String email, HttpServletRequest request) {
+        checkRateLimit("sso-lookup", email, request, config.ssoLookupsPerMinute(), Duration.ofMinutes(1));
+    }
+
     /**
      * Keyed on the challenge rather than an address: the request carries no email. The lockout counter is the real
      * brake on guessing a code; this spares the database a flood of them.

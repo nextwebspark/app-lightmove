@@ -2,13 +2,14 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { Link, useLocation } from "react-router-dom";
-import { Button, Card, Field, FormError, Input, Logo } from "../../../components/ui";
+import { Button, Field, Input } from "../../../components/ui";
 import { messageFor } from "../../../lib/errorCodes";
 import * as authApi from "../api/authApi";
+import { AUTH_LINK_CLASS, AuthShell, SubmitError } from "../components/AuthShell";
 import { forgotPasswordSchema, type ForgotPasswordValues } from "../schemas";
 
 /**
- * "Forgot?" from the login screen lands here: one email field, and a sent-state that reads the same
+ * "Forgot password?" from the login screen lands here: one email field, and a sent-state that reads the same
  * whether the address exists or not — the server won't say, and neither do we, because a page that
  * says "no account for that address" is an account-enumeration oracle with a nice font.
  */
@@ -43,74 +44,66 @@ export function ForgotPasswordPage() {
   };
 
   return (
-    <div className="flex min-h-dvh flex-col items-center justify-center gap-6 p-4 sm:p-6">
-      <Logo />
-
-      <Card className="w-[400px] max-w-[94vw] [animation-delay:60ms]">
-        {sentTo ? (
-          <div className="text-center">
-            <div className="mx-auto mb-4 grid size-11 place-items-center rounded-full bg-u-accent-tint">
-              <svg
-                className="size-5 text-u-accent"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                aria-hidden="true"
-              >
-                <rect x="3" y="5" width="18" height="14" rx="2" />
-                <path d="m3 7 9 6 9-6" />
-              </svg>
-            </div>
-
-            <h1 className="text-[19px] font-semibold leading-tight">Check your inbox</h1>
-
-            <p className="mb-6 mt-2 text-sm text-u-text2">
-              If an account exists for <span className="font-medium text-u-text">{sentTo}</span>, a
-              reset link is on its way. It expires in 30 minutes.
-            </p>
-
-            <Link to="/login" className="text-[12.5px] text-u-accent hover:underline">
+    <AuthShell
+      title={sentTo ? undefined : "Reset your password"}
+      subtitle={sentTo ? undefined : <>We&rsquo;ll email you a link to choose a new one.</>}
+      accountPrompt={
+        sentTo ? undefined : (
+          <>
+            Remembered it?{" "}
+            <Link to="/login" className={AUTH_LINK_CLASS}>
               Back to sign in
             </Link>
-          </div>
-        ) : (
-          <>
-            <h1 className="text-[19px] font-semibold leading-tight">Reset your password</h1>
-            <p className="mb-6 mt-1 font-mono text-xs text-u-text3">
-              We&rsquo;ll email you a link to choose a new one.
-            </p>
-
-            <FormError message={formError} />
-
-            <form onSubmit={handleSubmit(onSubmit)} noValidate>
-              <Field label="Work email" error={errors.email?.message}>
-                <Input
-                  type="email"
-                  autoComplete="email"
-                  autoFocus
-                  placeholder="you@firm.com"
-                  invalid={!!errors.email}
-                  {...register("email")}
-                />
-              </Field>
-
-              <Button type="submit" loading={isSubmitting} className="mt-1 w-full">
-                Send reset link
-              </Button>
-            </form>
           </>
-        )}
-      </Card>
+        )
+      }
+    >
+      {sentTo ? (
+        <div className="text-center">
+          <div className="mx-auto mb-4 grid size-11 place-items-center rounded-full bg-u-accent-tint">
+            <svg
+              className="size-5 text-u-accent"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              aria-hidden="true"
+            >
+              <rect x="3" y="5" width="18" height="14" rx="2" />
+              <path d="m3 7 9 6 9-6" />
+            </svg>
+          </div>
 
-      {!sentTo && (
-        <p className="animate-fade-up text-[12.5px] text-u-text2 [animation-delay:120ms]">
-          Remembered it?{" "}
-          <Link to="/login" className="text-u-accent hover:underline">
+          <h1 className="text-title font-semibold">Check your inbox</h1>
+
+          <p className="mb-6 mt-2 text-sm text-u-text2">
+            If an account exists for <span className="font-medium text-u-text">{sentTo}</span>, a
+            reset link is on its way. It expires in 30 minutes.
+          </p>
+
+          <Link to="/login" className="text-note text-u-accent hover:underline">
             Back to sign in
           </Link>
-        </p>
+        </div>
+      ) : (
+        <form onSubmit={handleSubmit(onSubmit)} noValidate>
+          <Field label="Work email" error={errors.email?.message}>
+            <Input
+              type="email"
+              autoComplete="email"
+              autoFocus
+              placeholder="you@firm.com"
+              invalid={!!errors.email}
+              {...register("email")}
+            />
+          </Field>
+
+          <Button type="submit" loading={isSubmitting} className="mt-1 w-full">
+            Send reset link
+          </Button>
+          <SubmitError message={formError} />
+        </form>
       )}
-    </div>
+    </AuthShell>
   );
 }

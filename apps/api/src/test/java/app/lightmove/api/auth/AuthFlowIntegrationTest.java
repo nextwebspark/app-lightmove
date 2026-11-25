@@ -19,6 +19,7 @@ import app.lightmove.api.RecordingEmailSender;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.Cookie;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.BeforeEach;
@@ -632,6 +633,19 @@ class AuthFlowIntegrationTest {
     }
 
     @Test
+    @DisplayName("asking for single sign-on gets one answer, whether or not the address has an account")
+    void ssoLookupAnswersTheSameForEveryAddress() throws Exception {
+        signup("Alok Kumar", alokEmail, PASSWORD);
+
+        MvcResult known = ssoLookup(alokEmail);
+        MvcResult unknown = ssoLookup("ghost@" + domain);
+
+        assertThat(known.getResponse().getStatus()).isEqualTo(unknown.getResponse().getStatus()).isEqualTo(404);
+        assertThat(codeOf(known)).isEqualTo(codeOf(unknown)).isEqualTo("SSO_NOT_CONFIGURED");
+        assertThat(body(known).get("detail")).isEqualTo(body(unknown).get("detail"));
+    }
+
+    @Test
     @DisplayName("a wrong password and an unknown account are indistinguishable to the caller")
     void loginDoesNotLeakAccountExistence() throws Exception {
         signup("Alok Kumar", alokEmail, PASSWORD);
@@ -912,6 +926,13 @@ class AuthFlowIntegrationTest {
                 .isNotNull();
 
         return body.get("accessToken").asText();
+    }
+
+    /** No CSRF token: an anonymous entry point, like login. */
+    private MvcResult ssoLookup(String emailAddress) throws Exception {
+        return mvc.perform(post("/api/v1/auth/sso/discover").contentType(MediaType.APPLICATION_JSON)
+                        .content(json.writeValueAsString(Map.of("email", emailAddress))))
+                .andReturn();
     }
 
     private MvcResult loginRaw(String emailAddress, String password) throws Exception {

@@ -20,7 +20,10 @@ public record OAuthQuirkSettings(
          * Trusted when they send no {@code email_verified} claim. Never by default: sign-in links on a
          * matching email, so an IdP letting anyone claim {@code victim@firm.com} is an account takeover.
          */
-        List<String> emailVerifiedOptionalRegistrations
+        List<String> emailVerifiedOptionalRegistrations,
+
+        /** The sign-in buttons' order; a configured registration not named here follows, A–Z. */
+        List<String> buttonOrder
 ) {
     // Not @DefaultValue: on a List it binds "unset" to a populated [""] — see PublicEmailDomains.
     public OAuthQuirkSettings {
@@ -33,5 +36,6 @@ public record OAuthQuirkSettings(
         emailVerifiedOptionalRegistrations = emailVerifiedOptionalRegistrations == null
                 ? List.of()
                 : List.copyOf(emailVerifiedOptionalRegistrations);
+        buttonOrder = buttonOrder == null ? List.of() : List.copyOf(buttonOrder);
     }
 }

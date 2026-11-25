@@ -2,11 +2,11 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { Link, useNavigate } from "react-router-dom";
-import { AuthLogo, Button, Card, Field, FormError, Input } from "../../../components/ui";
+import { Button, Field, Input } from "../../../components/ui";
 import { ApiRequestError } from "../../../lib/apiClient";
 import { EMAIL_FIELD_ERROR_CODES, fieldLabelOf, messageFor, type ApiErrorCode } from "../../../lib/errorCodes";
-import { ThemeToggle } from "../../theme/ThemeToggle";
 import { useAuth } from "../AuthProvider";
+import { AUTH_LINK_CLASS, AuthShell, SubmitError, UNREACHABLE_MESSAGE } from "../components/AuthShell";
 import { OAuthButtons } from "../components/OAuthButtons";
 import { LegalConsent } from "../components/LegalConsent";
 import { SIGNUP_STEPS, Stepper } from "../components/Stepper";
@@ -60,7 +60,7 @@ export function SignupPage() {
       navigate("/signup/verify-email", { replace: true });
     } catch (error) {
       if (!(error instanceof ApiRequestError)) {
-        setFormError("Could not reach Uncava. Check your connection and try again.");
+        setFormError(UNREACHABLE_MESSAGE);
         return;
       }
 
@@ -93,105 +93,101 @@ export function SignupPage() {
   };
 
   return (
-    <div className="flex min-h-dvh flex-col items-center justify-center gap-6 p-4 sm:p-6">
-      <ThemeToggle className="fixed right-4 top-4 z-50" />
-      <AuthLogo />
-      <Stepper steps={SIGNUP_STEPS} current={1} />
+    <AuthShell
+      wide
+      title="Create your account"
+      subtitle="Step 1 of 3 · your details"
+      above={<Stepper steps={SIGNUP_STEPS} current={1} />}
+      accountPrompt={
+        <>
+          Already have an account?{" "}
+          <Link to="/login" className={AUTH_LINK_CLASS}>
+            Sign in
+          </Link>
+        </>
+      }
+    >
+      {/* Signing up with a provider lands in exactly the same place this form does — an account
+          with no workspace, on step 2 — because the callback routes on what is true of the user
+          rather than on how they arrived. */}
+      <OAuthButtons onError={setFormError} placement="above" />
 
-      <Card className="w-[480px] max-w-[94vw] [animation-delay:80ms]">
-        <h1 className="text-[19px] font-semibold leading-tight">Create your account</h1>
-        <p className="mb-6 mt-1 font-mono text-xs text-u-text3">Step 1 of 3 · your details</p>
-
-        <FormError message={formError} />
-
-        <form onSubmit={handleSubmit(onSubmit)} noValidate>
-          <Field label="Full name" error={errors.fullName?.message}>
-            <Input
-              autoComplete="name"
-              autoFocus={!carriedFullName}
-              placeholder="Yara Haddad"
-              invalid={!!errors.fullName}
-              {...register("fullName")}
-            />
-          </Field>
-
-          <Field
-            label="Work email"
-            error={errors.email?.message}
-            hint="Your company domain — not a personal address."
-          >
-            <Input
-              type="email"
-              autoComplete="email"
-              autoFocus={!!carriedFullName}
-              placeholder="you@firm.com"
-              invalid={!!errors.email}
-              {...register("email")}
-            />
-          </Field>
-
-          {registeredEmail && (
-            <p className="-mt-2 mb-4 text-[12.5px] text-u-text2">
-              <Link
-                to="/login"
-                state={{ email: registeredEmail }}
-                className="font-medium text-u-accent hover:underline"
-              >
-                Log in instead →
-              </Link>
-            </p>
-          )}
-
-          <Field
-            label="Password"
-            error={errors.password?.message}
-            hint="Use at least 8 characters, with one number."
-          >
-            <Input
-              type="password"
-              autoComplete="new-password"
-              placeholder="8+ characters"
-              invalid={!!errors.password}
-              {...register("password")}
-            />
-          </Field>
-
-          <Field label="Confirm password" error={errors.confirmPassword?.message}>
-            <Input
-              type="password"
-              autoComplete="new-password"
-              placeholder="Re-enter your password"
-              invalid={!!errors.confirmPassword}
-              {...register("confirmPassword")}
-            />
-          </Field>
-
-          <Controller
-            control={control}
-            name="termsAccepted"
-            render={({ field, fieldState }) => (
-              <LegalConsent checked={field.value} onChange={field.onChange} error={fieldState.error?.message} />
-            )}
+      <form onSubmit={handleSubmit(onSubmit)} noValidate>
+        <Field label="Full name" error={errors.fullName?.message}>
+          <Input
+            autoComplete="name"
+            autoFocus={!carriedFullName}
+            placeholder="Yara Haddad"
+            invalid={!!errors.fullName}
+            {...register("fullName")}
           />
+        </Field>
 
-          <Button type="submit" loading={isSubmitting} className="w-full">
-            Continue
-          </Button>
-        </form>
+        <Field
+          label="Work email"
+          error={errors.email?.message}
+          hint="Your company domain — not a personal address."
+        >
+          <Input
+            type="email"
+            autoComplete="email"
+            autoFocus={!!carriedFullName}
+            placeholder="you@firm.com"
+            invalid={!!errors.email}
+            {...register("email")}
+          />
+        </Field>
 
-        {/* Signing up with a provider lands in exactly the same place this form does — an account
-            with no workspace, on step 2 — because the callback routes on what is true of the user
-            rather than on how they arrived. */}
-        <OAuthButtons onError={setFormError} />
-      </Card>
+        {registeredEmail && (
+          <p className="-mt-2 mb-4 text-note text-u-text2">
+            <Link
+              to="/login"
+              state={{ email: registeredEmail }}
+              className="font-medium text-u-accent hover:underline"
+            >
+              Log in instead →
+            </Link>
+          </p>
+        )}
 
-      <p className="animate-fade-up text-[12.5px] text-u-text2 [animation-delay:120ms]">
-        Already have an account?{" "}
-        <Link to="/login" className="text-u-accent hover:underline">
-          Sign in
-        </Link>
-      </p>
-    </div>
+        <Field
+          label="Password"
+          error={errors.password?.message}
+          hint="Use at least 8 characters, with one number."
+        >
+          <Input
+            type="password"
+            autoComplete="new-password"
+            placeholder="8+ characters"
+            invalid={!!errors.password}
+            {...register("password")}
+          />
+        </Field>
+
+        <Field label="Confirm password" error={errors.confirmPassword?.message}>
+          <Input
+            type="password"
+            autoComplete="new-password"
+            placeholder="Re-enter your password"
+            invalid={!!errors.confirmPassword}
+            {...register("confirmPassword")}
+          />
+        </Field>
+
+        <Controller
+          control={control}
+          name="termsAccepted"
+          render={({ field, fieldState }) => (
+            <LegalConsent checked={field.value} onChange={field.onChange} error={fieldState.error?.message} />
+          )}
+        />
+
+        <Button type="submit" loading={isSubmitting} className="w-full">
+          Continue
+        </Button>
+        <SubmitError message={formError} />
+      </form>
+    </AuthShell>
   );
 }
 

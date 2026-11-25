@@ -13,11 +13,12 @@ import { AcceptInvitePage } from "../features/auth/pages/AcceptInvitePage";
 import { ForgotPasswordPage } from "../features/auth/pages/ForgotPasswordPage";
 import { LoginPage } from "../features/auth/pages/LoginPage";
 import { OAuthCallbackPage } from "../features/auth/pages/OAuthCallbackPage";
-import { PROVIDER_TERMS_PATH } from "../features/auth/authPaths";
+import { PROVIDER_TERMS_PATH, SSO_SIGN_IN_PATH } from "../features/auth/authPaths";
 import { ProviderTermsPage } from "../features/auth/pages/ProviderTermsPage";
 import { ResetPasswordPage } from "../features/auth/pages/ResetPasswordPage";
 import { TWO_FACTOR_SIGN_IN_PATH, TwoFactorChallengePage } from "../features/auth/pages/TwoFactorChallengePage";
 import { SignupPage } from "../features/auth/pages/SignupPage";
+import { SsoSignInPage } from "../features/auth/pages/SsoSignInPage";
 import { SignupVerifyStepPage } from "../features/auth/pages/SignupVerifyStepPage";
 import { VerifyEmailPage } from "../features/auth/pages/VerifyEmailPage";
 import { WorkspaceStepPage } from "../features/auth/pages/WorkspaceStepPage";
@@ -80,6 +81,7 @@ export function AppRoutes() {
   return (
     <Routes>
       <Route path="/login" element={<AnonymousOnly><LoginPage /></AnonymousOnly>} />
+      <Route path={SSO_SIGN_IN_PATH} element={<AnonymousOnly><SsoSignInPage /></AnonymousOnly>} />
       <Route path={TWO_FACTOR_SIGN_IN_PATH} element={<AnonymousOnly><TwoFactorChallengePage /></AnonymousOnly>} />
       <Route path="/signup" element={<AnonymousOnly><SignupPage /></AnonymousOnly>} />
       {/* A first provider sign-in's terms step: no account yet, only the cookie the callback set. */}

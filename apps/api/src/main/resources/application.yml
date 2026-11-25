@@ -248,6 +248,9 @@ lightmove:
     # proof — admin approval of a join request, and invitations, are untouched. Never true in prod.
     auto-verify-email: ${AUTH_AUTO_VERIFY_EMAIL:false}
     bcrypt-strength: 12
+    oauth:
+      # The sign-in buttons' order, by registration id; a configured registration not named here follows, A–Z.
+      button-order: ${AUTH_OAUTH_BUTTON_ORDER:linkedin,google}
     extension:
       # Much shorter than refresh-token-ttl above, and for a concrete reason: this token rests in the
       # extension's own storage on disk rather than in the browser's cookie jar, and re-pairing is a
@@ -288,6 +291,7 @@ lightmove:
       signup-attempts-per-hour: ${AUTH_SIGNUP_ATTEMPTS_PER_HOUR:5}
       verification-resends-per-hour: ${AUTH_VERIFICATION_RESENDS_PER_HOUR:3}
       password-reset-requests-per-hour: ${AUTH_PASSWORD_RESET_REQUESTS_PER_HOUR:3}
+      sso-lookups-per-minute: ${AUTH_SSO_LOOKUPS_PER_MINUTE:10}
       mfa-verify-attempts-per-minute: ${AUTH_MFA_VERIFY_ATTEMPTS_PER_MINUTE:10}
       mfa-change-attempts-per-hour: ${AUTH_MFA_CHANGE_ATTEMPTS_PER_HOUR:10}
       extension-pairings-per-hour: ${AUTH_EXTENSION_PAIRINGS_PER_HOUR:5}

@@ -17,6 +17,7 @@ import { execFileSync } from "node:child_process";
 import { readFileSync, mkdirSync, appendFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { fillSignIn } from "./sign-in.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const RUN_DIR = process.env.RUN_DIR ?? join(HERE, "..", "results", "current");
@@ -198,9 +199,7 @@ const dialog = (name) => page.getByRole("dialog", { name });
 
 async function signIn(email) {
   await page.goto(`${WEB}/login`);
-  await page.getByPlaceholder("you@firm.com").fill(email);
-  await page.getByPlaceholder("••••••••").fill(PASSWORD);
-  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await fillSignIn(page, email, PASSWORD);
   await page.waitForURL((url) => !url.pathname.startsWith("/login"), { timeout: 20000 });
 }
 
@@ -230,9 +229,7 @@ try {
   await step("C1.1", "the lead signs in through /login and lands on the universe page", async () => {
     await page.goto(stageUrl("universe"));
     await page.waitForURL(/\/login/, { timeout: 15000 });
-    await page.getByPlaceholder("you@firm.com").fill(LEAD_EMAIL);
-    await page.getByPlaceholder("••••••••").fill(PASSWORD);
-    await page.getByRole("button", { name: "Continue", exact: true }).click();
+    await fillSignIn(page, LEAD_EMAIL, PASSWORD);
     await page.waitForURL((url) => !url.pathname.startsWith("/login"), { timeout: 20000 });
     await openStage("universe");
     check("C1.1", "the lead signs in through /login and lands on the universe page", true, page.url().endsWith("/companies/universe"));
