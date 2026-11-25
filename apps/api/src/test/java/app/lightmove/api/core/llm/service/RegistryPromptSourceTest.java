@@ -170,7 +170,7 @@ class RegistryPromptSourceTest {
                 return super.find(provider, modelId).map(model -> new AiModel(model.provider(), model.modelId(),
                         model.displayName(), model.launchStage(), model.retiresOn(), model.dataTerms(),
                         Set.of(ModelCapability.STRUCTURED_ANSWER), model.temperature(), model.thinkingBudget(),
-                        model.maxOutputTokens()));
+                        model.maxOutputTokens(), model.thinkingLevels()));
             }
         };
         RegistryPromptSource source = source(new BundledPrompts(), answersOnly,

@@ -56,6 +56,6 @@ class PromptCatalogServiceTest {
     private static AiModel model(String modelId, LocalDate retiresOn) {
         return new AiModel(AiProvider.VERTEX_GEMINI, modelId, modelId, ModelLaunchStage.GA, retiresOn, "terms",
                 Set.of(ModelCapability.STRUCTURED_ANSWER), new SettingRange(0, 1), new SettingRange(0, 1),
-                new SettingRange(0, 1));
+                new SettingRange(0, 1), List.of());
     }
 }
