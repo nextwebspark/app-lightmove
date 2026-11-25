@@ -120,8 +120,9 @@ try {
   await step("WO1.1", "an admin exports the whole workspace and downloads the zip", async () => {
     await page.goto(`${WEB}/login`);
     await page.getByPlaceholder("you@firm.com").fill(EMAIL);
-    await page.getByPlaceholder("••••••••").fill(PASSWORD);
     await page.getByRole("button", { name: "Continue", exact: true }).click();
+    await page.getByPlaceholder("••••••••").fill(PASSWORD);
+    await page.getByRole("button", { name: "Sign in", exact: true }).click();
     await page.waitForURL((url) => !url.pathname.startsWith("/login"), { timeout: 20000 });
     await page.goto(`${WEB}/settings/data`);
     const card = page.getByRole("region", { name: "Export workspace data" });

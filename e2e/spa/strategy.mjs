@@ -193,8 +193,9 @@ try {
   await page.waitForURL(/\/login/, { timeout: 15000 });
   pass("S1.1", "an unauthenticated deep link is bounced to /login");
   await page.getByPlaceholder("you@firm.com").fill(EMAIL);
-  await page.getByPlaceholder("••••••••").fill(PASSWORD);
   await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await page.getByPlaceholder("••••••••").fill(PASSWORD);
+  await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await page.waitForURL((url) => !url.pathname.startsWith("/login"), { timeout: 20000 });
   await freshFilter();
   await page.reload();

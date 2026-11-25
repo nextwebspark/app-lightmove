@@ -100,8 +100,9 @@ const signedInPage = async (email) => {
   const page = await context.newPage();
   await page.goto(`${WEB}/login`);
   await page.getByPlaceholder("you@firm.com").fill(email);
-  await page.getByPlaceholder("••••••••").fill(PASSWORD);
   await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await page.getByPlaceholder("••••••••").fill(PASSWORD);
+  await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await page.waitForURL((url) => !url.pathname.startsWith("/login"), { timeout: 20000 });
   return page;
 };

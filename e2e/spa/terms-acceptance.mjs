@@ -186,8 +186,9 @@ try {
     const signedIn = await (await browser.newContext({ viewport: { width: 1440, height: 1000 } })).newPage();
     await signedIn.goto(`${WEB}/login`);
     await signedIn.getByPlaceholder("you@firm.com").fill(FOUNDER);
-    await signedIn.getByPlaceholder("••••••••").fill(PASSWORD);
     await signedIn.getByRole("button", { name: "Continue", exact: true }).click();
+    await signedIn.getByPlaceholder("••••••••").fill(PASSWORD);
+    await signedIn.getByRole("button", { name: "Sign in", exact: true }).click();
     const sheet = signedIn.getByRole("dialog", { name: "We've updated our terms" });
     await sheet.waitFor({ timeout: 20000 });
     await shot(signedIn, "updated-terms");

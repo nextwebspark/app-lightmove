@@ -90,8 +90,9 @@ try {
   await step("PN1.1", "an admin fills in the firm's privacy details and saves them", async () => {
     await page.goto(`${WEB}/login`);
     await page.getByPlaceholder("you@firm.com").fill(EMAIL);
-    await page.getByPlaceholder("••••••••").fill(PASSWORD);
     await page.getByRole("button", { name: "Continue", exact: true }).click();
+    await page.getByPlaceholder("••••••••").fill(PASSWORD);
+    await page.getByRole("button", { name: "Sign in", exact: true }).click();
     await page.waitForURL((url) => !url.pathname.startsWith("/login"), { timeout: 20000 });
     await page.goto(`${WEB}/settings/data`);
     await page.getByText("Candidate privacy").first().waitFor({ timeout: 15000 });

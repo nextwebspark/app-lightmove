@@ -148,8 +148,9 @@ const shot = (name, target = page) => target.screenshot({ path: join(SHOTS, `rep
 async function signIn(target, email) {
   await target.goto(`${WEB}/login`);
   await target.getByPlaceholder("you@firm.com").fill(email);
-  await target.getByPlaceholder("••••••••").fill(PASSWORD);
   await target.getByRole("button", { name: "Continue", exact: true }).click();
+  await target.getByPlaceholder("••••••••").fill(PASSWORD);
+  await target.getByRole("button", { name: "Sign in", exact: true }).click();
   await target.waitForURL((url) => !url.pathname.startsWith("/login"), { timeout: 20000 });
 }
 

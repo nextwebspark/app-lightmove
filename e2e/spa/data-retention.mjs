@@ -110,8 +110,9 @@ try {
   await step("DR1.1", "an admin finds Data & retention in Settings and opens it", async () => {
     await page.goto(`${WEB}/login`);
     await page.getByPlaceholder("you@firm.com").fill(EMAIL);
-    await page.getByPlaceholder("••••••••").fill(PASSWORD);
     await page.getByRole("button", { name: "Continue", exact: true }).click();
+    await page.getByPlaceholder("••••••••").fill(PASSWORD);
+    await page.getByRole("button", { name: "Sign in", exact: true }).click();
     await page.waitForURL((url) => !url.pathname.startsWith("/login"), { timeout: 20000 });
     await page.goto(`${WEB}/settings/general`);
     await page.getByRole("link", { name: "Data & retention" }).first().click();

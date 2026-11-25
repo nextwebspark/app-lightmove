@@ -98,9 +98,10 @@ policy.includes("script-src 'self'")
   ? pass("TP1", "the page arrives with the full policy")
   : fail("TP1", "the page arrives with the full policy", `got [${policy}]`);
 
-await page.getByLabel("Email").fill(EMAIL);
-await page.getByLabel("Password").fill(PASSWORD);
+await page.getByLabel("Work email").fill(EMAIL);
 await page.getByRole("button", { name: "Continue", exact: true }).click();
+await page.getByLabel("Password", { exact: true }).fill(PASSWORD);
+await page.getByRole("button", { name: "Sign in", exact: true }).click();
 await page.waitForURL((url) => !url.pathname.startsWith("/login"), { timeout: 15000 });
 
 const SCREENS = [

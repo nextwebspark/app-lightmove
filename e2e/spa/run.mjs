@@ -215,8 +215,9 @@ try {
   section("S5  error rendering");
   await anonPage.goto(`${WEB}/login`);
   await anonPage.getByPlaceholder("you@firm.com").fill(ADMIN);
-  await anonPage.getByPlaceholder("••••••••").fill("WrongPassword9");
   await anonPage.getByRole("button", { name: "Continue", exact: true }).click();
+  await anonPage.getByPlaceholder("••••••••").fill("WrongPassword9");
+  await anonPage.getByRole("button", { name: "Sign in", exact: true }).click();
   await anonPage.waitForTimeout(2500);
   const loginBody = await anonPage.locator("body").innerText();
   check("S5.1", "a wrong password shows the vague server message", true,
@@ -266,8 +267,9 @@ try {
   const adminApi = await (await browser.newContext()).newPage();
   await adminApi.goto(`${WEB}/login`);
   await adminApi.getByPlaceholder("you@firm.com").fill(ADMIN);
-  await adminApi.getByPlaceholder("••••••••").fill(PASSWORD);
   await adminApi.getByRole("button", { name: "Continue", exact: true }).click();
+  await adminApi.getByPlaceholder("••••••••").fill(PASSWORD);
+  await adminApi.getByRole("button", { name: "Sign in", exact: true }).click();
   await adminApi.waitForTimeout(2500);
 
   // The SPA keeps its access token in a module-level variable, unreachable from an injected script,
@@ -341,8 +343,9 @@ try {
   const tabA = await raceCtx.newPage();
   await tabA.goto(`${WEB}/login`);
   await tabA.getByPlaceholder("you@firm.com").fill(ADMIN);
-  await tabA.getByPlaceholder("••••••••").fill(PASSWORD);
   await tabA.getByRole("button", { name: "Continue", exact: true }).click();
+  await tabA.getByPlaceholder("••••••••").fill(PASSWORD);
+  await tabA.getByRole("button", { name: "Sign in", exact: true }).click();
   await tabA.waitForTimeout(2500);
 
   const tabB = await raceCtx.newPage();

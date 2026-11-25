@@ -684,7 +684,7 @@ const ROUTES = [
   ["/companies/search", { companies: [] }],
   ["/auth/refresh", { accessToken: "stub-access-token", expiresIn: 900 }],
   ["/auth/me", USER],
-  ["/auth/providers", { google: false, linkedin: false }],
+  ["/auth/providers", { providers: [], humanCheckSiteKey: null }],
   ["/auth/sessions", []],
   ["/billing", BILLING],
   ["/invitations/pending-count", { count: 0 }],

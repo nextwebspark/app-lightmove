@@ -199,8 +199,9 @@ const dialog = (name) => page.getByRole("dialog", { name });
 async function signIn(email) {
   await page.goto(`${WEB}/login`);
   await page.getByPlaceholder("you@firm.com").fill(email);
-  await page.getByPlaceholder("••••••••").fill(PASSWORD);
   await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await page.getByPlaceholder("••••••••").fill(PASSWORD);
+  await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await page.waitForURL((url) => !url.pathname.startsWith("/login"), { timeout: 20000 });
 }
 
@@ -231,8 +232,9 @@ try {
     await page.goto(stageUrl("universe"));
     await page.waitForURL(/\/login/, { timeout: 15000 });
     await page.getByPlaceholder("you@firm.com").fill(LEAD_EMAIL);
-    await page.getByPlaceholder("••••••••").fill(PASSWORD);
     await page.getByRole("button", { name: "Continue", exact: true }).click();
+    await page.getByPlaceholder("••••••••").fill(PASSWORD);
+    await page.getByRole("button", { name: "Sign in", exact: true }).click();
     await page.waitForURL((url) => !url.pathname.startsWith("/login"), { timeout: 20000 });
     await openStage("universe");
     check("C1.1", "the lead signs in through /login and lands on the universe page", true, page.url().endsWith("/companies/universe"));
