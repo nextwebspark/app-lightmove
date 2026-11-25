@@ -248,6 +248,9 @@ lightmove:
     # proof — admin approval of a join request, and invitations, are untouched. Never true in prod.
     auto-verify-email: ${AUTH_AUTO_VERIFY_EMAIL:false}
     bcrypt-strength: 12
+    oauth:
+      # The sign-in buttons' order, by registration id; a configured registration not named here follows, A–Z.
+      button-order: ${AUTH_OAUTH_BUTTON_ORDER:linkedin,google}
     extension:
       # Much shorter than refresh-token-ttl above, and for a concrete reason: this token rests in the
       # extension's own storage on disk rather than in the browser's cookie jar, and re-pairing is a

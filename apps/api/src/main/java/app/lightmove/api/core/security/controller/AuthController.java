@@ -1,5 +1,6 @@
 package app.lightmove.api.core.security.controller;
 
+import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.ratelimit.service.RateLimitGuard;
@@ -38,7 +39,9 @@ import app.lightmove.api.core.security.token.RefreshCookieFactory;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
+import java.util.Comparator;
 import java.util.List;
+import java.util.function.ToIntFunction;
 import java.util.stream.StreamSupport;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.ObjectProvider;
@@ -82,6 +85,7 @@ public class AuthController {
     private final AuthResponseAssembler assembler;
     private final MfaChallengeService mfaChallenges;
     private final MfaChallengeCookieFactory mfaChallengeCookie;
+    private final LightMoveProperties properties;
 
     /** Absent unless at least one OAuth client is configured. */
     private final ObjectProvider<ClientRegistrationRepository> oauthRegistrations;
@@ -172,10 +176,7 @@ public class AuthController {
         return ResponseEntity.accepted().build();
     }
 
-    /**
-     * The same refusal for every address, until single sign-on ships: no account, domain or workspace is read, so
-     * the answer cannot tell anyone which firms are customers.
-     */
+    /** Never a 2xx yet: every address is refused with {@code SSO_NOT_CONFIGURED} until single sign-on ships. */
     @PostMapping("/sso/discover")
     public void discoverSso(@Valid @RequestBody SsoDiscoverRequest request, HttpServletRequest httpRequest) {
         rateLimit.checkSsoLookup(request.email(), httpRequest);
@@ -284,7 +285,7 @@ public class AuthController {
         token.getToken();
     }
 
-    /** The configured OAuth registration ids, so a new provider stays a yml block. */
+    /** The configured OAuth registration ids, in the yml's button order, so a new provider stays a yml block. */
     @GetMapping("/providers")
     public AuthProviders providers() {
         ClientRegistrationRepository registrations = oauthRegistrations.getIfAvailable();
@@ -293,7 +294,7 @@ public class AuthController {
         List<String> configured = registrations instanceof Iterable<?> iterable
                 ? StreamSupport.stream(iterable.spliterator(), false)
                         .map(registration -> ((ClientRegistration) registration).getRegistrationId())
-                        .sorted()
+                        .sorted(buttonOrder())
                         .toList()
                 : List.of();
 
@@ -301,6 +302,12 @@ public class AuthController {
     }
 
     public record AuthProviders(List<String> providers) {
+    }
+
+    private Comparator<String> buttonOrder() {
+        List<String> order = properties.auth().oauth().buttonOrder();
+        ToIntFunction<String> rank = id -> order.contains(id) ? order.indexOf(id) : order.size();
+        return Comparator.comparingInt(rank).thenComparing(Comparator.naturalOrder());
     }
 
     /** A challenge sets its own cookie and no refresh cookie: there is no session until the code. */

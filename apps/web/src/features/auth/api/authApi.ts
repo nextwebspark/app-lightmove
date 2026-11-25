@@ -169,10 +169,7 @@ export function requestPasswordReset(email: string): Promise<void> {
   });
 }
 
-/**
- * Asks where an address's single sign-on lives. Until it ships every address answers `SSO_NOT_CONFIGURED`, the
- * same for one with an account as for one without.
- */
+/** Asks where an address's single sign-on lives; every address answers `SSO_NOT_CONFIGURED` until it ships. */
 export function discoverSso(email: string): Promise<void> {
   return request<void>("/auth/sso/discover", {
     method: "POST",

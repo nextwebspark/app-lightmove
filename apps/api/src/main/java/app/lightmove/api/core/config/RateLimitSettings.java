@@ -11,7 +11,6 @@ public record RateLimitSettings(
         @DefaultValue("3") int passwordResetRequestsPerHour,
         @DefaultValue("10") int passwordChangeAttemptsPerHour,
 
-        /** Asking which organisation signs an address in: one answer for every address, a brake on scanning. */
         @DefaultValue("10") int ssoLookupsPerMinute,
 
         /** Codes after a correct password; the lockout counter is the real brake, this spares the database. */
