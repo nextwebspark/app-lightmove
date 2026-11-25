@@ -66,6 +66,13 @@ describe("SsoSignInPage", () => {
     renderPage("yara@firm.example");
 
     expect(screen.getByLabelText("Work email")).toHaveValue("yara@firm.example");
-    expect(screen.getByRole("link", { name: "Sign in with LinkedIn, Google or email" })).toHaveAttribute("href", "/login");
+    expect(screen.getByRole("link", { name: "Sign in with email" })).toHaveAttribute("href", "/login");
+  });
+
+  it("names the providers the server reports on the way back", async () => {
+    vi.mocked(authApi.providers).mockResolvedValue({ providers: ["linkedin", "google"] });
+    renderPage();
+
+    expect(await screen.findByRole("link", { name: "Sign in with LinkedIn, Google or email" })).toBeInTheDocument();
   });
 });

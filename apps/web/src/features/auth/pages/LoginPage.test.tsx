@@ -102,7 +102,8 @@ describe("LoginPage", () => {
       expect(screen.queryByLabelText("Password")).not.toBeInTheDocument();
     });
 
-    it("goes back to the providers with the email kept", async () => {
+    it("goes back to the providers with the email kept and focused", async () => {
+      vi.mocked(authApi.providers).mockResolvedValue({ providers: ["linkedin", "google"] });
       const user = userEvent.setup();
       renderAt("/login");
 
@@ -113,6 +114,17 @@ describe("LoginPage", () => {
       expect(await screen.findByRole("button", { name: "Continue" })).toBeInTheDocument();
       expect(screen.queryByLabelText("Password")).not.toBeInTheDocument();
       expect(screen.getByLabelText("Work email")).toHaveValue("yara@firm.example");
+      expect(screen.getByLabelText("Work email")).toHaveFocus();
+    });
+
+    it("names no provider the server did not report", async () => {
+      const user = userEvent.setup();
+      renderAt("/login");
+
+      await user.type(await screen.findByLabelText("Work email"), "yara@firm.example");
+      await user.click(screen.getByRole("button", { name: "Continue" }));
+
+      expect(await screen.findByRole("button", { name: "Sign in another way" })).toBeInTheDocument();
     });
 
     it("signs in with the email and password", async () => {

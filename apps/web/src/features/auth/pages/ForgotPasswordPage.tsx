@@ -2,10 +2,10 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { Link, useLocation } from "react-router-dom";
-import { Button, Field, FormError, Input } from "../../../components/ui";
+import { Button, Field, Input } from "../../../components/ui";
 import { messageFor } from "../../../lib/errorCodes";
 import * as authApi from "../api/authApi";
-import { AuthShell } from "../components/AuthShell";
+import { AUTH_LINK_CLASS, AuthShell, SubmitError } from "../components/AuthShell";
 import { forgotPasswordSchema, type ForgotPasswordValues } from "../schemas";
 
 /**
@@ -51,7 +51,7 @@ export function ForgotPasswordPage() {
         sentTo ? undefined : (
           <>
             Remembered it?{" "}
-            <Link to="/login" className="font-medium text-u-accent hover:underline">
+            <Link to="/login" className={AUTH_LINK_CLASS}>
               Back to sign in
             </Link>
           </>
@@ -86,27 +86,23 @@ export function ForgotPasswordPage() {
           </Link>
         </div>
       ) : (
-        <>
-          <FormError message={formError} />
+        <form onSubmit={handleSubmit(onSubmit)} noValidate>
+          <Field label="Work email" error={errors.email?.message}>
+            <Input
+              type="email"
+              autoComplete="email"
+              autoFocus
+              placeholder="you@firm.com"
+              invalid={!!errors.email}
+              {...register("email")}
+            />
+          </Field>
 
-          <form onSubmit={handleSubmit(onSubmit)} noValidate>
-            <Field label="Work email" error={errors.email?.message}>
-              <Input
-                type="email"
-                autoComplete="email"
-                autoFocus
-                placeholder="you@firm.com"
-                invalid={!!errors.email}
-                {...register("email")}
-              />
-            </Field>
-
-
-            <Button type="submit" loading={isSubmitting} className="mt-1 w-full">
-              Send reset link
-            </Button>
-          </form>
-        </>
+          <Button type="submit" loading={isSubmitting} className="mt-1 w-full">
+            Send reset link
+          </Button>
+          <SubmitError message={formError} />
+        </form>
       )}
     </AuthShell>
   );

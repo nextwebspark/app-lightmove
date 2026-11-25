@@ -301,6 +301,7 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   API_KEY_LIMIT_REACHED: "You have the most API keys allowed. Revoke one you no longer use.",
   API_KEY_READS_NOTHING: "Choose what the key may read as well as MCP access.",
   RATE_LIMITED: "Too many requests in a short time. Wait a minute and try again.",
+  INVALID_CREDENTIALS: "Invalid email or password. Please try again.",
   SSO_NOT_CONFIGURED:
     "We couldn't find an SSO account for that email. Sign in with your email and password, or sign up.",
   ALREADY_IN_WORKSPACE: "You already belong to a workspace. Found another from Settings → Workspaces.",
@@ -561,7 +562,6 @@ export const DETAIL_ALLOWED: ReadonlySet<ApiErrorCode> = new Set<ApiErrorCode>([
   "CUSTOM_COLUMN_LIMIT_REACHED",
   "TEMPLATE_FILE_UNREADABLE",
   "POSITION_DOCUMENT_UNREADABLE",
-  "INVALID_CREDENTIALS",
   "ACCOUNT_LOCKED",
   "EMAIL_ALREADY_REGISTERED",
   "EMAIL_UNDELIVERABLE",

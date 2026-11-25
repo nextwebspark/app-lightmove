@@ -2,11 +2,11 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { Link, useNavigate } from "react-router-dom";
-import { Button, Field, FormError, Input } from "../../../components/ui";
+import { Button, Field, Input } from "../../../components/ui";
 import { ApiRequestError } from "../../../lib/apiClient";
 import { EMAIL_FIELD_ERROR_CODES, fieldLabelOf, messageFor, type ApiErrorCode } from "../../../lib/errorCodes";
 import { useAuth } from "../AuthProvider";
-import { AuthShell } from "../components/AuthShell";
+import { AUTH_LINK_CLASS, AuthShell, SubmitError, UNREACHABLE_MESSAGE } from "../components/AuthShell";
 import { OAuthButtons } from "../components/OAuthButtons";
 import { LegalConsent } from "../components/LegalConsent";
 import { SIGNUP_STEPS, Stepper } from "../components/Stepper";
@@ -60,7 +60,7 @@ export function SignupPage() {
       navigate("/signup/verify-email", { replace: true });
     } catch (error) {
       if (!(error instanceof ApiRequestError)) {
-        setFormError("Could not reach Uncava. Check your connection and try again.");
+        setFormError(UNREACHABLE_MESSAGE);
         return;
       }
 
@@ -101,14 +101,12 @@ export function SignupPage() {
       accountPrompt={
         <>
           Already have an account?{" "}
-          <Link to="/login" className="font-medium text-u-accent hover:underline">
+          <Link to="/login" className={AUTH_LINK_CLASS}>
             Sign in
           </Link>
         </>
       }
     >
-      <FormError message={formError} />
-
       {/* Signing up with a provider lands in exactly the same place this form does — an account
           with no workspace, on step 2 — because the callback routes on what is true of the user
           rather than on how they arrived. */}
@@ -184,10 +182,10 @@ export function SignupPage() {
           )}
         />
 
-
         <Button type="submit" loading={isSubmitting} className="w-full">
           Continue
         </Button>
+        <SubmitError message={formError} />
       </form>
     </AuthShell>
   );

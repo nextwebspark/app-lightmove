@@ -19,20 +19,15 @@ const PROVIDER_MARKS: Record<string, { label: string; mark: (props: { size?: num
   linkedin: { label: "LinkedIn", mark: LinkedInMark },
 };
 
-/** LinkedIn leads, then Google, then any other provider alphabetically — the server answers alphabetically. */
-const PROVIDER_ORDER = ["linkedin", "google"];
-
-export function orderedProviders(ids: readonly string[]): string[] {
-  const rank = (id: string) => {
-    const index = PROVIDER_ORDER.indexOf(id);
-    return index === -1 ? PROVIDER_ORDER.length : index;
-  };
-  return [...ids].sort((a, b) => rank(a) - rank(b) || a.localeCompare(b));
-}
-
 /** A provider's name as its button says it, for screens that name the sign-in after the fact. */
 export function providerLabel(id: string): string {
   return PROVIDER_MARKS[id]?.label ?? titleCase(id);
+}
+
+/** "Sign in with LinkedIn, Google or SSO", naming only the providers the server reports; `fallback` when it reports none. */
+export function signInWithLabel(providerIds: readonly string[], last: string, fallback: string): string {
+  if (providerIds.length === 0) return fallback;
+  return `Sign in with ${providerIds.map(providerLabel).join(", ")} or ${last}`;
 }
 
 export interface OAuthButtonsProps {
@@ -59,7 +54,7 @@ export function OAuthButtons({
   placement = "below",
 }: OAuthButtonsProps) {
   const { data } = useAuthProviders();
-  const providers = orderedProviders(data?.providers ?? []);
+  const providers = data?.providers ?? [];
 
   const navigate = useNavigate();
   const { adoptRestoredSession } = useAuth();
@@ -178,7 +173,6 @@ function titleCase(id: string): string {
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
     .join(" ");
 }
-
 
 /** LinkedIn's mark, in their blue. */
 function LinkedInMark() {

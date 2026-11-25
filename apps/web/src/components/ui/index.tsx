@@ -136,7 +136,7 @@ export function Field({
   label: string;
   error?: string;
   hint?: string;
-  /** The "Forgot?" link the Login mockup places on the password label's own line. */
+  /** Sits at the end of the label's own line — a badge, or a link such as "Forgot?". */
   action?: ReactNode;
   children: ReactNode;
 }) {

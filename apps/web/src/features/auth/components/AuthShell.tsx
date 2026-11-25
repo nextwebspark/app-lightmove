@@ -42,6 +42,11 @@ export function AuthShell({
   );
 }
 
+/** A secondary link on a signed-out card: "Forgot password?", "Continue with SSO", "Sign up". */
+export const AUTH_LINK_CLASS = "text-body font-medium text-u-accent hover:underline";
+
+export const UNREACHABLE_MESSAGE = "Could not reach Uncava. Check your connection and try again.";
+
 /** A refused submit, said in one red line under its button. */
 export function SubmitError({ message }: { message: string | null }) {
   if (!message) return null;
@@ -59,11 +64,11 @@ export function LegalFooter() {
   return (
     <p className="mt-6 border-t border-u-border pt-4 text-center text-meta text-u-text3">
       By continuing, you agree to the{" "}
-      <a href={TERMS_URL} target="_blank" rel="noopener" className={linkClass}>
+      <a href={TERMS_URL} target="_blank" rel="noopener noreferrer" className={linkClass}>
         Terms of Service
       </a>{" "}
       and{" "}
-      <a href={PRIVACY_URL} target="_blank" rel="noopener" className={linkClass}>
+      <a href={PRIVACY_URL} target="_blank" rel="noopener noreferrer" className={linkClass}>
         Privacy Policy
       </a>
       .

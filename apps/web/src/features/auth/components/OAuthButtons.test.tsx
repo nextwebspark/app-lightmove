@@ -54,9 +54,9 @@ describe("OAuthButtons", () => {
     expect(screen.getByRole("button", { name: /Continue with LinkedIn/ })).toBeInTheDocument();
   });
 
-  it("puts LinkedIn first and Google second, whatever order the server answers in", async () => {
+  it("keeps the order the server answers in", async () => {
     vi.mocked(authApi.providers).mockResolvedValue({
-      providers: ["azure-ad", "google", "linkedin", "okta"],
+      providers: ["linkedin", "google", "azure-ad", "okta"],
     });
 
     render();

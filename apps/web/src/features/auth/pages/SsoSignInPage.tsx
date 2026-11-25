@@ -6,20 +6,17 @@ import { Button, Field, Input } from "../../../components/ui";
 import { ApiRequestError } from "../../../lib/apiClient";
 import { messageFor } from "../../../lib/errorCodes";
 import * as authApi from "../api/authApi";
-import { AuthShell, LegalFooter, SubmitError } from "../components/AuthShell";
+import { AUTH_LINK_CLASS, AuthShell, LegalFooter, SubmitError, UNREACHABLE_MESSAGE } from "../components/AuthShell";
+import { signInWithLabel } from "../components/OAuthButtons";
 import { loginEmailSchema, type LoginEmailValues } from "../schemas";
+import { useAuthProviders } from "../useAuthProviders";
 
-/**
- * Sign in with single sign-on. A port of uncava-design/Login.dc.html (`sso`, `sso-unavailable`). Until it ships
- * every address gets the same answer, so the screen never says whether an organisation or an account exists.
- */
-const SSO_NOT_SET_UP =
-  "We couldn't find an SSO account for that email. Sign in with your email and password, or sign up.";
-
+/** Sign in with single sign-on. A port of uncava-design/Login.dc.html (`sso`, `sso-unavailable`). */
 export function SsoSignInPage() {
   const location = useLocation();
   const prefill = (location.state as { email?: string } | null)?.email ?? "";
   const [formError, setFormError] = useState<string | null>(null);
+  const { data: providers } = useAuthProviders();
 
   const {
     register,
@@ -35,17 +32,8 @@ export function SsoSignInPage() {
     setFormError(null);
     try {
       await authApi.discoverSso(values.email);
-      setFormError(SSO_NOT_SET_UP);
     } catch (error) {
-      if (error instanceof ApiRequestError && error.code === "SSO_NOT_CONFIGURED") {
-        setFormError(SSO_NOT_SET_UP);
-        return;
-      }
-      setFormError(
-        error instanceof ApiRequestError
-          ? messageFor(error)
-          : "Could not reach Uncava. Check your connection and try again.",
-      );
+      setFormError(error instanceof ApiRequestError ? messageFor(error) : UNREACHABLE_MESSAGE);
     }
   };
 
@@ -57,7 +45,7 @@ export function SsoSignInPage() {
       accountPrompt={
         <>
           New to Uncava?{" "}
-          <Link to="/signup" className="font-medium text-u-accent hover:underline">
+          <Link to="/signup" className={AUTH_LINK_CLASS}>
             Sign up
           </Link>
         </>
@@ -82,8 +70,8 @@ export function SsoSignInPage() {
       </form>
 
       <div className="mt-4 text-center">
-        <Link to="/login" state={{ email: watch("email") }} className="text-note font-medium text-u-accent hover:underline">
-          Sign in with LinkedIn, Google or email
+        <Link to="/login" state={{ email: watch("email") }} className={AUTH_LINK_CLASS}>
+          {signInWithLabel(providers?.providers ?? [], "email", "Sign in with email")}
         </Link>
       </div>
     </AuthShell>
