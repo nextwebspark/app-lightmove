@@ -26,7 +26,12 @@ import { useExecutivesAtCompany } from "../../candidates/lib/useExecutivesAtComp
 import type { Candidate, CandidatesPage } from "../../candidates/api/types";
 import { CandidateDrawer } from "../../candidates/components/CandidateDrawer";
 import type { RecordStepper } from "../../candidates/components/RecordCornerControls";
-import { CandidateRecordPage } from "../components/CandidateRecordPage";
+import {
+  CandidateRecordPage,
+  RecordListPager,
+  RecordPageEmpty,
+  type RecordPageWaiting,
+} from "../components/CandidateRecordPage";
 import { RemoveCandidateDialog } from "../../candidates/components/RemoveCandidateDialog";
 import { useChangeCandidateStatus } from "../../candidates/lib/useChangeCandidateStatus";
 import * as customColumnsApi from "../../customcolumns/api/customColumnsApi";
@@ -71,9 +76,10 @@ import {
 } from "../lib/triageCompanyColumns";
 import { awaitingResearch, type TriageCompanyRow } from "../lib/triageRows";
 import { OFFERED_TRIAGE_STAGES, offeredStageBySlug } from "../lib/triageStages";
-import { resolveCompaniesView, useCompaniesViews } from "../lib/useCompaniesViews";
+import { COMPANIES_VIEW_LABELS, resolveCompaniesView, useCompaniesViews } from "../lib/useCompaniesViews";
 import { useLineSelection } from "../lib/useLineSelection";
-import { useOpenRecord } from "../lib/useOpenRecord";
+import { useExecutivesVisit } from "../lib/useExecutivesVisit";
+import { useOpenRecord, withOpenCandidate } from "../lib/useOpenRecord";
 import { executivesOf } from "../lib/triageVocabulary";
 import { useProjectStream, type ProjectStreamKind } from "../../../lib/useProjectStream";
 
@@ -215,9 +221,11 @@ function TriageStage() {
   const [isFullscreen, toggleFullscreen] = useFullscreen();
   const [mapPreferences, setMapPreferences] = useTalentMapPreferences(project.id);
   const { views, mapConfig } = useCompaniesViews(stage.status, canWrite);
-  const requestedView = searchParams.get("view");
+  // `?record=page` is the full page's old link, now the Executives view.
+  const requestedView = searchParams.get("record") === "page" ? "executives" : searchParams.get("view");
   const view = resolveCompaniesView(views, requestedView, mapPreferences.view);
   const isBoard = view === "pipeline";
+  const isRecordView = view === "executives";
   /** Declined is a list of what was ruled out, whose one act is Back to universe. */
   const declinedStage = stage.status === "declined";
   // A tick made on one reading of the stage must not ride silently into another.
@@ -232,20 +240,24 @@ function TriageStage() {
     setMapPreferences({ view: next });
     setSearchParams(
       (current) => {
-        const params = new URLSearchParams(current);
+        const params = withOpenCandidate(current, null);
         params.set("view", next);
-        params.delete("candidate");
         params.delete("record");
-        params.delete("note");
-        params.delete("section");
-        params.delete("tab");
         return params;
       },
       { replace: true },
     );
   };
 
-  const { profile, setProfile, focusTab, recordPage, setRecordPage } = useOpenRecord(project.id, !isBoard, view === "table");
+  const { profile, setProfile, focusTab } = useOpenRecord(project.id, !isBoard);
+  const openCandidateId = profile?.candidate?.id ?? null;
+  const {
+    entry: executivesEntry,
+    enter: enterExecutives,
+    leave: leaveExecutives,
+  } = useExecutivesVisit(isRecordView, openCandidateId);
+  const [markedCandidateId, setMarkedCandidateId] = useState<string | null>(null);
+  if (openCandidateId && openCandidateId !== markedCandidateId) setMarkedCandidateId(openCandidateId);
   const profileCompany = profile?.company ?? null;
 
   /**
@@ -437,7 +449,7 @@ function TriageStage() {
    */
   const findExecutivesUnavailable = (): string | undefined => {
     if (sourcing.button.kind !== "idle") return undefined;
-    if (view === "map") return "Tick companies on the Table to find executives there";
+    if (view === "map" || isRecordView) return "Tick companies on the Table to find executives there";
     if (tickedCompanies.length === 0) return `Tick up to ${companiesOf(findExecutivesCap)} to find executives there`;
     if (tickedCompanies.length > findExecutivesCap) {
       return `Find executives works on ${companiesOf(findExecutivesCap)} at most — ${tickedCompanies.length} are ticked`;
@@ -479,7 +491,7 @@ function TriageStage() {
     queryKey: triageApi.STAGE_LINES_KEY(project.id, linesScope),
     queryFn: ({ signal }) => triageApi.getStageLines(project.id, linesScope, signal),
     // The grid's reads are the grid's: the map reads the whole stage in one request of its own.
-    enabled: view === "table",
+    enabled: view === "table" || isRecordView,
     // Paging without blanking the grid, which would make every page turn look like a reload.
     placeholderData: keepPreviousData,
     refetchInterval: researchPoll,
@@ -492,12 +504,18 @@ function TriageStage() {
     .map((line) => line.candidate)
     .filter((candidate): candidate is Candidate => candidate !== null);
   const stepper = stepperAlong(
-    view === "table",
+    view === "table" || isRecordView,
     visiblePeople.current,
     profile?.candidate ?? null,
     (candidate) => setProfile({ candidate, company: null }),
-    recordPage ? "page" : "peek",
-    () => setRecordPage(!recordPage),
+    isRecordView ? "page" : "peek",
+    isRecordView
+      ? executivesEntry
+        ? { onToggle: leaveExecutives, label: `Back to ${COMPANIES_VIEW_LABELS[executivesEntry.from].label}` }
+        : undefined
+      : openCandidateId
+        ? { onToggle: () => enterExecutives("table", openCandidateId) }
+        : undefined,
   );
   const profileCompanyId = profile?.candidate?.triageCompanyId ?? null;
   const profileCompanyRow = profileCompanyId
@@ -572,6 +590,36 @@ function TriageStage() {
     () => rows.flatMap((row) => (row.candidate ? [{ candidate: row.candidate, companyLogo: row.company?.logoUrl ?? null }] : [])),
     [rows],
   );
+  // The Executives view always shows someone: the first of the page, until a link or a click names another.
+  const firstOnPage = lines.isPlaceholderData ? undefined : recordEntries[0]?.candidate;
+  const namedExecutive = searchParams.get("candidate");
+  const searchNarrowed = Boolean(
+    debouncedSearch || debouncedQuery || debouncedExecutiveQuery || executiveStatuses.length > 0,
+  );
+  // Someone about to open, named or first on the page, is not an empty stage.
+  const recordPageWaiting: RecordPageWaiting = lines.isError
+    ? "error"
+    : lines.isFetching || namedExecutive || firstOnPage
+      ? "loading"
+      : searchNarrowed
+        ? "filtered"
+        : lastPage > 0
+          ? "pageEmpty"
+          : "empty";
+  const recordListPager = lastPage > 0 && (
+    <RecordListPager
+      page={page}
+      lastPage={lastPage}
+      onPage={(next) => {
+        setPage(next);
+        setProfile(null);
+      }}
+    />
+  );
+  useEffect(() => {
+    if (isRecordView && !namedExecutive && firstOnPage) setProfile({ candidate: firstOnPage, company: null });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isRecordView, namedExecutive, firstOnPage?.id]);
 
   /**
    * A company's move carries the people still where it stood, and someone moved on their own stays put (#903). The
@@ -764,6 +812,12 @@ function TriageStage() {
     });
 
   const enrolTicked = () => {
+    if (isRecordView) {
+      const open = profile?.candidate;
+      if (!open) return;
+      setEnrolment({ scope: { candidateIds: [open.id] }, source: `From ${open.fullName}'s record` });
+      return;
+    }
     if (view === "pipeline") {
       const ids = [...pipelineSelection];
       setEnrolment({
@@ -782,6 +836,7 @@ function TriageStage() {
   /** The toolbar's Add to sequence, greyed with the way in until something is ticked; the map ticks nothing. */
   const toolbarEnrolUnavailable = (): UnavailableAction | undefined => {
     if (view === "map") return { reason: "Add to sequence from Table or Pipeline" };
+    if (isRecordView) return profile?.candidate ? undefined : { reason: "Open an executive first" };
     if (view === "pipeline") {
       return pipelineSelection.size > 0 ? undefined : { reason: "Tick executives on the board first" };
     }
@@ -971,58 +1026,56 @@ function TriageStage() {
        and a definite height (FULL_BLEED_TABS in ProjectLayout), so the height is inherited rather
        than guessed from a hard-coded amount of chrome that any topbar change would falsify. */
     <div className={cn("flex min-h-0 flex-1 flex-col", isFullscreen && FULLSCREEN_PANEL)}>
-      {!recordPage && (
-        <TriageToolbar
-          search={search}
-          onSearch={setSearch}
-          searchPlaceholder={!canWrite ? "Search companies and executives…" : "Search companies, executives, notes…"}
-          filter={
-            view === "table" ? (
-              <GridFilterButton
-                filters={columnFilters}
-                resultLabel={totalCount === undefined ? undefined : `${totalCount} ${totalCount === 1 ? "result" : "results"}`}
-              />
-            ) : undefined
-          }
-          views={views}
-          view={view}
-          onViewChange={handleViewChange}
-          addToSequence={
-            addToSequenceOffered
-              ? {
-                  onPress: enrolTicked,
-                  unavailable: toolbarEnrolUnavailable(),
-                  count: view === "pipeline" ? pipelineSelection.size : lineSelection.candidateIds.length,
-                }
-              : undefined
-          }
-          create={
-            canWrite && !isBoard && !declinedStage
-              ? {
-                  onAddExecutive: () => setProfile({ candidate: null, company: null }),
-                  onAddCompany: () => setOpenCompany({ company: null }),
-                }
-              : undefined
-          }
-          findExecutives={
-            findExecutivesOffered && !isBoard
-              ? {
-                  onPress: handleFindExecutives,
-                  state: sourcing.button,
-                  unavailable: findExecutivesUnavailable(),
-                  companies: tickedCompanies.length,
-                  last: sourcing.run ? { summary: lastSearchSummary(sourcing.run), onOpen: () => setFindingAt({ scope: [], search: false }) } : undefined,
-                }
-              : undefined
-          }
-          advanced={isBoard ? undefined : advancedSections()}
-          advancedDot={
-            view === "table" && hiddenColumnCount > 0
-              ? `${hiddenColumnCount} column${hiddenColumnCount === 1 ? "" : "s"} hidden`
-              : undefined
-          }
-        />
-      )}
+      <TriageToolbar
+        search={search}
+        onSearch={setSearch}
+        searchPlaceholder={!canWrite ? "Search companies and executives…" : "Search companies, executives, notes…"}
+        filter={
+          view === "table" || isRecordView ? (
+            <GridFilterButton
+              filters={columnFilters}
+              resultLabel={totalCount === undefined ? undefined : `${totalCount} ${totalCount === 1 ? "result" : "results"}`}
+            />
+          ) : undefined
+        }
+        views={views}
+        view={view}
+        onViewChange={handleViewChange}
+        addToSequence={
+          addToSequenceOffered
+            ? {
+                onPress: enrolTicked,
+                unavailable: toolbarEnrolUnavailable(),
+                count: isRecordView ? undefined : view === "pipeline" ? pipelineSelection.size : lineSelection.candidateIds.length,
+              }
+            : undefined
+        }
+        create={
+          canWrite && !isBoard && !declinedStage
+            ? {
+                onAddExecutive: () => setProfile({ candidate: null, company: null }),
+                onAddCompany: () => setOpenCompany({ company: null }),
+              }
+            : undefined
+        }
+        findExecutives={
+          findExecutivesOffered && !isBoard
+            ? {
+                onPress: handleFindExecutives,
+                state: sourcing.button,
+                unavailable: findExecutivesUnavailable(),
+                companies: tickedCompanies.length,
+                last: sourcing.run ? { summary: lastSearchSummary(sourcing.run), onOpen: () => setFindingAt({ scope: [], search: false }) } : undefined,
+              }
+            : undefined
+        }
+        advanced={isBoard ? undefined : advancedSections()}
+        advancedDot={
+          view === "table" && hiddenColumnCount > 0
+            ? `${hiddenColumnCount} column${hiddenColumnCount === 1 ? "" : "s"} hidden`
+            : undefined
+        }
+      />
 
       {findExecutivesOffered && (
         <FindExecutivesPanel
@@ -1055,14 +1108,17 @@ function TriageStage() {
         }}
       />
 
-      {recordPage && profile?.candidate ? (
+      {isRecordView && !profile?.candidate ? (
+        <RecordPageEmpty waiting={recordPageWaiting} stageLabel={stage.label} footer={recordListPager} />
+      ) : isRecordView && profile?.candidate ? (
         <CandidateRecordPage
           projectId={project.id}
           stageLabel={stage.label}
           entries={recordEntries}
           openId={profile.candidate.id}
           onOpen={(candidate) => setProfile({ candidate, company: null })}
-          onExit={() => setRecordPage(false)}
+          onLeave={executivesEntry ? leaveExecutives : undefined}
+          footer={recordListPager}
         >
           {(listButton) => (
             <CandidateDrawer
@@ -1090,6 +1146,7 @@ function TriageStage() {
             search={debouncedSearch}
             selectedIds={pipelineSelection}
             onToggleSelected={togglePipelineSelected}
+            onExpand={(candidateId) => enterExecutives("pipeline", candidateId)}
           />
         </div>
       ) : view === "map" ? (
@@ -1119,6 +1176,7 @@ function TriageStage() {
       <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 p-2">
         <TriageCompanyTable
           rows={rows}
+          openCandidateId={markedCandidateId}
           projectId={project.id}
           label={`${stage.label} companies`}
           sort={sort}
@@ -1130,11 +1188,7 @@ function TriageStage() {
           onLayoutChange={setLayout}
           loading={lines.isFetching}
           error={lines.isError}
-          emptyMessage={
-            debouncedSearch || debouncedQuery || debouncedExecutiveQuery || executiveStatuses.length > 0
-              ? "No companies match that search."
-              : stage.emptyMessage
-          }
+          emptyMessage={searchNarrowed ? "No companies match that search." : stage.emptyMessage}
           columnFilters={columnFilters}
           onEditColumn={
             declinedStage
@@ -1264,7 +1318,7 @@ function TriageStage() {
 
       <CandidateDrawer
         {...recordProps}
-        open={profile !== null && !recordPage}
+        open={profile !== null && !(isRecordView && profile.candidate)}
         onOpenCompany={
           profileCompanyRow
             ? () => {
@@ -1312,14 +1366,14 @@ function TriageStage() {
   );
 }
 
-/** Previous and Next along the grid's people in the grid's order, and the switch between the peek and the page. */
+/** Previous and Next along the grid's people in the grid's order, and the peek's way into the Executives view. */
 function stepperAlong(
   offered: boolean,
   people: readonly Candidate[],
   open: Candidate | null,
   onStep: (candidate: Candidate) => void,
   frame: RecordStepper["frame"],
-  onToggleFrame: () => void,
+  toggle: { onToggle: () => void; label?: string } | undefined,
 ): RecordStepper | undefined {
   if (!offered || !open) return undefined;
   const at = people.findIndex((candidate) => candidate.id === open.id);
@@ -1328,7 +1382,8 @@ function stepperAlong(
   const next = at < 0 ? undefined : people[at + 1];
   return {
     frame,
-    onToggleFrame,
+    onToggleFrame: toggle?.onToggle,
+    toggleLabel: toggle?.label,
     onPrevious: previous ? () => onStep(previous) : undefined,
     onNext: next ? () => onStep(next) : undefined,
     position: at < 0 ? undefined : { index: at, total: people.length },

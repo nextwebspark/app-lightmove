@@ -28,6 +28,7 @@ import { AddExecutiveChoice } from "./AddExecutiveChoice";
  */
 export function TriageCompanyTable({
   rows,
+  openCandidateId = null,
   label,
   sort,
   onSortChange,
@@ -59,6 +60,8 @@ export function TriageCompanyTable({
   selection,
 }: {
   rows: TriageCompanyRow[];
+  /** The executive whose record is open, or was until a moment ago: their line stays marked. */
+  openCandidateId?: string | null;
   label: string;
   sort: GridSort<TriageSortField>;
   onSortChange: (sort: GridSort<TriageSortField>) => void;
@@ -148,6 +151,8 @@ export function TriageCompanyTable({
   const allOnPageSelected = rows.length > 0 && rows.every((row) => selection?.isTicked(row));
   const someOnPageSelected = rows.some((row) => selection?.isTicked(row));
   const [asCards] = useState(isBelowTableWidth);
+  const activeRow = openCandidateId ? rows.find((row) => row.candidate?.id === openCandidateId) : undefined;
+  const activeRowId = activeRow ? triageRowId(activeRow) : null;
   const customColumnOf = (gridColumnId: string) =>
     customColumns.find((entry) => customColumnId(entry) === gridColumnId);
 
@@ -196,6 +201,7 @@ export function TriageCompanyTable({
       errorMessage="That list could not be loaded. Refresh, or check you still have access to this mandate."
       emptyMessage={emptyMessage}
       columnFilters={columnFilters}
+      activeRowId={activeRowId}
       onEditColumn={
         onEditColumn &&
         ((gridColumnId: string) => {

@@ -29,6 +29,7 @@ export function CandidateDrawerById({
   focusNoteId = null,
   focusSection = null,
   focusTab = null,
+  onExpand,
 }: {
   project: Project;
   candidateId: string | null;
@@ -41,6 +42,8 @@ export function CandidateDrawerById({
   onClose: () => void;
   /** After a save or a removal, for a read the mandate's rows do not cover — the report's figures. */
   onChanged?: () => void;
+  /** The peek's Open full page, where the opener has one: the board's, into the Executives view. */
+  onExpand?: (candidateId: string) => void;
 }) {
   const { user } = useAuth();
   const canWrite = canExecuteProjectWork(project, user?.id, user?.workspace?.roles);
@@ -119,6 +122,7 @@ export function CandidateDrawerById({
         customColumns={candidateColumns}
         canWrite={canWrite}
         defaultCurrency={briefCompensation.data?.currency}
+        stepper={onExpand && shown ? { frame: "peek", onToggleFrame: () => onExpand(shown.id) } : undefined}
         onClose={onClose}
         onSaved={(saved) => {
           queryClient.setQueryData(candidatesApi.CANDIDATE_KEY(project.id, saved.id), saved);

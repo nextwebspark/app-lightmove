@@ -35,12 +35,15 @@ export function PipelineView({
   search,
   selectedIds,
   onToggleSelected,
+  onExpand,
 }: {
   project: Project;
   /** Already debounced. */
   search: string;
   selectedIds: ReadonlySet<string>;
   onToggleSelected: (candidateId: string) => void;
+  /** The open executive's Open full page, into the Executives view. */
+  onExpand?: (candidateId: string) => void;
 }) {
   const queryClient = useQueryClient();
   const { catalog } = usePipelineCatalog();
@@ -220,6 +223,7 @@ export function PipelineView({
         focusTab={focusTab}
         onClose={() => setOpenCandidateId(null)}
         onChanged={refreshPipeline}
+        onExpand={onExpand}
       />
     </>
   );

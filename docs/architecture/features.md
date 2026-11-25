@@ -358,17 +358,21 @@ executives) beside a Mapbox globe, with a pin per company and
 per executive and the same two drawers opened from a pin's popup or a panel row. The executive drawer over the
 grid or the map is held in the URL as `?candidate=` (and `?tab=` from a link), so a refresh, Back or a shared link
 reopens it; over the grid its header steps to the previous and next executive in the grid's order (↑ ↓, or K and J),
-held while an edit is open (`RecordCornerControls`). Its ⤢ opens the record **full page** (`?record=page`, `CandidateRecordPage`): the
-toolbar and grid give way to a list of the grid's executives — the grid's own read, so its stage, filters, sort and
-page — each a photo with a status dot, the name with the company's logo, and title · company under it, beside the
-record at the full width left. A record bar replaces the corner buttons (↑ ↓, "N of M", Exit full page), and an action
-row under the header (`RecordActionRow`) offers Write email, Add note, Log and ⋯ (Book a meeting, Add to sequence, Set
-next action, Remove). From `xl` the Details rail (`RecordDetailsRail`) holds what stays true on every tab — next action,
-contact, tags, client visibility and the person's other positions (staff only), and when and how they were added — so
-the header, footer and Outreach tab leave theirs out there; Profile's folds split into two columns once the record is
-wide enough. `/` searches the list and Hide list folds it away (kept per viewer). Going in is a step in history, so
-Back returns to the peek; ⤡, Esc or the list's back link return to the grid with the peek open on whoever is open.
-Below `lg` the list waits behind a List button. Nothing carries a
+held while an edit is open (`RecordCornerControls`); the open person's line stays tinted in the grid after the peek
+closes (`DataGrid`'s `activeRowId`). Every stage also reads as **Executives** (`?view=executives`,
+`CandidateRecordPage`; the old `?record=page` link lands there): a list of the grid's executives — the grid's own read,
+so its stage, filters, sort and page, turned by the list's own pager — each a photo with a status dot, the name with the
+company's logo, and title · company under it, beside the record at the full width left, opening on the page's first
+person. The toolbar stays: its search and Filter narrow the list, Add to sequence takes the open person, Find executives
+waits for the Table. The record's corner holds Hide list, "N of M" and ↑ ↓; an action row under the header
+(`RecordActionRow`) offers Write email, Add note, Log and ⋯ (Book a meeting, Add to sequence, Set next action, Remove).
+From `xl` the Details rail (`RecordDetailsRail`) holds what stays true on every tab — next action, contact, tags, client
+visibility and the person's other positions (staff only), and when and how they were added — so the header, footer and
+Outreach tab leave theirs out there; Profile's folds split into two columns once the record is wide enough. The peek's ⤢
+(the grid's, and the board's) opens Executives as a visit: a step in history that leaves the remembered view alone, so
+the record's ⤡ Back to Table / Back to Pipeline, Esc or Back return there with the peek open on whoever is open by then.
+The list is as wide as Outreach's conversations (`listPane.ts`). Below `lg` the list waits behind a List button. Nothing
+carries a
 coordinate, so `geocoding` resolves each distinct city + country once through Mapbox and keeps it in
 `app_lm_geocoded_place`; `talentmap` composes the stage's companies, people and points into one
 unpaged, capped read (`GET /projects/{id}/talent-map`), with `…/talent-map/locations` answering the

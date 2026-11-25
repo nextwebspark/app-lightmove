@@ -17,11 +17,11 @@ describe("the Companies views while the map is switched off", () => {
     vi.mocked(talentMapApi.getTalentMapConfig).mockResolvedValue({ enabled: true, publicToken: "pk.test" });
   });
 
-  it("offers the table and the pipeline on the universe even where a Mapbox account is configured", async () => {
+  it("offers the table, the pipeline and the executives on the universe even where a Mapbox account is configured", async () => {
     const { result } = renderHook(() => useCompaniesViews("inUniverse", true), { wrapper });
     await waitFor(() => expect(talentMapApi.getTalentMapConfig).toHaveBeenCalled());
     await waitFor(() => expect(result.current.mapConfig.isSuccess).toBe(true));
-    expect(result.current.views).toEqual(["table", "pipeline"]);
+    expect(result.current.views).toEqual(["table", "pipeline", "executives"]);
   });
 
   it("lands a link or a remembered choice of the map on the table", () => {

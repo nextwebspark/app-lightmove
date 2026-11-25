@@ -96,7 +96,7 @@ export function PersonHeaderLayout({
     <div className="group flex items-start gap-3">
       <div className="flex flex-none">{avatar}</div>
       <div className="min-w-0 flex-1">
-        <div className={CORNER_RESERVE[Math.min(cornerButtons, 4)]}>
+        <div className={CORNER_RESERVE[Math.min(cornerButtons, 5)]}>
           <span className="flex min-w-0 items-center gap-1.5">
             <h2 className="truncate font-sans text-base font-semibold text-u-text">{fullName}</h2>
             <HeaderProfileLink linkedinUrl={linkedinUrl} />
@@ -406,4 +406,11 @@ export function ClampedText({ text, className }: { text: string; className?: str
   );
 }
 
-const CORNER_RESERVE: Readonly<Record<number, string>> = { 0: "pe-0", 1: "pe-8", 2: "pe-20", 3: "pe-28", 4: "pe-36" };
+const CORNER_RESERVE: Readonly<Record<number, string>> = {
+  0: "pe-0",
+  1: "pe-8",
+  2: "pe-20",
+  3: "pe-28",
+  4: "pe-36",
+  5: "pe-44",
+};
