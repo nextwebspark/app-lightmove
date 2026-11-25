@@ -1830,7 +1830,7 @@ describe("TriageStagePage", () => {
       await waitFor(() => expect(within(list).queryByRole("button", { name: /Yasmin El-Sayed/ })).not.toBeInTheDocument());
       const record = screen.getByRole("region", { name: "Executive record" });
       expect(within(record).getByRole("button", { name: "Back to Table" })).toBeInTheDocument();
-      expect(within(record).getByRole("button", { name: "Next executive" })).toBeDisabled();
+      expect(within(record).queryByRole("button", { name: "Next executive" })).not.toBeInTheDocument();
       expect(within(record).queryByRole("button", { name: "Close" })).not.toBeInTheDocument();
     });
 
