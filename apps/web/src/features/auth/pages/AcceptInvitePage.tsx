@@ -13,7 +13,6 @@ import type { InvitationPreview } from "../api/types";
 import { acceptInviteSchema, type AcceptInviteValues } from "../schemas";
 import { formatInstantDate, titleCase } from "../../../lib/format";
 import { LegalConsent } from "../components/LegalConsent";
-import { useHumanCheck } from "../components/HumanCheck";
 import { OAuthButtons } from "../components/OAuthButtons";
 import { landingAfterJoining } from "../../projects/lib/landingAfterJoining";
 import { NO_POSITIONS_ORIGIN } from "../../projects/lib/positionsOrigin";
@@ -117,7 +116,6 @@ function AcceptSignupForm({ token, invitation }: { token: string; invitation: In
   const queryClient = useQueryClient();
   const { acceptInviteSignup } = useAuth();
   const navigate = useNavigate();
-  const humanCheck = useHumanCheck("invite-signup");
   const [formError, setFormError] = useState<string | null>(null);
   const [alreadyRegistered, setAlreadyRegistered] = useState(false);
   const once = useSingleFlight();
@@ -136,13 +134,7 @@ function AcceptSignupForm({ token, invitation }: { token: string; invitation: In
     setFormError(null);
     setAlreadyRegistered(false);
     try {
-      const joined = await acceptInviteSignup(
-        token,
-        values.fullName,
-        values.password,
-        values.termsAccepted,
-        await humanCheck.takeToken(),
-      );
+      const joined = await acceptInviteSignup(token, values.fullName, values.password, values.termsAccepted);
       navigate(await landingAfterJoining(joined, queryClient), { replace: true, state: NO_POSITIONS_ORIGIN });
     } catch (error) {
       // The one failure with a way forward: this address already has an account, so log in and accept
@@ -248,7 +240,6 @@ function AcceptSignupForm({ token, invitation }: { token: string; invitation: In
                 />
               )}
             />
-            {humanCheck.widget}
             <Button type="submit" loading={isSubmitting} className="mt-1 w-full">
               Accept &amp; join
             </Button>

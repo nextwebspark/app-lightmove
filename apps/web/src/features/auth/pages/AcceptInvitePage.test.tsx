@@ -125,7 +125,6 @@ describe("AcceptInvitePage", () => {
         "Sara Al-Mansour",
         "secret123",
         true,
-        undefined,
       ),
     );
   });
@@ -367,7 +366,7 @@ describe("AcceptInvitePage", () => {
     });
 
     const signInWithGoogleAs = async (email: string) => {
-      vi.mocked(authApi.providers).mockResolvedValue({ providers: ["google"], humanCheckSiteKey: null });
+      vi.mocked(authApi.providers).mockResolvedValue({ providers: ["google"] });
       vi.mocked(startOAuthSignIn).mockImplementation((_provider, handlers) => {
         vi.mocked(restoreSession).mockResolvedValue("access-token");
         vi.mocked(authApi.me).mockResolvedValue(signedInAs(email));
@@ -395,7 +394,7 @@ describe("AcceptInvitePage", () => {
     });
 
     it("names the invited address when the provider's account is not a work one", async () => {
-      vi.mocked(authApi.providers).mockResolvedValue({ providers: ["google"], humanCheckSiteKey: null });
+      vi.mocked(authApi.providers).mockResolvedValue({ providers: ["google"] });
       vi.mocked(startOAuthSignIn).mockImplementation((_provider, handlers) => {
         handlers.onError("EMAIL_NOT_WORK_ADDRESS");
         return () => undefined;

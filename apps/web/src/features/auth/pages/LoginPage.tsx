@@ -2,14 +2,13 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { type FormEvent, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import { Button, Field, FormError, Input, Notice } from "../../../components/ui";
+import { Button, Field, Input, Notice } from "../../../components/ui";
 import { ApiRequestError } from "../../../lib/apiClient";
-import { messageFor } from "../../../lib/errorCodes";
+import { codeOf, messageFor } from "../../../lib/errorCodes";
 import { isMfaChallenge } from "../api/types";
 import { useAuth } from "../AuthProvider";
 import { SSO_SIGN_IN_PATH } from "../authPaths";
-import { AuthShell, LegalFooter } from "../components/AuthShell";
-import { useHumanCheck } from "../components/HumanCheck";
+import { AuthShell, LegalFooter, SubmitError } from "../components/AuthShell";
 import { OAuthButtons } from "../components/OAuthButtons";
 import { PasswordInput } from "../components/PasswordInput";
 import { messageForOAuthError } from "../oauthErrors";
@@ -20,7 +19,8 @@ import { TWO_FACTOR_SIGN_IN_PATH } from "./TwoFactorChallengePage";
 
 type SignInStep = "email" | "password";
 
-const LINK_CLASS = "text-note font-medium text-u-accent hover:underline";
+const LINK_CLASS = "text-body font-medium text-u-accent hover:underline";
+const WRONG_CREDENTIALS = "Invalid email or password. Please try again.";
 
 /**
  * Sign in, email first. A port of uncava-design/Login.dc.html (`login`, `login-password`). The password step follows
@@ -31,7 +31,6 @@ export function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
-  const humanCheck = useHumanCheck("login");
   const [step, setStep] = useState<SignInStep>("email");
 
   // Signup and the SSO screen hand the typed address over, so coming here never means typing it twice.
@@ -100,7 +99,7 @@ export function LoginPage() {
   const onSubmit = async (values: LoginValues) => {
     setFormError(null);
     try {
-      const answer = await signIn(values.email, values.password, await humanCheck.takeToken());
+      const answer = await signIn(values.email, values.password);
       if (isMfaChallenge(answer)) {
         navigate(TWO_FACTOR_SIGN_IN_PATH, { state: returnTo ? { from: returnTo } : undefined });
         return;
@@ -109,6 +108,10 @@ export function LoginPage() {
       // step homeFor names, not at the page they were reaching for.
       navigate(landingAfterSignIn(answer, returnTo), { replace: true });
     } catch (error) {
+      if (codeOf(error) === "INVALID_CREDENTIALS") {
+        setFormError(WRONG_CREDENTIALS);
+        return;
+      }
       setFormError(
         error instanceof ApiRequestError
           ? messageFor(error)
@@ -125,18 +128,16 @@ export function LoginPage() {
       title="Sign in to Uncava"
       subtitle="Executive search workspace"
       footer={<LegalFooter />}
-      below={
+      accountPrompt={
         <>
           New to Uncava?{" "}
-          <Link to="/signup" className="text-u-accent hover:underline">
-            Create an account
+          <Link to="/signup" className="font-medium text-u-accent hover:underline">
+            Sign up
           </Link>
         </>
       }
     >
       {step === "email" && accountDeleted && <Notice>Your account was deleted.</Notice>}
-      <FormError message={formError} />
-
       {step === "email" && <OAuthButtons onError={setFormError} placement="above" />}
 
       <form onSubmit={step === "email" ? handleContinue : handleSubmit(onSubmit)} noValidate>
@@ -163,11 +164,11 @@ export function LoginPage() {
           </Field>
         )}
 
-        {humanCheck.widget}
 
         <Button type="submit" loading={isSubmitting} className="mt-1 w-full">
           {step === "email" ? "Continue" : "Sign in"}
         </Button>
+        <SubmitError message={formError} />
       </form>
 
       {step === "email" ? (

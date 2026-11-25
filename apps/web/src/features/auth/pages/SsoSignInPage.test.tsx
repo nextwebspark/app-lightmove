@@ -27,7 +27,7 @@ describe("SsoSignInPage", () => {
 
   beforeEach(() => {
     vi.resetAllMocks();
-    vi.mocked(authApi.providers).mockResolvedValue({ providers: [], humanCheckSiteKey: null });
+    vi.mocked(authApi.providers).mockResolvedValue({ providers: [] });
     vi.mocked(authApi.discoverSso).mockRejectedValue(notConfigured());
   });
 
@@ -47,7 +47,7 @@ describe("SsoSignInPage", () => {
 
     expect(await screen.findByText(NOT_SET_UP)).toBeInTheDocument();
     expect(screen.getByRole("status").textContent).toBe(firstAnswer);
-    expect(authApi.discoverSso).toHaveBeenCalledWith("nobody@unknown.example", undefined);
+    expect(authApi.discoverSso).toHaveBeenCalledWith("nobody@unknown.example");
   });
 
   it("asks nothing of the server until the address is valid", async () => {

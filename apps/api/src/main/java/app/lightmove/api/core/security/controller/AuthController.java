@@ -1,7 +1,5 @@
 package app.lightmove.api.core.security.controller;
 
-import app.lightmove.api.core.botcheck.constant.HumanCheckAction;
-import app.lightmove.api.core.botcheck.service.HumanCheck;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.ratelimit.service.RateLimitGuard;
@@ -84,7 +82,6 @@ public class AuthController {
     private final AuthResponseAssembler assembler;
     private final MfaChallengeService mfaChallenges;
     private final MfaChallengeCookieFactory mfaChallengeCookie;
-    private final HumanCheck humanCheck;
 
     /** Absent unless at least one OAuth client is configured. */
     private final ObjectProvider<ClientRegistrationRepository> oauthRegistrations;
@@ -92,7 +89,6 @@ public class AuthController {
     @PostMapping("/signup")
     public ResponseEntity<AuthResponse> signup(@Valid @RequestBody SignupRequest request,
                                                HttpServletRequest httpRequest) {
-        humanCheck.require(HumanCheckAction.SIGNUP, httpRequest);
         AuthenticatedSession session = authentication.signup(
                 new SignupCommand(request.fullName(), request.email(), request.password(), request.termsAccepted()),
                 httpRequest);
@@ -103,7 +99,6 @@ public class AuthController {
     /** A session, or for a person with a second factor a challenge in its cookie and {@code mfaRequired}. */
     @PostMapping("/login")
     public ResponseEntity<?> login(@Valid @RequestBody LoginRequest request, HttpServletRequest httpRequest) {
-        humanCheck.require(HumanCheckAction.LOGIN, httpRequest);
         return respond(authentication.login(request.email(), request.password(), httpRequest));
     }
 
@@ -173,7 +168,6 @@ public class AuthController {
     public ResponseEntity<Void> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request,
                                                HttpServletRequest httpRequest) {
         rateLimit.checkPasswordResetRequest(request.email(), httpRequest);
-        humanCheck.require(HumanCheckAction.PASSWORD_RESET, httpRequest);
         passwordReset.requestReset(request.email(), httpRequest);
         return ResponseEntity.accepted().build();
     }
@@ -185,7 +179,6 @@ public class AuthController {
     @PostMapping("/sso/discover")
     public void discoverSso(@Valid @RequestBody SsoDiscoverRequest request, HttpServletRequest httpRequest) {
         rateLimit.checkSsoLookup(request.email(), httpRequest);
-        humanCheck.require(HumanCheckAction.SSO, httpRequest);
         throw new ApiException(ErrorCode.SSO_NOT_CONFIGURED, "No workspace has single sign-on");
     }
 
@@ -291,7 +284,7 @@ public class AuthController {
         token.getToken();
     }
 
-    /** The configured OAuth registration ids, so a new provider stays a yml block, and the human check's site key. */
+    /** The configured OAuth registration ids, so a new provider stays a yml block. */
     @GetMapping("/providers")
     public AuthProviders providers() {
         ClientRegistrationRepository registrations = oauthRegistrations.getIfAvailable();
@@ -304,11 +297,10 @@ public class AuthController {
                         .toList()
                 : List.of();
 
-        return new AuthProviders(configured, humanCheck.siteKey());
+        return new AuthProviders(configured);
     }
 
-    /** {@code humanCheckSiteKey} is null when the check is off: the SPA then draws no widget and sends no token. */
-    public record AuthProviders(List<String> providers, String humanCheckSiteKey) {
+    public record AuthProviders(List<String> providers) {
     }
 
     /** A challenge sets its own cookie and no refresh cookie: there is no session until the code. */

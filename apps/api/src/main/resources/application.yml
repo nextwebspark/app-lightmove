@@ -275,14 +275,6 @@ lightmove:
       challenge-ttl: 5m
       challenge-cookie-name: lm_mfa_challenge
       recent-sign-in: 10m
-    # Cloudflare Turnstile on the anonymous auth forms: sign-in, signup, password reset, invited signup and the SSO
-    # lookup. Off unless a deployment sets the keys; on, a blank key refuses the boot. Cloudflare unreachable lets
-    # the request through, since the rate limits and the lockout still stand behind it.
-    human-check:
-      enabled: ${HUMAN_CHECK_ENABLED:false}
-      site-key: ${HUMAN_CHECK_SITE_KEY:}
-      secret-key: ${HUMAN_CHECK_SECRET_KEY:}
-      timeout: 3s
     rate-limit:
       # Right for production; useless for anyone testing, who will create half a dozen accounts in a row
       # and be locked out by their own fourth attempt. application-local.yml already raises these for

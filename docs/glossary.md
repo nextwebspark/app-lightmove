@@ -96,8 +96,6 @@ changes. Copy no mockup draws — toasts, errors, banners, empty states — foll
 - A vendor or infrastructure name the user did not choose: Nylas, Bright Data, ContactOut, Apollo,
   Vertex, Cloud Run. Name the provider the user connects (Google, Microsoft, Zoom, Recall) and nothing
   behind it.
-  One exception: the sign-in card's "This site is protected by Cloudflare Turnstile." names the human check,
-  as `Login.dc.html` draws it, so a visitor can see what checks them and look it up.
 - "This deployment", "configured", "enabled on the server". Say who can turn it on.
 - Internal words: triage, enrichment, seat, grant.
 

@@ -627,13 +627,9 @@ class AuthFlowIntegrationTest {
     @Test
     @DisplayName("a deployment with no provider configured offers none, so the SPA shows no button")
     void offersNoProvidersWhenNoneAreConfigured() throws Exception {
-        MvcResult providers = mvc.perform(get("/api/v1/auth/providers"))
+        mvc.perform(get("/api/v1/auth/providers"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.providers").isEmpty())
-                .andReturn();
-
-        // Off by default, so the SPA draws no widget and sends no token.
-        assertThat(body(providers).hasNonNull("humanCheckSiteKey")).isFalse();
+                .andExpect(jsonPath("$.providers").isEmpty());
     }
 
     @Test
@@ -939,7 +935,7 @@ class AuthFlowIntegrationTest {
                 .andReturn();
     }
 
-        private MvcResult loginRaw(String emailAddress, String password) throws Exception {
+    private MvcResult loginRaw(String emailAddress, String password) throws Exception {
         return mvc.perform(post("/api/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""

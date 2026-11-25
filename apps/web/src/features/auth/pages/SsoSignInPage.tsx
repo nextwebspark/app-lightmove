@@ -7,7 +7,6 @@ import { ApiRequestError } from "../../../lib/apiClient";
 import { messageFor } from "../../../lib/errorCodes";
 import * as authApi from "../api/authApi";
 import { AuthShell, LegalFooter } from "../components/AuthShell";
-import { useHumanCheck } from "../components/HumanCheck";
 import { loginEmailSchema, type LoginEmailValues } from "../schemas";
 
 /**
@@ -17,7 +16,6 @@ import { loginEmailSchema, type LoginEmailValues } from "../schemas";
 export function SsoSignInPage() {
   const location = useLocation();
   const prefill = (location.state as { email?: string } | null)?.email ?? "";
-  const humanCheck = useHumanCheck("sso");
   const [unavailable, setUnavailable] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -35,7 +33,7 @@ export function SsoSignInPage() {
     setFormError(null);
     setUnavailable(false);
     try {
-      await authApi.discoverSso(values.email, await humanCheck.takeToken());
+      await authApi.discoverSso(values.email);
       setUnavailable(true);
     } catch (error) {
       if (error instanceof ApiRequestError && error.code === "SSO_NOT_CONFIGURED") {
@@ -55,11 +53,11 @@ export function SsoSignInPage() {
       title="Sign in with SSO"
       subtitle="Enter your work email. We'll take you to your organisation's sign-in page."
       footer={<LegalFooter />}
-      below={
+      accountPrompt={
         <>
           New to Uncava?{" "}
-          <Link to="/signup" className="text-u-accent hover:underline">
-            Create an account
+          <Link to="/signup" className="font-medium text-u-accent hover:underline">
+            Sign up
           </Link>
         </>
       }
@@ -86,7 +84,6 @@ export function SsoSignInPage() {
           />
         </Field>
 
-        {humanCheck.widget}
 
         <Button type="submit" loading={isSubmitting} className="mt-1 w-full">
           Continue

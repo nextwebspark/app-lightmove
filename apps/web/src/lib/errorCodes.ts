@@ -13,7 +13,6 @@ export const DPA_REQUIRED_MESSAGE = "Tick the box to accept the Data Processing 
 export type ApiErrorCode =
   | "VALIDATION_FAILED"
   | "INVALID_CREDENTIALS"
-  | "HUMAN_CHECK_FAILED"
   | "SSO_NOT_CONFIGURED"
   | "ACCOUNT_LOCKED"
   | "ACCOUNT_SUSPENDED"
@@ -302,7 +301,6 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   API_KEY_LIMIT_REACHED: "You have the most API keys allowed. Revoke one you no longer use.",
   API_KEY_READS_NOTHING: "Choose what the key may read as well as MCP access.",
   RATE_LIMITED: "Too many requests in a short time. Wait a minute and try again.",
-  HUMAN_CHECK_FAILED: "We couldn't confirm you're human. Try again.",
   SSO_NOT_CONFIGURED:
     "Single sign-on isn't set up for that organisation yet. Sign in with Google or your email, or ask your administrator.",
   ALREADY_IN_WORKSPACE: "You already belong to a workspace. Found another from Settings → Workspaces.",

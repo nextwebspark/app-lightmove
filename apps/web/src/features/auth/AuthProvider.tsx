@@ -42,24 +42,12 @@ interface AuthContextValue {
   loading: boolean;
 
   /** The user, or for a person with two-factor on a challenge: no session until `completeSecondFactor`. */
-  signIn: (email: string, password: string, humanCheck?: string) => Promise<User | MfaChallenge>;
+  signIn: (email: string, password: string) => Promise<User | MfaChallenge>;
   /** Finishes a challenged sign-in with a code from the authenticator app, or a recovery code. */
   completeSecondFactor: (code: string) => Promise<User>;
-  signUp: (
-    fullName: string,
-    email: string,
-    password: string,
-    termsAccepted: boolean,
-    humanCheck?: string,
-  ) => Promise<User>;
+  signUp: (fullName: string, email: string, password: string, termsAccepted: boolean) => Promise<User>;
   /** Creates the invited account and adopts the session it returns — the invitee is in immediately. */
-  acceptInviteSignup: (
-    token: string,
-    fullName: string,
-    password: string,
-    termsAccepted: boolean,
-    humanCheck?: string,
-  ) => Promise<User>;
+  acceptInviteSignup: (token: string, fullName: string, password: string, termsAccepted: boolean) => Promise<User>;
   /**
    * The terms step of a first provider sign-in: creates the account and adopts its session — or, where the address
    * turned out to be a factor holder's account, answers the challenge for the code.
@@ -256,8 +244,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const signIn = useCallback(
-    async (email: string, password: string, humanCheck?: string) =>
-      adoptAnswer(await authApi.login({ email, password }, humanCheck)),
+    async (email: string, password: string) => adoptAnswer(await authApi.login({ email, password })),
     [adoptAnswer],
   );
 
@@ -272,8 +259,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const signUp = useCallback(
-    async (fullName: string, email: string, password: string, termsAccepted: boolean, humanCheck?: string) => {
-      const session = await authApi.signup({ fullName, email, password, termsAccepted }, humanCheck);
+    async (fullName: string, email: string, password: string, termsAccepted: boolean) => {
+      const session = await authApi.signup({ fullName, email, password, termsAccepted });
       startFreshSession();
       setUser(session.user);
       return session.user;
@@ -282,8 +269,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const acceptInviteSignup = useCallback(
-    async (token: string, fullName: string, password: string, termsAccepted: boolean, humanCheck?: string) => {
-      const session = await authApi.acceptInvitationSignup(token, fullName, password, termsAccepted, humanCheck);
+    async (token: string, fullName: string, password: string, termsAccepted: boolean) => {
+      const session = await authApi.acceptInvitationSignup(token, fullName, password, termsAccepted);
       startFreshSession();
       setUser(session.user);
       return session.user;

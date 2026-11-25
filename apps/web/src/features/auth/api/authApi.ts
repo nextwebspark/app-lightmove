@@ -30,29 +30,22 @@ import { isMfaChallenge } from "./types";
  * do that is a bug with no symptom until the next request 401s.
  */
 
-/** The header a sign-in form's human-check token rides in; none when the check is off. */
-function humanCheckHeader(humanCheck: string | undefined): Record<string, string> | undefined {
-  return humanCheck ? { "X-Human-Check": humanCheck } : undefined;
-}
-
-export async function signup(payload: SignupRequest, humanCheck?: string): Promise<AuthResponse> {
+export async function signup(payload: SignupRequest): Promise<AuthResponse> {
   const session = await request<AuthResponse>("/auth/signup", {
     method: "POST",
     body: payload,
     anonymous: true,
-    headers: humanCheckHeader(humanCheck),
   });
   setAccessToken(session.accessToken);
   return session;
 }
 
 /** A session, or for a person with two-factor on a challenge: then no token yet, and the code finishes it. */
-export async function login(payload: LoginRequest, humanCheck?: string): Promise<SignInAnswer> {
+export async function login(payload: LoginRequest): Promise<SignInAnswer> {
   const answer = await request<SignInAnswer>("/auth/login", {
     method: "POST",
     body: payload,
     anonymous: true,
-    headers: humanCheckHeader(humanCheck),
   });
   return adoptIfSession(answer);
 }
@@ -168,12 +161,11 @@ export function resendVerification(email: string): Promise<void> {
 }
 
 /** Always resolves with 202 — the server answers identically whether the address exists or not. */
-export function requestPasswordReset(email: string, humanCheck?: string): Promise<void> {
+export function requestPasswordReset(email: string): Promise<void> {
   return request<void>("/auth/password/forgot", {
     method: "POST",
     body: { email },
     anonymous: true,
-    headers: humanCheckHeader(humanCheck),
   });
 }
 
@@ -181,12 +173,11 @@ export function requestPasswordReset(email: string, humanCheck?: string): Promis
  * Asks where an address's single sign-on lives. Until it ships every address answers `SSO_NOT_CONFIGURED`, the
  * same for one with an account as for one without.
  */
-export function discoverSso(email: string, humanCheck?: string): Promise<void> {
+export function discoverSso(email: string): Promise<void> {
   return request<void>("/auth/sso/discover", {
     method: "POST",
     body: { email },
     anonymous: true,
-    headers: humanCheckHeader(humanCheck),
   });
 }
 
@@ -353,13 +344,11 @@ export async function acceptInvitationSignup(
   fullName: string,
   password: string,
   termsAccepted: boolean,
-  humanCheck?: string,
 ): Promise<AuthResponse> {
   const session = await request<AuthResponse>("/onboarding/accept-invitation-signup", {
     method: "POST",
     body: { token, fullName, password, termsAccepted },
     anonymous: true,
-    headers: humanCheckHeader(humanCheck),
   });
   setAccessToken(session.accessToken);
   return session;

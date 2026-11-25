@@ -6,7 +6,6 @@ import { Button, Field, FormError, Input } from "../../../components/ui";
 import { messageFor } from "../../../lib/errorCodes";
 import * as authApi from "../api/authApi";
 import { AuthShell } from "../components/AuthShell";
-import { useHumanCheck } from "../components/HumanCheck";
 import { forgotPasswordSchema, type ForgotPasswordValues } from "../schemas";
 
 /**
@@ -21,7 +20,6 @@ export function ForgotPasswordPage() {
   // the same handoff signup already makes toward login.
   const prefill = (location.state as { email?: string } | null)?.email ?? "";
 
-  const humanCheck = useHumanCheck("password-reset");
   const [formError, setFormError] = useState<string | null>(null);
   const [sentTo, setSentTo] = useState<string | null>(null);
 
@@ -37,7 +35,7 @@ export function ForgotPasswordPage() {
   const onSubmit = async (values: ForgotPasswordValues) => {
     setFormError(null);
     try {
-      await authApi.requestPasswordReset(values.email, await humanCheck.takeToken());
+      await authApi.requestPasswordReset(values.email);
       setSentTo(values.email);
     } catch (error) {
       // Only rate limiting or a network failure reach here — an unknown address is a quiet 202.
@@ -49,11 +47,11 @@ export function ForgotPasswordPage() {
     <AuthShell
       title={sentTo ? undefined : "Reset your password"}
       subtitle={sentTo ? undefined : <>We&rsquo;ll email you a link to choose a new one.</>}
-      below={
+      accountPrompt={
         sentTo ? undefined : (
           <>
             Remembered it?{" "}
-            <Link to="/login" className="text-u-accent hover:underline">
+            <Link to="/login" className="font-medium text-u-accent hover:underline">
               Back to sign in
             </Link>
           </>
@@ -103,7 +101,6 @@ export function ForgotPasswordPage() {
               />
             </Field>
 
-            {humanCheck.widget}
 
             <Button type="submit" loading={isSubmitting} className="mt-1 w-full">
               Send reset link

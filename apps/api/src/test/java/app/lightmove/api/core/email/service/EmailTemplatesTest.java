@@ -82,7 +82,7 @@ class EmailTemplatesTest {
     private static AuthSettings withInvitationTtl(Duration ttl) {
         AuthSettings auth = TestAuthSettings.production().auth();
         return new AuthSettings(auth.jwt(), auth.cookie(), auth.lockout(), auth.rateLimit(), auth.extension(),
-                auth.mfa(), auth.humanCheck(), auth.accessTokenTtl(), auth.refreshTokenTtl(), auth.verificationTokenTtl(),
+                auth.mfa(), auth.accessTokenTtl(), auth.refreshTokenTtl(), auth.verificationTokenTtl(),
                 auth.passwordResetTokenTtl(), ttl, auth.oauthRequestTtl(), auth.requireVerifiedEmail(),
                 auth.autoVerifyEmail(), auth.bcryptStrength(), auth.oauth());
     }

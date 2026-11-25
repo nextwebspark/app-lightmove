@@ -583,16 +583,6 @@ five failures lock for 15 minutes, and after the lock lapses the counter is stil
 wrong password re-locks immediately. Only a successful login or a password reset clears it — deliberate,
 since a decaying counter gives an attacker a free retry budget every window.
 
-**The human check runs before any account is read** (`core/botcheck`, Cloudflare Turnstile). Sign-in, signup,
-forgot password, invited signup and the SSO lookup take a token in `X-Human-Check`, checked in the controller ahead
-of the service, so `HUMAN_CHECK_FAILED` is the same for every address and costs no lockout strike. The answer must
-name our host and the form's own action (`HumanCheckAction`): a token is single-use, but one solved on another
-site's widget or another form must not count here. Cloudflare unreachable, timing out or reporting its own error
-lets the request through — the rate limits and the lockout still stand, and a vendor's bad minute must not sign
-nobody in. Off unless `lightmove.auth.human-check.enabled`; on with a blank key refuses the boot. The SPA reads the
-site key from `/auth/providers` at runtime and draws no widget when it is null, and the CSP names
-`challenges.cloudflare.com` only where it is on.
-
 **SSO answers one sentence for every address until it ships.** `POST /auth/sso/discover` reads no account, domain or
 workspace and is always `SSO_NOT_CONFIGURED`: an answer that varied by address would tell anyone which firms are
 customers. The real per-workspace SSO (verified domains, OIDC/SAML) replaces the body of that endpoint and keeps the

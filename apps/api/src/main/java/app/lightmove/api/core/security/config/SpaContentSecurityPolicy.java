@@ -12,19 +12,15 @@ final class SpaContentSecurityPolicy {
     /** Mapbox GL's styles, tiles and session calls; it builds its worker from a {@code blob:}. */
     private static final String MAPBOX = "https://api.mapbox.com https://events.mapbox.com https://*.tiles.mapbox.com";
 
-    /** Turnstile's script and the frame it draws a challenge in; named only where the human check is on. */
-    private static final String TURNSTILE = "https://challenges.cloudflare.com";
-
     private SpaContentSecurityPolicy() {
     }
 
-    static String of(String schedulerBaseUrl, boolean humanCheckEnabled) {
-        String turnstile = humanCheckEnabled ? " " + TURNSTILE : "";
-        return "default-src 'self'; script-src 'self'" + turnstile + "; style-src 'self' 'unsafe-inline'; "
+    static String of(String schedulerBaseUrl) {
+        return "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; "
                 + "img-src 'self' data: blob: https:; font-src 'self' data:; "
                 + "connect-src 'self' " + MAPBOX + " " + originOf(schedulerBaseUrl) + "; "
                 // child-src: Safari before 15.5 reads a worker's source from it, not from worker-src.
-                + "worker-src 'self' blob:; child-src blob:; frame-src 'self' blob:" + turnstile + "; "
+                + "worker-src 'self' blob:; child-src blob:; frame-src 'self' blob:; "
                 // No page of the app is ever framed, and the MCP consent screen's Allow must not be clickjacked.
                 + "object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'";
     }

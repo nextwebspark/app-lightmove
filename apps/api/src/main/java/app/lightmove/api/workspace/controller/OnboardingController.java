@@ -1,7 +1,5 @@
 package app.lightmove.api.workspace.controller;
 
-import app.lightmove.api.core.botcheck.constant.HumanCheckAction;
-import app.lightmove.api.core.botcheck.service.HumanCheck;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.ratelimit.service.RateLimitGuard;
 import app.lightmove.api.core.security.controller.AuthResponseAssembler;
@@ -56,7 +54,6 @@ public class OnboardingController {
     private final RefreshCookieFactory refreshCookie;
     private final CompanySuggestionSearch suggestions;
     private final RateLimitGuard rateLimit;
-    private final HumanCheck humanCheck;
 
     /** A first workspace only. The client must then refresh: its access token carries no tenant claim yet. */
     @PostMapping("/workspace")
@@ -126,7 +123,6 @@ public class OnboardingController {
     @PostMapping("/accept-invitation-signup")
     public ResponseEntity<AuthResponse> acceptInvitationSignup(
             @Valid @RequestBody AcceptInvitationSignupRequest request, HttpServletRequest httpRequest) {
-        humanCheck.require(HumanCheckAction.INVITE_SIGNUP, httpRequest);
         AuthenticatedSession session = invitationAccept.acceptWithNewLocalUser(
                 request.token(), request.fullName(), request.password(), httpRequest);
         return ResponseEntity.status(HttpStatus.CREATED)

@@ -71,14 +71,6 @@ lightmove:
     # Production allows 5 signups/hour/IP — right for production, useless for a developer creating
     # half a dozen test accounts in a row. Raised for local only; the limiter itself is unit-tested
     # rather than verified by hammering a running app.
-    # Cloudflare's always-pass test keys: the widget draws and every token passes. Their answers name neither our
-    # host nor the form, hence the binding off. 2x0000000000000000000000000000000AA as the secret always refuses.
-    human-check:
-      enabled: false
-      site-key: 1x00000000000000000000AA
-      secret-key: 1x0000000000000000000000000000000AA
-      verify-hostname-and-action: false
-
     rate-limit:
       signup-attempts-per-hour: 100
       login-attempts-per-minute: 100

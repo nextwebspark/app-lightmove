@@ -19,9 +19,6 @@ public enum ErrorCode {
      */
     INVALID_CREDENTIALS(HttpStatus.UNAUTHORIZED, "Invalid email or password"),
 
-    /** Decided before any account is read, so it is the same answer for every address. */
-    HUMAN_CHECK_FAILED(HttpStatus.BAD_REQUEST, "We couldn't confirm you're human. Try again"),
-
     /** Every address, until single sign-on ships: an answer that varied would say which firms are customers. */
     SSO_NOT_CONFIGURED(HttpStatus.NOT_FOUND, "Single sign-on isn't set up for that organisation yet"),
 

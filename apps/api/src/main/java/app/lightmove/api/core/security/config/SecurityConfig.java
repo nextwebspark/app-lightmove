@@ -260,8 +260,7 @@ public class SecurityConfig {
     @Bean
     @Order(3)
     SecurityFilterChain spaChain(HttpSecurity http, LightMoveProperties properties) throws Exception {
-        String policy = SpaContentSecurityPolicy.of(properties.outreach().nylas().baseUrl(),
-                properties.auth().humanCheck().enabled());
+        String policy = SpaContentSecurityPolicy.of(properties.outreach().nylas().baseUrl());
         return http
                 .securityMatcher(request -> SpaRequestPaths.isSpaPath(request.getRequestURI()))
                 .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())

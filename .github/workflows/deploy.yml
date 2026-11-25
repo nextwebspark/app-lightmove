@@ -239,9 +239,6 @@ jobs:
           RETENTION_ENABLED: ${{ vars.RETENTION_ENABLED || 'false' }}
           DATA_PROTECTION_ENABLED: ${{ vars.DATA_PROTECTION_ENABLED || 'false' }}
           MFA_ENABLED: ${{ vars.MFA_ENABLED || 'false' }}
-          # Cloudflare Turnstile on the sign-in forms. The site key is public; the secret is mounted only when on.
-          HUMAN_CHECK_ENABLED: ${{ vars.HUMAN_CHECK_ENABLED || 'false' }}
-          HUMAN_CHECK_SITE_KEY: ${{ vars.HUMAN_CHECK_SITE_KEY }}
           PLATFORM_REQUIRE_TWO_FACTOR: ${{ vars.PLATFORM_REQUIRE_TWO_FACTOR || 'false' }}
           # The prompt registry (#1316) ships off: turn it on per environment once the first boot has recorded the
           # bundled prompts, then check app_lm_platform_prompt_call_daily before the next environment.
@@ -313,17 +310,6 @@ jobs:
           EMAIL_SECRETS=""
           if [ "$EMAIL_PROVIDER" = "resend" ]; then
             EMAIL_SECRETS=",RESEND_API_KEY=lightmove-resend-api-key:latest"
-          fi
-
-          # The human check on the sign-in forms, off unless HUMAN_CHECK_ENABLED=true and HUMAN_CHECK_SITE_KEY is
-          # set: the branch mounts a secret gcloud refuses to name unless it exists, and on with a blank key the
-          # service refuses to boot. Create the widget in Cloudflare (Turnstile, Managed, this host) and then:
-          #   gcloud secrets create lightmove-human-check-secret-key --data-file=-
-          HUMAN_CHECK_ENV=""
-          HUMAN_CHECK_SECRETS=""
-          if [ "$HUMAN_CHECK_ENABLED" = "true" ]; then
-            HUMAN_CHECK_ENV="|HUMAN_CHECK_ENABLED=true|HUMAN_CHECK_SITE_KEY=${HUMAN_CHECK_SITE_KEY}"
-            HUMAN_CHECK_SECRETS=",HUMAN_CHECK_SECRET_KEY=lightmove-human-check-secret-key:latest"
           fi
 
           # Candidate enrichment follows the OAuth shape: off unless the environment says otherwise,
@@ -548,8 +534,8 @@ jobs:
             --concurrency 200 \
             --timeout 300s \
             --liveness-probe "httpGet.path=/actuator/health/liveness,httpGet.port=8080,periodSeconds=10,timeoutSeconds=5,failureThreshold=6" \
-            --set-env-vars "^|^FLYWAY_ENABLED=false|MANAGEMENT_PORT=8080|DB_POOL_MAX=5|EMAIL_PROVIDER=${EMAIL_PROVIDER}|EMAIL_FROM=${EMAIL_FROM}|WEB_BASE_URL=${BASE_URL}|WEB_CORS_ORIGINS=${BASE_URL},chrome-extension://${EXTENSION_ID}|LIGHTMOVE_AUTH_AUTO_VERIFY_EMAIL=${AUTO_VERIFY_EMAIL}|AUTH_RATE_LIMIT_ENABLED=${RATE_LIMIT_ENABLED}|AUTH_LOGIN_ATTEMPTS_PER_MINUTE=${LOGIN_ATTEMPTS_PER_MINUTE}|AUTH_SIGNUP_ATTEMPTS_PER_HOUR=${SIGNUP_ATTEMPTS_PER_HOUR}|AUTH_VERIFICATION_RESENDS_PER_HOUR=${VERIFICATION_RESENDS_PER_HOUR}|LIGHTMOVE_WEB_TRUSTED_PROXY_COUNT=${TRUSTED_PROXY_COUNT}|PUBLIC_API_ENABLED=${PUBLIC_API_ENABLED}|RETENTION_ENABLED=${RETENTION_ENABLED}|DATA_PROTECTION_ENABLED=${DATA_PROTECTION_ENABLED}|MFA_ENABLED=${MFA_ENABLED}|PLATFORM_REQUIRE_TWO_FACTOR=${PLATFORM_REQUIRE_TWO_FACTOR}|AI_PROMPT_REGISTRY_ENABLED=${AI_PROMPT_REGISTRY_ENABLED}|BILLING_CONTACT_EMAIL=${BILLING_CONTACT_EMAIL}|BILLING_ENFORCE=${BILLING_ENFORCE}|JWT_PRIVATE_KEY_LOCATION=file:/secrets/jwt-private/private.pem|JWT_PUBLIC_KEY_LOCATION=file:/secrets/jwt-public/public.pem|STORAGE_PROVIDER=gcs|STORAGE_BUCKET=${DOCUMENTS_BUCKET}${OAUTH_ENV}${ENRICHMENT_ENV}${NYLAS_ENV}${PROVIDER_ENV}${RECALL_ENV}${BILLING_ENV}${MCP_ENV}${HUMAN_CHECK_ENV}" \
-            --set-secrets "DB_PASSWORD=lightmove-db-password:latest,/secrets/jwt-private/private.pem=lightmove-jwt-private-key:latest,/secrets/jwt-public/public.pem=lightmove-jwt-public-key:latest${EMAIL_SECRETS}${OAUTH_SECRETS}${ENRICHMENT_SECRETS}${MAPBOX_SECRETS}${CONTACTOUT_SECRETS}${NYLAS_SECRETS}${CREDENTIAL_SECRETS}${PROVIDER_SECRETS}${RECALL_SECRETS}${BILLING_SECRETS}${MCP_SECRETS}${HUMAN_CHECK_SECRETS}"
+            --set-env-vars "^|^FLYWAY_ENABLED=false|MANAGEMENT_PORT=8080|DB_POOL_MAX=5|EMAIL_PROVIDER=${EMAIL_PROVIDER}|EMAIL_FROM=${EMAIL_FROM}|WEB_BASE_URL=${BASE_URL}|WEB_CORS_ORIGINS=${BASE_URL},chrome-extension://${EXTENSION_ID}|LIGHTMOVE_AUTH_AUTO_VERIFY_EMAIL=${AUTO_VERIFY_EMAIL}|AUTH_RATE_LIMIT_ENABLED=${RATE_LIMIT_ENABLED}|AUTH_LOGIN_ATTEMPTS_PER_MINUTE=${LOGIN_ATTEMPTS_PER_MINUTE}|AUTH_SIGNUP_ATTEMPTS_PER_HOUR=${SIGNUP_ATTEMPTS_PER_HOUR}|AUTH_VERIFICATION_RESENDS_PER_HOUR=${VERIFICATION_RESENDS_PER_HOUR}|LIGHTMOVE_WEB_TRUSTED_PROXY_COUNT=${TRUSTED_PROXY_COUNT}|PUBLIC_API_ENABLED=${PUBLIC_API_ENABLED}|RETENTION_ENABLED=${RETENTION_ENABLED}|DATA_PROTECTION_ENABLED=${DATA_PROTECTION_ENABLED}|MFA_ENABLED=${MFA_ENABLED}|PLATFORM_REQUIRE_TWO_FACTOR=${PLATFORM_REQUIRE_TWO_FACTOR}|AI_PROMPT_REGISTRY_ENABLED=${AI_PROMPT_REGISTRY_ENABLED}|BILLING_CONTACT_EMAIL=${BILLING_CONTACT_EMAIL}|BILLING_ENFORCE=${BILLING_ENFORCE}|JWT_PRIVATE_KEY_LOCATION=file:/secrets/jwt-private/private.pem|JWT_PUBLIC_KEY_LOCATION=file:/secrets/jwt-public/public.pem|STORAGE_PROVIDER=gcs|STORAGE_BUCKET=${DOCUMENTS_BUCKET}${OAUTH_ENV}${ENRICHMENT_ENV}${NYLAS_ENV}${PROVIDER_ENV}${RECALL_ENV}${BILLING_ENV}${MCP_ENV}" \
+            --set-secrets "DB_PASSWORD=lightmove-db-password:latest,/secrets/jwt-private/private.pem=lightmove-jwt-private-key:latest,/secrets/jwt-public/public.pem=lightmove-jwt-public-key:latest${EMAIL_SECRETS}${OAUTH_SECRETS}${ENRICHMENT_SECRETS}${MAPBOX_SECRETS}${CONTACTOUT_SECRETS}${NYLAS_SECRETS}${CREDENTIAL_SECRETS}${PROVIDER_SECRETS}${RECALL_SECRETS}${BILLING_SECRETS}${MCP_SECRETS}"
 
       # First deploy only, and only without a custom domain: the service now has a URL, and it is not
       # the placeholder we booted with. Verification emails and the OAuth redirect are built from

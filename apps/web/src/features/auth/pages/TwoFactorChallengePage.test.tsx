@@ -40,7 +40,7 @@ describe("two-factor sign-in", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(authApi.providers).mockResolvedValue({ providers: [], humanCheckSiteKey: null });
+    vi.mocked(authApi.providers).mockResolvedValue({ providers: [] });
   });
 
   it("sends a right password that owes a code to the code step, signed in to nothing yet", async () => {

@@ -7,7 +7,6 @@ import { ApiRequestError } from "../../../lib/apiClient";
 import { EMAIL_FIELD_ERROR_CODES, fieldLabelOf, messageFor, type ApiErrorCode } from "../../../lib/errorCodes";
 import { useAuth } from "../AuthProvider";
 import { AuthShell } from "../components/AuthShell";
-import { useHumanCheck } from "../components/HumanCheck";
 import { OAuthButtons } from "../components/OAuthButtons";
 import { LegalConsent } from "../components/LegalConsent";
 import { SIGNUP_STEPS, Stepper } from "../components/Stepper";
@@ -29,7 +28,6 @@ const SIGNUP_INPUTS: readonly (keyof SignupValues)[] = [
 export function SignupPage() {
   const { signUp } = useAuth();
   const navigate = useNavigate();
-  const humanCheck = useHumanCheck("signup");
   const [carriedFullName] = useState(signupRestartName);
   useEffect(clearSignupRestart, []);
   const [formError, setFormError] = useState<string | null>(null);
@@ -58,13 +56,7 @@ export function SignupPage() {
     setFormError(null);
     setRegisteredEmail(null);
     try {
-      await signUp(
-        values.fullName,
-        values.email,
-        values.password,
-        values.termsAccepted,
-        await humanCheck.takeToken(),
-      );
+      await signUp(values.fullName, values.email, values.password, values.termsAccepted);
       navigate("/signup/verify-email", { replace: true });
     } catch (error) {
       if (!(error instanceof ApiRequestError)) {
@@ -106,10 +98,10 @@ export function SignupPage() {
       title="Create your account"
       subtitle="Step 1 of 3 · your details"
       above={<Stepper steps={SIGNUP_STEPS} current={1} />}
-      below={
+      accountPrompt={
         <>
           Already have an account?{" "}
-          <Link to="/login" className="text-u-accent hover:underline">
+          <Link to="/login" className="font-medium text-u-accent hover:underline">
             Sign in
           </Link>
         </>
@@ -192,7 +184,6 @@ export function SignupPage() {
           )}
         />
 
-        {humanCheck.widget}
 
         <Button type="submit" loading={isSubmitting} className="w-full">
           Continue

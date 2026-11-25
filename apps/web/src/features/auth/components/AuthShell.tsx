@@ -3,14 +3,13 @@ import { AuthLogo, Card } from "../../../components/ui";
 import { cn } from "../../../lib/cn";
 import { PRIVACY_URL, TERMS_URL } from "../../../lib/links";
 import { ThemeToggle } from "../../theme/ThemeToggle";
-import { useAuthProviders } from "../useAuthProviders";
 
 /** The signed-out screens' frame: the theme switch, the lockup, one card, and the line beneath it. */
 export function AuthShell({
   title,
   subtitle,
   above,
-  below,
+  accountPrompt,
   footer,
   wide = false,
   children,
@@ -19,8 +18,8 @@ export function AuthShell({
   subtitle?: ReactNode;
   /** Between the lockup and the card — signup's stepper. */
   above?: ReactNode;
-  /** Under the card — "New to Uncava? Create an account". */
-  below?: ReactNode;
+  /** The card's line to the other door — "New to Uncava? Sign up". */
+  accountPrompt?: ReactNode;
   /** Inside the card, after its content — the legal line. */
   footer?: ReactNode;
   wide?: boolean;
@@ -36,17 +35,25 @@ export function AuthShell({
         {title && <h1 className="text-title font-semibold">{title}</h1>}
         {subtitle && <p className="mb-6 mt-1 font-mono text-note text-u-text3">{subtitle}</p>}
         {children}
+        {accountPrompt && <p className="mt-5 text-center text-body text-u-text2">{accountPrompt}</p>}
         {footer}
       </Card>
-
-      {below && <p className="animate-fade-up text-note text-u-text2 [animation-delay:120ms]">{below}</p>}
     </div>
   );
 }
 
-/** The sign-in card's last line: the terms a sign-in agrees to, and the bot check when it is on. */
+/** A refused submit, said in one red line under its button. */
+export function SubmitError({ message }: { message: string | null }) {
+  if (!message) return null;
+  return (
+    <p role="alert" className="mt-3 text-center text-body text-u-offlimits">
+      {message}
+    </p>
+  );
+}
+
+/** The sign-in card's last line: the terms a sign-in agrees to. */
 export function LegalFooter() {
-  const humanCheckOn = Boolean(useAuthProviders().data?.humanCheckSiteKey);
   const linkClass = "text-u-text2 underline underline-offset-2 hover:text-u-text";
 
   return (
@@ -60,12 +67,6 @@ export function LegalFooter() {
         Privacy Policy
       </a>
       .
-      {humanCheckOn && (
-        <>
-          <br />
-          This site is protected by Cloudflare Turnstile.
-        </>
-      )}
     </p>
   );
 }

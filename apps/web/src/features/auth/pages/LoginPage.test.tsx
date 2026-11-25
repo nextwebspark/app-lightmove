@@ -41,7 +41,7 @@ describe("LoginPage", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(authApi.providers).mockResolvedValue({ providers: [], humanCheckSiteKey: null });
+    vi.mocked(authApi.providers).mockResolvedValue({ providers: [] });
   });
 
   it("says nothing at all when the sign-in was cancelled", async () => {
@@ -115,7 +115,7 @@ describe("LoginPage", () => {
       expect(screen.getByLabelText("Work email")).toHaveValue("yara@firm.example");
     });
 
-    it("signs in with both, sending no human check while the check is off", async () => {
+    it("signs in with the email and password", async () => {
       vi.mocked(authApi.login).mockReturnValue(new Promise(() => {}));
       const user = userEvent.setup();
       renderAt("/login");
@@ -126,9 +126,8 @@ describe("LoginPage", () => {
       await user.click(screen.getByRole("button", { name: "Sign in" }));
 
       await waitFor(() =>
-        expect(authApi.login).toHaveBeenCalledWith({ email: "yara@firm.example", password: "secret123" }, undefined),
+        expect(authApi.login).toHaveBeenCalledWith({ email: "yara@firm.example", password: "secret123" }),
       );
-      expect(screen.queryByTestId("human-check")).not.toBeInTheDocument();
     });
 
     it("says a refused password on the password step", async () => {
@@ -148,7 +147,7 @@ describe("LoginPage", () => {
       await user.type(await screen.findByLabelText("Password"), "wrong-one1");
       await user.click(screen.getByRole("button", { name: "Sign in" }));
 
-      expect(await screen.findByRole("alert")).toHaveTextContent("Invalid email or password");
+      expect(await screen.findByRole("alert")).toHaveTextContent("Invalid email or password. Please try again.");
       expect(screen.getByLabelText("Password")).toBeInTheDocument();
     });
 
@@ -175,7 +174,6 @@ describe("LoginPage", () => {
       );
       expect(screen.getByRole("link", { name: "Privacy Policy" })).toHaveAttribute("href", "https://uncava.com/privacy");
       expect(screen.getByRole("link", { name: "Continue with SSO" })).toHaveAttribute("href", "/login/sso");
-      expect(screen.queryByText(/Cloudflare Turnstile/)).not.toBeInTheDocument();
     });
   });
 });
