@@ -32,6 +32,10 @@ Rows marked ☐ are open in #858; a PR that closes one ticks it and states the r
 ### Auth and onboarding
 | Field | Client | Server | Shown as |
 |---|---|---|---|
+| Sign-in email (step one of `/login`) | trimmed, email; no account is looked up, so the password step always follows | — (sent with the password) | field |
+| Sign-in password | required | `@NotBlank`; every failure one `INVALID_CREDENTIALS`, one timing | banner |
+| SSO work email (`/login/sso`) | trimmed, email | normalised, `@NotBlank @Email`; 10 a minute (`RATE_LIMITED`); every address `SSO_NOT_CONFIGURED` until single sign-on ships | field, notice |
+| Human check (sign-in, signup, forgot password, invited signup, SSO) | Cloudflare Turnstile, invisible unless it asks for a click; a token per submit | where `lightmove.auth.human-check.enabled`: the `X-Human-Check` token verified for this host and form before any account is read (`HUMAN_CHECK_FAILED`); Cloudflare unreachable lets it through | banner |
 | Signup full name | 1–160 | `@NotBlank @Size(160)`, trimmed | field |
 | Signup email | trimmed, email | normalised, `@Email @Size(255)`, work domain, MX | field |
 | Signup password | 8+, a digit, ≤ 72 bytes | same; bytes in `PasswordPolicy` | field |
