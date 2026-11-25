@@ -1903,6 +1903,14 @@ describe("TriageStagePage", () => {
       expect(localStorage.getItem("uncava.recordListHidden")).toBe("0");
     });
 
+    it("says so when the stage has no executives yet", async () => {
+      vi.mocked(candidatesApi.getCandidates).mockImplementation(async () => peopleOf([]));
+      render(stageTree("universe", project, "?view=executives"));
+
+      expect(await screen.findByText("No executives on In universe yet.")).toBeInTheDocument();
+      expect(screen.queryByRole("region", { name: "Executive record" })).not.toBeInTheDocument();
+    });
+
     it("never lets the page's own panes reach past it, so the page itself does not scroll", async () => {
       render(stageTree("universe", project, `?candidate=${yasmin.id}&record=page`));
 

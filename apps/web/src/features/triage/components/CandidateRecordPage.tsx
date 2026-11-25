@@ -1,14 +1,16 @@
 import { useEffect, useRef, useState, type ReactNode, type Ref } from "react";
 import { Icon, ICONS } from "../../../components/layout/Icon";
+import { LIST_PANE_WIDTH } from "../../../components/layout/listPane";
 import { CompanyLogo } from "../../../components/ui/CompanyLogo";
+import { LinesSkeleton } from "../../../components/ui/Skeleton";
 import { cn } from "../../../lib/cn";
 import { EscapeLayerContext, useEscapeKey } from "../../../lib/useEscapeKey";
 import type { Candidate } from "../../candidates/api/types";
 import { CandidateAvatar } from "../../candidates/components/CandidateAvatar";
+import { CORNER_BUTTON } from "../../candidates/components/RecordCornerControls";
 import { pipelineSwatchClass, statusStyle } from "../../candidates/lib/pipelineStatus";
 import type { PipelineCatalog } from "../../workspace/api/types";
 import { usePipelineCatalog } from "../../workspace/lib/usePipelineCatalog";
-import { LIST_PANE_WIDTH } from "../../../components/layout/listPane";
 
 /** One executive in the full page's list, with the logo of the company the grid's row drew them at. */
 export interface RecordListEntry {
@@ -127,6 +129,76 @@ export function CandidateRecordPage({
       <section aria-label="Executive record" className="flex min-h-0 min-w-0 flex-1 flex-col bg-u-surface">
         <EscapeLayerContext.Provider value={isTopLayer}>{children(listButton)}</EscapeLayerContext.Provider>
       </section>
+    </div>
+  );
+}
+
+/** Why the Executives view has no one to open; the pager stays, since a later page may hold someone. */
+export type RecordPageWaiting = "error" | "loading" | "filtered" | "pageEmpty" | "empty";
+
+export function RecordPageEmpty({
+  waiting,
+  stageLabel,
+  footer,
+}: {
+  waiting: RecordPageWaiting;
+  stageLabel: string;
+  footer?: ReactNode;
+}) {
+  return (
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+      <div className="flex min-h-0 flex-1 items-start justify-center p-10 text-note text-u-text3">
+        {waiting === "loading" ? (
+          <LinesSkeleton lines={6} className="w-full max-w-xl" />
+        ) : (
+          EMPTY_MESSAGES[waiting](stageLabel)
+        )}
+      </div>
+      {footer}
+    </div>
+  );
+}
+
+const EMPTY_MESSAGES: Record<Exclude<RecordPageWaiting, "loading">, (stageLabel: string) => string> = {
+  error: () => "This list could not be loaded.",
+  filtered: () => "No executives match that search.",
+  pageEmpty: () => "No executives on this page.",
+  empty: (stageLabel) => `No executives on ${stageLabel} yet.`,
+};
+
+/** The Executives view's list runs a page of the grid at a time; this turns it. */
+export function RecordListPager({
+  page,
+  lastPage,
+  onPage,
+}: {
+  page: number;
+  lastPage: number;
+  onPage: (page: number) => void;
+}) {
+  return (
+    <div className="flex flex-none items-center gap-1 border-t border-u-border px-3 py-2">
+      <span className="font-u-num text-meta tabular-nums text-u-text3">
+        Page {page + 1} of {lastPage + 1}
+      </span>
+      <button
+        type="button"
+        aria-label="Previous page"
+        disabled={page === 0}
+        onClick={() => onPage(page - 1)}
+        className={cn(CORNER_BUTTON, "ms-auto")}
+      >
+        <Icon d={ICONS.chevronDown} size={14} className="rotate-90" />
+      </button>
+      <button
+        type="button"
+        aria-label="Next page"
+        disabled={page >= lastPage}
+        onClick={() => onPage(page + 1)}
+        className={CORNER_BUTTON}
+      >
+        <Icon d={ICONS.chevronDown} size={14} className="-rotate-90" />
+      </button>
     </div>
   );
 }

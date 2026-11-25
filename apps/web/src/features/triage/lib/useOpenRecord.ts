@@ -45,15 +45,7 @@ export function useOpenRecord(projectId: string, offered: boolean): OpenRecord {
   });
   const setOpenCandidateParam = (candidateId: string | null) =>
     setSearchParams(
-      (current) => {
-        const params = new URLSearchParams(current);
-        if (candidateId) params.set("candidate", candidateId);
-        else params.delete("candidate");
-        params.delete("note");
-        params.delete("section");
-        params.delete("tab");
-        return params;
-      },
+      (current) => withOpenCandidate(current, candidateId),
       // Kept across a step, so the Executives view still knows where it was entered from.
       { replace: true, state: location.state },
     );
@@ -85,4 +77,15 @@ export function useOpenRecord(projectId: string, offered: boolean): OpenRecord {
   }, [openCandidateFailed]);
 
   return { profile, setProfile, focusTab };
+}
+
+/** The URL with `candidate` open (or none), dropping what pointed inside the previous record. */
+export function withOpenCandidate(current: URLSearchParams, candidateId: string | null): URLSearchParams {
+  const params = new URLSearchParams(current);
+  if (candidateId) params.set("candidate", candidateId);
+  else params.delete("candidate");
+  params.delete("note");
+  params.delete("section");
+  params.delete("tab");
+  return params;
 }

@@ -26,7 +26,7 @@ function stepsShown(stepper: RecordStepper): boolean {
   return stepper.position !== undefined || stepper.onPrevious !== undefined || stepper.onNext !== undefined;
 }
 
-const CORNER_BUTTON =
+export const CORNER_BUTTON =
   "rounded-md p-1.5 text-u-text3 transition hover:bg-u-raised hover:text-u-text disabled:pointer-events-none disabled:opacity-40";
 
 /**

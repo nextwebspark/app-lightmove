@@ -1,10 +1,9 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState, type ComponentProps } from "react";
-import { Navigate, useLocation, useNavigate, useOutletContext, useParams, useSearchParams } from "react-router-dom";
+import { Navigate, useLocation, useOutletContext, useParams, useSearchParams } from "react-router-dom";
 import type { ProjectOutletContext } from "../../../components/layout/ProjectLayout";
-import { Icon, ICONS } from "../../../components/layout/Icon";
+import { ICONS } from "../../../components/layout/Icon";
 import { FullscreenButton } from "../../../components/ui";
-import { LinesSkeleton } from "../../../components/ui/Skeleton";
 import { ColumnPickerList, hideableColumnsOf } from "../../../components/ui/ColumnPicker";
 import { GridFilterButton } from "../../../components/ui/GridFilters";
 import type { DataGridColumnFilter } from "../../../lib/gridFilters";
@@ -27,7 +26,12 @@ import { useExecutivesAtCompany } from "../../candidates/lib/useExecutivesAtComp
 import type { Candidate, CandidatesPage } from "../../candidates/api/types";
 import { CandidateDrawer } from "../../candidates/components/CandidateDrawer";
 import type { RecordStepper } from "../../candidates/components/RecordCornerControls";
-import { CandidateRecordPage } from "../components/CandidateRecordPage";
+import {
+  CandidateRecordPage,
+  RecordListPager,
+  RecordPageEmpty,
+  type RecordPageWaiting,
+} from "../components/CandidateRecordPage";
 import { RemoveCandidateDialog } from "../../candidates/components/RemoveCandidateDialog";
 import { useChangeCandidateStatus } from "../../candidates/lib/useChangeCandidateStatus";
 import * as customColumnsApi from "../../customcolumns/api/customColumnsApi";
@@ -74,7 +78,8 @@ import { awaitingResearch, type TriageCompanyRow } from "../lib/triageRows";
 import { OFFERED_TRIAGE_STAGES, offeredStageBySlug } from "../lib/triageStages";
 import { COMPANIES_VIEW_LABELS, resolveCompaniesView, useCompaniesViews } from "../lib/useCompaniesViews";
 import { useLineSelection } from "../lib/useLineSelection";
-import { useOpenRecord } from "../lib/useOpenRecord";
+import { useExecutivesVisit } from "../lib/useExecutivesVisit";
+import { useOpenRecord, withOpenCandidate } from "../lib/useOpenRecord";
 import { executivesOf } from "../lib/triageVocabulary";
 import { useProjectStream, type ProjectStreamKind } from "../../../lib/useProjectStream";
 
@@ -235,13 +240,9 @@ function TriageStage() {
     setMapPreferences({ view: next });
     setSearchParams(
       (current) => {
-        const params = new URLSearchParams(current);
+        const params = withOpenCandidate(current, null);
         params.set("view", next);
-        params.delete("candidate");
         params.delete("record");
-        params.delete("note");
-        params.delete("section");
-        params.delete("tab");
         return params;
       },
       { replace: true },
@@ -249,49 +250,13 @@ function TriageStage() {
   };
 
   const { profile, setProfile, focusTab } = useOpenRecord(project.id, !isBoard);
-
-  /**
-   * Open full page is a visit, not a choice of view: a step in history, so Back returns to the grid or the board
-   * with the person open, and the remembered view stays as it was.
-   */
-  const location = useLocation();
-  const navigate = useNavigate();
-  const executivesEntry = isRecordView ? ((location.state as ExecutivesEntry | null) ?? null) : null;
-  const enterExecutives = (from: ExecutivesEntry["from"], candidateId: string) =>
-    setSearchParams(
-      (current) => {
-        const params = new URLSearchParams(current);
-        params.set("view", "executives");
-        params.set("candidate", candidateId);
-        params.delete("record");
-        params.delete("note");
-        params.delete("section");
-        params.delete("tab");
-        return params;
-      },
-      { state: { from, enteredFor: candidateId } satisfies ExecutivesEntry },
-    );
-  // Back pops the entry while it still holds the person it was pushed for; after a step it replaces, with whoever
-  // is open now, rather than returning to someone the reader has moved on from.
-  const leaveExecutives = () => {
-    if (!executivesEntry) return;
-    const openId = profile?.candidate?.id ?? null;
-    if (openId === executivesEntry.enteredFor) {
-      navigate(-1);
-      return;
-    }
-    setSearchParams(
-      (current) => {
-        const params = new URLSearchParams(current);
-        params.set("view", executivesEntry.from);
-        if (openId) params.set("candidate", openId);
-        return params;
-      },
-      { replace: true },
-    );
-  };
-  const [markedCandidateId, setMarkedCandidateId] = useState<string | null>(null);
   const openCandidateId = profile?.candidate?.id ?? null;
+  const {
+    entry: executivesEntry,
+    enter: enterExecutives,
+    leave: leaveExecutives,
+  } = useExecutivesVisit(isRecordView, openCandidateId);
+  const [markedCandidateId, setMarkedCandidateId] = useState<string | null>(null);
   if (openCandidateId && openCandidateId !== markedCandidateId) setMarkedCandidateId(openCandidateId);
   const profileCompany = profile?.company ?? null;
 
@@ -628,6 +593,29 @@ function TriageStage() {
   // The Executives view always shows someone: the first of the page, until a link or a click names another.
   const firstOnPage = lines.isPlaceholderData ? undefined : recordEntries[0]?.candidate;
   const namedExecutive = searchParams.get("candidate");
+  const searchNarrowed = Boolean(
+    debouncedSearch || debouncedQuery || debouncedExecutiveQuery || executiveStatuses.length > 0,
+  );
+  // Someone about to open, named or first on the page, is not an empty stage.
+  const recordPageWaiting: RecordPageWaiting = lines.isError
+    ? "error"
+    : lines.isFetching || namedExecutive || firstOnPage
+      ? "loading"
+      : searchNarrowed
+        ? "filtered"
+        : lastPage > 0
+          ? "pageEmpty"
+          : "empty";
+  const recordListPager = lastPage > 0 && (
+    <RecordListPager
+      page={page}
+      lastPage={lastPage}
+      onPage={(next) => {
+        setPage(next);
+        setProfile(null);
+      }}
+    />
+  );
   useEffect(() => {
     if (isRecordView && !namedExecutive && firstOnPage) setProfile({ candidate: firstOnPage, company: null });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1121,15 +1109,7 @@ function TriageStage() {
       />
 
       {isRecordView && !profile?.candidate ? (
-        <div className="flex min-h-0 flex-1 items-start justify-center p-10 text-note text-u-text3">
-          {lines.isError
-            ? "This list could not be loaded."
-            : lines.isFetching
-              ? <LinesSkeleton lines={6} className="w-full max-w-xl" />
-              : debouncedSearch || debouncedQuery || debouncedExecutiveQuery || executiveStatuses.length > 0
-                ? "No executives match that search."
-                : `No executives on ${stage.label} yet.`}
-        </div>
+        <RecordPageEmpty waiting={recordPageWaiting} stageLabel={stage.label} footer={recordListPager} />
       ) : isRecordView && profile?.candidate ? (
         <CandidateRecordPage
           projectId={project.id}
@@ -1138,18 +1118,7 @@ function TriageStage() {
           openId={profile.candidate.id}
           onOpen={(candidate) => setProfile({ candidate, company: null })}
           onLeave={executivesEntry ? leaveExecutives : undefined}
-          footer={
-            lastPage > 0 && (
-              <RecordListPager
-                page={page}
-                lastPage={lastPage}
-                onPage={(next) => {
-                  setPage(next);
-                  setProfile(null);
-                }}
-              />
-            )
-          }
+          footer={recordListPager}
         >
           {(listButton) => (
             <CandidateDrawer
@@ -1219,11 +1188,7 @@ function TriageStage() {
           onLayoutChange={setLayout}
           loading={lines.isFetching}
           error={lines.isError}
-          emptyMessage={
-            debouncedSearch || debouncedQuery || debouncedExecutiveQuery || executiveStatuses.length > 0
-              ? "No companies match that search."
-              : stage.emptyMessage
-          }
+          emptyMessage={searchNarrowed ? "No companies match that search." : stage.emptyMessage}
           columnFilters={columnFilters}
           onEditColumn={
             declinedStage
@@ -1401,35 +1366,6 @@ function TriageStage() {
   );
 }
 
-/** The Executives view's list runs a page of the grid at a time; this turns it. */
-function RecordListPager({ page, lastPage, onPage }: { page: number; lastPage: number; onPage: (page: number) => void }) {
-  return (
-    <div className="flex flex-none items-center gap-1 border-t border-u-border px-3 py-2">
-      <span className="font-u-num text-meta tabular-nums text-u-text3">
-        Page {page + 1} of {lastPage + 1}
-      </span>
-      <button
-        type="button"
-        aria-label="Previous page"
-        disabled={page === 0}
-        onClick={() => onPage(page - 1)}
-        className="ms-auto rounded-md p-1.5 text-u-text3 hover:bg-u-raised hover:text-u-text disabled:pointer-events-none disabled:opacity-40"
-      >
-        <Icon d={ICONS.chevronDown} size={14} className="rotate-90" />
-      </button>
-      <button
-        type="button"
-        aria-label="Next page"
-        disabled={page >= lastPage}
-        onClick={() => onPage(page + 1)}
-        className="rounded-md p-1.5 text-u-text3 hover:bg-u-raised hover:text-u-text disabled:pointer-events-none disabled:opacity-40"
-      >
-        <Icon d={ICONS.chevronDown} size={14} className="-rotate-90" />
-      </button>
-    </div>
-  );
-}
-
 /** Previous and Next along the grid's people in the grid's order, and the peek's way into the Executives view. */
 function stepperAlong(
   offered: boolean,
@@ -1452,12 +1388,6 @@ function stepperAlong(
     onNext: next ? () => onStep(next) : undefined,
     position: at < 0 ? undefined : { index: at, total: people.length },
   };
-}
-
-/** Where Open full page came from, held in the history entry it pushed, and whom it opened. */
-interface ExecutivesEntry {
-  from: "table" | "pipeline";
-  enteredFor: string;
 }
 
 /** Who Add to sequence was asked for: the ticked companies' executives, or the ticked executives. */
