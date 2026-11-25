@@ -17,6 +17,7 @@ import { execFileSync } from "node:child_process";
 import { readFileSync, mkdirSync, appendFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { fillSignIn } from "./sign-in.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const RUN_DIR = process.env.RUN_DIR ?? join(HERE, "..", "results", "current");
@@ -192,9 +193,7 @@ try {
   await page.goto(STRATEGY_URL);
   await page.waitForURL(/\/login/, { timeout: 15000 });
   pass("S1.1", "an unauthenticated deep link is bounced to /login");
-  await page.getByPlaceholder("you@firm.com").fill(EMAIL);
-  await page.getByPlaceholder("••••••••").fill(PASSWORD);
-  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await fillSignIn(page, EMAIL, PASSWORD);
   await page.waitForURL((url) => !url.pathname.startsWith("/login"), { timeout: 20000 });
   await freshFilter();
   await page.reload();

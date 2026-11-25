@@ -15,6 +15,7 @@ import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync, mkdirSync, appendFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { fillSignIn } from "./sign-in.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const RUN_DIR = process.env.RUN_DIR ?? join(HERE, "..", "results", "current");
@@ -182,9 +183,7 @@ const openUniverse = async () => {
 };
 async function signIn(email) {
   await page.goto(`${WEB}/login`);
-  await page.getByPlaceholder("you@firm.com").fill(email);
-  await page.getByPlaceholder("••••••••").fill(PASSWORD);
-  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await fillSignIn(page, email, PASSWORD);
   await page.waitForURL((url) => !url.pathname.startsWith("/login"), { timeout: 20000 });
 }
 const advancedButton = () => page.getByRole("button", { name: /^Advanced/ });

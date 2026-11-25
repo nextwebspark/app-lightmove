@@ -141,8 +141,10 @@ gets the system text, the provider's options and the wiring that counts the call
 
 - **`PromptSource.current(promptId, kind)`** answers the version serving now (`RegistryPromptSource`, its one
   implementation). With `lightmove.ai.prompt-registry.enabled` off it is the bundled `prompts/*.st`
-  (`BundledPrompts`), today's path. On, **only an `EDITED` production version overrides the build's file**:
-  while production is a `BUNDLED` version, each instance serves its own bundled text and looks up that text's
+  (`BundledPrompts`), today's path. On, **only a production version a person chose overrides the build's file**
+  (an `EDITED` one, or a `BUNDLED` one put live in the console, #1317, which serves until a release's sync moves
+  production again): while production is a `BUNDLED` version a release's sync moved to, each instance serves its
+  own bundled text and looks up that text's
   version by its SHA-256. The `production` label is one row for every revision running, so during a rollout or
   a traffic split it cannot say which shipped text an instance should answer with; the build can. Held in
   memory per instance. It is never the reason a call fails: a registry that cannot be read serves the bundled
@@ -157,10 +159,19 @@ gets the system text, the provider's options and the wiring that counts the call
   default, declared in its `PromptCallSpec`, so a version that sets nothing behaves as the code always has.
   A version naming a model past its retirement date, one `AiModelCatalog` no longer lists, or one that lacks
   what the prompt's kind needs (`PromptKind.needs()`: tool calling for the assistant) is answered by the
-  configured model and logged once.
+  configured model and logged once. The same rule (`AiModelCatalog.unusableBecause`) refuses saving such a
+  version and putting one live, so this fallback is only for a model that retires while its version serves.
 - **`ChatModelProvider`** is the one seam to a vendor: `VertexGeminiChatModelProvider` owns the JSON mime type,
-  the thinking budget and the labels (`prompt`, and `prompt_version` when the registry served the text). A
+  the thinking setting and the labels (`prompt`, and `prompt_version` when the registry served the text). A
   second provider is a second implementation and catalogue entries.
+- **Gemini 3 and later reason by level, not budget.** Google deprecates `thinking_budget` on Gemini 3 (an
+  intermittent `400 INVALID_ARGUMENT`) and refuses it on Gemini 4. A budget set by a feature or a version is sent
+  to a catalogued model as the nearest `thinking_level` it offers (`AiModel.thinkingLevels`): 0 is its least
+  (MINIMAL, or LOW where MINIMAL is refused), up to 1,024 LOW, up to 8,192 MEDIUM, above that HIGH. None of them can
+  switch thinking off. A version's budget tops out at 8,192, so only a feature's own (`ASSISTANT_THINKING_BUDGET`)
+  reaches HIGH until the console sets a level. An id the catalogue does not list is read the same way, as offering
+  LOW to HIGH, so `LLM_CHAT_MODEL` pointed at a new Gemini never sends the budget Gemini 4 refuses; only a
+  `gemini-1.`/`gemini-2.` id still gets the budget.
 - **The reload** is `PlatformConfigReload`: the transaction that moves `production` bumps the `prompts` counter
   and notifies on `lm_platform_config` through `core/stream`'s listener; every instance drops its cache. Each
   also re-reads the counters every `lightmove.platform.config-reload-check` (30 s), for a notification it
@@ -168,10 +179,32 @@ gets the system text, the provider's options and the wiring that counts the call
 - **Every call is counted** against the version and model that answered, in
   `app_lm_platform_prompt_call_daily` (`PromptCallCounter`, innermost advisor: a schema repair's second ask and
   each round of the assistant's tool loop are each a call). The write is off the calling thread and a failed
-  one is logged, never thrown. That table is the record; the label and the log line are secondary.
+  one is logged, never thrown. A console Try it is not counted: `PromptCalls` attaches the trial's recorder in
+  the counter's place, so a version never live shows no calls and the live one's rates hold no experiments. That table is the record; the label and the log line are secondary.
+- **So is each way a call ends without a usable answer** (#1323), in the same row: a guard refusal (counted by
+  an advisor outside the guard, which answers without calling the rest of the chain; no call is counted, since
+  the model was never asked), a schema re-ask (a structured prompt's second answer), and an answer that still
+  would not bind (`StructuredPrompt` sees the bind fail after the model answered; an outage is none of these).
+  A failure is a call, never two: an answer cut off at the token limit or stopped by the safety filter is
+  already counted under its finish reason, so that it then would not bind adds no `schema_failures`
+  (`PromptCallTrace.wasCutShort`).
+- **The version on an outreach opener's enrolment is the client's word** (#1323): the draft's version rides the
+  browser, so a staff member could send another. It is counted only against a version of `outreach-opener` that
+  has served (a `production` move names it), which bounds it to platform metrics on versions that were live; a
+  signed draft token was judged more than that is worth.
+  A position extraction's `reading` (#1452) is the client's word too, and only its version is bounded that way:
+  which fields it names and the rows' sources are the client's as well, and publish can be repeated, so a member
+  with `WORK_EXECUTE` can add kept decisions against a served version without limit. It reaches platform metrics
+  only, never a workspace's data.
+  A bundled prompt has no version, so with the registry off none of it is counted.
 
 The answer schema (`-schema.json`), the answer format and the user message stay in code: code parses the
 answer against the first two, and the third decides which data reaches the model.
+
+**Try it** (#1317) runs one version without serving it: `PromptTrialRunner` binds the version to the calling
+thread, `PromptCalls.prepare` answers that prompt with it for the length of the run, and the model's answer and
+the bound record are kept. A `PromptTrial` sits beside its caller and hands it a fictional input written in
+code, so the user message, the guard, the schema check and the repair are production's own. It reads no table.
 
 Rollout: ship off; turn `AI_PROMPT_REGISTRY_ENABLED` on per environment, check the per-version counts, then
 default it on (#1324).

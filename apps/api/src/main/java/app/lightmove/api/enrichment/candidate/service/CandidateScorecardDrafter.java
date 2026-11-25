@@ -36,6 +36,39 @@ public class CandidateScorecardDrafter {
     private static final String BLOCKED =
             "{\"scores\":[],\"report\":{\"careerSummary\":\"" + BlockedAnswer.MARKER + "\"}}";
 
+    /** What is sent beside the instructions: the same text for every call, filled from the dossier and the brief. */
+    static final String USER_MESSAGE = """
+            THE CANDIDATE (their LinkedIn profile)
+            {profile}
+
+            NOTES ON FILE (the team's own, newest first)
+            {notes}
+
+            CALL TRANSCRIPTS (newest first; time into the call, speaker, words)
+            {transcripts}
+
+            DOCUMENTS ON FILE
+            {documents}
+
+            THE ROLE
+            Title: {roleTitle}
+            Level: {seniority}
+            Department: {department}
+            Location: {location}
+            About the role: {narrative}
+            Business driver: {businessDriver}
+            Strategic priorities: {priorities}
+
+            Responsibilities:
+            {responsibilities}
+
+            Selection criteria:
+            {criteria}
+
+            Competencies to score (technical carries {technicalShare}% of the assessment, behavioural the rest):
+            {competencies}
+            """;
+
     private final StructuredPrompt prompt;
 
     public CandidateScorecardDrafter(StructuredPromptFactory prompts) {
@@ -79,37 +112,7 @@ public class CandidateScorecardDrafter {
 
     private ModelAnswer ask(CandidateDossier dossier, AssessmentBrief brief, MaterialText material,
                             Map<String, BriefCompetency> competencyById) {
-        return prompt.ask(ModelAnswer.class, user -> user.text("""
-                THE CANDIDATE (their LinkedIn profile)
-                {profile}
-
-                NOTES ON FILE (the team's own, newest first)
-                {notes}
-
-                CALL TRANSCRIPTS (newest first; time into the call, speaker, words)
-                {transcripts}
-
-                DOCUMENTS ON FILE
-                {documents}
-
-                THE ROLE
-                Title: {roleTitle}
-                Level: {seniority}
-                Department: {department}
-                Location: {location}
-                About the role: {narrative}
-                Business driver: {businessDriver}
-                Strategic priorities: {priorities}
-
-                Responsibilities:
-                {responsibilities}
-
-                Selection criteria:
-                {criteria}
-
-                Competencies to score (technical carries {technicalShare}% of the assessment, behavioural the rest):
-                {competencies}
-                """)
+        return prompt.ask(ModelAnswer.class, user -> user.text(USER_MESSAGE)
                 .param("profile", DossierText.of(dossier))
                 .param("notes", material.notes())
                 .param("transcripts", material.transcripts())

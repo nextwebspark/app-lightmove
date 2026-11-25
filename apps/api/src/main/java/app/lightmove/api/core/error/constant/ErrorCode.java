@@ -19,6 +19,9 @@ public enum ErrorCode {
      */
     INVALID_CREDENTIALS(HttpStatus.UNAUTHORIZED, "Invalid email or password"),
 
+    /** Every address, until single sign-on ships: an answer that varied would say which firms are customers. */
+    SSO_NOT_CONFIGURED(HttpStatus.NOT_FOUND, "We couldn't find an SSO account for that email"),
+
     ACCOUNT_LOCKED(HttpStatus.LOCKED, "Too many failed attempts. Try again later"),
     ACCOUNT_SUSPENDED(HttpStatus.FORBIDDEN, "This account has been suspended"),
     EMAIL_NOT_VERIFIED(HttpStatus.FORBIDDEN, "Please verify your email address to continue"),
@@ -87,6 +90,45 @@ public enum ErrorCode {
 
     /** A high-impact platform action with no code entered inside the step-up window: the SPA asks for one and retries. */
     PLATFORM_STEP_UP_REQUIRED(HttpStatus.FORBIDDEN, "Enter a code from your authenticator app to continue"),
+
+    /** A prompt edit that drops, adds or breaks a variable the code fills on every call. Carried on {@code body}. */
+    PROMPT_CONTRACT_BROKEN(HttpStatus.BAD_REQUEST, "This prompt must keep its variables exactly as written"),
+
+    /** A version saved on a model that is off the catalogue, retired, or cannot do what the prompt needs. */
+    PROMPT_MODEL_UNAVAILABLE(HttpStatus.BAD_REQUEST, "That model can't be used for this prompt"),
+
+    /** Try it on a prompt that has no fictional input to run on. */
+    PROMPT_TRIAL_UNAVAILABLE(HttpStatus.CONFLICT, "This prompt can't be tried here yet"),
+
+    /** Putting live the version that already serves. */
+    PROMPT_ALREADY_LIVE(HttpStatus.CONFLICT, "That version is already live"),
+
+    /** The prompt has no eval subject, so nothing can check a case's shape or run one. */
+    EVAL_SUBJECT_UNAVAILABLE(HttpStatus.CONFLICT, "Cases can't be added for this prompt yet"),
+
+    /** A commit of a file whose preview named rows that cannot be imported. Nothing was added. */
+    EVAL_IMPORT_INVALID(HttpStatus.BAD_REQUEST, "Some rows cannot be imported. Fix the file and choose it again"),
+
+    /** One run goes at a time, platform-wide: a second start is refused, never queued. */
+    EVAL_RUN_IN_PROGRESS(HttpStatus.CONFLICT, "Another run is going. Wait for it to end, or cancel it"),
+
+    /** The run would make more model calls than one run may. */
+    EVAL_RUN_TOO_LARGE(HttpStatus.BAD_REQUEST, "That run would make more calls than one run may"),
+
+    /** The dataset holds no case in use in the chosen split. */
+    EVAL_NO_CASES(HttpStatus.BAD_REQUEST, "That dataset has no cases in that split"),
+
+    /** Label pairs are drawn from finished runs on the dev cases, and there are too few answers there to draw from. */
+    EVAL_CALIBRATION_NO_PAIRS(HttpStatus.CONFLICT, "Finish a run on this dataset's dev cases first"),
+
+    /** The judge is checked against a whole set of labels: some pair still has a criterion with no pick. */
+    EVAL_CALIBRATION_INCOMPLETE(HttpStatus.CONFLICT, "Label every pair before checking the judge"),
+
+    /** One check of a rubric goes at a time. */
+    EVAL_JUDGE_CHECK_IN_PROGRESS(HttpStatus.CONFLICT, "The judge is being checked already"),
+
+    /** Resetting an application variable that nothing overrides. */
+    PLATFORM_SETTING_NOT_CHANGED(HttpStatus.CONFLICT, "That value is already on its default"),
 
     /** Account deletion, by a person with no password: the proof is a sign-in moments ago, as for two-factor. */
     ACCOUNT_SIGN_IN_AGAIN(HttpStatus.CONFLICT, "Sign in again, then delete your account within 10 minutes"),
@@ -306,8 +348,11 @@ public enum ErrorCode {
     /** The dashboard was saved elsewhere after it was opened here. */
     DASHBOARD_STALE(HttpStatus.CONFLICT, "This dashboard was changed since you opened it. Reload to see the changes"),
 
-    /** The member's Home was saved in another tab or device after it was opened here. */
-    HOME_LAYOUT_STALE(HttpStatus.CONFLICT, "Your Home was changed in another window. Reload to see it"),
+    /**
+     * A start page the member may not open: a dashboard or position that is gone, not theirs, or another workspace's,
+     * and the staff pages for a pure client. One answer for all of them, so a guessed id learns nothing.
+     */
+    START_PAGE_UNAVAILABLE(HttpStatus.UNPROCESSABLE_CONTENT, "That page is not available to you. Choose another"),
 
     /** A dashboard holds at most thirty charts, so it stays readable and quick to load. */
     DASHBOARD_TOO_MANY_WIDGETS(HttpStatus.BAD_REQUEST, "A dashboard can hold up to 30 charts"),

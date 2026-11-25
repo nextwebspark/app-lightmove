@@ -54,6 +54,22 @@ describe("OAuthButtons", () => {
     expect(screen.getByRole("button", { name: /Continue with LinkedIn/ })).toBeInTheDocument();
   });
 
+  it("keeps the order the server answers in", async () => {
+    vi.mocked(authApi.providers).mockResolvedValue({
+      providers: ["linkedin", "google", "azure-ad", "okta"],
+    });
+
+    render();
+
+    await screen.findByRole("button", { name: /Continue with LinkedIn/ });
+    expect(screen.getAllByRole("button").map((button) => button.textContent)).toEqual([
+      "Continue with LinkedIn",
+      "Continue with Google",
+      "Continue with Azure Ad",
+      "Continue with Okta",
+    ]);
+  });
+
   it("still offers a provider it has no mark for", async () => {
     vi.mocked(authApi.providers).mockResolvedValue({ providers: ["okta"] });
 

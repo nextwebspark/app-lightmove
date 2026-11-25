@@ -1,29 +1,38 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useEffect, useState } from "react";
+import { type FormEvent, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import { AuthLogo, Button, Card, Field, FormError, Input, Notice } from "../../../components/ui";
+import { Button, Field, Input, Notice } from "../../../components/ui";
 import { ApiRequestError } from "../../../lib/apiClient";
 import { messageFor } from "../../../lib/errorCodes";
-import { ThemeToggle } from "../../theme/ThemeToggle";
 import { isMfaChallenge } from "../api/types";
 import { useAuth } from "../AuthProvider";
+import { SSO_SIGN_IN_PATH } from "../authPaths";
+import { AUTH_LINK_CLASS, AuthShell, LegalFooter, SubmitError, UNREACHABLE_MESSAGE } from "../components/AuthShell";
+import { OAuthButtons, signInWithLabel } from "../components/OAuthButtons";
+import { PasswordInput } from "../components/PasswordInput";
 import { messageForOAuthError } from "../oauthErrors";
 import { landingAfterSignIn, rememberReturnTo, safeReturnTo } from "../returnTo";
-import { OAuthButtons } from "../components/OAuthButtons";
 import { loginSchema, type LoginValues } from "../schemas";
 import { takeAccountDeleted } from "../accountDeletedNotice";
+import { useAuthProviders } from "../useAuthProviders";
 import { TWO_FACTOR_SIGN_IN_PATH } from "./TwoFactorChallengePage";
 
-/** Sign in. A port of uncava-design/Login.dc.html. */
+type SignInStep = "email" | "password";
+
+/**
+ * Sign in, email first. A port of uncava-design/Login.dc.html (`login`, `login-password`). The password step follows
+ * every address alike — nothing is looked up between the two — so the steps never tell who has an account.
+ */
 export function LoginPage() {
   const { signIn } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
+  const [step, setStep] = useState<SignInStep>("email");
+  const { data: providers } = useAuthProviders();
 
-  // Signup hands the typed address over when it turns out to already have an account, so "log in
-  // instead" starts with the email filled rather than making the user type it twice.
+  // Signup and the SSO screen hand the typed address over, so coming here never means typing it twice.
   const prefill = (location.state as { email?: string } | null)?.email ?? "";
   // Settings → Profile's Delete my account lands here, the session already gone; said once.
   const [accountDeleted, setAccountDeleted] = useState(false);
@@ -44,6 +53,8 @@ export function LoginPage() {
   const {
     register,
     handleSubmit,
+    trigger,
+    setFocus,
     watch,
     formState: { errors, isSubmitting },
   } = useForm<LoginValues>({
@@ -75,6 +86,22 @@ export function LoginPage() {
     );
   }, [searchParams, setSearchParams]);
 
+  const goTo = (next: SignInStep) => {
+    setFormError(null);
+    setStep(next);
+  };
+
+  // The email input stays mounted across both steps, so autoFocus cannot bring focus back to it.
+  const backToEmail = () => {
+    goTo("email");
+    setFocus("email");
+  };
+
+  const handleContinue = async (event: FormEvent) => {
+    event.preventDefault();
+    if (await trigger("email")) goTo("password");
+  };
+
   const onSubmit = async (values: LoginValues) => {
     setFormError(null);
     try {
@@ -87,76 +114,76 @@ export function LoginPage() {
       // step homeFor names, not at the page they were reaching for.
       navigate(landingAfterSignIn(answer, returnTo), { replace: true });
     } catch (error) {
-      setFormError(
-        error instanceof ApiRequestError
-          ? messageFor(error)
-          : "Could not reach Uncava. Check your connection and try again.",
-      );
+      setFormError(error instanceof ApiRequestError ? messageFor(error) : UNREACHABLE_MESSAGE);
     }
   };
 
+  // Watched, not read with getValues: these inputs are uncontrolled, so a render-time read would be stale.
+  const typedEmail = watch("email");
+
   return (
-    <div className="flex min-h-dvh flex-col items-center justify-center gap-6 p-4 sm:p-6">
-      <ThemeToggle className="fixed right-4 top-4 z-50" />
-      <AuthLogo />
+    <AuthShell
+      title="Sign in to Uncava"
+      subtitle="Executive search workspace"
+      footer={<LegalFooter />}
+      accountPrompt={
+        <>
+          New to Uncava?{" "}
+          <Link to="/signup" className={AUTH_LINK_CLASS}>
+            Sign up
+          </Link>
+        </>
+      }
+    >
+      {step === "email" && accountDeleted && <Notice>Your account was deleted.</Notice>}
+      {step === "email" && <OAuthButtons onError={setFormError} placement="above" />}
 
-      <Card className="w-[400px] max-w-[94vw] [animation-delay:60ms]">
-        <h1 className="text-[19px] font-semibold leading-tight">Sign in</h1>
-        <p className="mb-6 mt-1 font-mono text-xs text-u-text3">Executive search workspace</p>
+      <form onSubmit={step === "email" ? handleContinue : handleSubmit(onSubmit)} noValidate>
+        <Field label="Work email" error={errors.email?.message}>
+          <Input
+            type="email"
+            autoComplete="username"
+            autoFocus={step === "email"}
+            placeholder="you@firm.com"
+            invalid={!!errors.email}
+            {...register("email")}
+          />
+        </Field>
 
-        {accountDeleted && <Notice>Your account was deleted.</Notice>}
-        <FormError message={formError} />
-
-        <form onSubmit={handleSubmit(onSubmit)} noValidate>
-          <Field label="Work email" error={errors.email?.message}>
-            <Input
-              type="email"
-              autoComplete="email"
-              autoFocus
-              placeholder="you@firm.com"
-              invalid={!!errors.email}
-              {...register("email")}
-            />
-          </Field>
-
-          <Field
-            label="Password"
-            error={errors.password?.message}
-            action={
-              /* Carries the typed email along (watch, not getValues — these inputs are uncontrolled,
-                 so a render-time getValues would capture a stale value), sparing a retype. */
-              <Link
-                to="/forgot-password"
-                state={{ email: watch("email") }}
-                className="text-[11.5px] font-medium text-u-accent hover:underline"
-              >
-                Forgot?
-              </Link>
-            }
-          >
-            <Input
-              type="password"
+        {step === "password" && (
+          <Field label="Password" error={errors.password?.message}>
+            <PasswordInput
               autoComplete="current-password"
+              autoFocus
               placeholder="••••••••"
               invalid={!!errors.password}
               {...register("password")}
             />
           </Field>
+        )}
 
-          <Button type="submit" loading={isSubmitting} className="mt-1 w-full">
-            Continue
-          </Button>
-        </form>
+        <Button type="submit" loading={isSubmitting} className="mt-1 w-full">
+          {step === "email" ? "Continue" : "Sign in"}
+        </Button>
+        <SubmitError message={formError} />
+      </form>
 
-        <OAuthButtons onError={setFormError} />
-      </Card>
-
-      <p className="animate-fade-up text-[12.5px] text-u-text2 [animation-delay:120ms]">
-        New to Uncava?{" "}
-        <Link to="/signup" className="text-u-accent hover:underline">
-          Create an account
-        </Link>
-      </p>
-    </div>
+      {step === "email" ? (
+        <div className="mt-4 text-center">
+          <Link to={SSO_SIGN_IN_PATH} state={{ email: typedEmail }} className={AUTH_LINK_CLASS}>
+            Continue with SSO
+          </Link>
+        </div>
+      ) : (
+        <div className="mt-4 flex flex-col items-center gap-3">
+          <Link to="/forgot-password" state={{ email: typedEmail }} className={AUTH_LINK_CLASS}>
+            Forgot password?
+          </Link>
+          <button type="button" onClick={backToEmail} className={AUTH_LINK_CLASS}>
+            {signInWithLabel(providers?.providers ?? [], "SSO", "Sign in another way")}
+          </button>
+        </div>
+      )}
+    </AuthShell>
   );
 }

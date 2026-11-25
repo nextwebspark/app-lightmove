@@ -4,6 +4,7 @@ import { useToast } from "../../../components/ui";
 import { useAuth } from "../../auth/AuthProvider";
 import * as authApi from "../../auth/api/authApi";
 import * as mailboxApi from "../../outreach/api/mailboxApi";
+import { StartPageSection } from "../../startpage/components/StartPageSection";
 import { AccountDataCards } from "../components/AccountDataCards";
 import { ProfileForm } from "../components/ProfileForm";
 import { ProfileIdentityRow } from "../components/ProfileIdentityRow";
@@ -96,6 +97,9 @@ export function SettingsProfilePage() {
           onSave={handleSave}
         />
       </div>
+
+      {/* Keyed on what is saved, so a switch of workspace or a change made elsewhere starts the choice over. */}
+      <StartPageSection key={`${user.workspace?.id}:${JSON.stringify(user.startPage)}`} />
 
       <AccountDataCards />
     </>

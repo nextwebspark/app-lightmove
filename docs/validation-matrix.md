@@ -32,8 +32,12 @@ Rows marked ☐ are open in #858; a PR that closes one ticks it and states the r
 ### Auth and onboarding
 | Field | Client | Server | Shown as |
 |---|---|---|---|
+| Sign-in email (step one of `/login`) | trimmed, email; no account is looked up, so the password step always follows | — (sent with the password) | field |
+| Sign-in password | required | `@NotBlank`; every failure one `INVALID_CREDENTIALS`, one timing | red line under Sign in: "Invalid email or password. Please try again." |
+| SSO work email (`/login/sso`) | trimmed, email | normalised, `@NotBlank @Email @Size(255)`; 10 a minute (`RATE_LIMITED`); every address `SSO_NOT_CONFIGURED` until single sign-on ships | field, red line under Continue |
+| Forgot-password email | trimmed, email | normalised, `@NotBlank @Email`; 3 an hour (`RATE_LIMITED`); an unknown address the same 202 | field, red line under Send reset link |
 | Signup full name | 1–160 | `@NotBlank @Size(160)`, trimmed | field |
-| Signup email | trimmed, email | normalised, `@Email @Size(255)`, work domain, MX | field |
+| Signup email | trimmed, email | normalised, `@Email @Size(255)`, work domain, MX | field; a refusal no field owns, red line under Continue |
 | Signup password | 8+, a digit, ≤ 72 bytes | same; bytes in `PasswordPolicy` | field |
 | Signup terms | an unticked box, required | `@AssertTrue` | under the box |
 | Invite accept terms | an unticked box, required | `@NotNull @AssertTrue` | under the box |
@@ -88,7 +92,6 @@ Rows marked ☐ are open in #858; a PR that closes one ticks it and states the r
 | Two-factor: current password | required where the account has a password; not drawn for one that has none | required where the account has one (`VALIDATION_FAILED` on `currentPassword` when blank); must match (`CURRENT_PASSWORD_INVALID` on `currentPassword`); an account with none turns it on only within `lightmove.auth.mfa.recent-sign-in` (10 min) of signing in (`MFA_SIGN_IN_AGAIN`), and off or new codes with the code alone | field (banner for `MFA_SIGN_IN_AGAIN`) |
 | Two-factor: code to turn on | six digits, spaces dropped | `@NotBlank @Size(32)`; the app's code for the new secret (`MFA_CODE_INVALID` on `code`) | field |
 | Two-factor: code to turn off or get new recovery codes | six digits or a recovery code | `@NotBlank @Size(32)`; the app's code or an unused recovery code (`MFA_CODE_INVALID` on `code`) | field |
-| Platform: Confirm it's you (the code before a high-impact platform action) | six digits or a recovery code (`secondFactorCodeRule`) | `@NotBlank @Size(32)`; the app's code or an unused recovery code (`MFA_CODE_INVALID` on `code`); no enabled factor is `MFA_NOT_ENABLED`; 10 an hour per account | field |
 | Audit log dates (Settings → Security) | the end picker starts at the start date and the start picker ends at the end date | `from` before `to`, `to` exclusive (`VALIDATION_FAILED`); an unknown category or outcome is `VALIDATION_FAILED` | inline line in place of the table |
 | Audit log export | — | past `lightmove.export.max-audit-events` (10,000) the whole export is refused (`VALIDATION_FAILED`), never cut short | toast |
 | Task preset name | trimmed, ≤ 80, one line | `@NotBlank @Size(80)`, no line break | toast |
@@ -108,6 +111,56 @@ Rows marked ☐ are open in #858; a PR that closes one ticks it and states the r
 | Own app keys, Save and verify / Verify again | — (the provider decides) | the provider's token endpoint is asked first, outside any transaction: a refusal is `INTEGRATION_KEYS_REFUSED` with the provider's code as `providerError`, no answer (or an Entra refusal not about the keys) `INTEGRATION_PROVIDER_UNREACHABLE`, past ten checks a minute per workspace on an instance `RATE_LIMITED`; none of them writes anything. Verify again keeps the answer either way | banner ("{Provider} refused these keys ({code}). Nothing was saved." / "… The saved secret is unchanged.") / toast |
 | ☐ Invitation role | always sent | not required (MEMBER when absent) | — |
 
+### Platform console
+
+Staff only (`docs/platform-console.md`). A caller holding no platform action is answered 404 before any of these rules is reached.
+
+| Field | Client | Server | Shown as |
+|---|---|---|---|
+| Platform: Confirm it's you (the code before a high-impact platform action) | six digits or a recovery code (`secondFactorCodeRule`) | `@NotBlank @Size(32)`; the app's code or an unused recovery code (`MFA_CODE_INVALID` on `code`); no enabled factor is `MFA_NOT_ENABLED`; 10 an hour per account | field |
+| Platform prompt: Instructions | required; for a prompt with variables, each of them kept as written | `@NotBlank @Size(40000)`; a prompt shipped with `{variables}` keeps exactly those, in a text that still fills in (`PROMPT_CONTRACT_BROKEN` on `body`, naming the prompt's own variables only) | field |
+| Platform prompt: Model | one of the listed models, or Default model; a model the prompt cannot use is disabled with its reason | on the catalogue, not past its retirement date, and able to do what the prompt needs (`PROMPT_MODEL_UNAVAILABLE` on `modelId`); `provider` and `modelId` together or neither | field |
+| Platform prompt: Temperature, Thinking budget, Max output tokens | a number inside the range of the model that would answer (the chosen one, else the configured one; none held when neither is listed); a decimal takes a point and a comma is refused, never read; the two token counts are whole numbers; empty is the default | inside the range `AiModelCatalog` declares for the chosen model, or for the configured one under Default model (`VALIDATION_FAILED` on `settings.temperature`, `settings.thinkingBudget`, `settings.maxOutputTokens`); a setting under Default model when the configured model is not on the catalogue is `PROMPT_MODEL_UNAVAILABLE` on `modelId`; unset keeps the feature's default | field |
+| Platform prompt: Change note | required, ≤ 300; Save as new version held while empty | `@NotBlank @Size(300)` | field |
+| Platform prompt: Why put it live anyway / Why roll back | asked for a rollback, and for a version whose check in the dialog is not No worse (a regressed run, or no finished run on the holdout cases); not drawn after a passing run; where asked, required, ≤ 500, the confirm button held while empty | `@Size(500)`; required for a rollback and for any version whose latest holdout run against the one serving did not find it no worse, or that has none (`VALIDATION_FAILED` on `reason`); the version must exist (`NOT_FOUND`) and not already serve (`PROMPT_ALREADY_LIVE`); its model, where it names one, must still be usable today (`PROMPT_MODEL_UNAVAILABLE`, banner); a fresh two-factor code (`PLATFORM_STEP_UP_REQUIRED`) | field |
+| Platform variable: New value | a whole number inside the variable's own range ("Enter a whole number from 1 to 25."); Save is not held | the same range, read from `ApplicationVariable` (`VALIDATION_FAILED` on `value`); a value it already has is refused on `value` too; a key off the list is `404`; a fresh two-factor code (`PLATFORM_STEP_UP_REQUIRED`) | field |
+| Platform variable: Change note (on a change and on Reset to default) | required, ≤ 500; Reset to default held while empty | `@NotBlank @Size(500)`; a reset of a variable nothing overrides is `PLATFORM_SETTING_NOT_CHANGED` | field; banner for the reset refusal |
+| Platform evals: Import cases (the file) | a `.jsonl` file is read before anything is added; Add N cases is held while a row is at fault or the file adds nothing | one case per line, each with `key` (letters, digits, `.`, `-`, `_`; ≤ 40; never one the dataset has held), `name` (≤ 200), `split` `DEV` or `HOLDOUT`, `source` `SYNTHETIC` and an `input` (and `expected`) its prompt's subject accepts; a prompt with no subject takes none (`EVAL_SUBJECT_UNAVAILABLE`); a commit of a file with a row at fault adds nothing (`EVAL_IMPORT_INVALID`) | every row at fault listed by its line in the dialog; other refusals as a banner there |
+| Platform evals: Start a run (Prompt, Candidate, Against, Dataset, Cases) | only prompts whose cases can be run; Candidate is any version but the live one, Against opens on the live one; the two must differ; Start run is held until the estimate arrives, and while it names no case or more calls than one run may make | the dataset exists (`NOT_FOUND`) and its prompt can be run (`EVAL_SUBJECT_UNAVAILABLE`); both versions exist and differ (`VALIDATION_FAILED` on `candidateVersion` / `baselineVersion`) on models still usable (`PROMPT_MODEL_UNAVAILABLE` on the same); the split holds a case in use (`EVAL_NO_CASES`); cases × 2 × repeats within `lightmove.platform.eval.max-calls-per-run` (`EVAL_RUN_TOO_LARGE`); no other run queued or going (`EVAL_RUN_IN_PROGRESS`) | a version's refusal under its field; the rest as a banner in the dialog |
+| Platform evals: Label pairs (a pick on each criterion) | Save and next is held until every criterion of the pair has a pick; the picks made so far are shown again on return | the pair exists (`NOT_FOUND`); exactly one pick, `A`, `B` or `TIE`, for every criterion of its rubric (`VALIDATION_FAILED` on `picks`); starting needs 20 pairs from finished runs on the dev cases (`EVAL_CALIBRATION_NO_PAIRS`) | toast |
+| Platform evals: Check the judge | offered only once every pair is labelled, and not while a check goes | every pair labelled on every criterion (`EVAL_CALIBRATION_INCOMPLETE`); no check of that rubric queued or going (`EVAL_JUDGE_CHECK_IN_PROGRESS`) | toast |
+
+### Position templates
+
+One editor (`TemplateEditorPage`) for a firm's own templates (Settings → Templates, `scope="workspace"`) and the
+platform library (Platform → Templates, `scope="library"`, staff only). The server's rules are
+`PositionTemplateValidator`'s, which the import runs too; they mirror the brief's own limits, so a template never
+seeds a brief its own write would refuse. Save is held while the draft is unchanged or a rule listed under the form
+fails; a server refusal names every field at fault in the banner above the form.
+
+| Field | Client | Server | Shown as |
+|---|---|---|---|
+| Template title | required (Save held, "Give the template a title."); ≤ 160 by `maxLength` | trimmed, `@NotBlank @Size(160)` | banner |
+| Discipline, seniority | selects, always one chosen | `@NotNull` | banner |
+| Summary | ≤ 300 by `maxLength` | trimmed, blank stored as none, `@Size(300)` | banner |
+| Match keywords | chips: ≤ 20, each ≤ 80, lower-cased as typed | trimmed, lower-cased, blanks and repeats dropped; ≤ 20, each ≤ 80 on `keywords` | banner |
+| Department | ≤ 160 by `maxLength` | `@Size(160)` on `body.department` | banner |
+| Key responsibilities | chips: ≤ 20, each ≤ 200 | ≤ 20, each ≤ 200 | banner |
+| Ideal profile | ≤ 4,000 by `maxLength` | ≤ 4,000 on `body.narrative` | banner |
+| Strategic priorities | chips: ≤ 20, each ≤ 120 | ≤ 20, each ≤ 120; two sharing a name, case and outer spaces ignored, refused | banner |
+| Reports to | ≤ 160 by `maxLength` | ≤ 160 on `body.reportsTo` | banner |
+| Notice period | a picker of the brief's five periods; a pair recorded outside them stays offered, "(as recorded)" | `body.noticeValue` 0–999 | banner |
+| Direct reports | chips: ≤ 30, each ≤ 160 | ≤ 30, each ≤ 160 | banner |
+| Currency | `CurrencySelect` over the served list; a new template opens on the workspace's currency | three capital letters and an ISO 4217 code (`body.currency`) | banner |
+| Target bonus and basis | a number, two decimals by `step`; basis optional | ≥ 0, ≤ 999,999,999,999.99, two decimals; inside the basis's own ceiling (`BonusBasis.admits`, the brief's rule) on `body.bonusValue` | banner |
+| Incentive vesting | ≤ 200 by `maxLength` | ≤ 200 on `body.incentiveVesting` | banner |
+| Benefits | ≤ 20 rows (Add hidden at 20), name ≤ 120; a blank name holds Save ("Name every benefit.") | ≤ 20; every one named, ≤ 120 | banner |
+| Screening criteria | ≤ 30 rows (the add row hidden at 30), text ≤ 300; a blank one holds Save ("Every criterion needs its text.") | ≤ 30; every one with text, ≤ 300 | banner |
+| Competencies (each panel) | ≤ 10 rows a panel; name ≤ 120, description ≤ 300; a blank name holds Save; weights 0–100 each, and a panel with rows must total 100 (Save held) | ≤ 10 a panel; every one named and given a panel, name ≤ 120, description ≤ 300, weight 0–100, and a panel with rows totals 100 (`body.competencies.technical` / `.behavioural`) | banner |
+| Save over someone else's save | sends the version it opened | `TEMPLATE_STALE` (409) unless the version matches | banner with Reload |
+| Archive (library) or hide (a firm's view of a library template) | the fallback template offers neither; a firm's own copy of a library template offers Reset, not Hide | the fallback is never archived or hidden (`TEMPLATE_FALLBACK_REQUIRED`); hiding a library template the firm has its own copy of is `CONFLICT` ("Reset your firm's copy of this template before hiding it") | toast |
+| Import templates (the file) | the file is read and checked before anything is written; Import is held while a row is at fault or nothing would be written | each row against the rules above; a commit with any row at fault writes none (`TEMPLATE_IMPORT_INVALID`) | every row at fault listed in the dialog; other refusals as a banner there |
+
 ### Projects and clients
 | Field | Client | Server | Shown as |
 |---|---|---|---|
@@ -124,7 +177,7 @@ Rows marked ☐ are open in #858; a PR that closes one ticks it and states the r
 | ☐ Off-limits note | — | unbounded | toast |
 | Business unit / client notes | the note editor's Markdown, ≤ 4000 held under the box (both drawers' Save waits on it); sent only when changed, so stored plain notes stay plain | `@Size(4000)`; `notesFormat` an `ApiValueEnum`, plain when absent | toast |
 | Dashboard name (new, rename) | trimmed, required, ≤ 80 (zod) | `@NotBlank @Size(80)` | field (client), toast (server) |
-| Home layout | Needs you can't be removed; sections and charts resize only within their minimums; at most 12 charts on Home | exactly one `NEEDS`, at most one `TODAY` / `POSITIONS`, every tile on the twelve-column grid, a section at least its minimum (Needs you 5 × 6, Today 3 × 3, Your positions 3 × 4; a chart's type minimum is the screen's), ≤ 12 charts, each checked as a workspace dashboard chart (`CHART_QUERY_NOT_FOUND`, `CHART_TYPE_NOT_ALLOWED`, `CHART_OPTION_INVALID`); `needs` keys are Needs you groups; `landing` `HOME` / `POSITIONS` (else `VALIDATION_FAILED`); a `version` other than the stored one (null for none) → `HOME_LAYOUT_STALE` | toast, and Home reads its layout again |
+| Start page (Settings → Profile) | one of the offered pages; a dashboard or a position is required once that option is chosen ("Choose a dashboard" / "Choose a position"); a pure client is offered Home, Positions and a position, Outreach left off | `kind` one of `HOME`, `POSITIONS`, `CANDIDATES`, `TASKS`, `DASHBOARD`, `POSITION`; `dashboardId` for `DASHBOARD`, `projectId` and `section` (`BRIEF`, `STRATEGY`, `UNIVERSE`, `OUTREACH`, `DASHBOARD`) for `POSITION` (else `VALIDATION_FAILED`); a page the member may not open — a dashboard not theirs or not shared, a position without `WORK_VIEW` (`WORK_EXECUTE` for Outreach), a staff page for a pure client, anything of another workspace — is one `START_PAGE_UNAVAILABLE` | field (client and `START_PAGE_UNAVAILABLE`), toast (other) |
 | Dashboard charts | at most 30; only the chart types the query's answer fits can be picked; options from the query's own choices | ≤ 30 (`DASHBOARD_TOO_MANY_WIDGETS`); the query exists on this kind of dashboard (`CHART_QUERY_NOT_FOUND`, a retired one kept only if already saved); `CHART_TYPE_NOT_ALLOWED`; `CHART_OPTION_INVALID`; a `layout` on the twelve-column grid (`0 ≤ x`, `x + w ≤ 12`, `1 ≤ h ≤ 24`, else `VALIDATION_FAILED`); stale `version` → `DASHBOARD_STALE` | toast |
 | Chart title | ≤ 80, optional (blank uses the query's name) | `@Size(80)` | toast |
 
@@ -147,6 +200,7 @@ is held back rather than sent (the step does not save until it is named) and the
 | Competency name / description | ≤ 120 / 300, blank name held | same | toast + rail |
 | Competency weight, technical share | 0–100 | 0–100, DB CHECK | — |
 | Criteria | ≤ 30 × 300, no duplicates, blank held | ≤ 30 × 300 | toast + rail |
+| `reading` on a step's write (#1452, never typed) | sent only by a document fill: the version, the scalars and row counts the fill left as the document's | `version` `@Positive` or null; ≤ 12 `fields` × 64; ≤ 6 `listItems` × 64, each 1–60; keys outside the step ignored; a version counts only once it has served | — |
 | Document | `accept`; ≤ 10 MB before upload | ≤ 10 MB; name **and bytes** must agree on PDF / DOC / DOCX / TXT — the declared type decides nothing | sentence |
 
 ### Strategy

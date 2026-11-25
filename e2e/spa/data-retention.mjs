@@ -11,6 +11,7 @@ import { execFileSync } from "node:child_process";
 import { appendFileSync, mkdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { fillSignIn } from "./sign-in.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const RUN_DIR = process.env.RUN_DIR ?? join(HERE, "..", "results", "current");
@@ -109,9 +110,7 @@ try {
   console.log("\n\x1b[1;36m== DR1  Settings → Data & retention\x1b[0m");
   await step("DR1.1", "an admin finds Data & retention in Settings and opens it", async () => {
     await page.goto(`${WEB}/login`);
-    await page.getByPlaceholder("you@firm.com").fill(EMAIL);
-    await page.getByPlaceholder("••••••••").fill(PASSWORD);
-    await page.getByRole("button", { name: "Continue", exact: true }).click();
+    await fillSignIn(page, EMAIL, PASSWORD);
     await page.waitForURL((url) => !url.pathname.startsWith("/login"), { timeout: 20000 });
     await page.goto(`${WEB}/settings/general`);
     await page.getByRole("link", { name: "Data & retention" }).first().click();

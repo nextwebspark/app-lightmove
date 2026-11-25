@@ -4,6 +4,7 @@ import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.config.LlmRateLimitSettings;
 import app.lightmove.api.core.config.LlmSettings;
 import app.lightmove.api.core.llm.service.LlmCallPolicy;
+import app.lightmove.api.core.llm.service.PromptTrialRunner;
 import app.lightmove.api.core.llm.service.StructuredPromptFactory;
 import java.util.List;
 import org.springframework.ai.chat.client.ChatClient;
@@ -29,6 +30,12 @@ public final class TestLlmCallPolicy {
     /** Structured prompts over {@code model}, loaded from the shipped prompt files and guarded as shipped. */
     public static StructuredPromptFactory promptsOver(ChatModel model) {
         return promptsOver(ChatClient.builder(model).build());
+    }
+
+    /** As {@link #promptsOver(ChatModel)}, answering with whatever version {@code trials} is running. */
+    public static StructuredPromptFactory promptsOver(ChatModel model, PromptTrialRunner trials) {
+        return new StructuredPromptFactory(ChatClient.builder(model).build(), asShipped(),
+                TestPromptCalls.bundledUnless(trials));
     }
 
     public static StructuredPromptFactory promptsOver(ChatClient chatClient) {

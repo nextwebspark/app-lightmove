@@ -40,12 +40,12 @@ class ConfiguredProvidersTest {
     @Autowired CookieAuthorizationRequestStore authorizationRequestStore;
 
     @Test
-    @DisplayName("every configured registration is offered, by its id")
+    @DisplayName("every configured registration is offered, by its id, in the configured button order")
     void listsEveryConfiguredRegistration() throws Exception {
         mvc.perform(get("/api/v1/auth/providers"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.providers[0]").value("google"))
-                .andExpect(jsonPath("$.providers[1]").value("linkedin"));
+                .andExpect(jsonPath("$.providers[0]").value("linkedin"))
+                .andExpect(jsonPath("$.providers[1]").value("google"));
     }
 
     @Test

@@ -13,5 +13,17 @@ public enum PlatformAction {
     SUBSCRIPTION_MANAGE,
 
     /** Restore a deleted workspace within its grace period, and read a purged one's deletion certificate. */
-    WORKSPACE_LIFECYCLE_MANAGE
+    WORKSPACE_LIFECYCLE_MANAGE,
+
+    /** Read the AI prompts and their versions, save a new version and try it. Changes nothing that serves. */
+    PROMPT_MANAGE,
+
+    /** Move a prompt's production label: put a version live, or roll back to an earlier one. */
+    PROMPT_PROMOTE,
+
+    /** Read the eval datasets, import and retire synthetic cases, and run a prompt version against them. */
+    EVAL_RUN,
+
+    /** Read the application variables and their history, change one and reset it to its default. */
+    PLATFORM_SETTINGS_MANAGE
 }

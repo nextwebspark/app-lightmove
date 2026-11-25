@@ -50,7 +50,13 @@ public enum LlmBudget {
     OUTREACH_DRAFT("outreach-draft", LlmRateLimitSettings::defaultRequestsPerMinute),
 
     /** One Prepare questions press, drafting an interview plan for a call. */
-    INTERVIEW_PLAN("interview-plan", LlmRateLimitSettings::defaultRequestsPerMinute);
+    INTERVIEW_PLAN("interview-plan", LlmRateLimitSettings::defaultRequestsPerMinute),
+
+    /** One Try it of a prompt version in the platform console. */
+    PROMPT_TRIAL("prompt-trial", LlmRateLimitSettings::defaultRequestsPerMinute),
+
+    /** One eval run started in the platform console, spent when it is started, whatever it goes on to call. */
+    EVAL_RUN("eval-run", LlmRateLimitSettings::defaultRequestsPerMinute);
 
     private final String meter;
     private final ToIntFunction<LlmRateLimitSettings> callsPerMinute;

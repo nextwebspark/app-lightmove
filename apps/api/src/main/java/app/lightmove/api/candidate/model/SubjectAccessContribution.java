@@ -1,6 +1,6 @@
 package app.lightmove.api.candidate.model;
 
-import app.lightmove.api.candidate.constant.AiUse;
+import app.lightmove.api.common.constant.AiUse;
 import java.util.List;
 import java.util.Set;
 

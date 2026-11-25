@@ -1,124 +1,168 @@
+import { dayKeyOf, daysBetween } from "../../../lib/datetime/zone";
+import type { ConversationGroup } from "../../outreach/api/conversationApi";
 import type { TaskKind, TaskPerson, TaskResponse } from "../../tasks/api/types";
 import type { MyConversationRow } from "../api/homeApi";
-import type { NeedsKind } from "./homeLayout";
 
-/** One row of Needs you: an executive waiting in outreach, or a task of the caller's. */
+/** One row of the queue as the server and the caller's tasks give it: an executive waiting in outreach, or a task. */
 export type NeedsItem =
-  | { kind: "conversation"; key: string; group: NeedsKind; at: string | null; entry: MyConversationRow }
-  | { kind: "task"; key: string; at: string | null; task: TaskResponse };
+  | { kind: "conversation"; key: string; group: ConversationGroup; entry: MyConversationRow }
+  | { kind: "task"; key: string; task: TaskResponse };
 
 /**
- * A call or meeting still to come is today's agenda, drawn under Today rather than in the queue. One whose time has
- * passed is owed like any other task, so it stays in the queue: Today only lists what is still ahead.
+ * A call or meeting of the caller's own, later today, is drawn under Today rather than in the queue — exactly what
+ * Today lists. Anything else stays in the queue: a call whose time has passed is owed like any other task, and a call
+ * on another day, or a teammate's under Team, has no other place on Home.
  */
-export function isAgendaTask(task: TaskResponse, now: Date = new Date()): boolean {
-  return (task.kind === "call" || task.kind === "meeting") && task.dueAt !== null && new Date(task.dueAt) >= now;
+export function isTodayAgendaOf(
+  task: Pick<TaskResponse, "kind" | "dueAt" | "assignee">,
+  myUserId: string | undefined,
+  now: Date = new Date(),
+): boolean {
+  if ((task.kind !== "call" && task.kind !== "meeting") || task.dueAt === null) return false;
+  const due = new Date(task.dueAt);
+  return task.assignee.userId === myUserId && due >= now && dayKeyOf(due) === dayKeyOf(now);
 }
 
 /**
- * The queue: outreach rows in the groups the person keeps, then their tasks. A task a row already carries as its next
- * action is that row, so it is never drawn twice. Rows keep the order the server sent them in, the To do queue's own,
- * and tasks follow, soonest due first.
+ * The queue: every outreach row, then the caller's open tasks, less what Today draws. A task a row already carries as
+ * its next action is that row, so it is never drawn twice.
  */
 export function needsYouOf(
   conversations: readonly MyConversationRow[],
   tasks: readonly TaskResponse[],
-  kinds: Record<NeedsKind, boolean>,
+  myUserId: string | undefined,
   now: Date = new Date(),
 ): NeedsItem[] {
-  const shown = conversations.filter((entry) => entry.row.group !== null && kinds[entry.row.group]);
+  const shown = conversations.filter(
+    (entry) =>
+      entry.row.group !== null &&
+      !(
+        (entry.row.group === "FOLLOW_UP" || entry.row.group === "PREPARATION") &&
+        entry.row.action &&
+        isTodayAgendaOf(entry.row.action, myUserId, now)
+      ),
+  );
   const carried = new Set(shown.map((entry) => entry.row.action?.taskId).filter(Boolean));
   const rows = shown.map((entry): NeedsItem => ({
     kind: "conversation",
     key: `c:${entry.projectId}:${entry.row.candidateId}`,
-    group: entry.row.group as NeedsKind,
-    at: entry.row.action?.dueAt ?? null,
+    group: entry.row.group as ConversationGroup,
     entry,
   }));
   const own = tasks
-    .filter((task) => task.status === "open" && !carried.has(task.id) && !isAgendaTask(task, now))
-    .sort((left, right) => compareAt(left.dueAt, right.dueAt))
-    .map((task): NeedsItem => ({ kind: "task", key: `t:${task.id}`, at: task.dueAt, task }));
+    .filter((task) => task.status === "open" && !carried.has(task.id) && !isTodayAgendaOf(task, myUserId, now))
+    .map((task): NeedsItem => ({ kind: "task", key: `t:${task.id}`, task }));
   return [...rows, ...own];
 }
 
-/** A task as Needs you lists it on one line — the caller's own, or the next action an outreach row carries. */
-export interface TaskLine {
+/** Why a line is on the list, most pressing first: it decides the order, the icon's tint and the chip. */
+export type AttentionReason = "overdue" | "reply" | "delivery" | "today" | "later";
+
+/** One line of Needs your attention: what to do, for whom, on which position, and how pressing it is. */
+export interface AttentionLine {
   key: string;
-  taskId: string;
-  title: string;
-  kind: TaskKind;
-  dueAt: string | null;
-  assignee: TaskPerson;
+  reason: AttentionReason;
+  /** A task's own kind; null for a reply or a delivery problem, which is no task. */
+  taskKind: TaskKind | null;
+  /** The outreach group that put it here; null for one of the caller's own tasks. */
+  group: ConversationGroup | null;
+  /** A task's title; null where the line is worded from the person ("… replied to your outreach"). */
+  taskTitle: string | null;
+  /** When it was due, or when the executive last wrote. */
+  at: string | null;
   projectId: string;
-  projectTitle: string | null;
+  positionTitle: string | null;
   candidateId: string | null;
   personId: string;
   personName: string;
-  /** The outreach group that carried it, for its hover. */
-  group: NeedsKind | null;
+  assignee: TaskPerson | null;
 }
 
-/** The two decisions outreach asks for in place: an answer to a reply, a delivery to put right. */
-const CARD_GROUPS: ReadonlySet<NeedsKind> = new Set(["NEEDS_REPLY", "ATTENTION"]);
+const REASON_ORDER: Record<AttentionReason, number> = { overdue: 0, reply: 1, delivery: 2, today: 3, later: 4 };
+
+/** What Home lists, and how many tasks it leaves to My tasks because they are not due yet. */
+export interface Attention {
+  lines: AttentionLine[];
+  comingUp: number;
+}
 
 /**
- * Needs you's two blocks. A reply or a delivery problem is a card. A Follow-up or Before first email row is only
- * waiting on the task it carries, so it is that task's line, beside the caller's own, soonest due first.
+ * Needs your attention, in one list of what to act on now: overdue first (longest late at the top), then replies and
+ * delivery problems (newest first), then what is due today (soonest first). A task due tomorrow or later is not on it,
+ * whether it is the caller's own or a follow-up an executive's outreach row carries; it is only counted. The caller's
+ * own are counted by My tasks' Upcoming tally (`ownUpcoming`), which already holds the ones a row carries.
  */
-export function blocksOf(items: readonly NeedsItem[]): {
-  cards: Extract<NeedsItem, { kind: "conversation" }>[];
-  lines: TaskLine[];
-} {
-  const cards: Extract<NeedsItem, { kind: "conversation" }>[] = [];
-  const lines: TaskLine[] = [];
-  for (const item of items) {
+export function attentionOf(
+  items: readonly NeedsItem[],
+  now: Date = new Date(),
+  { myUserId, ownUpcoming = 0 }: { myUserId?: string; ownUpcoming?: number } = {},
+): Attention {
+  const today = dayKeyOf(now);
+  const reasonOfDue = (dueAt: string | null): AttentionReason => {
+    if (!dueAt) return "later";
+    const due = new Date(dueAt);
+    if (due.getTime() < now.getTime()) return "overdue";
+    return daysBetween(today, dayKeyOf(due)) === 0 ? "today" : "later";
+  };
+  const lines = items.map((item): AttentionLine => {
     if (item.kind === "task") {
       const { task } = item;
-      lines.push({
+      return {
         key: item.key,
-        taskId: task.id,
-        title: task.title,
-        kind: task.kind,
-        dueAt: task.dueAt,
-        assignee: task.assignee,
+        reason: reasonOfDue(task.dueAt),
+        taskKind: task.kind,
+        group: null,
+        taskTitle: task.title,
+        at: task.dueAt,
         projectId: task.projectId,
-        projectTitle: task.projectTitle,
+        positionTitle: task.projectTitle,
         candidateId: task.candidateId,
         personId: task.personId,
         personName: task.personName ?? "Someone",
-        group: null,
-      });
-      continue;
+        assignee: task.assignee,
+      };
     }
-    const { row } = item.entry;
-    if (CARD_GROUPS.has(item.group) || !row.action) {
-      cards.push(item);
-      continue;
-    }
-    lines.push({
+    const { entry, group } = item;
+    const { row } = entry;
+    const base = {
       key: item.key,
-      taskId: row.action.taskId,
-      title: row.action.title,
-      kind: row.action.kind,
-      dueAt: row.action.dueAt,
-      assignee: row.action.assignee,
-      projectId: item.entry.projectId,
-      projectTitle: item.entry.positionTitle,
+      group,
+      projectId: entry.projectId,
+      positionTitle: entry.positionTitle,
       candidateId: row.candidateId,
       personId: row.personId,
       personName: row.fullName,
-      group: item.group,
-    });
-  }
-  lines.sort((left, right) => compareAt(left.dueAt, right.dueAt));
-  return { cards, lines };
+      assignee: row.action?.assignee ?? null,
+    };
+    if (group === "NEEDS_REPLY" || group === "ATTENTION" || !row.action) {
+      return {
+        ...base,
+        reason: group === "NEEDS_REPLY" ? "reply" : group === "ATTENTION" ? "delivery" : "later",
+        taskKind: null,
+        taskTitle: null,
+        at: row.latest?.at ?? row.lastActivityAt,
+      };
+    }
+    return {
+      ...base,
+      reason: reasonOfDue(row.action.dueAt),
+      taskKind: row.action.kind,
+      taskTitle: row.action.title,
+      at: row.action.dueAt,
+    };
+  });
+  const sorted = lines.sort((left, right) => {
+    const byReason = REASON_ORDER[left.reason] - REASON_ORDER[right.reason];
+    if (byReason !== 0) return byReason;
+    if (left.at === right.at) return 0;
+    if (left.at === null) return 1;
+    if (right.at === null) return -1;
+    const earlierFirst = left.at < right.at ? -1 : 1;
+    return left.reason === "reply" || left.reason === "delivery" ? -earlierFirst : earlierFirst;
+  });
+  const due = sorted.filter((line) => line.reason !== "later");
+  const othersLater = sorted.filter(
+    (line) => line.reason === "later" && (myUserId === undefined || line.assignee?.userId !== myUserId),
+  ).length;
+  return { lines: due, comingUp: othersLater + ownUpcoming };
 }
-
-function compareAt(left: string | null, right: string | null): number {
-  if (left === right) return 0;
-  if (left === null) return 1;
-  if (right === null) return -1;
-  return left < right ? -1 : 1;
-}
-

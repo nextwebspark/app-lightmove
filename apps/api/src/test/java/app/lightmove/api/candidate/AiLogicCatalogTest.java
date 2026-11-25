@@ -2,7 +2,7 @@ package app.lightmove.api.candidate;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import app.lightmove.api.candidate.constant.AiUse;
+import app.lightmove.api.common.constant.AiUse;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -30,6 +30,8 @@ class AiLogicCatalogTest {
             Map.entry("recruiter-shortlist-system.st", "the /llm/shortlist smoke test: stateless, reads no workspace"
                     + " data and stores nothing"),
             Map.entry("executive-sourcing-words-system.st", "turns a brief into title words; no person in or out"),
+            Map.entry("eval-judge-system.st", "compares two answers to a synthetic eval case in the platform console;"
+                    + " reads no workspace's data and stores nothing about a person"),
             Map.entry("import-column-mapping-system.st", "maps spreadsheet headers; never sees a cell value"),
             Map.entry("position-extract-assessment-system.st", "reads a position description; no person"),
             Map.entry("position-extract-context-system.st", "reads a position description; no person"),

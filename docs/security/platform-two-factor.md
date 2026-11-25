@@ -9,9 +9,10 @@ With `lightmove.platform.require-two-factor` on (`PLATFORM_REQUIRE_TWO_FACTOR`, 
 
 | Route | Asked, in this order | Refusal |
 |---|---|---|
+| every platform route | any platform action at all, in the filter chain, before a handler is looked up (`PlatformRouteGate`) | `404 NOT_FOUND` |
 | every platform route | the platform action | `404 NOT_FOUND` |
 | every platform route | an enabled two-factor factor | `403 PLATFORM_TWO_FACTOR_REQUIRED` |
-| high-impact routes (`@RequireRecentTwoFactor`: a credit grant, an invoiced subscription) | a code entered within `lightmove.platform.step-up-window` (`PLATFORM_STEP_UP_WINDOW`, 10 minutes) | `403 PLATFORM_STEP_UP_REQUIRED` |
+| high-impact routes (`@RequireRecentTwoFactor`: a credit grant, an invoiced subscription, putting a prompt version live or rolling one back, changing or resetting an application variable) | a code entered within `lightmove.platform.step-up-window` (`PLATFORM_STEP_UP_WINDOW`, 10 minutes) | `403 PLATFORM_STEP_UP_REQUIRED` |
 
 - **The action is always first.** Anyone without it is answered the 404 they always were, so nothing tells a
   stranger the surface exists or that it asks for two-factor.

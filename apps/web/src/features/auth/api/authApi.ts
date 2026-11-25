@@ -169,6 +169,15 @@ export function requestPasswordReset(email: string): Promise<void> {
   });
 }
 
+/** Asks where an address's single sign-on lives; every address answers `SSO_NOT_CONFIGURED` until it ships. */
+export function discoverSso(email: string): Promise<void> {
+  return request<void>("/auth/sso/discover", {
+    method: "POST",
+    body: { email },
+    anonymous: true,
+  });
+}
+
 /**
  * Redeems the emailed reset link. The server signs the user in on success — the token proved the
  * mailbox, which is everything a login proves — so this installs the access token exactly like login.

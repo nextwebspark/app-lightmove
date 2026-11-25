@@ -76,6 +76,6 @@ public class ExtensionAuthController {
                 session.tokens().accessToken(),
                 session.tokens().accessTokenTtl().toSeconds(),
                 session.tokens().refreshToken(),
-                assembler.user(session.user(), session.membership()));
+                assembler.extensionUser(session.user(), session.membership()));
     }
 }

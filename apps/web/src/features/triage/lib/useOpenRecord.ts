@@ -86,3 +86,12 @@ export function useOpenRecord(projectId: string, offered: boolean): OpenRecord {
 
   return { profile, setProfile, stepProfile, focusTab };
 }
+
+/** The URL with `candidate` open (or none), dropping what pointed inside the previous record. */
+export function withOpenCandidate(current: URLSearchParams, candidateId: string | null): URLSearchParams {
+  const params = new URLSearchParams(current);
+  if (candidateId) params.set("candidate", candidateId);
+  else params.delete("candidate");
+  for (const key of OPEN_RECORD_COMPANIONS) params.delete(key);
+  return params;
+}

@@ -11,6 +11,8 @@ public record RateLimitSettings(
         @DefaultValue("3") int passwordResetRequestsPerHour,
         @DefaultValue("10") int passwordChangeAttemptsPerHour,
 
+        @DefaultValue("10") int ssoLookupsPerMinute,
+
         /** Codes after a correct password; the lockout counter is the real brake, this spares the database. */
         @DefaultValue("10") int mfaVerifyAttemptsPerMinute,
 

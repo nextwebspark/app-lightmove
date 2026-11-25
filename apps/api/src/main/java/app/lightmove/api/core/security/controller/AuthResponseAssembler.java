@@ -14,6 +14,7 @@ import app.lightmove.api.core.security.rbac.PlatformAccess;
 import app.lightmove.api.core.security.rbac.Role;
 import app.lightmove.api.core.security.rbac.WorkspaceRole;
 import app.lightmove.api.core.security.repository.UserRepository;
+import app.lightmove.api.core.security.service.StartPageLookup;
 import app.lightmove.api.core.security.service.WorkspaceSelection;
 import app.lightmove.api.core.security.token.TokenPair;
 import app.lightmove.api.core.tenant.ResolvedRow;
@@ -54,6 +55,7 @@ public class AuthResponseAssembler {
     private final PlatformAccess platform;
     private final DateTimePreferenceService dateTimePreferences;
     private final TenantResolvers resolvers;
+    private final StartPageLookup startPages;
 
     public AuthResponse assemble(TokenPair tokens, User user, WorkspaceMember membership) {
         return new AuthResponse(
@@ -64,6 +66,15 @@ public class AuthResponseAssembler {
 
     /** @param membership the workspace this <i>session</i> is in, or null — never "the user's", of several */
     public UserResponse user(User user, WorkspaceMember membership) {
+        return user(user, membership, true);
+    }
+
+    /** {@link #user} for the extension, which never opens a start page and so does not pay for reading one. */
+    public UserResponse extensionUser(User user, WorkspaceMember membership) {
+        return user(user, membership, false);
+    }
+
+    private UserResponse user(User user, WorkspaceMember membership, boolean withStartPage) {
         List<WorkspaceMember> memberships = selection.all(user.getId());
         Map<UUID, Workspace> byId = workspacesOf(memberships);
         Workspace current = membership == null || !membership.isActive() ? null : byId.get(membership.getWorkspaceId());
@@ -87,6 +98,7 @@ public class AuthResponseAssembler {
                         current == null ? null : DateTimeChoiceResponse.of(dateTimePreferences.forWorkspace(current))),
                 user.getLocale(),
                 currentSummary(membership, byId),
+                current == null || !withStartPage ? null : startPages.startPageOf(membership),
                 memberships.stream()
                         .filter(member -> byId.containsKey(member.getWorkspaceId()))
                         .map(member -> toSummary(byId.get(member.getWorkspaceId()), member))

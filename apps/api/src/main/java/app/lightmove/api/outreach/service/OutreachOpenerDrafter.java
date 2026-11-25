@@ -3,6 +3,7 @@ package app.lightmove.api.outreach.service;
 import app.lightmove.api.candidate.model.CandidateCareerEntry;
 import app.lightmove.api.candidate.model.CandidateDossier;
 import app.lightmove.api.candidate.model.CandidateEducationEntry;
+import app.lightmove.api.core.llm.model.AttributedAnswer;
 import app.lightmove.api.core.llm.model.BlockedAnswer;
 import app.lightmove.api.core.llm.service.StructuredPrompt;
 import app.lightmove.api.core.llm.service.StructuredPromptFactory;
@@ -24,10 +25,34 @@ import org.springframework.stereotype.Service;
 @Slf4j
 public class OutreachOpenerDrafter {
 
-    private static final String PROMPT_ID = "outreach-opener";
+    static final String PROMPT_ID = "outreach-opener";
     private static final String BLOCKED = "{\"opener\":\"" + BlockedAnswer.MARKER + "\"}";
     private static final String NOT_STATED = "not stated";
     private static final int MAX_OPENER_LENGTH = 600;
+
+    /** What is sent beside the instructions: the same text for every call, filled from the dossier and the brief. */
+    static final String USER_MESSAGE = """
+            THE EXECUTIVE (their LinkedIn profile)
+            Name: {name}
+            Current title: {title}
+            Current employer: {company}
+            Location: {location}
+            About: {about}
+
+            Career history, most recent first:
+            {career}
+
+            Education:
+            {education}
+
+            Skills: {skills}
+
+            THE ROLE
+            Title: {roleTitle}
+            Level: {seniority}
+            Sector: {sector}
+            Location: {roleLocation}
+            """;
 
     private final StructuredPrompt prompt;
 
@@ -36,43 +61,29 @@ public class OutreachOpenerDrafter {
     }
 
     public Optional<String> draft(CandidateDossier dossier, OpenerBrief brief) {
+        return draftAttributed(dossier, brief).map(AttributedAnswer::answer);
+    }
+
+    public Optional<AttributedAnswer<String>> draftAttributed(CandidateDossier dossier, OpenerBrief brief) {
         try {
-            ModelAnswer answered = ask(dossier, brief);
+            AttributedAnswer<ModelAnswer> drafted = ask(dossier, brief);
+            ModelAnswer answered = drafted.answer();
             if (answered == null || answered.opener() == null || answered.opener().isBlank()
                     || BlockedAnswer.matches(answered.opener())) {
                 return Optional.empty();
             }
             String opener = answered.opener().trim();
-            return Optional.of(opener.length() > MAX_OPENER_LENGTH ? opener.substring(0, MAX_OPENER_LENGTH) : opener);
+            return Optional.of(new AttributedAnswer<>(
+                    opener.length() > MAX_OPENER_LENGTH ? opener.substring(0, MAX_OPENER_LENGTH) : opener,
+                    drafted.answeredBy()));
         } catch (RuntimeException e) {
             log.warn("Outreach opener not drafted: {}", e.toString());
             return Optional.empty();
         }
     }
 
-    private ModelAnswer ask(CandidateDossier dossier, OpenerBrief brief) {
-        return prompt.ask(ModelAnswer.class, user -> user.text("""
-                THE EXECUTIVE (their LinkedIn profile)
-                Name: {name}
-                Current title: {title}
-                Current employer: {company}
-                Location: {location}
-                About: {about}
-
-                Career history, most recent first:
-                {career}
-
-                Education:
-                {education}
-
-                Skills: {skills}
-
-                THE ROLE
-                Title: {roleTitle}
-                Level: {seniority}
-                Sector: {sector}
-                Location: {roleLocation}
-                """)
+    private AttributedAnswer<ModelAnswer> ask(CandidateDossier dossier, OpenerBrief brief) {
+        return prompt.askAttributed(ModelAnswer.class, user -> user.text(USER_MESSAGE)
                 .param("name", orNotStated(dossier.fullName()))
                 .param("title", orNotStated(dossier.title()))
                 .param("company", orNotStated(dossier.companyName()))

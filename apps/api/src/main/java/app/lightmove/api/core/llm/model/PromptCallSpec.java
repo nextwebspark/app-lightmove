@@ -26,7 +26,12 @@ public record PromptCallSpec(
     private static final int STRUCTURED_THINKING_BUDGET = 0;
 
     public static PromptCallSpec structured(String promptId) {
-        return new PromptCallSpec(promptId, promptId, PromptKind.STRUCTURED, null,
+        return structured(promptId, null);
+    }
+
+    /** The same, answered by {@code defaultModel} where the serving version names none. */
+    public static PromptCallSpec structured(String promptId, String defaultModel) {
+        return new PromptCallSpec(promptId, promptId, PromptKind.STRUCTURED, defaultModel,
                 new GenerationSettings(STRUCTURED_TEMPERATURE, STRUCTURED_THINKING_BUDGET, null));
     }
 

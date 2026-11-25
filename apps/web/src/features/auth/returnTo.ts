@@ -57,5 +57,6 @@ export function takeReturnTo(): string | null {
  * two copies of it disagreeing once sent a sign-in reached from the MCP consent screen to the projects list.
  */
 export function landingAfterSignIn(user: NonNullable<Parameters<typeof homeFor>[0]>, returnTo: string | null): string {
-  return returnTo && user.workspace ? returnTo : homeFor(user);
+  // The bare root is no destination: someone who opened Uncava signed out belongs on their start page.
+  return returnTo && returnTo !== "/" && user.workspace ? returnTo : homeFor(user);
 }

@@ -4,7 +4,7 @@ import app.lightmove.api.core.audit.constant.AuthEventType;
 import app.lightmove.api.core.audit.constant.PlatformEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.config.LightMoveProperties;
-import app.lightmove.api.core.config.PlatformSecuritySettings;
+import app.lightmove.api.core.config.PlatformSettings;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.security.mfa.MfaCodeKind;
@@ -33,7 +33,7 @@ public class PlatformTwoFactor {
     private final MfaRecoveryCodeRepository recoveryCodes;
     private final PlatformStepUpStore stepUps;
     private final AuditService audit;
-    private final PlatformSecuritySettings config;
+    private final PlatformSettings config;
     private final Clock clock;
 
     public PlatformTwoFactor(MfaFactorRepository factors, MfaCodeVerifier codes,

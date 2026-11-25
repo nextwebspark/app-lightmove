@@ -15,6 +15,7 @@ import { execFileSync } from "node:child_process";
 import { readFileSync, mkdirSync, appendFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { fillSignIn } from "./sign-in.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const RUN_DIR = process.env.RUN_DIR ?? join(HERE, "..", "results", "current");
@@ -147,9 +148,7 @@ const shot = (name, target = page) => target.screenshot({ path: join(SHOTS, `rep
 
 async function signIn(target, email) {
   await target.goto(`${WEB}/login`);
-  await target.getByPlaceholder("you@firm.com").fill(email);
-  await target.getByPlaceholder("••••••••").fill(PASSWORD);
-  await target.getByRole("button", { name: "Continue", exact: true }).click();
+  await fillSignIn(target, email, PASSWORD);
   await target.waitForURL((url) => !url.pathname.startsWith("/login"), { timeout: 20000 });
 }
 

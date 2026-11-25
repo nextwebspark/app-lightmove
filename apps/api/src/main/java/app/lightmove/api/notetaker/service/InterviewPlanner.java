@@ -50,6 +50,27 @@ class InterviewPlanner {
             RecordGap.MOTIVATION, "what would make them move",
             RecordGap.EXPECTED_PACKAGE, "what package they would expect");
 
+    /** What is sent beside the instructions: the same text for every plan, filled from the brief and the executive. */
+    static final String USER_MESSAGE = """
+            THE POSITION
+            {position}
+
+            COMPETENCIES THE TEAM HAS ALREADY EVIDENCED
+            {evidenced}
+
+            FACTS THE RECORD IS MISSING (gap name: what it is)
+            {gaps}
+
+            THE EXECUTIVE (their LinkedIn profile)
+            {profile}
+
+            NOTES ON FILE (the team's own, newest first)
+            {notes}
+
+            DOCUMENTS ON FILE
+            {documents}
+            """;
+
     private final StructuredPrompt prompt;
 
     InterviewPlanner(StructuredPromptFactory prompts) {
@@ -63,25 +84,7 @@ class InterviewPlanner {
     List<InterviewQuestion> draft(AssessmentBrief brief, ExecutiveReadingText executive, Set<String> evidenced,
                                   Set<RecordGap> gaps) {
         Map<String, BriefCompetency> competencyById = MeetingSummariser.idsOf(brief);
-        PlanAnswer answer = prompt.ask(PlanAnswer.class, user -> user.text("""
-                THE POSITION
-                {position}
-
-                COMPETENCIES THE TEAM HAS ALREADY EVIDENCED
-                {evidenced}
-
-                FACTS THE RECORD IS MISSING (gap name: what it is)
-                {gaps}
-
-                THE EXECUTIVE (their LinkedIn profile)
-                {profile}
-
-                NOTES ON FILE (the team's own, newest first)
-                {notes}
-
-                DOCUMENTS ON FILE
-                {documents}
-                """)
+        PlanAnswer answer = prompt.ask(PlanAnswer.class, user -> user.text(USER_MESSAGE)
                 .param("position", MeetingSummariser.positionOf(brief, competencyById))
                 .param("evidenced", evidencedText(competencyById, evidenced))
                 .param("gaps", gaps.isEmpty() ? "none" : gaps.stream()

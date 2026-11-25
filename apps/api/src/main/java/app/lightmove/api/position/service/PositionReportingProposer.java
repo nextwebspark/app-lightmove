@@ -2,6 +2,7 @@ package app.lightmove.api.position.service;
 
 import app.lightmove.api.common.constant.NoticePeriod;
 import app.lightmove.api.common.constant.NoticeUnit;
+import app.lightmove.api.core.llm.model.AttributedAnswer;
 import app.lightmove.api.core.llm.model.BlockedAnswer;
 import app.lightmove.api.core.llm.model.Pseudonyms;
 import app.lightmove.api.core.llm.service.StructuredPrompt;
@@ -31,7 +32,7 @@ import org.springframework.stereotype.Service;
 public class PositionReportingProposer {
 
     private static final String LABEL = "Reporting extraction";
-    private static final String PROMPT_ID = "position-extract-reporting";
+    static final String PROMPT_ID = "position-extract-reporting";
 
     /** Binds to {@link ModelReportingAnswer}, whose only required field is {@code reportsToTitle}. */
     private static final String BLOCKED = "{\"reportsToTitle\":\"" + BlockedAnswer.MARKER + "\"}";
@@ -45,6 +46,12 @@ public class PositionReportingProposer {
      * seat, the reports-to seat and the existing chart; the true cap is enforced client-side.
      */
     private static final int DIRECT_REPORT_MAX_COUNT = 40;
+
+    /** What is sent beside the instructions: the same text for every call, filled from the document. */
+    static final String USER_MESSAGE = """
+            Position description text:
+            {text}
+            """;
 
     private final PositionDocumentRedactor redactor;
     private final ExtractedFieldReader fieldReader;
@@ -66,26 +73,29 @@ public class PositionReportingProposer {
 
         try {
             Redaction redaction = redactor.redact(documentText, clientId, workspaceId);
-            ModelReportingAnswer answered = ask(redaction.text());
-            if (answered == null || wasBlocked(answered)) {
-                if (answered != null) {
-                    log.warn("Reporting extraction blocked before reaching the model: the document "
-                            + "matched the injection word list.");
-                }
-                return finish(empty());
-            }
-            return finish(reconcile(answered, redaction.pseudonyms(), documentText));
+            return read(redaction.text(), redaction.pseudonyms(), documentText);
         } catch (RuntimeException e) {
             log.warn("Reporting extraction found nothing to propose: {}", e.toString());
             return finish(empty());
         }
     }
 
-    private ModelReportingAnswer ask(String redactedText) {
-        return prompt.ask(ModelReportingAnswer.class, user -> user.text("""
-                Position description text:
-                {text}
-                """)
+    /** The model call and what follows it, on a document already redacted: no budget, no table. */
+    ProposedReportingStructure read(String redactedText, Pseudonyms pseudonyms, String originalText) {
+        AttributedAnswer<ModelReportingAnswer> attributed = ask(redactedText);
+        ModelReportingAnswer answered = attributed.answer();
+        if (answered == null || wasBlocked(answered)) {
+            if (answered != null) {
+                log.warn("Reporting extraction blocked before reaching the model: the document "
+                        + "matched the injection word list.");
+            }
+            return finish(empty());
+        }
+        return finish(reconcile(answered, pseudonyms, originalText)).answeredBy(attributed.answeredBy());
+    }
+
+    private AttributedAnswer<ModelReportingAnswer> ask(String redactedText) {
+        return prompt.askAttributed(ModelReportingAnswer.class, user -> user.text(USER_MESSAGE)
                 .param("text", redactedText));
     }
 

@@ -112,6 +112,15 @@ export function formatTimeAgo(isoInstant: string, now: Date = new Date()): strin
   return days === 1 ? "yesterday" : `${days} days ago`;
 }
 
+/** {@link formatTimeAgo} for a chip: "24m ago", "3h ago", "2d ago". */
+export function formatTimeAgoShort(isoInstant: string, now: Date = new Date()): string {
+  const minutes = Math.max(1, Math.floor((now.getTime() - new Date(isoInstant).getTime()) / 60_000));
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.floor(hours / 24)}d ago`;
+}
+
 /**
  * Null is the common case — Apollo publishes a revenue figure on roughly one row in ten — and reads
  * as unknown, not zero. Shared by both company grids: a revenue that says "$1.2B" on Strategy and
@@ -131,7 +140,13 @@ export function joined(values: string[]): string | null {
 
 /** "1 change", "3 changes": a count with its noun, the plural an `s`. */
 export function countOf(count: number, noun: string): string {
-  return count === 1 ? `1 ${noun}` : `${count} ${noun}s`;
+  return `${formatNumber(count)} ${noun}${count === 1 ? "" : "s"}`;
+}
+
+/** "a", "a and b", "a, b and c". */
+export function joinNames(names: readonly string[]): string {
+  if (names.length < 2) return names.join("");
+  return `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
 }
 
 function trimAmount(value: number): string {

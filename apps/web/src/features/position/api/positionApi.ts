@@ -4,6 +4,7 @@ import type {
   Compensation,
   Competency,
   Criterion,
+  DocumentReading,
   MandateContext,
   Position,
   PositionDetails,
@@ -58,19 +59,31 @@ export function applyTemplate(projectId: string, templateId: string): Promise<Po
   });
 }
 
-export function putDetails(projectId: string, details: PositionDetails): Promise<Position> {
-  return request<Position>(`${base(projectId)}/details`, { method: "PUT", body: details });
+/** A step's write carries `reading` only when a document fill scheduled it (#1452). */
+function withReading<T extends object>(body: T, reading: DocumentReading | null | undefined): T {
+  return reading == null ? body : { ...body, reading };
 }
 
-export function putContext(projectId: string, context: MandateContext): Promise<Position> {
-  return request<Position>(`${base(projectId)}/context`, { method: "PUT", body: context });
+export function putDetails(projectId: string, details: PositionDetails, reading?: DocumentReading | null): Promise<Position> {
+  return request<Position>(`${base(projectId)}/details`, { method: "PUT", body: withReading(details, reading) });
 }
 
-export function putReporting(projectId: string, reporting: ReportingStructure): Promise<Position> {
+export function putContext(projectId: string, context: MandateContext, reading?: DocumentReading | null): Promise<Position> {
+  return request<Position>(`${base(projectId)}/context`, { method: "PUT", body: withReading(context, reading) });
+}
+
+export function putReporting(
+  projectId: string,
+  reporting: ReportingStructure,
+  reading?: DocumentReading | null,
+): Promise<Position> {
   // The target date is the project's and this step only displays it, so it is dropped rather than
   // echoed back: the server has no field for it, and sending one implies an owner this screen is not.
   const { targetStart: _targetStart, ...editable } = reporting;
-  return request<Position>(`${base(projectId)}/reporting`, { method: "PUT", body: editable });
+  return request<Position>(`${base(projectId)}/reporting`, {
+    method: "PUT",
+    body: withReading(editable, reading),
+  });
 }
 
 export function putCompensation(projectId: string, compensation: Compensation): Promise<Position> {
@@ -80,8 +93,11 @@ export function putCompensation(projectId: string, compensation: Compensation): 
   });
 }
 
-export function putCriteria(projectId: string, criteria: Criterion[]): Promise<Position> {
-  return request<Position>(`${base(projectId)}/criteria`, { method: "PUT", body: { criteria } });
+export function putCriteria(projectId: string, criteria: Criterion[], reading?: DocumentReading | null): Promise<Position> {
+  return request<Position>(`${base(projectId)}/criteria`, {
+    method: "PUT",
+    body: withReading({ criteria }, reading),
+  });
 }
 
 export function putCompetencies(
@@ -89,10 +105,11 @@ export function putCompetencies(
   technical: Competency[],
   behavioural: Competency[],
   technicalShare: number,
+  reading?: DocumentReading | null,
 ): Promise<Position> {
   return request<Position>(`${base(projectId)}/competencies`, {
     method: "PUT",
-    body: { technical, behavioural, technicalShare },
+    body: withReading({ technical, behavioural, technicalShare }, reading),
   });
 }
 

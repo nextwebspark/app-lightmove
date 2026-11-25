@@ -1,6 +1,5 @@
 package app.lightmove.api.candidate.service;
 
-import app.lightmove.api.candidate.constant.AiUse;
 import app.lightmove.api.candidate.model.SubjectAccessAbout;
 import app.lightmove.api.candidate.model.SubjectAccessArchive;
 import app.lightmove.api.candidate.model.SubjectAccessContribution;
@@ -9,6 +8,7 @@ import app.lightmove.api.candidate.model.SubjectAccessPosition;
 import app.lightmove.api.candidate.model.SubjectAccessReferences;
 import app.lightmove.api.candidate.model.SubjectAccessSection;
 import app.lightmove.api.candidate.model.SubjectAccessSubject;
+import app.lightmove.api.common.constant.AiUse;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.config.LightMoveProperties;

@@ -2,6 +2,10 @@ package app.lightmove.api.core.llm.service;
 
 import app.lightmove.api.core.llm.constant.AiProvider;
 import app.lightmove.api.core.llm.constant.ModelCapability;
+import app.lightmove.api.core.llm.constant.ModelLaunchStage;
+import app.lightmove.api.core.llm.constant.PromptKind;
+import app.lightmove.api.core.llm.constant.ThinkingLevel;
+import app.lightmove.api.core.llm.constant.UnusableModelReason;
 import app.lightmove.api.core.llm.model.AiModel;
 import app.lightmove.api.core.llm.model.SettingRange;
 import java.time.LocalDate;
@@ -13,8 +17,8 @@ import org.springframework.stereotype.Component;
 /**
  * The models a prompt version may name, as provider + model id. GA models only, each with the earliest retirement
  * date its provider states: a version on a model past that date, or no longer listed here, is answered by the
- * deployment's configured model instead. Dates are Google's "model versions and lifecycle" page as read on
- * 2026-11-21; re-read it when adding or removing an entry.
+ * deployment's configured model instead. Dates, output limits and thinking levels are Google's "model versions and
+ * lifecycle", "Thinking" and model pages as read on 2026-11-24; re-read them when adding or removing an entry.
  */
 @Component
 public class AiModelCatalog {
@@ -27,14 +31,24 @@ public class AiModelCatalog {
 
     private static final SettingRange TEMPERATURE = new SettingRange(0, 1);
     private static final SettingRange THINKING_BUDGET = new SettingRange(0, 8192);
-    private static final SettingRange MAX_OUTPUT_TOKENS = new SettingRange(256, 16384);
+    private static final SettingRange MAX_OUTPUT_TOKENS = new SettingRange(256, 65536);
+    /** 4 Argon answers at most 32,768 tokens in one non-streaming call, our structured calls' kind. */
+    private static final SettingRange ARGON_MAX_OUTPUT_TOKENS = new SettingRange(256, 32768);
+
+    private static final List<ThinkingLevel> FROM_MINIMAL =
+            List.of(ThinkingLevel.MINIMAL, ThinkingLevel.LOW, ThinkingLevel.MEDIUM, ThinkingLevel.HIGH);
+    /** Asking these for MINIMAL is a validation error. */
+    private static final List<ThinkingLevel> FROM_LOW =
+            List.of(ThinkingLevel.LOW, ThinkingLevel.MEDIUM, ThinkingLevel.HIGH);
 
     private static final List<AiModel> MODELS = List.of(
-            gemini("gemini-3.5-flash", "Gemini 3.5 Flash", LocalDate.of(2027, 5, 19)),
-            gemini("gemini-3.5-flash-lite", "Gemini 3.5 Flash-Lite", LocalDate.of(2027, 7, 21)),
-            gemini("gemini-3.8-flash", "Gemini 3.8 Flash", LocalDate.of(2027, 9, 2)),
-            gemini("gemini-3.1-flash-lite", "Gemini 3.1 Flash-Lite", LocalDate.of(2027, 5, 7)),
-            gemini("gemini-4-argon", "Gemini 4 Argon", LocalDate.of(2027, 10, 13)));
+            gemini("gemini-3.5-flash", "Gemini 3.5 Flash", LocalDate.of(2027, 5, 19), MAX_OUTPUT_TOKENS, FROM_MINIMAL),
+            gemini("gemini-3.5-flash-lite", "Gemini 3.5 Flash-Lite", LocalDate.of(2027, 7, 21), MAX_OUTPUT_TOKENS,
+                    FROM_MINIMAL),
+            gemini("gemini-3.8-flash", "Gemini 3.8 Flash", LocalDate.of(2027, 9, 2), MAX_OUTPUT_TOKENS, FROM_LOW),
+            gemini("gemini-3.1-flash-lite", "Gemini 3.1 Flash-Lite", LocalDate.of(2027, 5, 7), MAX_OUTPUT_TOKENS,
+                    FROM_MINIMAL),
+            gemini("gemini-4-argon", "Gemini 4 Argon", LocalDate.of(2027, 10, 13), ARGON_MAX_OUTPUT_TOKENS, FROM_LOW));
 
     public List<AiModel> all() {
         return MODELS;
@@ -46,8 +60,30 @@ public class AiModelCatalog {
                 .findFirst();
     }
 
-    private static AiModel gemini(String modelId, String displayName, LocalDate retiresOn) {
-        return new AiModel(AiProvider.VERTEX_GEMINI, modelId, displayName, retiresOn, VERTEX_DATA_TERMS,
-                ANSWERS_AND_TOOLS, TEMPERATURE, THINKING_BUDGET, MAX_OUTPUT_TOKENS);
+    /**
+     * Why a version naming this model cannot be answered by it on {@code day}, for a prompt of {@code kind}: the
+     * configured model answers instead. Empty when the model will do. The one rule for saving a version, putting
+     * one live and serving it, so the three cannot disagree.
+     */
+    public Optional<UnusableModelReason> unusableBecause(AiProvider provider, String modelId, PromptKind kind,
+                                                         LocalDate day) {
+        Optional<AiModel> model = provider == null || modelId == null ? Optional.empty() : find(provider, modelId);
+        if (model.isEmpty()) {
+            return Optional.of(UnusableModelReason.NOT_IN_CATALOGUE);
+        }
+        if (model.get().isRetiredOn(day)) {
+            return Optional.of(UnusableModelReason.RETIRED);
+        }
+        ModelCapability needed = kind.needs();
+        if (needed != null && !model.get().can(needed)) {
+            return Optional.of(UnusableModelReason.LACKS_CAPABILITY);
+        }
+        return Optional.empty();
+    }
+
+    private static AiModel gemini(String modelId, String displayName, LocalDate retiresOn,
+                                  SettingRange maxOutputTokens, List<ThinkingLevel> thinkingLevels) {
+        return new AiModel(AiProvider.VERTEX_GEMINI, modelId, displayName, ModelLaunchStage.GA, retiresOn,
+                VERTEX_DATA_TERMS, ANSWERS_AND_TOOLS, TEMPERATURE, THINKING_BUDGET, maxOutputTokens, thinkingLevels);
     }
 }

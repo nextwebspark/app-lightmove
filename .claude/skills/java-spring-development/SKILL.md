@@ -82,7 +82,11 @@ core/
                                                           (every secret the app stores — encrypted, never logged)
   persistence/ model/(BaseEntity)
   logging/     service/(CorrelationId, CorrelationIdFilter)
-  config/      LightMoveProperties (root record) + one *Settings record per branch,
+  llm/         every model call: PromptCalls and StructuredPrompt (what a caller asks through), PromptSource and
+               RegistryPromptSource (the version serving now), AiModelCatalog, ChatModelProvider, LlmCallPolicy
+               (guard and schema advisors), PromptCallCounter and PromptOutcomes (counts, never content)
+  reload/      PlatformConfigReload, ReloadableSnapshot — a cache every instance drops when a platform change commits
+  config/      LightMoveProperties (root record) + one *Settings record per branch, ApplicationVariables,
                SpaResourceConfig                          (cross-cutting; no type split)
 
 workspace/                 # feature template — project / position / strategy / triagecompany / candidate copy this
@@ -376,6 +380,23 @@ more than one instance).
 - Comments explain *why*, not *what*. Every class carries a class-level doc; the inline comments that
   document shipped bugs (the traps below) are load-bearing and must not be stripped. If a line needs a
   comment to say what it *does*, rename something.
+
+## The platform console's seams
+
+`docs/platform-console.md` has the whole of it. Four rules a change is most likely to break:
+
+- **A model call asks through `PromptCalls`** (a structured one through `StructuredPromptFactory`), never
+  `chatClient.prompt()` with a text read off the classpath: that is what serves the version put live, on its model
+  and settings, and counts the call. A caller that wants what a person then does with the answer counted takes
+  `askAttributed` and reports through `PromptOutcomes`.
+- **A value on the variables allowlist is read through `ApplicationVariables`**, never its `*Settings` record, or
+  a change in the console does nothing. A long job reads its limits once, at the start.
+- **A cache of platform configuration is a `ReloadableSnapshot`**, read in its own transaction: a failed read must
+  not abort the caller's (#1446).
+- **A platform route takes `@RequirePlatformPermission` or `@RequireRecentTwoFactor`**, the second for anything
+  that reaches every workspace at once. `PlatformRouteGate` already answers 404 to everyone else in the security
+  filter chain, before a handler is looked up; never move that rule into an interceptor or a guard, where a wrong
+  method answers 405.
 
 ## Secrets the app holds
 

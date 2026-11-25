@@ -80,6 +80,7 @@ with zipfile.ZipFile(sys.argv[1]) as z:
             out[name] = "<%d bytes>" % len(data)
 print(json.dumps(out))
 `, path]).toString());
+import { fillSignIn } from "./sign-in.mjs";
 
 // --- the seed -------------------------------------------------------------------------
 
@@ -121,9 +122,7 @@ try {
   let zipPath = null;
   await step("SA1.1", "an admin finds Export personal data in the person's ⋯ and reads the dialog", async () => {
     await page.goto(`${WEB}/login`);
-    await page.getByPlaceholder("you@firm.com").fill(EMAIL);
-    await page.getByPlaceholder("••••••••").fill(PASSWORD);
-    await page.getByRole("button", { name: "Continue", exact: true }).click();
+    await fillSignIn(page, EMAIL, PASSWORD);
     await page.waitForURL((url) => !url.pathname.startsWith("/login"), { timeout: 20000 });
     await page.goto(`${WEB}/candidates?person=${PERSON}`);
     await page.getByRole("button", { name: "More for Noor Haddad" }).click({ timeout: 20000 });

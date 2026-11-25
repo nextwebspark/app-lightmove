@@ -49,8 +49,9 @@ describe("two-factor sign-in", () => {
     renderAt("/login");
 
     await user.type(await screen.findByLabelText(/work email/i), "priya@firm.example");
-    await user.type(screen.getByPlaceholderText("••••••••"), "secret123");
     await user.click(screen.getByRole("button", { name: "Continue" }));
+    await user.type(await screen.findByPlaceholderText("••••••••"), "secret123");
+    await user.click(screen.getByRole("button", { name: "Sign in" }));
 
     expect(await screen.findByRole("heading", { name: /two-factor authentication/i })).toBeInTheDocument();
     expect(screen.getByTestId("path")).toHaveTextContent(TWO_FACTOR_SIGN_IN_PATH);

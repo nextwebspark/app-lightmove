@@ -6,17 +6,19 @@ import { WorkspaceLayout } from "../components/layout/WorkspaceLayout";
 import { Logo, Spinner } from "../components/ui";
 import { useAuth } from "../features/auth/AuthProvider";
 import { homeFor } from "../features/auth/homeFor";
+import { OpenAtStartPage } from "../features/startpage/components/OpenAtStartPage";
 import { landingAfterSignIn, safeReturnTo } from "../features/auth/returnTo";
 import { hasPendingSignupRestart } from "../features/auth/signupRestart";
 import { AcceptInvitePage } from "../features/auth/pages/AcceptInvitePage";
 import { ForgotPasswordPage } from "../features/auth/pages/ForgotPasswordPage";
 import { LoginPage } from "../features/auth/pages/LoginPage";
 import { OAuthCallbackPage } from "../features/auth/pages/OAuthCallbackPage";
-import { PROVIDER_TERMS_PATH } from "../features/auth/authPaths";
+import { PROVIDER_TERMS_PATH, SSO_SIGN_IN_PATH } from "../features/auth/authPaths";
 import { ProviderTermsPage } from "../features/auth/pages/ProviderTermsPage";
 import { ResetPasswordPage } from "../features/auth/pages/ResetPasswordPage";
 import { TWO_FACTOR_SIGN_IN_PATH, TwoFactorChallengePage } from "../features/auth/pages/TwoFactorChallengePage";
 import { SignupPage } from "../features/auth/pages/SignupPage";
+import { SsoSignInPage } from "../features/auth/pages/SsoSignInPage";
 import { SignupVerifyStepPage } from "../features/auth/pages/SignupVerifyStepPage";
 import { VerifyEmailPage } from "../features/auth/pages/VerifyEmailPage";
 import { WorkspaceStepPage } from "../features/auth/pages/WorkspaceStepPage";
@@ -79,6 +81,7 @@ export function AppRoutes() {
   return (
     <Routes>
       <Route path="/login" element={<AnonymousOnly><LoginPage /></AnonymousOnly>} />
+      <Route path={SSO_SIGN_IN_PATH} element={<AnonymousOnly><SsoSignInPage /></AnonymousOnly>} />
       <Route path={TWO_FACTOR_SIGN_IN_PATH} element={<AnonymousOnly><TwoFactorChallengePage /></AnonymousOnly>} />
       <Route path="/signup" element={<AnonymousOnly><SignupPage /></AnonymousOnly>} />
       {/* A first provider sign-in's terms step: no account yet, only the cookie the callback set. */}
@@ -137,7 +140,7 @@ export function AppRoutes() {
       <Route element={<RequireWorkspace><WorkspaceLayout /></RequireWorkspace>}>
         {/* Home and the Positions list are everyone's, portal guests included: the server answers each
             person only the positions they may see. The registry and the roster are staff surfaces. */}
-        <Route path="/" element={<HomePage />} />
+        <Route path="/" element={<OpenAtStartPage><HomePage /></OpenAtStartPage>} />
         <Route path="/positions" element={<ProjectsPage />} />
         <Route path="/all" element={<PositionsRedirect />} />
         <Route element={<RequireStaff><Outlet /></RequireStaff>}>
@@ -288,7 +291,6 @@ function UnknownAddress() {
 
 function RequireAuth({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();
-  const location = useLocation();
 
   if (loading) return <Booting />;
 
@@ -296,10 +298,17 @@ function RequireAuth({ children }: { children: ReactNode }) {
   if (!user) {
     // Remember where they were headed, so signing in returns them to it rather than dumping them on
     // the home page.
-    return <Navigate to="/login" replace state={{ from: location.pathname + location.search }} />;
+    return <ToLogin />;
   }
 
   return <>{children}</>;
+}
+
+/** The login page, carrying the page left behind unless the person ended the session themselves. */
+function ToLogin() {
+  const { endedOnPurpose } = useAuth();
+  const location = useLocation();
+  return <Navigate to="/login" replace state={endedOnPurpose ? undefined : { from: location.pathname + location.search }} />;
 }
 
 /** Signup past the gate. An unverified user is sent back to the step they skipped. */
@@ -321,13 +330,12 @@ function RequireVerified({ children }: { children: ReactNode }) {
  */
 function RequireWorkspace({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();
-  const location = useLocation();
 
   if (loading) return <Booting />;
   // Carries the destination the way RequireAuth does. /extension/connect is the reason: pairing is a
   // one-gesture flow, and dropping it here dead-ends the consultant on the projects list with the
   // extension still unpaired.
-  if (!user) return <Navigate to="/login" replace state={{ from: location.pathname + location.search }} />;
+  if (!user) return <ToLogin />;
   if (!user.workspace) return <Navigate to={homeFor(user)} replace />;
 
   return <>{children}</>;

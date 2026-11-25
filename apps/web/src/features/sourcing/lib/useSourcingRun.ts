@@ -128,7 +128,9 @@ export function useSourcingRun(projectId: string, enabled: boolean, streamIsLive
 
 export type SourcingRunState = ReturnType<typeof useSourcingRun>;
 
-function isLost(run: SourcingRun, lostAfterMs: number): boolean {
+// The run's own figure wins: the config's follows the current deadline, which may have been lowered mid-run.
+function isLost(run: SourcingRun, lostAfterMsWhenNoneRecorded: number): boolean {
+  const lostAfterMs = run.lostAfterSeconds != null ? run.lostAfterSeconds * 1000 : lostAfterMsWhenNoneRecorded;
   const since = Date.parse(run.startedAt ?? run.requestedAt);
   return lostAfterMs > 0 && !Number.isNaN(since) && Date.now() - since > lostAfterMs;
 }

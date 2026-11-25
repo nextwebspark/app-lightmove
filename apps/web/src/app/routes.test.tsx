@@ -10,6 +10,10 @@ import { AuthProvider } from "../features/auth/AuthProvider";
 import * as authApi from "../features/auth/api/authApi";
 import * as clientsApi from "../features/clients/api/clientsApi";
 import * as consentApi from "../features/oauth/api/oauthConsentApi";
+import * as evalApi from "../features/platform/evals/api/evalApi";
+import * as variableApi from "../features/platform/variables/api/variableApi";
+import * as promptApi from "../features/platform/prompts/api/promptApi";
+import { detail as promptDetail, model as aiModel } from "../features/platform/prompts/pages/promptFixtures";
 import * as projectsApi from "../features/projects/api/projectsApi";
 import * as templateAdminApi from "../features/templates/api/templateAdminApi";
 import * as triageApi from "../features/triage/api/triageApi";
@@ -35,6 +39,20 @@ vi.mock("../features/templates/api/templateAdminApi", async (importOriginal) => 
   ...(await importOriginal<typeof import("../features/templates/api/templateAdminApi")>()),
   listTemplates: vi.fn(),
   getTemplate: vi.fn(),
+}));
+vi.mock("../features/platform/prompts/api/promptApi", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../features/platform/prompts/api/promptApi")>()),
+  getPrompt: vi.fn(),
+  getPromptBody: vi.fn(),
+  listAiModels: vi.fn(),
+}));
+vi.mock("../features/platform/variables/api/variableApi", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../features/platform/variables/api/variableApi")>()),
+  listVariables: vi.fn(),
+}));
+vi.mock("../features/platform/evals/api/evalApi", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../features/platform/evals/api/evalApi")>()),
+  listDatasets: vi.fn(),
 }));
 vi.mock("../features/workspace/api/workspaceApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../features/workspace/api/workspaceApi")>()),
@@ -66,6 +84,7 @@ const userWith = (roles: ("ADMIN" | "MEMBER" | "CLIENT")[], mode: "AGENCY" | "CO
   locale: "en",
   platformActions: [],
   pendingInvitations: [],
+  startPage: null,
   termsUpdateRequired: false,
   termsVersion: "2026-07-01",
   workspaces: [],
@@ -98,6 +117,7 @@ const unverifiedUser = () => ({
   locale: "en",
   platformActions: [],
   pendingInvitations: [],
+  startPage: null,
   termsUpdateRequired: false,
   termsVersion: "2026-07-01",
   workspaces: [],
@@ -394,6 +414,80 @@ describe("routes — the platform gate", () => {
     expect(screen.queryByRole("button", { name: /^Workspace:/ })).not.toBeInTheDocument();
   });
 
+  it("keeps someone who holds only the template library out of Prompts", async () => {
+    vi.mocked(authApi.me).mockResolvedValue(superAdmin());
+
+    renderAt("/platform/prompts");
+
+    await waitFor(() => expect(screen.getByTestId("pathname").textContent).toBe("/platform/templates"));
+    expect(screen.queryByRole("link", { name: "Prompts" })).not.toBeInTheDocument();
+  });
+
+  it("asks for no prompt on behalf of someone who may not open one", async () => {
+    vi.mocked(authApi.me).mockResolvedValue(superAdmin());
+
+    renderAt("/platform/prompts/candidate-scorecard-draft");
+
+    await waitFor(() => expect(screen.getByTestId("pathname").textContent).toBe("/platform/templates"));
+    expect(promptApi.getPrompt).not.toHaveBeenCalled();
+  });
+
+  it("keeps someone who holds only the template library out of Evals, and reads nothing for them", async () => {
+    vi.mocked(authApi.me).mockResolvedValue(superAdmin());
+
+    renderAt("/platform/evals");
+
+    await waitFor(() => expect(screen.getByTestId("pathname").textContent).toBe("/platform/templates"));
+    expect(screen.queryByRole("link", { name: "Evals" })).not.toBeInTheDocument();
+    expect(evalApi.listDatasets).not.toHaveBeenCalled();
+  });
+
+  it("keeps someone who holds only the template library out of Variables, and reads nothing for them", async () => {
+    vi.mocked(authApi.me).mockResolvedValue(superAdmin());
+
+    renderAt("/platform/variables");
+
+    await waitFor(() => expect(screen.getByTestId("pathname").textContent).toBe("/platform/templates"));
+    expect(screen.queryByRole("link", { name: "Variables" })).not.toBeInTheDocument();
+    expect(variableApi.listVariables).not.toHaveBeenCalled();
+  });
+
+  it("opens Variables for someone who may change them, from its own item in the console", async () => {
+    vi.mocked(authApi.me).mockResolvedValue({ ...superAdmin(), platformActions: ["PLATFORM_SETTINGS_MANAGE" as const] });
+    vi.mocked(variableApi.listVariables).mockResolvedValue([]);
+
+    renderAt("/platform");
+
+    expect(await screen.findByText(/Only the values listed here can be changed/)).toBeInTheDocument();
+    expect(screen.getByTestId("pathname").textContent).toBe("/platform/variables");
+    expect(screen.getAllByRole("link", { name: "Variables" }).length).toBeGreaterThan(0);
+  });
+
+  it("opens Evals for someone who may run them, from its own item in the console", async () => {
+    vi.mocked(authApi.me).mockResolvedValue({ ...superAdmin(), platformActions: ["EVAL_RUN" as const] });
+    vi.mocked(evalApi.listDatasets).mockResolvedValue([]);
+
+    renderAt("/platform");
+
+    expect(await screen.findByRole("table", { name: "Datasets" })).toBeInTheDocument();
+    expect(screen.getByTestId("pathname").textContent).toBe("/platform/evals");
+    expect(screen.getAllByRole("link", { name: "Evals" }).length).toBeGreaterThan(0);
+  });
+
+  it("names the open prompt in the console's breadcrumb, under a link back to Prompts", async () => {
+    vi.mocked(authApi.me).mockResolvedValue({ ...superAdmin(), platformActions: ["PROMPT_MANAGE" as const] });
+    vi.mocked(promptApi.getPrompt).mockResolvedValue(promptDetail());
+    vi.mocked(promptApi.getPromptBody).mockResolvedValue({ version: 2, body: "Score each competency." });
+    vi.mocked(promptApi.listAiModels).mockResolvedValue([aiModel()]);
+
+    renderAt("/platform/prompts/candidate-scorecard-draft");
+
+    expect(await screen.findByRole("heading", { name: "Assessment draft" })).toBeInTheDocument();
+    const header = screen.getByText("Staff only").parentElement as HTMLElement;
+    await waitFor(() => expect(within(header).getByText("Assessment draft")).toBeInTheDocument());
+    expect(within(header).getByRole("link", { name: "Prompts" })).toHaveAttribute("href", "/platform/prompts");
+  });
+
   it("redirects the library's old address to the console", async () => {
     vi.mocked(authApi.me).mockResolvedValue(superAdmin());
 
@@ -448,15 +542,52 @@ describe("routes — returning to where the guard interrupted", () => {
     const user = userEvent.setup();
     renderAt(consent);
 
-    await user.type(await screen.findByLabelText(/email/i), "someone@firm.example");
-    await user.type(screen.getByLabelText(/password/i), "a long password");
+    await user.type(await screen.findByLabelText("Work email"), "someone@firm.example");
     await user.click(screen.getByRole("button", { name: "Continue" }));
+    await user.type(await screen.findByLabelText("Password"), "a long password");
+    await user.click(screen.getByRole("button", { name: "Sign in" }));
 
     await waitFor(() => expect(screen.getByTestId("pathname")).toHaveTextContent("/oauth/consent"));
     // The path changes on navigate; the consent form mounts and asks a tick later, which a slow CI runner shows.
     await waitFor(() =>
       expect(consentApi.getConsentContext).toHaveBeenCalledWith("claude", "https://claude.ai/cb", "projects:read"),
     );
+  });
+});
+
+/**
+ * Signing out is a decision to leave, not a page to come back to: the next sign-in opens the start page. An expiry is
+ * the opposite, and still returns the person to the page it interrupted.
+ */
+describe("routes — what a sign-in returns to after the session ended", () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+    vi.mocked(restoreSession).mockResolvedValue("token");
+    vi.mocked(authApi.me).mockResolvedValue(userWith(["MEMBER"]));
+    vi.mocked(projectsApi.projects).mockResolvedValue([]);
+  });
+
+  it("forgets the page the person signed out from", async () => {
+    vi.mocked(authApi.logout).mockResolvedValue(undefined);
+    const user = userEvent.setup();
+    renderAt("/positions");
+    await user.click(await screen.findByRole("button", { name: /^Account: / }));
+
+    await user.click(await screen.findByRole("menuitem", { name: "Sign out" }));
+
+    await waitFor(() => expect(screen.getByTestId("pathname")).toHaveTextContent("/login"));
+    expect(screen.getByTestId("from")).toHaveTextContent("");
+  });
+
+  it("keeps the page an expired session interrupted", async () => {
+    renderAt("/positions");
+    await screen.findByRole("button", { name: /^Account: / });
+
+    const sessionLost = vi.mocked(onSessionExpired).mock.calls.at(-1)?.[0];
+    act(() => sessionLost?.());
+
+    await waitFor(() => expect(screen.getByTestId("pathname")).toHaveTextContent("/login"));
+    expect(screen.getByTestId("from")).toHaveTextContent("/positions");
   });
 });
 
@@ -535,6 +666,29 @@ describe("routes — an unknown address with no session", () => {
 
     await waitFor(() => expect(screen.getByTestId("pathname")).toHaveTextContent("/login"));
     expect(screen.getByTestId("from")).toHaveTextContent("/projects/p1");
+  });
+});
+
+describe("routes — single sign-on", () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+  });
+
+  it("opens the SSO screen to someone signed out", async () => {
+    vi.mocked(restoreSession).mockResolvedValue(null);
+    vi.mocked(authApi.me).mockRejectedValue(new Error("no session"));
+    renderAt("/login/sso");
+
+    expect(await screen.findByRole("heading", { name: "Sign in with SSO" })).toBeInTheDocument();
+  });
+
+  it("keeps a signed-in member off it", async () => {
+    vi.mocked(restoreSession).mockResolvedValue("token");
+    vi.mocked(authApi.me).mockResolvedValue(userWith(["MEMBER"]));
+    vi.mocked(projectsApi.projects).mockResolvedValue([]);
+    renderAt("/login/sso");
+
+    await waitFor(() => expect(screen.getByTestId("pathname").textContent).not.toBe("/login/sso"));
   });
 });
 

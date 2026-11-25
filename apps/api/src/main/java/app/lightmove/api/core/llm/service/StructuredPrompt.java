@@ -1,5 +1,6 @@
 package app.lightmove.api.core.llm.service;
 
+import app.lightmove.api.core.llm.model.AttributedAnswer;
 import app.lightmove.api.core.llm.model.PreparedPrompt;
 import app.lightmove.api.core.llm.model.PromptCallSpec;
 import java.util.List;
@@ -18,11 +19,11 @@ public final class StructuredPrompt {
     private final PromptCallSpec spec;
     private final Consumer<ChatClient.AdvisorSpec> guarded;
 
-    StructuredPrompt(ChatClient chatClient, PromptCalls prompts, String promptId,
+    StructuredPrompt(ChatClient chatClient, PromptCalls prompts, PromptCallSpec spec,
                      Consumer<ChatClient.AdvisorSpec> guarded) {
         this.chatClient = chatClient;
         this.prompts = prompts;
-        this.spec = PromptCallSpec.structured(promptId);
+        this.spec = spec;
         this.guarded = guarded;
     }
 
@@ -36,14 +37,31 @@ public final class StructuredPrompt {
      * turn, because the model keeps nothing between calls. The guard reads every turn, not only the last.
      */
     public <T> T ask(Class<T> answerType, List<Message> history, Consumer<ChatClient.PromptUserSpec> user) {
+        return askAttributed(answerType, history, user).answer();
+    }
+
+    /** The answer with the version that gave it, for a feature that counts what a person then does with it. */
+    public <T> AttributedAnswer<T> askAttributed(Class<T> answerType, Consumer<ChatClient.PromptUserSpec> user) {
+        return askAttributed(answerType, List.of(), user);
+    }
+
+    private <T> AttributedAnswer<T> askAttributed(Class<T> answerType, List<Message> history,
+                                                  Consumer<ChatClient.PromptUserSpec> user) {
         PreparedPrompt prompt = prompts.prepare(spec);
-        return chatClient.prompt()
-                .advisors(guarded.andThen(prompt.attribution()))
-                .options(prompt.options())
-                .system(prompt.systemText())
-                .messages(history)
-                .user(user)
-                .call()
-                .entity(answerType);
+        T answer;
+        try {
+            answer = chatClient.prompt()
+                    .advisors(guarded.andThen(prompt.attribution()))
+                    .options(prompt.options())
+                    .system(prompt.systemText())
+                    .messages(history)
+                    .user(user)
+                    .call()
+                    .entity(answerType);
+        } catch (RuntimeException failure) {
+            prompts.failedToBind(prompt);
+            throw failure;
+        }
+        return new AttributedAnswer<>(prompts.bound(answer), prompt.answeredBy());
     }
 }

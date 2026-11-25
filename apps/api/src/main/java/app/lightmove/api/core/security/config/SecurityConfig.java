@@ -10,10 +10,12 @@ import app.lightmove.api.core.security.apikey.ApiKeyThrottledException;
 import app.lightmove.api.core.security.apikey.PublicApiProblemWriter;
 import app.lightmove.api.core.security.jwt.JwtPrincipalConverter;
 import app.lightmove.api.core.security.oauth.OAuthAuthorizationServerConfig;
+import app.lightmove.api.core.security.rbac.PlatformRouteGate;
 import app.lightmove.api.core.security.service.CookieAuthorizationRequestStore;
 import app.lightmove.api.core.security.service.OAuth2LoginFailureHandler;
 import app.lightmove.api.core.security.service.OAuth2LoginSuccessHandler;
 import app.lightmove.api.core.security.service.ProviderQuirkAwareRequestResolver;
+import java.util.LinkedHashMap;
 import java.util.List;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -27,6 +29,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.authorization.AuthorizationDecision;
 import org.springframework.security.authorization.AuthorizationManager;
+import org.springframework.security.authorization.AuthorizationManagers;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -36,9 +39,13 @@ import org.springframework.security.oauth2.server.resource.web.BearerTokenAuthen
 import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.access.AccessDeniedHandler;
+import org.springframework.security.web.access.RequestMatcherDelegatingAccessDeniedHandler;
 import org.springframework.security.web.access.intercept.RequestAuthorizationContext;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
+import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
+import org.springframework.security.web.util.matcher.RequestMatcher;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -54,6 +61,7 @@ public class SecurityConfig {
 
     private static final String API = "/api/v1";
     private static final String PUBLIC_API = API + "/public";
+    private static final String PLATFORM_ROUTES = API + "/platform/**";
     private static final String PUBLIC_API_SWITCH = "lightmove.public-api.enabled";
 
     /** Swagger UI is served unauthenticated on the SPA's origin, so it may load and call nothing but this origin. */
@@ -125,6 +133,7 @@ public class SecurityConfig {
                                 API + "/auth/verify/resend",
                                 API + "/auth/password/forgot",
                                 API + "/auth/password/reset",
+                                API + "/auth/sso/discover",
                                 // Completes a sign-in, like login; its challenge cookie is SameSite and httpOnly.
                                 API + "/auth/mfa/verify",
                                 // The extension's refresh token travels in the body, not a cookie.
@@ -142,6 +151,7 @@ public class SecurityConfig {
                                 API + "/auth/verify/resend",
                                 API + "/auth/password/forgot",
                                 API + "/auth/password/reset",
+                                API + "/auth/sso/discover",
                                 API + "/auth/mfa/verify",   // authenticated by the challenge cookie and the code
                                 // A first provider sign-in's terms step, by the held registration's cookie; its
                                 // submit keeps the double-submit check, since that cookie creates an account.
@@ -272,9 +282,13 @@ public class SecurityConfig {
                                  CookieAuthorizationRequestStore authorizationRequestStore,
                                  ObjectProvider<ClientRegistrationRepository> clientRegistrations,
                                  ProblemAccessDeniedHandler accessDenied,
+                                 PlatformRouteGate platformRouteGate,
                                  LightMoveProperties properties) throws Exception {
         AuthorizationManager<RequestAuthorizationContext> verified =
                 verifiedEmail(properties.auth().requireVerifiedEmail());
+        LinkedHashMap<RequestMatcher, AccessDeniedHandler> denialsByRoute = new LinkedHashMap<>();
+        denialsByRoute.put(PathPatternRequestMatcher.withDefaults().matcher(PLATFORM_ROUTES),
+                accessDenied.asNotFound());
 
         http
                 .cors(c -> c.configurationSource(cors))
@@ -283,9 +297,17 @@ public class SecurityConfig {
                 .exceptionHandling(e -> e
                         .authenticationEntryPoint(new BearerTokenAuthenticationEntryPoint())
                         // Every verified-email refusal lands here; the default writes an empty 403.
-                        .accessDeniedHandler(accessDenied))
+                        .accessDeniedHandler(new RequestMatcherDelegatingAccessDeniedHandler(denialsByRoute,
+                                accessDenied)))
 
                 .authorizeHttpRequests(auth -> auth
+                        // Ahead of every other rule, OPTIONS included: decided here, an outsider gets one 404 for a
+                        // wrong method, a bad body or a path that is no route, where the dispatcher would answer
+                        // 405, 400 or an Allow header for a route that exists. A preflight never gets this far;
+                        // the CORS filter answers it.
+                        .requestMatchers(PLATFORM_ROUTES)
+                        .access(AuthorizationManagers.allOf(verified, platformRouteGate))
+
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
                         // Liveness only. A workspace role must never double as a system role: this was

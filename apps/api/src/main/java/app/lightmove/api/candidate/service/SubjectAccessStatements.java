@@ -1,8 +1,8 @@
 package app.lightmove.api.candidate.service;
 
-import app.lightmove.api.candidate.constant.AiUse;
 import app.lightmove.api.candidate.model.SubjectAccessAbout;
 import app.lightmove.api.candidate.model.SubjectAccessPosition;
+import app.lightmove.api.common.constant.AiUse;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;

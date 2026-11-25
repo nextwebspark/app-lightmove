@@ -32,7 +32,20 @@ lightmove:
   llm:
     enabled: false
 
+  # The platform console as it ships (#1324): the registry serving, and a super admin held to two-factor.
+  # Two-factor needs the sign-in feature on and a key to store its secret under; the keyset is the dev one the
+  # tests use and protects nothing real. api/22-platform-console.sh is what exercises all four.
+  ai:
+    prompt-registry:
+      enabled: true
+  platform:
+    require-two-factor: true
+  crypto:
+    keyset: '{"primaryKeyId":653769729,"key":[{"keyData":{"typeUrl":"type.googleapis.com/google.crypto.tink.AesGcmKey","value":"GiDdcDK+eD7jyE+NjJ55C7Ta4t9IgqMRKbdXgoG/+4KVfw==","keyMaterialType":"SYMMETRIC"},"status":"ENABLED","keyId":653769729,"outputPrefixType":"TINK"}]}'
+
   auth:
+    mfa:
+      enabled: true
     # The matrix creates dozens of accounts in a row and would otherwise be locked out by its own
     # fourth case. Note 07-rate-limits.sh reboots with tightened budgets to test the limiter for real —
     # env vars named for the property itself (LIGHTMOVE_AUTH_RATE_LIMIT_...) outrank these.

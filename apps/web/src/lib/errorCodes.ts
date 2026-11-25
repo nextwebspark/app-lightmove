@@ -13,6 +13,7 @@ export const DPA_REQUIRED_MESSAGE = "Tick the box to accept the Data Processing 
 export type ApiErrorCode =
   | "VALIDATION_FAILED"
   | "INVALID_CREDENTIALS"
+  | "SSO_NOT_CONFIGURED"
   | "ACCOUNT_LOCKED"
   | "ACCOUNT_SUSPENDED"
   | "EMAIL_NOT_VERIFIED"
@@ -37,6 +38,19 @@ export type ApiErrorCode =
   | "MFA_SIGN_IN_AGAIN"
   | "PLATFORM_TWO_FACTOR_REQUIRED"
   | "PLATFORM_STEP_UP_REQUIRED"
+  | "PROMPT_CONTRACT_BROKEN"
+  | "PROMPT_MODEL_UNAVAILABLE"
+  | "PROMPT_TRIAL_UNAVAILABLE"
+  | "PROMPT_ALREADY_LIVE"
+  | "EVAL_SUBJECT_UNAVAILABLE"
+  | "EVAL_IMPORT_INVALID"
+  | "EVAL_RUN_IN_PROGRESS"
+  | "EVAL_RUN_TOO_LARGE"
+  | "EVAL_NO_CASES"
+  | "EVAL_CALIBRATION_NO_PAIRS"
+  | "EVAL_CALIBRATION_INCOMPLETE"
+  | "EVAL_JUDGE_CHECK_IN_PROGRESS"
+  | "PLATFORM_SETTING_NOT_CHANGED"
   | "ACCOUNT_SIGN_IN_AGAIN"
   | "ACCOUNT_HANDOVER_REQUIRED"
   | "SESSION_NOT_FOUND"
@@ -85,7 +99,7 @@ export type ApiErrorCode =
   | "DASHBOARD_READ_ONLY"
   | "DASHBOARD_STALE"
   | "DASHBOARD_TOO_MANY_WIDGETS"
-  | "HOME_LAYOUT_STALE"
+  | "START_PAGE_UNAVAILABLE"
   | "CHART_QUERY_NOT_FOUND"
   | "CHART_TYPE_NOT_ALLOWED"
   | "CHART_OPTION_INVALID"
@@ -287,6 +301,9 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   API_KEY_LIMIT_REACHED: "You have the most API keys allowed. Revoke one you no longer use.",
   API_KEY_READS_NOTHING: "Choose what the key may read as well as MCP access.",
   RATE_LIMITED: "Too many requests in a short time. Wait a minute and try again.",
+  INVALID_CREDENTIALS: "Invalid email or password. Please try again.",
+  SSO_NOT_CONFIGURED:
+    "We couldn't find an SSO account for that email. Sign in with your email and password, or sign up.",
   ALREADY_IN_WORKSPACE: "You already belong to a workspace. Found another from Settings → Workspaces.",
   REGISTRATION_EXPIRED: "This sign-up has expired. Sign in again to start over.",
   TERMS_VERSION_OUTDATED: "Our terms changed again while this was open. Reload the page to read them.",
@@ -305,6 +322,19 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   MFA_SIGN_IN_AGAIN: "Sign out and back in, then turn on two-factor authentication within 10 minutes.",
   PLATFORM_TWO_FACTOR_REQUIRED: "Set up two-factor authentication to use the platform console.",
   PLATFORM_STEP_UP_REQUIRED: "Enter a code from your authenticator app to continue.",
+  PROMPT_CONTRACT_BROKEN: "This prompt must keep its variables exactly as written.",
+  PROMPT_MODEL_UNAVAILABLE: "That model can't be used for this prompt. Choose another.",
+  PROMPT_TRIAL_UNAVAILABLE: "This prompt can't be tried here yet.",
+  PROMPT_ALREADY_LIVE: "That version is already live.",
+  EVAL_SUBJECT_UNAVAILABLE: "Cases can't be added for this prompt yet.",
+  EVAL_IMPORT_INVALID: "Some rows cannot be imported. Fix the file and choose it again.",
+  EVAL_RUN_IN_PROGRESS: "Another run is going. Wait for it to end, or cancel it.",
+  EVAL_RUN_TOO_LARGE: "That run would make more calls than one run may.",
+  EVAL_NO_CASES: "That dataset has no cases in that split.",
+  EVAL_CALIBRATION_NO_PAIRS: "Finish a run on this dataset's dev cases first.",
+  EVAL_CALIBRATION_INCOMPLETE: "Label every pair before checking the judge.",
+  EVAL_JUDGE_CHECK_IN_PROGRESS: "The judge is being checked already.",
+  PLATFORM_SETTING_NOT_CHANGED: "That value is already on its default.",
   ACCOUNT_SIGN_IN_AGAIN: "Sign in again to show it's you, then delete your account within 10 minutes.",
   ACCOUNT_HANDOVER_REQUIRED: "Hand over the workspaces and positions only you run first.",
   SESSION_NOT_FOUND: "That session has already ended.",
@@ -341,7 +371,7 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   DASHBOARD_READ_ONLY: "Only the person who made this dashboard can change it. Duplicate it to make your own.",
   DASHBOARD_STALE: "This dashboard was changed since you opened it. Reload to see the changes.",
   DASHBOARD_TOO_MANY_WIDGETS: "A dashboard can hold up to 30 charts. Remove one to add another.",
-  HOME_LAYOUT_STALE: "Your Home was changed in another window. Reload to see it.",
+  START_PAGE_UNAVAILABLE: "That page is not available to you. Choose another.",
   CHART_QUERY_NOT_FOUND: "That chart is no longer available. Remove it, or pick a replacement from the library.",
   CHART_TYPE_NOT_ALLOWED: "That chart type doesn't fit this data. Pick another way to show it.",
   CHART_OPTION_INVALID: "That option isn't available for this chart.",
@@ -532,7 +562,6 @@ export const DETAIL_ALLOWED: ReadonlySet<ApiErrorCode> = new Set<ApiErrorCode>([
   "CUSTOM_COLUMN_LIMIT_REACHED",
   "TEMPLATE_FILE_UNREADABLE",
   "POSITION_DOCUMENT_UNREADABLE",
-  "INVALID_CREDENTIALS",
   "ACCOUNT_LOCKED",
   "EMAIL_ALREADY_REGISTERED",
   "EMAIL_UNDELIVERABLE",

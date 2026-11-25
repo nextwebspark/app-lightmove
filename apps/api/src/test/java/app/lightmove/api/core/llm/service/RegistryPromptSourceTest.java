@@ -1,6 +1,7 @@
 package app.lightmove.api.core.llm.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
 
 import app.lightmove.api.core.config.AiSettings;
 import app.lightmove.api.core.config.LightMoveProperties;
@@ -24,6 +25,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.transaction.PlatformTransactionManager;
 
 class RegistryPromptSourceTest {
 
@@ -166,9 +168,9 @@ class RegistryPromptSourceTest {
             @Override
             public Optional<AiModel> find(AiProvider provider, String modelId) {
                 return super.find(provider, modelId).map(model -> new AiModel(model.provider(), model.modelId(),
-                        model.displayName(), model.retiresOn(), model.dataTerms(),
+                        model.displayName(), model.launchStage(), model.retiresOn(), model.dataTerms(),
                         Set.of(ModelCapability.STRUCTURED_ANSWER), model.temperature(), model.thinkingBudget(),
-                        model.maxOutputTokens()));
+                        model.maxOutputTokens(), model.thinkingLevels()));
             }
         };
         RegistryPromptSource source = source(new BundledPrompts(), answersOnly,
@@ -199,20 +201,21 @@ class RegistryPromptSourceTest {
 
     private static RegistryPromptSource source(boolean enabled, Clock clock, Supplier<List<ServedPrompt>> edited) {
         return new RegistryPromptSource(properties(enabled), new BundledPrompts(), store(edited, List.of()),
-                new AiModelCatalog(), clock);
+                new AiModelCatalog(), mock(PlatformTransactionManager.class), clock);
     }
 
     private static RegistryPromptSource source(BundledPrompts bundled, AiModelCatalog models,
                                                Supplier<List<ServedPrompt>> edited,
                                                List<RecordedBundledPrompt> recorded) {
-        return new RegistryPromptSource(properties(true), bundled, store(edited, recorded), models, IN_2026);
+        return new RegistryPromptSource(properties(true), bundled, store(edited, recorded), models,
+                mock(PlatformTransactionManager.class), IN_2026);
     }
 
     private static PromptRegistryStore store(Supplier<List<ServedPrompt>> edited,
                                              List<RecordedBundledPrompt> recorded) {
         return new PromptRegistryStore(null, null) {
             @Override
-            public List<ServedPrompt> editedProductionVersions() {
+            public List<ServedPrompt> overridingProductionVersions() {
                 return edited.get();
             }
 

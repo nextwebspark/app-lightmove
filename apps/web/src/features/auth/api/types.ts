@@ -6,6 +6,7 @@
  * OpenAPI document instead of maintaining it twice.
  */
 
+import type { StartPage } from "../../startpage/api/types";
 import type { DateFormatStyle, DateTimePreferences, TimeFormatStyle } from "../../../lib/datetime";
 
 export type WorkspaceRole = "ADMIN" | "MEMBER" | "CLIENT";
@@ -18,7 +19,15 @@ export const WORKSPACE_MODES = ["AGENCY", "COMPANY"] as const;
 export type WorkspaceMode = (typeof WORKSPACE_MODES)[number];
 
 /** Mirrors the API's `PlatformAction`: what a user may do outside any workspace. */
-export type PlatformAction = "TEMPLATE_LIBRARY_MANAGE" | "CREDIT_GRANT" | "SUBSCRIPTION_MANAGE";
+export type PlatformAction =
+  | "TEMPLATE_LIBRARY_MANAGE"
+  | "CREDIT_GRANT"
+  | "SUBSCRIPTION_MANAGE"
+  | "WORKSPACE_LIFECYCLE_MANAGE"
+  | "PROMPT_MANAGE"
+  | "PROMPT_PROMOTE"
+  | "EVAL_RUN"
+  | "PLATFORM_SETTINGS_MANAGE";
 
 export interface WorkspaceSummary {
   id: string;
@@ -81,6 +90,9 @@ export interface User {
    * belongs in the app or back in the onboarding wizard.
    */
   workspace: WorkspaceSummary | null;
+
+  /** Where Uncava opens in that workspace (Home when nothing is saved); null with no workspace. */
+  startPage: StartPage | null;
 
   /** Every workspace the user is an active member of, oldest first. What the switcher lists. */
   workspaces: WorkspaceSummary[];
