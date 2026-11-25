@@ -1,8 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, within } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../../../components/ui";
 import { aUser, aWorkspace } from "../../../test/fixtures/user";
 import { AuthProvider } from "../../auth/AuthProvider";
@@ -10,6 +9,8 @@ import * as authApi from "../../auth/api/authApi";
 import * as projectsApi from "../../projects/api/projectsApi";
 import type { Project } from "../../projects/api/types";
 import * as tasksApi from "../../tasks/api/tasksApi";
+import type { TaskResponse } from "../../tasks/api/types";
+import * as mailboxApi from "../../outreach/api/mailboxApi";
 import * as homeApi from "../api/homeApi";
 import { HomePage } from "./HomePage";
 
@@ -25,14 +26,11 @@ vi.mock("../../tasks/api/tasksApi", async (importOriginal) => ({
 vi.mock("../api/homeApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api/homeApi")>()),
   getMyOutreachNeeds: vi.fn(),
-  getHomeLayout: vi.fn(),
-  saveHomeLayout: vi.fn(),
-  resetHomeLayout: vi.fn(),
+  getMyMeetingsToday: vi.fn(),
 }));
-vi.mock("../../dashboards/api/dashboardsApi", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("../../dashboards/api/dashboardsApi")>()),
-  getChartLibrary: async () => [],
-  getChartAnswers: vi.fn(async () => []),
+vi.mock("../../outreach/api/mailboxApi", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../outreach/api/mailboxApi")>()),
+  getMailbox: vi.fn(),
 }));
 vi.mock("../../clients/api/clientsApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../clients/api/clientsApi")>()),
@@ -80,6 +78,53 @@ const position = (id: string, title: string, team: ReturnType<typeof seat>[]): P
   archivedByName: null,
 });
 
+const connectedMailbox: mailboxApi.Mailbox = {
+  offered: true,
+  providers: ["google"],
+  bookingLinkOffered: false,
+  connection: {
+    address: "yara@firm.example",
+    provider: "google",
+    status: "ACTIVE",
+    dailyCap: 50,
+    timeZone: "Asia/Dubai",
+    connectedAt: "2026-10-01T09:00:00Z",
+    movesOffNylas: false,
+    runsStoppedByMove: 0,
+    liveSequences: 0,
+    livePeople: 0,
+    readsReplies: true,
+    reconnectToReadReplies: false,
+    sentToday: 0,
+    scheduledEmails: 0,
+  },
+};
+
+const aTask = (id: string, overrides: Partial<TaskResponse> = {}): TaskResponse => ({
+  id,
+  projectId: "p1",
+  projectTitle: "Product Planning",
+  candidateId: `c-${id}`,
+  personId: `x-${id}`,
+  personName: "Rania Aziz",
+  title: `Task ${id}`,
+  kind: "email",
+  detail: null,
+  presetId: null,
+  note: null,
+  assignee: { userId: "u1", fullName: "Yara Haddad", avatarUrl: null },
+  createdBy: null,
+  dueAt: null,
+  status: "open",
+  source: "manual",
+  rule: null,
+  completedAt: null,
+  completedBy: null,
+  createdAt: "2026-10-01T09:00:00Z",
+  editable: true,
+  ...overrides,
+});
+
 const noTasks = { tasks: [], counts: { today: 0, overdue: 0, upcoming: 0, assignedByMe: 0 }, hasMore: false };
 
 function renderHome() {
@@ -102,12 +147,11 @@ describe("HomePage", () => {
     vi.mocked(restoreSession).mockResolvedValue("token");
     vi.mocked(tasksApi.getMyTasks).mockResolvedValue(noTasks);
     vi.mocked(homeApi.getMyOutreachNeeds).mockResolvedValue({ rows: [], truncated: false });
-    vi.mocked(homeApi.getHomeLayout).mockResolvedValue(null);
-    vi.mocked(homeApi.saveHomeLayout).mockImplementation(async (layout) => ({ layout, version: 1 }));
+    vi.mocked(homeApi.getMyMeetingsToday).mockResolvedValue([]);
+    vi.mocked(mailboxApi.getMailbox).mockResolvedValue(connectedMailbox);
   });
-  afterEach(() => localStorage.clear());
 
-  it("gathers a reply waiting and the caller's own task into Needs you, a lead offered Mine and Team", async () => {
+  it("ranks the caller's overdue task above a reply waiting, each with its position and client, a lead offered Team", async () => {
     vi.mocked(authApi.me).mockResolvedValue(aUser({ id: "u1", fullName: "Yara Haddad", workspace: aWorkspace({ roles: ["MEMBER"] }) }));
     vi.mocked(projectsApi.projects).mockResolvedValue([position("p1", "Product Planning", [seat("u1", "LEAD")])]);
     vi.mocked(homeApi.getMyOutreachNeeds).mockResolvedValue({
@@ -172,76 +216,121 @@ describe("HomePage", () => {
 
     renderHome();
 
-    const needs = await screen.findByRole("region", { name: "Needs you" });
-    expect(await within(needs).findByText("Lina Farouk")).toBeInTheDocument();
-    const outreach = await within(needs).findByRole("list", { name: "Outreach" });
-    expect(within(outreach).getByRole("link", { name: "Lina Farouk" })).toHaveAttribute(
-      "href",
-      "/projects/p1/companies/universe?view=table&candidate=c9&tab=outreach",
-    );
-    expect(within(outreach).getByRole("link", { name: "Reply" })).toHaveAttribute(
-      "href",
-      "/projects/p1/outreach?view=needs&who=mine&candidate=c9",
-    );
-    const tasks = await within(needs).findByRole("list", { name: "Tasks" });
-    expect(within(tasks).getByRole("link", { name: "Send profile to the hiring manager" })).toHaveAttribute(
+    const needs = await screen.findByRole("region", { name: "Needs your attention" });
+    const list = await within(needs).findByRole("list", { name: "Needs your attention" });
+    const items = within(list).getAllByRole("listitem");
+    expect(items.map((item) => item.textContent)).toEqual([
+      expect.stringContaining("Send profile to the hiring manager"),
+      expect.stringContaining("Lina Farouk replied to your outreach"),
+    ]);
+    expect(items[0]).toHaveTextContent("Rania Aziz · Product Planning · Automotive");
+    expect(items[0]).toHaveTextContent(/\d+d overdue/);
+    expect(within(items[0]).getByRole("link", { name: "Send profile to the hiring manager" })).toHaveAttribute(
       "href",
       "/projects/p1/companies/universe?view=table&candidate=c2",
     );
-    expect(within(tasks).getByRole("checkbox", { name: "Complete Send profile to the hiring manager" })).toBeInTheDocument();
+    const reply = within(items[1]).getByRole("link", { name: /^Reply/ });
+    expect(reply).toHaveAttribute("href", "/projects/p1/outreach?view=needs&who=mine&candidate=c9");
+    expect(reply.className).not.toEqual(within(items[0]).getByRole("link", { name: /^Open/ }).className);
     expect(within(needs).getByRole("radio", { name: "Team" })).toBeInTheDocument();
+    expect(screen.getByText(/2 actions need attention · Nothing on today's calendar · 1 active position/)).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Your positions" })).toHaveTextContent("Product Planning");
   });
 
-  it("takes a section off Home in edit mode, and keeps it only once the layout is saved", async () => {
+  it("offers a researcher no Team view and nothing to customise", async () => {
     vi.mocked(authApi.me).mockResolvedValue(aUser({ id: "u1", workspace: aWorkspace({ roles: ["MEMBER"] }) }));
     vi.mocked(projectsApi.projects).mockResolvedValue([position("p1", "Product Planning", [seat("u1", "RESEARCHER")])]);
-    const user = userEvent.setup();
 
     renderHome();
-    await screen.findByRole("region", { name: "Your positions" });
+
+    expect(await screen.findByText("You're all caught up")).toBeInTheDocument();
+    expect(await screen.findByText("A clear day")).toBeInTheDocument();
+    expect(screen.queryByText(/Connect your mailbox/)).not.toBeInTheDocument();
     expect(screen.queryByRole("radio", { name: "Team" })).not.toBeInTheDocument();
-
-    await user.click(screen.getByRole("button", { name: /Customize/ }));
-    await user.click(screen.getByRole("button", { name: "Remove Your positions" }));
-    expect(screen.queryByRole("region", { name: "Your positions" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Remove Needs you" })).not.toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Cancel" }));
-    expect(screen.getByRole("region", { name: "Your positions" })).toBeInTheDocument();
-    expect(homeApi.saveHomeLayout).not.toHaveBeenCalled();
-
-    await user.click(screen.getByRole("button", { name: /Customize/ }));
-    await user.click(screen.getByRole("button", { name: "Options" }));
-    await user.click(screen.getByRole("switch", { name: "Show Your positions" }));
-    await user.click(screen.getByRole("button", { name: "Done" }));
-    await user.click(screen.getByRole("button", { name: "Save layout" }));
-
-    expect(screen.queryByRole("region", { name: "Your positions" })).not.toBeInTheDocument();
-    const [sent, version] = vi.mocked(homeApi.saveHomeLayout).mock.calls[0];
-    expect(sent.tiles.map((tile) => tile.kind)).toEqual(["NEEDS", "TODAY", "CHART", "CHART", "CHART"]);
-    expect(version).toBeNull();
-    expect(await screen.findByRole("button", { name: /Customize/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Customize/ })).not.toBeInTheDocument();
   });
 
-  it("draws the person's saved Home: any library chart, at their place", async () => {
+  it("draws today's meetings on the timeline and points to the next executive's record", async () => {
+    vi.mocked(authApi.me).mockResolvedValue(aUser({ id: "u1", workspace: aWorkspace({ roles: ["MEMBER"] }) }));
+    vi.mocked(projectsApi.projects).mockResolvedValue([position("p1", "Buying Director", [seat("u1", "RESEARCHER")])]);
+    const startsAt = new Date(Date.now() + 2 * 3_600_000);
+    vi.mocked(homeApi.getMyMeetingsToday).mockResolvedValue([
+      {
+        id: "m1",
+        title: "Screening",
+        startsAt: startsAt.toISOString(),
+        endsAt: new Date(startsAt.getTime() + 30 * 60_000).toISOString(),
+        joinUrl: "https://meet.example/m1",
+        videoProvider: "Google Meet",
+        personId: "x5",
+        personName: "Karim Nassar",
+        projectId: "p1",
+        candidateId: "c5",
+        positionTitle: "Buying Director",
+        clientName: "IKEA UAE",
+      },
+    ]);
+
+    renderHome();
+
+    const today = await screen.findByRole("region", { name: "Today" });
+    const calendar = await within(today).findByRole("list", { name: "Today's calendar" });
+    expect(calendar).toHaveTextContent("Screening · Karim Nassar");
+    expect(calendar).toHaveTextContent("Buying Director · IKEA UAE");
+    expect(calendar).toHaveTextContent("30 min · Google Meet");
+    expect(within(today).getByText("Review Karim's profile and notes.")).toBeInTheDocument();
+    expect(within(today).getByRole("link", { name: /View executive/ })).toHaveAttribute(
+      "href",
+      "/projects/p1/companies/universe?view=table&candidate=c5",
+    );
+  });
+
+  it("lists the positions the caller is on with their next milestone, an overdue one called out", async () => {
+    vi.mocked(authApi.me).mockResolvedValue(aUser({ id: "u1", workspace: aWorkspace({ roles: ["MEMBER"] }) }));
+    vi.mocked(projectsApi.projects).mockResolvedValue([
+      { ...position("p1", "Leasing Director", [seat("u1", "LEAD")]), health: "RISK", deliveryDate: "2020-01-07" },
+      position("p2", "Not mine", []),
+    ]);
+
+    renderHome();
+
+    const positions = await screen.findByRole("region", { name: "Your positions" });
+    expect(positions).toHaveTextContent("1 active");
+    expect(positions).toHaveTextContent("1 at risk");
+    expect(positions).toHaveTextContent("Shortlist delivered overdue");
+    expect(positions).not.toHaveTextContent("Not mine");
+  });
+
+  it("tells a new member with no position, no mailbox and nothing to do what will fill each card", async () => {
+    vi.mocked(authApi.me).mockResolvedValue(aUser({ id: "u1", workspace: aWorkspace({ roles: ["MEMBER"] }) }));
+    vi.mocked(projectsApi.projects).mockResolvedValue([]);
+    vi.mocked(mailboxApi.getMailbox).mockResolvedValue({ ...connectedMailbox, connection: null });
+
+    renderHome();
+
+    expect(await screen.findByText("Nothing needs you yet")).toBeInTheDocument();
+    expect(await screen.findByText("Connect your mailbox to see replies and delivery problems here.")).toBeInTheDocument();
+    const today = screen.getByRole("region", { name: "Today" });
+    expect(await within(today).findByText("No calendar connected")).toBeInTheDocument();
+    expect(within(today).getByRole("link", { name: "Connect mailbox" })).toHaveAttribute("href", "/settings/integrations");
+    const positions = screen.getByRole("region", { name: "Your positions" });
+    expect(within(positions).getByText("You're not on any position yet")).toBeInTheDocument();
+    expect(within(positions).getByRole("button", { name: "New position" })).toBeInTheDocument();
+    expect(screen.getByText("Nothing needs your attention · Nothing on today's calendar · No positions yet")).toBeInTheDocument();
+  });
+
+  it("asks for the mailbox to be connected again when it has stopped working", async () => {
     vi.mocked(authApi.me).mockResolvedValue(aUser({ id: "u1", workspace: aWorkspace({ roles: ["MEMBER"] }) }));
     vi.mocked(projectsApi.projects).mockResolvedValue([position("p1", "Product Planning", [seat("u1", "RESEARCHER")])]);
-    vi.mocked(homeApi.getHomeLayout).mockResolvedValue({
-      version: 4,
-      layout: {
-      tiles: [
-        { kind: "NEEDS", layout: { x: 0, y: 0, w: 12, h: 8 } },
-        { kind: "CHART", queryId: "positionsBy", chart: "bar", options: { group: "stage" }, title: "Where my positions stand", layout: { x: 0, y: 8, w: 6, h: 7 } },
-      ],
-      kinds: { NEEDS_REPLY: true, FOLLOW_UP: true, PREPARATION: true, ATTENTION: true },
-      },
+    vi.mocked(mailboxApi.getMailbox).mockResolvedValue({
+      ...connectedMailbox,
+      connection: { ...connectedMailbox.connection!, status: "ERROR" },
     });
 
     renderHome();
 
-    expect(await screen.findByRole("region", { name: "Where my positions stand" })).toBeInTheDocument();
-    expect(screen.queryByRole("region", { name: "Your positions" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("region", { name: "Today" })).not.toBeInTheDocument();
+    expect(await screen.findByText("Your mailbox needs reconnecting, so new replies may be missing.")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Reconnect" })).toHaveAttribute("href", "/settings/integrations");
   });
 
   it("shows a client the positions shared with them, and nothing of the staff's queue", async () => {
@@ -251,7 +340,7 @@ describe("HomePage", () => {
     renderHome();
 
     expect(await screen.findByRole("region", { name: "Your positions" })).toHaveTextContent("Product Planning");
-    expect(screen.queryByRole("region", { name: "Needs you" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Needs your attention" })).not.toBeInTheDocument();
     expect(homeApi.getMyOutreachNeeds).not.toHaveBeenCalled();
     expect(tasksApi.getMyTasks).not.toHaveBeenCalled();
   });
@@ -264,6 +353,110 @@ describe("HomePage", () => {
 
     expect(await screen.findByText("Set up Meridian")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "New position" })).toBeInTheDocument();
-    expect(screen.queryByRole("region", { name: "Needs you" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Needs your attention" })).not.toBeInTheDocument();
+  });
+
+  it("says it could not load what needs the caller when their tasks fail, never that they are caught up", async () => {
+    vi.mocked(authApi.me).mockResolvedValue(aUser({ id: "u1", workspace: aWorkspace({ roles: ["MEMBER"] }) }));
+    vi.mocked(projectsApi.projects).mockResolvedValue([position("p1", "Product Planning", [seat("u1", "RESEARCHER")])]);
+    vi.mocked(tasksApi.getMyTasks).mockRejectedValue(new Error("unavailable"));
+
+    renderHome();
+
+    const needs = await screen.findByRole("region", { name: "Needs your attention" });
+    expect(await within(needs).findByText("Couldn't load what needs you")).toBeInTheDocument();
+    expect(within(needs).queryByText("You're all caught up")).not.toBeInTheDocument();
+    const today = screen.getByRole("region", { name: "Today" });
+    expect(await within(today).findByText("Couldn't load today")).toBeInTheDocument();
+    expect(within(today).queryByText("A clear day")).not.toBeInTheDocument();
+    expect(screen.getByRole("banner")).not.toHaveTextContent("Nothing needs your attention");
+    expect(screen.getByRole("banner")).not.toHaveTextContent("Nothing on today's calendar");
+  });
+
+  it("keeps the header from counting what the card could not load when the outreach queue fails", async () => {
+    vi.mocked(authApi.me).mockResolvedValue(aUser({ id: "u1", workspace: aWorkspace({ roles: ["MEMBER"] }) }));
+    vi.mocked(projectsApi.projects).mockResolvedValue([position("p1", "Product Planning", [seat("u1", "RESEARCHER")])]);
+    vi.mocked(homeApi.getMyOutreachNeeds).mockRejectedValue(new Error("unavailable"));
+    vi.mocked(tasksApi.getMyTasks).mockImplementation(async (view) =>
+      view === "overdue" ? { ...noTasks, tasks: [aTask("t1", { dueAt: "2026-10-03T13:00:00Z" })] } : noTasks,
+    );
+
+    renderHome();
+
+    const needs = await screen.findByRole("region", { name: "Needs your attention" });
+    expect(await within(needs).findByText("Couldn't load what needs you")).toBeInTheDocument();
+    expect(within(needs).queryByRole("link", { name: "All my tasks" })).not.toBeInTheDocument();
+    expect(await screen.findByText("Nothing on today's calendar · 1 active position")).toBeInTheDocument();
+  });
+
+  it("counts the caller's own tasks still to come, and marks a list longer than one read", async () => {
+    vi.mocked(authApi.me).mockResolvedValue(aUser({ id: "u1", workspace: aWorkspace({ roles: ["MEMBER"] }) }));
+    vi.mocked(projectsApi.projects).mockResolvedValue([position("p1", "Product Planning", [seat("u1", "RESEARCHER")])]);
+    vi.mocked(tasksApi.getMyTasks).mockImplementation(async (view) => {
+      const counts = { today: 0, overdue: 51, upcoming: 2, assignedByMe: 0 };
+      return view === "overdue"
+        ? { tasks: [aTask("t1", { dueAt: "2026-10-03T13:00:00Z" })], counts, hasMore: true }
+        : { ...noTasks, counts };
+    });
+
+    renderHome();
+
+    const needs = await screen.findByRole("region", { name: "Needs your attention" });
+    await within(needs).findByRole("list", { name: "Needs your attention" });
+    expect(within(needs).getByText("1+")).toBeInTheDocument();
+    expect(within(needs).getByText("More are on My tasks.")).toBeInTheDocument();
+    expect(within(needs).getByText("2 coming up")).toBeInTheDocument();
+  });
+
+  it("tells a caller with nothing due today how many of their tasks are coming up", async () => {
+    vi.mocked(authApi.me).mockResolvedValue(aUser({ id: "u1", workspace: aWorkspace({ roles: ["MEMBER"] }) }));
+    vi.mocked(projectsApi.projects).mockResolvedValue([position("p1", "Product Planning", [seat("u1", "RESEARCHER")])]);
+    vi.mocked(tasksApi.getMyTasks).mockResolvedValue({ ...noTasks, counts: { ...noTasks.counts, upcoming: 1 } });
+
+    renderHome();
+
+    expect(await screen.findByText("Nothing is due today. 1 task is coming up on My tasks.")).toBeInTheDocument();
+  });
+
+  it("keeps a lead's own overdue task under Team, beside what they handed out, a task not due yet only counted", async () => {
+    vi.mocked(authApi.me).mockResolvedValue(aUser({ id: "u1", workspace: aWorkspace({ roles: ["MEMBER"] }) }));
+    vi.mocked(projectsApi.projects).mockResolvedValue([position("p1", "Product Planning", [seat("u1", "LEAD")])]);
+    const teammate = { userId: "u2", fullName: "Omar Saleh", avatarUrl: null };
+    vi.mocked(tasksApi.getMyTasks).mockImplementation(async (view) => {
+      if (view === "overdue") return { ...noTasks, tasks: [aTask("own", { title: "Call the hiring manager", dueAt: "2026-10-03T13:00:00Z" })] };
+      if (view === "assigned_by_me") {
+        return {
+          ...noTasks,
+          tasks: [
+            aTask("handed", { title: "Chase the referees", assignee: teammate, dueAt: "2026-10-04T13:00:00Z" }),
+            aTask("next", { title: "Prepare the shortlist", assignee: teammate, dueAt: "2999-01-04T13:00:00Z" }),
+          ],
+        };
+      }
+      return noTasks;
+    });
+
+    renderHome();
+
+    const needs = await screen.findByRole("region", { name: "Needs your attention" });
+    await within(needs).findByRole("list", { name: "Needs your attention" });
+    fireEvent.click(within(needs).getByRole("radio", { name: "Team" }));
+
+    const list = await within(needs).findByRole("list", { name: "Needs your attention" });
+    await within(list).findByText("Chase the referees");
+    expect(within(list).getByText("Call the hiring manager")).toBeInTheDocument();
+    expect(within(list).queryByText("Prepare the shortlist")).not.toBeInTheDocument();
+    expect(within(needs).getByText("1 coming up")).toBeInTheDocument();
+  });
+
+  it("says one executive, not one executives, on a client's position card", async () => {
+    vi.mocked(authApi.me).mockResolvedValue(aUser({ workspace: aWorkspace({ roles: ["CLIENT"] }) }));
+    vi.mocked(projectsApi.projects).mockResolvedValue([{ ...position("p1", "Product Planning", []), candidates: 1 }]);
+
+    renderHome();
+
+    const positions = await screen.findByRole("region", { name: "Your positions" });
+    expect(positions).toHaveTextContent("1 executive");
+    expect(positions).not.toHaveTextContent("1 executives");
   });
 });

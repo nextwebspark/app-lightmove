@@ -162,8 +162,16 @@ gets the system text, the provider's options and the wiring that counts the call
   configured model and logged once. The same rule (`AiModelCatalog.unusableBecause`) refuses saving such a
   version and putting one live, so this fallback is only for a model that retires while its version serves.
 - **`ChatModelProvider`** is the one seam to a vendor: `VertexGeminiChatModelProvider` owns the JSON mime type,
-  the thinking budget and the labels (`prompt`, and `prompt_version` when the registry served the text). A
+  the thinking setting and the labels (`prompt`, and `prompt_version` when the registry served the text). A
   second provider is a second implementation and catalogue entries.
+- **Gemini 3 and later reason by level, not budget.** Google deprecates `thinking_budget` on Gemini 3 (an
+  intermittent `400 INVALID_ARGUMENT`) and refuses it on Gemini 4. A budget set by a feature or a version is sent
+  to a catalogued model as the nearest `thinking_level` it offers (`AiModel.thinkingLevels`): 0 is its least
+  (MINIMAL, or LOW where MINIMAL is refused), up to 1,024 LOW, up to 8,192 MEDIUM, above that HIGH. None of them can
+  switch thinking off. A version's budget tops out at 8,192, so only a feature's own (`ASSISTANT_THINKING_BUDGET`)
+  reaches HIGH until the console sets a level. An id the catalogue does not list is read the same way, as offering
+  LOW to HIGH, so `LLM_CHAT_MODEL` pointed at a new Gemini never sends the budget Gemini 4 refuses; only a
+  `gemini-1.`/`gemini-2.` id still gets the budget.
 - **The reload** is `PlatformConfigReload`: the transaction that moves `production` bumps the `prompts` counter
   and notifies on `lm_platform_config` through `core/stream`'s listener; every instance drops its cache. Each
   also re-reads the counters every `lightmove.platform.config-reload-check` (30 s), for a notification it
@@ -173,6 +181,22 @@ gets the system text, the provider's options and the wiring that counts the call
   each round of the assistant's tool loop are each a call). The write is off the calling thread and a failed
   one is logged, never thrown. A console Try it is not counted: `PromptCalls` attaches the trial's recorder in
   the counter's place, so a version never live shows no calls and the live one's rates hold no experiments. That table is the record; the label and the log line are secondary.
+- **So is each way a call ends without a usable answer** (#1323), in the same row: a guard refusal (counted by
+  an advisor outside the guard, which answers without calling the rest of the chain; no call is counted, since
+  the model was never asked), a schema re-ask (a structured prompt's second answer), and an answer that still
+  would not bind (`StructuredPrompt` sees the bind fail after the model answered; an outage is none of these).
+  A failure is a call, never two: an answer cut off at the token limit or stopped by the safety filter is
+  already counted under its finish reason, so that it then would not bind adds no `schema_failures`
+  (`PromptCallTrace.wasCutShort`).
+- **The version on an outreach opener's enrolment is the client's word** (#1323): the draft's version rides the
+  browser, so a staff member could send another. It is counted only against a version of `outreach-opener` that
+  has served (a `production` move names it), which bounds it to platform metrics on versions that were live; a
+  signed draft token was judged more than that is worth.
+  A position extraction's `reading` (#1452) is the client's word too, and only its version is bounded that way:
+  which fields it names and the rows' sources are the client's as well, and publish can be repeated, so a member
+  with `WORK_EXECUTE` can add kept decisions against a served version without limit. It reaches platform metrics
+  only, never a workspace's data.
+  A bundled prompt has no version, so with the registry off none of it is counted.
 
 The answer schema (`-schema.json`), the answer format and the user message stay in code: code parses the
 answer against the first two, and the third decides which data reaches the model.

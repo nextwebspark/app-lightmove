@@ -36,7 +36,7 @@ class PromptCatalogServiceTest {
                         model("retired", TODAY.minusDays(3)), model("undated", null));
             }
         };
-        PromptCatalogService service = new PromptCatalogService(null, null, catalog, List.of(), null, null,
+        PromptCatalogService service = new PromptCatalogService(null, null, catalog, List.of(), null, null, null, null,
                 Clock.fixed(Instant.parse("2027-01-10T12:00:00Z"), ZoneOffset.UTC));
 
         Map<String, AiModelResponse> listed = service.models().stream()
@@ -56,6 +56,6 @@ class PromptCatalogServiceTest {
     private static AiModel model(String modelId, LocalDate retiresOn) {
         return new AiModel(AiProvider.VERTEX_GEMINI, modelId, modelId, ModelLaunchStage.GA, retiresOn, "terms",
                 Set.of(ModelCapability.STRUCTURED_ANSWER), new SettingRange(0, 1), new SettingRange(0, 1),
-                new SettingRange(0, 1));
+                new SettingRange(0, 1), List.of());
     }
 }

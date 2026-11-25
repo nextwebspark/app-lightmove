@@ -7,6 +7,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 
 import app.lightmove.api.IntegrationTest;
+import app.lightmove.api.core.config.ApplicationVariables;
 import app.lightmove.api.billing.BillingFlowSupport;
 import app.lightmove.api.core.security.mfa.TestTotp;
 import jakarta.servlet.http.Cookie;
@@ -44,6 +45,7 @@ class PlatformTwoFactorIntegrationTest extends BillingFlowSupport {
             """;
 
     @Autowired @Qualifier("requestMappingHandlerMapping") RequestMappingHandlerMapping handlerMappings;
+    @Autowired ApplicationVariables variables;
 
     @Test
     @DisplayName("a super admin with no factor is refused on every platform route, by a code the console can act on")
@@ -104,6 +106,33 @@ class PlatformTwoFactorIntegrationTest extends BillingFlowSupport {
         assertThat(grantCredits(admin, workspace, "REF-2").getResponse().getStatus()).isEqualTo(201);
         assertThat(ledger.balanceOf(workspace).available()).isEqualTo(10);
         assertThat(auditCount("PLATFORM_STEP_UP_PASSED", admin)).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("changing or resetting an application variable asks for a fresh code first")
+    void anApplicationVariableChangeAsksForAFreshCode() throws Exception {
+        String variable = "/api/v1/platform/settings/enrichment.sourcing.max-companies-per-run";
+        Session admin = superAdminSession();
+        String secret = enrol(admin);
+        MockHttpServletRequestBuilder change = put(variable).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"value\":\"8\",\"note\":\"Larger groups\"}");
+        MockHttpServletRequestBuilder reset = post(variable + "/reset").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"note\":\"Back to what shipped\"}");
+
+        try {
+            assertThat(as(admin, get("/api/v1/platform/settings")).getResponse().getStatus()).isEqualTo(200);
+            expectRefused(403, "PLATFORM_STEP_UP_REQUIRED", as(admin, change));
+            expectRefused(403, "PLATFORM_STEP_UP_REQUIRED", as(admin, reset));
+
+            stepUp(admin, freshCode(admin, secret));
+
+            assertThat(as(admin, change).getResponse().getStatus()).isEqualTo(200);
+            assertThat(as(admin, reset).getResponse().getStatus()).isEqualTo(200);
+        } finally {
+            db.update("DELETE FROM app_lm_platform_setting");
+            db.execute("TRUNCATE app_lm_platform_setting_change");
+            variables.reload();
+        }
     }
 
     @Test

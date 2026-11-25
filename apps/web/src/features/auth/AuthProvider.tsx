@@ -63,6 +63,12 @@ interface AuthContextValue {
    */
   resetPassword: (token: string, password: string) => Promise<User | MfaChallenge>;
   signOut: () => Promise<void>;
+  /**
+   * The session just ended by the person's own choice (Sign out, Delete my account), not by an expiry. The guards read
+   * it to send them to the login page without the page they were on: a deliberate exit is not a page worth returning to,
+   * and the next sign-in belongs on their start page. Cleared by the next session.
+   */
+  endedOnPurpose: boolean;
   /** Forgets a session the server has already ended — the account was deleted — without asking it again. */
   forgetDeletedAccount: () => void;
 
@@ -94,6 +100,7 @@ const WORKSPACE_CHANNEL = "lm-workspace";
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [endedOnPurpose, setEndedOnPurpose] = useState(false);
   const queryClient = useQueryClient();
 
   // Before paint: every date reads in the signed-in person's zone and formats, and `DateTimeBoundary` redraws on a move.
@@ -104,6 +111,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       ),
     [user],
   );
+  useEffect(() => {
+    if (user) setEndedOnPurpose(false);
+  }, [user]);
   useEffect(() => {
     if (user?.dateTime) reportDeviceTimeZone(user.dateTime, queryClient);
   }, [user, queryClient]);
@@ -294,6 +304,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     startFreshSession();
     forgetScorecardDrafts();
     forgetPendingContacts();
+    setEndedOnPurpose(true);
     setUser(null);
   }, [startFreshSession]);
 
@@ -307,6 +318,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       startFreshSession();
       forgetScorecardDrafts();
       forgetPendingContacts();
+      setEndedOnPurpose(true);
       setUser(null);
     }
   }, [startFreshSession]);
@@ -390,6 +402,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       verifyEmail,
       resetPassword,
       signOut,
+      endedOnPurpose,
       forgetDeletedAccount,
       reload,
       switchWorkspace,
@@ -409,6 +422,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       verifyEmail,
       resetPassword,
       signOut,
+      endedOnPurpose,
       forgetDeletedAccount,
       reload,
       switchWorkspace,

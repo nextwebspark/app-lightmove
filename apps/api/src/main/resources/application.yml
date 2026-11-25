@@ -443,7 +443,7 @@ lightmove:
     # Find executives on the In-universe page: one model call turns the brief into search words, then each
     # company is searched in two places. The live index (ContactOut's People Search, on the contactout key
     # above) holds today's titles: it is counted free and bought a credit a profile, the role's own level
-    # first, at most profiles-per-company. The profile index (Bright Data's Business Search, on the
+    # first, at most the number per company the consultant picks on the screen. The profile index (Bright Data's Business Search, on the
     # brightdata key, whatever `provider` says) is asked once a company, about $0.002, who names the
     # function in their title, past titles or About; each with no title on record is checked by a free
     # live count narrowed to their name, up to title-checks-per-company. Measured against researchers' own
@@ -451,8 +451,6 @@ lightmove:
     # position's country, the Gulf neighbours and each company's own country.
     sourcing:
       max-companies-per-run: ${SOURCING_MAX_COMPANIES_PER_RUN:5}
-      profiles-per-company: ${SOURCING_PROFILES_PER_COMPANY:3}
-      picks-per-company: ${SOURCING_PICKS_PER_COMPANY:3}
       index-people-per-company: ${SOURCING_INDEX_PEOPLE_PER_COMPANY:100}
       title-checks-per-company: ${SOURCING_TITLE_CHECKS_PER_COMPANY:100}
       parallelism: ${SOURCING_PARALLELISM:4}
@@ -840,6 +838,15 @@ lightmove:
     # How often an instance re-reads the platform configuration versions (core/reload), for a notification it
     # missed. Read by @Scheduled from the environment, so it has no settings record.
     config-reload-check: ${PLATFORM_CONFIG_RELOAD_CHECK:PT30S}
+    # Eval runs (#1320). A start planning more model calls than max-calls-per-run is refused and a run stops on
+    # reaching it. worker-tick is how often an instance looks for a run its start did not hand it (a restart, a
+    # worker gone quiet for stale-after); read by @Scheduled from the environment, so it has no settings field.
+    eval:
+      max-calls-per-run: ${PLATFORM_EVAL_MAX_CALLS_PER_RUN:200}
+      stale-after: ${PLATFORM_EVAL_STALE_AFTER:10m}
+      worker-tick: ${PLATFORM_EVAL_WORKER_TICK:PT1M}
+      # The model a version of the eval judge naming none is answered by (#1322). Blank: the deployment's own.
+      judge-model: ${PLATFORM_EVAL_JUDGE_MODEL:gemini-3.8-flash}
 
   # The data processing agreement a founder accepts for the firm when creating a workspace (#928). Both blank until
   # counsel publishes one: nothing is asked. Set together; a new version asks only workspaces created after it.

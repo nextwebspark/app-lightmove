@@ -19,7 +19,7 @@ workspace (V84 `mode`) says Client / Client contact — every such label via `us
 (every migration/table note) for its class, route, table or V-number, then read its own doc:
 `docs/candidate-crm.md`, `candidate-documents.md`, `outreach-conversations.md`, `notetaker.md`,
 `tasks-notifications.md`, `email-signatures.md`, `spreadsheet-import.md`, `position-extraction.md`,
-`workspace-modes.md`, `custom-dashboards.md`, `assistant-tools.md`, `public-api.md`, `mcp.md`, `llm-guardrails.md`,
+`workspace-modes.md`, `custom-dashboards.md`, `platform-console.md`, `assistant-tools.md`, `public-api.md`, `mcp.md`, `llm-guardrails.md`,
 `security/row-level-security.md`, `security/platform-two-factor.md`, `gdpr/*`, `integrations/*`, `glossary.md` (on-screen words),
 `validation-matrix.md` (every form field's rules).
 
@@ -36,7 +36,7 @@ Read the relevant `../uncava-design/*.dc.html` before building a screen. Don't b
 | `apps/extension` | LightMove Capture — Chrome extension (MV3, React 19, Vite 8). Shares no code with `apps/web`. |
 | `e2e/` | End-to-end matrix |
 | `ops/` | Cloud SQL bootstrap/hardening, GCP, eval scripts |
-| `docs/` | Feature docs, contracts read by tests (`public-api/openapi.json`, `mcp/tools.json`, `gdpr/retention-schedule.md`, `gdpr/subject-access-export.md`, `eval/*`) |
+| `docs/` | Feature docs, contracts read by tests (`public-api/openapi.json`, `mcp/tools.json`, `gdpr/retention-schedule.md`, `gdpr/subject-access-export.md`), eval reports and how-to (`eval/*`) |
 
 Feature dependency directions (nothing depends back):
 - `position` (the brief) → `project`; `positiontemplate` is read by `position`; shared vocabulary in `common/constant`.

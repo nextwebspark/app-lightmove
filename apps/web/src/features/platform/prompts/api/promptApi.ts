@@ -4,6 +4,7 @@ import type {
   PromptDetail,
   PromptOverview,
   PromptTrialResult,
+  PromptUsage,
   PromptVersionBody,
   SavePromptVersionRequest,
 } from "./types";
@@ -13,6 +14,8 @@ export const PROMPTS_KEY = ["platform-prompts"] as const;
 export const PROMPT_KEY = (promptId: string) => ["platform-prompts", promptId] as const;
 export const PROMPT_BODY_KEY = (promptId: string, version: number) =>
   ["platform-prompts", promptId, "version", version] as const;
+export const PROMPT_USAGE_KEY = (promptId: string, days: number) =>
+  ["platform-prompts", promptId, "usage", days] as const;
 export const AI_MODELS_KEY = ["platform-ai-models"] as const;
 
 const promptUrl = (promptId: string) => `/platform/prompts/${encodeURIComponent(promptId)}`;
@@ -29,6 +32,10 @@ export function getPromptBody(promptId: string, version: number, signal?: AbortS
   return request<PromptVersionBody>(`${promptUrl(promptId)}/versions/${version}`, { signal });
 }
 
+export function getPromptUsage(promptId: string, days: number, signal?: AbortSignal): Promise<PromptUsage> {
+  return request<PromptUsage>(`${promptUrl(promptId)}/usage?days=${days}`, { signal });
+}
+
 export function listAiModels(signal?: AbortSignal): Promise<AiModel[]> {
   return request<AiModel[]>("/platform/ai-models", { signal });
 }
@@ -42,7 +49,13 @@ export function tryPromptVersion(promptId: string, version: number): Promise<Pro
   return request<PromptTrialResult>(`${promptUrl(promptId)}/versions/${version}/trial`, { method: "POST" });
 }
 
-/** Puts a version live, or rolls back to an earlier one. The server asks for a fresh two-factor code first. */
-export function putPromptLive(promptId: string, version: number, reason: string): Promise<PromptDetail> {
-  return request<PromptDetail>(`${promptUrl(promptId)}/production`, { method: "PUT", body: { version, reason } });
+/**
+ * Puts a version live, or rolls back to an earlier one. The server asks for a fresh two-factor code first, and for a
+ * `reason` unless a run on the holdout cases found the version no worse than the one serving.
+ */
+export function putPromptLive(promptId: string, version: number, reason: string | null): Promise<PromptDetail> {
+  return request<PromptDetail>(`${promptUrl(promptId)}/production`, {
+    method: "PUT",
+    body: reason === null ? { version } : { version, reason },
+  });
 }

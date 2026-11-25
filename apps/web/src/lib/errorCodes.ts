@@ -41,6 +41,15 @@ export type ApiErrorCode =
   | "PROMPT_MODEL_UNAVAILABLE"
   | "PROMPT_TRIAL_UNAVAILABLE"
   | "PROMPT_ALREADY_LIVE"
+  | "EVAL_SUBJECT_UNAVAILABLE"
+  | "EVAL_IMPORT_INVALID"
+  | "EVAL_RUN_IN_PROGRESS"
+  | "EVAL_RUN_TOO_LARGE"
+  | "EVAL_NO_CASES"
+  | "EVAL_CALIBRATION_NO_PAIRS"
+  | "EVAL_CALIBRATION_INCOMPLETE"
+  | "EVAL_JUDGE_CHECK_IN_PROGRESS"
+  | "PLATFORM_SETTING_NOT_CHANGED"
   | "ACCOUNT_SIGN_IN_AGAIN"
   | "ACCOUNT_HANDOVER_REQUIRED"
   | "SESSION_NOT_FOUND"
@@ -89,7 +98,6 @@ export type ApiErrorCode =
   | "DASHBOARD_READ_ONLY"
   | "DASHBOARD_STALE"
   | "DASHBOARD_TOO_MANY_WIDGETS"
-  | "HOME_LAYOUT_STALE"
   | "START_PAGE_UNAVAILABLE"
   | "CHART_QUERY_NOT_FOUND"
   | "CHART_TYPE_NOT_ALLOWED"
@@ -314,6 +322,15 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   PROMPT_MODEL_UNAVAILABLE: "That model can't be used for this prompt. Choose another.",
   PROMPT_TRIAL_UNAVAILABLE: "This prompt can't be tried here yet.",
   PROMPT_ALREADY_LIVE: "That version is already live.",
+  EVAL_SUBJECT_UNAVAILABLE: "Cases can't be added for this prompt yet.",
+  EVAL_IMPORT_INVALID: "Some rows cannot be imported. Fix the file and choose it again.",
+  EVAL_RUN_IN_PROGRESS: "Another run is going. Wait for it to end, or cancel it.",
+  EVAL_RUN_TOO_LARGE: "That run would make more calls than one run may.",
+  EVAL_NO_CASES: "That dataset has no cases in that split.",
+  EVAL_CALIBRATION_NO_PAIRS: "Finish a run on this dataset's dev cases first.",
+  EVAL_CALIBRATION_INCOMPLETE: "Label every pair before checking the judge.",
+  EVAL_JUDGE_CHECK_IN_PROGRESS: "The judge is being checked already.",
+  PLATFORM_SETTING_NOT_CHANGED: "That value is already on its default.",
   ACCOUNT_SIGN_IN_AGAIN: "Sign in again to show it's you, then delete your account within 10 minutes.",
   ACCOUNT_HANDOVER_REQUIRED: "Hand over the workspaces and positions only you run first.",
   SESSION_NOT_FOUND: "That session has already ended.",
@@ -350,7 +367,6 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   DASHBOARD_READ_ONLY: "Only the person who made this dashboard can change it. Duplicate it to make your own.",
   DASHBOARD_STALE: "This dashboard was changed since you opened it. Reload to see the changes.",
   DASHBOARD_TOO_MANY_WIDGETS: "A dashboard can hold up to 30 charts. Remove one to add another.",
-  HOME_LAYOUT_STALE: "Your Home was changed in another window. Reload to see it.",
   START_PAGE_UNAVAILABLE: "That page is not available to you. Choose another.",
   CHART_QUERY_NOT_FOUND: "That chart is no longer available. Remove it, or pick a replacement from the library.",
   CHART_TYPE_NOT_ALLOWED: "That chart type doesn't fit this data. Pick another way to show it.",

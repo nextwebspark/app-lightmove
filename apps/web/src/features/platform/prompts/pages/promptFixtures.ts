@@ -1,4 +1,11 @@
-import type { AiModel, PromptDetail, PromptOverview, PromptVersionSummary } from "../api/types";
+import type {
+  AiModel,
+  PromptDetail,
+  PromptLiveHealth,
+  PromptModelUsage,
+  PromptOverview,
+  PromptVersionSummary,
+} from "../api/types";
 
 /** Test data for the Prompts screens: an assessment draft with a shipped version and a live edit. */
 export const overview = (overrides: Partial<PromptOverview> = {}): PromptOverview => ({
@@ -16,6 +23,42 @@ export const overview = (overrides: Partial<PromptOverview> = {}): PromptOvervie
   shippedChanged: false,
   lastChangedAt: "2026-11-04T10:00:00Z",
   lastChangedBy: "Noor Rahman",
+  health: null,
+  ...overrides,
+});
+
+/** Version 2, live since 4 Nov, beside version 1 over the 20 days before: failing more, kept less. */
+export const health = (overrides: Partial<PromptLiveHealth> = {}): PromptLiveHealth => ({
+  warnings: ["MORE_FAILURES", "FEWER_ACCEPTED"],
+  comparedWithVersion: 1,
+  liveSince: "2026-11-04",
+  days: 20,
+  daysLive: 20,
+  liveCalls: 412,
+  liveFailureRate: 0.0812,
+  previousCalls: 1960,
+  previousFailureRate: 0.023,
+  liveDecisions: 118,
+  liveAcceptRate: 0.61,
+  previousDecisions: 240,
+  previousAcceptRate: 0.78,
+  ...overrides,
+});
+
+export const modelUsage = (overrides: Partial<PromptModelUsage> = {}): PromptModelUsage => ({
+  provider: "VERTEX_GEMINI",
+  modelId: "gemini-3.5-flash",
+  modelName: "Gemini 3.5 Flash",
+  calls: 1284,
+  inputTokens: 4_100_000,
+  outputTokens: 520_000,
+  finishStop: 1259,
+  finishMaxTokens: 22,
+  finishSafety: 3,
+  finishOther: 0,
+  guardRefusals: 4,
+  schemaReasks: 41,
+  schemaFailures: 6,
   ...overrides,
 });
 
@@ -30,6 +73,7 @@ export const version = (overrides: Partial<PromptVersionSummary> = {}): PromptVe
   modelId: null,
   modelName: null,
   settings: { temperature: null, thinkingBudget: null, maxOutputTokens: null },
+  gate: null,
   ...overrides,
 });
 

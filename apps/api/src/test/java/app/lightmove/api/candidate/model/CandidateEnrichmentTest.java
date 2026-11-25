@@ -8,9 +8,11 @@ import app.lightmove.api.candidate.constant.ContactSource;
 import app.lightmove.api.candidate.constant.EnrichmentVendor;
 import app.lightmove.api.candidate.constant.Gender;
 import app.lightmove.api.common.constant.Seniority;
+import app.lightmove.api.core.llm.model.PromptVersionRef;
 import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.stream.IntStream;
 import org.junit.jupiter.api.DisplayName;
@@ -178,7 +180,7 @@ class CandidateEnrichmentTest {
     void aProposedBackgroundIsFilledAndFlagged() {
         Person person = captured(details("Sample Person", null, null, null, null, null));
 
-        assertThat(person.proposeBackground(PROPOSED)).isTrue();
+        assertThat(person.proposeBackground(PROPOSED, null)).isTrue();
 
         assertThat(person.getGender()).isEqualTo(Gender.FEMALE);
         assertThat(person.getYearsExperience()).isEqualTo(14);
@@ -193,8 +195,8 @@ class CandidateEnrichmentTest {
     void aProposalNeverOverwritesAnExistingBackground() {
         Person person = captured(detailsWithBackground("Omani", Gender.MALE, 20, Seniority.C_SUITE));
 
-        assertThat(person.proposeBackground(PROPOSED)).isFalse();
-        person.recordNationalityReading(DECISIVE);
+        assertThat(person.proposeBackground(PROPOSED, null)).isFalse();
+        person.recordNationalityReading(DECISIVE, null);
 
         assertThat(person.getNationality()).isEqualTo("Omani");
         assertThat(person.getGender()).isEqualTo(Gender.MALE);
@@ -208,8 +210,8 @@ class CandidateEnrichmentTest {
     @DisplayName("a researcher changing an inferred value clears its flag")
     void editingAnInferredValueClearsItsFlag() {
         Person person = captured(details("Sample Person", null, null, null, null, null));
-        person.proposeBackground(PROPOSED);
-        person.recordNationalityReading(DECISIVE);
+        person.proposeBackground(PROPOSED, null);
+        person.recordNationalityReading(DECISIVE, null);
 
         person.describe(detailsWithBackground("Western expat", Gender.FEMALE, 14, Seniority.N_MINUS_2),
                 ContactSource.MANUAL);
@@ -223,8 +225,8 @@ class CandidateEnrichmentTest {
     @DisplayName("resubmitting an inferred value unchanged leaves it flagged")
     void resubmittingTheSameInferredValueLeavesItFlagged() {
         Person person = captured(details("Sample Person", null, null, null, null, null));
-        person.proposeBackground(PROPOSED);
-        person.recordNationalityReading(DECISIVE);
+        person.proposeBackground(PROPOSED, null);
+        person.recordNationalityReading(DECISIVE, null);
 
         person.describe(detailsWithBackground("Emirati", Gender.FEMALE, 14, Seniority.N_MINUS_1),
                 ContactSource.MANUAL);
@@ -237,14 +239,36 @@ class CandidateEnrichmentTest {
     @DisplayName("saving the Background section confirms every AI-proposed value in it")
     void confirmingTheBackgroundClearsEveryFlag() {
         Person person = captured(details("Sample Person", null, null, null, null, null));
-        person.proposeBackground(PROPOSED);
-        person.recordNationalityReading(DECISIVE);
+        person.proposeBackground(PROPOSED, null);
+        person.recordNationalityReading(DECISIVE, null);
 
         person.confirmBackground();
 
         assertThat(person.getAiInferredFields()).isEmpty();
         assertThat(person.getNationality()).isEqualTo("Emirati");
         assertThat(person.getSeniorityLevel()).isEqualTo(Seniority.N_MINUS_1);
+    }
+
+    @Test
+    @DisplayName("each value the model filled remembers the prompt version that proposed it, until a person decides")
+    void aFilledValueRemembersItsPromptVersion() {
+        PromptVersionRef enrich = new PromptVersionRef("candidate-ai-enrich", 4);
+        PromptVersionRef classifier = new PromptVersionRef("candidate-nationality", 2);
+        Person person = captured(detailsWithBackground(null, null, 20, null));
+
+        person.proposeBackground(PROPOSED, enrich);
+        person.recordNationalityReading(DECISIVE, classifier);
+
+        assertThat(person.inferredBy()).containsOnly(Map.entry("gender", enrich), Map.entry("seniority", enrich),
+                Map.entry("nationality", classifier));
+
+        person.describe(detailsWithBackground("Emirati", Gender.MALE, 20, Seniority.N_MINUS_1),
+                ContactSource.MANUAL);
+        assertThat(person.inferredBy()).as("the changed gender is no longer the model's").containsOnlyKeys(
+                "seniority", "nationality");
+
+        person.confirmBackground();
+        assertThat(person.inferredBy()).isEmpty();
     }
 
     @Test
@@ -261,7 +285,7 @@ class CandidateEnrichmentTest {
     void aDecisiveReadingFillsAndFlags() {
         Person person = captured(details("Sample Person", null, null, null, null, null));
 
-        person.recordNationalityReading(DECISIVE);
+        person.recordNationalityReading(DECISIVE, null);
 
         assertThat(person.getNationality()).isEqualTo("Emirati");
         assertThat(person.getAiInferredFields()).containsExactly("nationality");
@@ -275,7 +299,7 @@ class CandidateEnrichmentTest {
                 reading("Emirati", "low"), reading(NationalityReading.UNKNOWN, "high"))) {
             Person person = captured(details("Sample Person", null, null, null, null, null));
 
-            person.recordNationalityReading(reading);
+            person.recordNationalityReading(reading, null);
 
             assertThat(person.getNationality()).isNull();
             assertThat(person.getAiInferredFields()).isEmpty();

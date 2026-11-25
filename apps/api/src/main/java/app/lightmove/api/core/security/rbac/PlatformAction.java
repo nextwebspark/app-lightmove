@@ -19,5 +19,11 @@ public enum PlatformAction {
     PROMPT_MANAGE,
 
     /** Move a prompt's production label: put a version live, or roll back to an earlier one. */
-    PROMPT_PROMOTE
+    PROMPT_PROMOTE,
+
+    /** Read the eval datasets, import and retire synthetic cases, and run a prompt version against them. */
+    EVAL_RUN,
+
+    /** Read the application variables and their history, change one and reset it to its default. */
+    PLATFORM_SETTINGS_MANAGE
 }

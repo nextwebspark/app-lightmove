@@ -7,6 +7,7 @@ import app.lightmove.api.core.security.rbac.RequireRecentTwoFactor;
 import app.lightmove.api.promptregistry.dto.AiModelResponse;
 import app.lightmove.api.promptregistry.dto.PromptDetail;
 import app.lightmove.api.promptregistry.dto.PromptOverview;
+import app.lightmove.api.promptregistry.dto.PromptUsageResponse;
 import app.lightmove.api.promptregistry.dto.PromptTrialResponse;
 import app.lightmove.api.promptregistry.dto.PromptVersionBody;
 import app.lightmove.api.promptregistry.dto.PutPromptLiveRequest;
@@ -27,6 +28,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -60,6 +62,12 @@ public class PlatformPromptController {
     @RequirePlatformPermission(PlatformAction.PROMPT_MANAGE)
     public PromptVersionBody body(@PathVariable String promptId, @PathVariable int version) {
         return catalog.body(promptId, version);
+    }
+
+    @GetMapping("/prompts/{promptId}/usage")
+    @RequirePlatformPermission(PlatformAction.PROMPT_MANAGE)
+    public PromptUsageResponse usage(@PathVariable String promptId, @RequestParam(required = false) Integer days) {
+        return catalog.usage(promptId, days);
     }
 
     @PostMapping("/prompts/{promptId}/versions")

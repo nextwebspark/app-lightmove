@@ -7,9 +7,9 @@ import { ToastProvider } from "../../../../components/ui";
 import { ApiRequestError } from "../../../../lib/apiClient";
 import type { PlatformAction } from "../../../auth/api/types";
 import * as promptApi from "../api/promptApi";
-import type { PromptDetail } from "../api/types";
+import type { PromotionGate, PromptDetail } from "../api/types";
 import PromptPage from "./PromptPage";
-import { detail, model, overview, version } from "./promptFixtures";
+import { detail, health, model, modelUsage, overview, version } from "./promptFixtures";
 
 vi.mock("../api/promptApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api/promptApi")>()),
@@ -19,6 +19,7 @@ vi.mock("../api/promptApi", async (importOriginal) => ({
   savePromptVersion: vi.fn(),
   tryPromptVersion: vi.fn(),
   putPromptLive: vi.fn(),
+  getPromptUsage: vi.fn(),
 }));
 
 const held = vi.hoisted(() => ({ actions: [] as string[] }));
@@ -32,11 +33,15 @@ const BODIES: Record<number, string> = {
   3: "Score each competency.\nBe specific.\nQuote the evidence and name its source.",
 };
 
-const renderPage = (actions: PlatformAction[] = ["PROMPT_MANAGE", "PROMPT_PROMOTE"]) => {
+const renderPage = (
+  actions: PlatformAction[] = ["PROMPT_MANAGE", "PROMPT_PROMOTE"],
+  search = "",
+  client = new QueryClient({ defaultOptions: { queries: { retry: false } } }),
+) => {
   held.actions = actions;
   return render(
-    <MemoryRouter initialEntries={["/platform/prompts/candidate-scorecard-draft"]}>
-      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+    <MemoryRouter initialEntries={[`/platform/prompts/candidate-scorecard-draft${search}`]}>
+      <QueryClientProvider client={client}>
         <ToastProvider>
           <Routes>
             <Route path="/platform/prompts/:promptId" element={<PromptPage />} />
@@ -51,6 +56,36 @@ const refusal = (code: string, fieldErrors: Record<string, string> = {}) =>
   new ApiRequestError({ code, detail: "", status: 400, correlationId: "c", fieldErrors });
 
 const editor = () => screen.findByRole("textbox", { name: "Prompt text" });
+
+const gate = (overrides: Partial<PromotionGate> = {}): PromotionGate => ({
+  state: "PASSED",
+  runId: "r42",
+  runNumber: 42,
+  finishedAt: "2026-11-19T16:26:00Z",
+  cases: 12,
+  repeats: 3,
+  checksBetter: 5,
+  checksSame: 3,
+  checksWorse: 0,
+  regressedCases: 1,
+  failedChecks: [],
+  datasetId: "d1",
+  judged: null,
+  ...overrides,
+});
+
+/** The fixture's prompt, with what the evals say about its newest version against the live one. */
+const gated = (newest: PromotionGate): PromptDetail => ({
+  ...detail(),
+  versions: detail().versions.map((entry) => (entry.version === 3 ? { ...entry, gate: newest } : entry)),
+});
+
+const openPutLive = async (user: ReturnType<typeof userEvent.setup>) => {
+  await editor();
+  await user.click(within(screen.getByRole("region", { name: "Version history" })).getAllByRole("button")[0]);
+  await user.click(await screen.findByRole("button", { name: "Put version 3 live" }));
+  return screen.findByRole("dialog", { name: "Put v3 live" });
+};
 
 describe("PromptPage", () => {
   beforeEach(() => {
@@ -222,6 +257,235 @@ describe("PromptPage", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
+  it("puts a version live with no reason asked once a holdout run found it no worse", async () => {
+    vi.mocked(promptApi.getPrompt).mockResolvedValue(gated(gate()));
+    vi.mocked(promptApi.putPromptLive).mockResolvedValue(detail({ prompt: overview({ liveVersion: 3 }) }));
+    const user = userEvent.setup();
+    renderPage();
+
+    const dialog = await openPutLive(user);
+
+    expect(within(dialog).getByText("No worse")).toBeInTheDocument();
+    expect(within(dialog).getByText("Run R-0042 · holdout · 19 Nov 2026")).toBeInTheDocument();
+    expect(
+      within(dialog).getByText(
+        "12 cases, 3 repeats each. Better on 5 checks, the same on 3, worse on none. One case regressed inside the tolerance.",
+      ),
+    ).toBeInTheDocument();
+    expect(within(dialog).queryByRole("textbox")).not.toBeInTheDocument();
+
+    await user.click(within(dialog).getByRole("button", { name: "Put live" }));
+
+    await waitFor(() => expect(promptApi.putPromptLive).toHaveBeenCalledWith("candidate-scorecard-draft", 3, null));
+  });
+
+  it("asks why over a run that gave no result, and sends to the rubric that would make it count", async () => {
+    vi.mocked(promptApi.getPrompt).mockResolvedValue(
+      gated(
+        gate({
+          state: "NO_RESULT",
+          runNumber: 39,
+          checksBetter: 0,
+          checksSame: 0,
+          checksWorse: 0,
+          datasetId: "d5",
+          judged: { counted: false, state: "UNLABELLED", criteria: 3, forCandidate: 1, forBaseline: [] },
+        }),
+      ),
+    );
+    const user = userEvent.setup();
+    renderPage();
+
+    const dialog = await openPutLive(user);
+
+    expect(within(dialog).getByText("Run R-0039 on the holdout cases gave no result")).toBeInTheDocument();
+    expect(
+      within(dialog).getByText(
+        "Assessment draft has no checks, and its judged criteria do not count until a person has labelled 20 pairs and the judge has been checked against them. Nothing yet shows this version is no worse than the live one.",
+      ),
+    ).toBeInTheDocument();
+    expect(within(dialog).getByRole("link", { name: "Open the rubric" })).toHaveAttribute(
+      "href",
+      "/platform/evals/datasets/d5?view=rubric",
+    );
+    expect(within(dialog).getByRole("textbox", { name: "Why put it live anyway" })).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "Put live" })).toBeDisabled();
+  });
+
+  it("names what the judge found beside the checks, and warns when the prompt is the judge itself", async () => {
+    vi.mocked(promptApi.getPrompt).mockResolvedValue({
+      ...gated(gate({ judged: { counted: true, state: "COUNTS", criteria: 4, forCandidate: 2, forBaseline: [] } })),
+      prompt: overview({ id: "eval-judge", name: "Eval judge" }),
+    });
+    const user = userEvent.setup();
+    renderPage();
+
+    const dialog = await openPutLive(user);
+
+    expect(
+      within(dialog).getByText(/The judge prefers the candidate on 2 of the 4 judged criteria and the live version on none\./),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).getByText(/This prompt is the judge\. Once its live version changes, every rubric's judged criteria are shown only/),
+    ).toBeInTheDocument();
+  });
+
+  it("asks why over a run that found the version worse, naming the checks it fell on", async () => {
+    vi.mocked(promptApi.getPrompt).mockResolvedValue(
+      gated(
+        gate({
+          state: "FAILED",
+          runNumber: 41,
+          finishedAt: "2026-11-13T11:02:00Z",
+          failedChecks: [
+            { label: "Score inside the labelled band", candidate: 75, baseline: 83 },
+            { label: "Self-report alone stays at 7 or below", candidate: 83, baseline: 92 },
+          ],
+        }),
+      ),
+    );
+    const user = userEvent.setup();
+    renderPage();
+
+    const dialog = await openPutLive(user);
+
+    expect(within(dialog).getByText("Regressed")).toBeInTheDocument();
+    expect(within(dialog).getByText("Run R-0041 · holdout · 13 Nov 2026")).toBeInTheDocument();
+    expect(
+      within(dialog).getByText(
+        "Worse than the live version on two checks: score inside the labelled band (75% against 83%) and self-report alone stays at 7 or below (83% against 92%).",
+      ),
+    ).toBeInTheDocument();
+    expect(within(dialog).getByRole("textbox", { name: "Why put it live anyway" })).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "Put live" })).toBeDisabled();
+  });
+
+  it("says a version has no holdout run, asks why, and points at Evals", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    const dialog = await openPutLive(user);
+
+    expect(within(dialog).getByText("This version has no finished run on the holdout cases")).toBeInTheDocument();
+    expect(within(dialog).getByRole("link", { name: "Run an eval first" })).toHaveAttribute(
+      "href",
+      "/platform/evals?tab=runs",
+    );
+    expect(within(dialog).getByRole("textbox", { name: "Why put it live anyway" })).toBeInTheDocument();
+  });
+
+  it("shows the reason field's refusal when the version serving changed under a passed run", async () => {
+    vi.mocked(promptApi.getPrompt).mockResolvedValue(gated(gate()));
+    vi.mocked(promptApi.putPromptLive).mockRejectedValue(
+      refusal("VALIDATION_FAILED", { reason: "Say why this version should serve" }),
+    );
+    const user = userEvent.setup();
+    renderPage();
+
+    const dialog = await openPutLive(user);
+    await user.click(within(dialog).getByRole("button", { name: "Put live" }));
+
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent("Say why this version should serve");
+  });
+
+  it("reads the prompt again when a reason is demanded under a passed run, and asks for it on what the evals now say", async () => {
+    vi.mocked(promptApi.getPrompt)
+      .mockResolvedValueOnce(gated(gate()))
+      .mockResolvedValue(
+        gated(
+          gate({
+            state: "FAILED",
+            runId: "r43",
+            runNumber: 43,
+            failedChecks: [{ label: "Score inside the labelled band", candidate: 75, baseline: 83 }],
+          }),
+        ),
+      );
+    vi.mocked(promptApi.putPromptLive).mockRejectedValue(
+      refusal("VALIDATION_FAILED", { reason: "Say why this version should serve" }),
+    );
+    const user = userEvent.setup();
+    renderPage();
+
+    const stale = await openPutLive(user);
+    expect(within(stale).queryByRole("textbox")).not.toBeInTheDocument();
+    await user.click(within(stale).getByRole("button", { name: "Put live" }));
+
+    const reason = await screen.findByRole("textbox", { name: "Why put it live anyway" });
+    const dialog = screen.getByRole("dialog", { name: "Put v3 live" });
+    expect(within(dialog).getByText("Regressed")).toBeInTheDocument();
+
+    vi.mocked(promptApi.putPromptLive).mockResolvedValue(detail({ prompt: overview({ liveVersion: 3 }) }));
+    await user.type(reason, "Reads better");
+    await user.click(within(dialog).getByRole("button", { name: "Put live" }));
+
+    await waitFor(() =>
+      expect(promptApi.putPromptLive).toHaveBeenLastCalledWith("candidate-scorecard-draft", 3, "Reads better"),
+    );
+  });
+
+  it("opens Put live at once from a run's link to its candidate", async () => {
+    vi.mocked(promptApi.getPrompt).mockResolvedValue(gated(gate()));
+    const user = userEvent.setup();
+    renderPage(["PROMPT_MANAGE", "PROMPT_PROMOTE"], "?version=3&putLive=1");
+
+    const dialog = await screen.findByRole("dialog", { name: "Put v3 live" });
+    expect(within(dialog).getByText("No worse")).toBeInTheDocument();
+
+    await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Put version 3 live" })).toBeInTheDocument();
+  });
+
+  it("reads the prompt again before the linked dialog opens, so a run that just ended is the one it rests on", async () => {
+    // The prompt as it was read before the run: no run yet for its newest version.
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    client.setQueryData(promptApi.PROMPT_KEY("candidate-scorecard-draft"), detail(), { updatedAt: 0 });
+    vi.mocked(promptApi.getPrompt).mockResolvedValue(gated(gate()));
+    renderPage(["PROMPT_MANAGE", "PROMPT_PROMOTE"], "?version=3&putLive=1", client);
+
+    const dialog = await screen.findByRole("dialog", { name: "Put v3 live" });
+
+    expect(within(dialog).getByText("No worse")).toBeInTheDocument();
+    expect(within(dialog).queryByText("This version has no finished run on the holdout cases")).not.toBeInTheDocument();
+    expect(within(dialog).queryByRole("textbox")).not.toBeInTheDocument();
+  });
+
+  it("keeps the linked dialog and the reason typed in it when the prompt is read again", async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const user = userEvent.setup();
+    renderPage(["PROMPT_MANAGE", "PROMPT_PROMOTE"], "?version=3&putLive=1", client);
+
+    const dialog = await screen.findByRole("dialog", { name: "Put v3 live" });
+    const reason = within(dialog).getByRole("textbox", { name: "Why put it live anyway" });
+    await user.type(reason, "Reads better");
+
+    await client.invalidateQueries({ queryKey: promptApi.PROMPT_KEY("candidate-scorecard-draft") });
+
+    expect(promptApi.getPrompt).toHaveBeenCalledTimes(2);
+    expect(reason).toBeInTheDocument();
+    expect(reason).toHaveValue("Reads better");
+  });
+
+  it("asks why on a rollback whatever the evals said, and draws no check", async () => {
+    vi.mocked(promptApi.getPrompt).mockResolvedValue({
+      ...detail(),
+      versions: detail().versions.map((entry) => (entry.version === 1 ? { ...entry, gate: gate() } : entry)),
+    });
+    const user = userEvent.setup();
+    renderPage();
+    await editor();
+
+    await user.click(within(screen.getByRole("region", { name: "Version history" })).getAllByRole("button")[2]);
+    await user.click(await screen.findByRole("button", { name: "Roll back to version 1" }));
+
+    const dialog = await screen.findByRole("dialog", { name: "Roll back to v1" });
+    expect(within(dialog).queryByText("No worse")).not.toBeInTheDocument();
+    expect(within(dialog).getByRole("textbox", { name: "Why roll back" })).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "Roll back" })).toBeDisabled();
+  });
+
   it("rolls back to an earlier version from its history, through the same dialog", async () => {
     vi.mocked(promptApi.putPromptLive).mockResolvedValue(detail({ prompt: overview({ liveVersion: 1, origin: "BUNDLED" }) }));
     const user = userEvent.setup();
@@ -325,6 +589,117 @@ describe("PromptPage", () => {
       "Version 2 names gemini-1.0-pro, which is retired, no longer offered or cannot answer this prompt.",
     );
     expect(screen.getByText("gemini-1.0-pro is no longer offered. The default model answers this version.")).toBeInTheDocument();
+  });
+
+  it("counts each version's calls by model on Usage, and says a prompt nobody decides on has no kept share", async () => {
+    vi.mocked(promptApi.getPromptUsage).mockResolvedValue({
+      days: 30,
+      decisionsCounted: false,
+      versions: [
+        {
+          version: 2,
+          live: true,
+          accepted: 0,
+          changed: 0,
+          models: [modelUsage(), modelUsage({ modelId: "gemini-3.1-flash-lite", modelName: "Gemini 3.1 Flash-Lite", calls: 96 })],
+        },
+        { version: 1, live: false, accepted: 0, changed: 0, models: [modelUsage({ calls: 2210, schemaReasks: 88 })] },
+      ],
+    });
+    const user = userEvent.setup();
+    renderPage();
+    await editor();
+
+    await user.click(screen.getByRole("tab", { name: "Usage" }));
+
+    const table = await screen.findByRole("table", { name: "Usage by version and model" });
+    const rows = within(table).getAllByRole("row").slice(1);
+    expect(rows).toHaveLength(3);
+    expect(within(rows[0]).getByText("v2")).toBeInTheDocument();
+    expect(within(rows[0]).getByText("Live")).toBeInTheDocument();
+    expect(within(rows[0]).getByText("1,284")).toBeInTheDocument();
+    expect(within(rows[0]).getByText("31 · 2.4%")).toBeInTheDocument();
+    expect(within(rows[0]).getByText("22 cut off · 3 safety · 6 unreadable")).toBeInTheDocument();
+    expect(within(rows[0]).getByText("4.1M in · 520K out")).toBeInTheDocument();
+    expect(within(rows[0]).getByText("Not counted")).toBeInTheDocument();
+    expect(within(rows[1]).getByText("Gemini 3.1 Flash-Lite")).toBeInTheDocument();
+    expect(within(rows[1]).queryByText("Not counted")).not.toBeInTheDocument();
+    expect(within(rows[2]).getByText("88")).toBeInTheDocument();
+    expect(screen.getByText(/Kept is not counted for this prompt/)).toBeInTheDocument();
+    expect(promptApi.getPromptUsage).toHaveBeenCalledWith("candidate-scorecard-draft", 30, expect.anything());
+  });
+
+  it("shows the share of answers kept where a person decides, and reads another span when asked", async () => {
+    vi.mocked(promptApi.getPromptUsage).mockImplementation((_id, days) =>
+      Promise.resolve(
+        days === 7
+          ? { days: 7, decisionsCounted: true, versions: [] }
+          : {
+              days: 30,
+              decisionsCounted: true,
+              versions: [{ version: 2, live: true, accepted: 72, changed: 46, models: [modelUsage({ calls: 644 })] }],
+            },
+      ),
+    );
+    const user = userEvent.setup();
+    renderPage();
+    await editor();
+    await user.click(screen.getByRole("tab", { name: "Usage" }));
+
+    expect(await screen.findByText("61%")).toBeInTheDocument();
+    expect(screen.getByText("72 kept · 46 changed")).toBeInTheDocument();
+    expect(screen.getByText(/Kept: of the answers a person decided on/)).toBeInTheDocument();
+
+    await user.click(screen.getByRole("radio", { name: "Last 7 days" }));
+
+    expect(await screen.findByText("No calls in the last 7 days.")).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "Last 7 days" })).toHaveAttribute("aria-checked", "true");
+  });
+
+  it("says when the live version is doing worse than the one it replaced, and points at Usage", async () => {
+    vi.mocked(promptApi.getPrompt).mockResolvedValue(detail({ prompt: overview({ health: health() }) }));
+    renderPage();
+    await editor();
+
+    const notes = screen.getAllByRole("note");
+    expect(notes[0]).toHaveTextContent(
+      "Version 2 fails more often than version 1 did: 8.1% of 412 calls since it went live on 4 Nov, against 2.3% of 1,960 in the 20 days before. Usage has the detail.",
+    );
+    expect(notes[1]).toHaveTextContent(
+      "Version 2 is kept as written less often than version 1 was: 61% of 118 answers since it went live on 4 Nov, against 78% of 240 in the 20 days before.",
+    );
+  });
+
+  it("says the day before, not the 1 days before, on a version put live today", async () => {
+    vi.mocked(promptApi.getPrompt).mockResolvedValue(
+      detail({ prompt: overview({ health: health({ warnings: ["MORE_FAILURES"], days: 1 }) }) }),
+    );
+    renderPage();
+    await editor();
+
+    expect(screen.getByRole("note")).toHaveTextContent("against 2.3% of 1,960 in the day before. Usage has the detail.");
+  });
+
+  it("names the first days live, not the time since, on a version live longer than the comparison", async () => {
+    vi.mocked(promptApi.getPrompt).mockResolvedValue(
+      detail({ prompt: overview({ health: health({ liveSince: "2026-09-25", days: 30, daysLive: 61 }) }) }),
+    );
+    renderPage();
+    await editor();
+
+    const notes = screen.getAllByRole("note");
+    expect(notes[0]).toHaveTextContent(
+      "Version 2 fails more often than version 1 did: 8.1% of 412 calls in its first 30 days after going live on 25 Sep, against 2.3% of 1,960 in the 30 days before. Usage has the detail.",
+    );
+    expect(notes[1]).toHaveTextContent("61% of 118 answers in its first 30 days after going live on 25 Sep, against");
+  });
+
+  it("says nothing about the live version where the comparison found no gap", async () => {
+    vi.mocked(promptApi.getPrompt).mockResolvedValue(detail({ prompt: overview({ health: health({ warnings: [] }) }) }));
+    renderPage();
+    await editor();
+
+    expect(screen.queryByRole("note")).not.toBeInTheDocument();
   });
 
   it("draws no Try it for a prompt that has none", async () => {

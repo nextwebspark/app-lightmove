@@ -2,6 +2,7 @@ package app.lightmove.api;
 
 import app.lightmove.api.core.llm.model.PromptCallCount;
 import app.lightmove.api.core.llm.model.ServedPrompt;
+import app.lightmove.api.core.llm.service.AiModelCatalog;
 import app.lightmove.api.core.llm.service.BundledPrompts;
 import app.lightmove.api.core.llm.service.PromptCallCountWriter;
 import app.lightmove.api.core.llm.service.PromptCallCounter;
@@ -17,10 +18,15 @@ public final class TestPromptCalls {
 
     /** The bundled files and nothing else: no registry, so no call carries a version and nothing is counted. */
     public static PromptCalls bundledOnly() {
+        return bundledUnless(new PromptTrialRunner(null));
+    }
+
+    /** The bundled files, except while {@code trials} is running a version of its own: an offline eval's way in. */
+    public static PromptCalls bundledUnless(PromptTrialRunner trials) {
         BundledPrompts bundled = new BundledPrompts();
         return new PromptCalls((promptId, kind) -> ServedPrompt.bundled(promptId, bundled.bodyOf(promptId)),
-                new VertexGeminiChatModelProvider(null, null, null), new PromptCallCounter(new UncountedCalls()),
-                new PromptTrialRunner(null));
+                new VertexGeminiChatModelProvider(new AiModelCatalog(), null, null, null),
+                new PromptCallCounter(new UncountedCalls()), trials);
     }
 
     private static final class UncountedCalls extends PromptCallCountWriter {

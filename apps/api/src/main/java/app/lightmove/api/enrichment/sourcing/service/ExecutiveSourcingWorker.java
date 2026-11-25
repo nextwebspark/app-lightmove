@@ -6,7 +6,6 @@ import app.lightmove.api.billing.usage.service.UsageRecorder;
 import app.lightmove.api.candidate.service.SuppressionGate;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
-import app.lightmove.api.core.config.ExecutiveSourcingSettings;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.concurrent.service.ThreadContextPropagation;
 import app.lightmove.api.enrichment.sourcing.constant.SourcingOutcome;
@@ -20,6 +19,7 @@ import app.lightmove.api.enrichment.sourcing.model.FoundPerson;
 import app.lightmove.api.enrichment.sourcing.model.SearchCriteria;
 import app.lightmove.api.enrichment.sourcing.model.SourcingBrief;
 import app.lightmove.api.enrichment.sourcing.model.SourcingCompany;
+import app.lightmove.api.enrichment.sourcing.model.SourcingRunLimits;
 import app.lightmove.api.enrichment.sourcing.model.Suggestion;
 import app.lightmove.api.position.service.PositionService;
 import java.time.Clock;
@@ -66,13 +66,13 @@ class ExecutiveSourcingWorker {
     private final AuditService audit;
     private final UsageRecorder usage;
     private final Clock clock;
-    private final ExecutiveSourcingSettings settings;
+    private final SourcingLimits limits;
     private final Duration peopleCacheTtl;
 
     ExecutiveSourcingWorker(SourcingRunStore store, SuggestionStore suggestions, CompanySearch companySearch,
                             LiveProfiles live, PeopleCache cache, SourcingCriteriaService criteria,
                             SuppressionGate suppression, PositionService positions, AuditService audit, UsageRecorder usage, Clock clock,
-                            LightMoveProperties properties) {
+                            LightMoveProperties properties, SourcingLimits limits) {
         this.store = store;
         this.suggestions = suggestions;
         this.companySearch = companySearch;
@@ -84,7 +84,7 @@ class ExecutiveSourcingWorker {
         this.audit = audit;
         this.usage = usage;
         this.clock = clock;
-        this.settings = properties.enrichment().sourcing();
+        this.limits = limits;
         this.peopleCacheTtl = properties.enrichment().peopleCacheTtl();
     }
 
@@ -114,9 +114,10 @@ class ExecutiveSourcingWorker {
         SearchCriteria searched = started.getCriteria() != null ? started.getCriteria()
                 : criteria.current(request.workspaceId(), request.projectId());
         suggestions.purgeCreatedBefore(Instant.now(clock).minus(peopleCacheTtl));
-        Run run = new Run(request, brief, searched, Instant.now(clock).plus(settings.runDeadline()));
+        SourcingRunLimits runLimits = limits.forRun(started);
+        Run run = new Run(request, brief, searched, runLimits, Instant.now(clock).plus(runLimits.runDeadline()));
 
-        try (ExecutorService pool = Executors.newFixedThreadPool(settings.parallelism(),
+        try (ExecutorService pool = Executors.newFixedThreadPool(runLimits.parallelism(),
                 Thread.ofVirtual().factory())) {
             started.getCompanies().forEach(company ->
                     pool.execute(ThreadContextPropagation.wrap(() -> run.record(company, run.searchOne(company)))));
@@ -153,6 +154,7 @@ class ExecutiveSourcingWorker {
         private final ExecutiveSourcingRequested request;
         private final SourcingBrief brief;
         private final SearchCriteria searched;
+        private final SourcingRunLimits runLimits;
         private final Instant deadline;
         private final ReentrantLock recording = new ReentrantLock();
 
@@ -205,7 +207,7 @@ class ExecutiveSourcingWorker {
             List<String> countries = searched.countriesFor(company);
             StepReporter steps = new StepReporter(company);
             FoundPeople found = companySearch.search(company.employer(), searched.words(), brief.seniority(),
-                    countries, searched.perCompany(), steps);
+                    countries, searched.perCompany(), runLimits, steps);
             try {
                 found = withConfirmedProfiles(company, withoutSuppressed(found), steps);
                 steps.reached(SourcingStage.RANKING, found.considered(), 0, 0);

@@ -5,6 +5,7 @@ import app.lightmove.api.candidate.model.CandidateCareerEntry;
 import app.lightmove.api.candidate.model.CandidateDossier;
 import app.lightmove.api.candidate.model.NationalityReading;
 import app.lightmove.api.common.constant.NationalityGroup;
+import app.lightmove.api.core.llm.model.AttributedAnswer;
 import app.lightmove.api.core.llm.model.BlockedAnswer;
 import app.lightmove.api.core.llm.service.StructuredPrompt;
 import app.lightmove.api.core.llm.service.StructuredPromptFactory;
@@ -32,7 +33,7 @@ import org.springframework.stereotype.Service;
 @Slf4j
 public class CandidateNationalityClassifier {
 
-    private static final String PROMPT_ID = "candidate-nationality";
+    static final String PROMPT_ID = "candidate-nationality";
     private static final String BLOCKED = "{\"category\":\"" + BlockedAnswer.MARKER + "\"}";
 
     private static final int MAX_EVIDENCE_PER_SIDE = 5;
@@ -72,21 +73,28 @@ public class CandidateNationalityClassifier {
 
     /** Empty when the model could not be reached or answered nothing usable; a blocked prompt is refused instead. */
     Optional<NationalityReading> classify(CandidateDossier dossier, MaterialText material) {
-        ModelAnswer answered;
+        return classifyAttributed(dossier, material).map(AttributedAnswer::answer);
+    }
+
+    Optional<AttributedAnswer<NationalityReading>> classifyAttributed(CandidateDossier dossier,
+                                                                     MaterialText material) {
+        AttributedAnswer<ModelAnswer> answered;
         try {
             answered = ask(dossier, material);
         } catch (RuntimeException e) {
             log.warn("Candidate nationality classification skipped: {}", e.toString());
             return Optional.empty();
         }
-        if (answered != null && BlockedAnswer.matches(answered.category())) {
+        ModelAnswer found = answered.answer();
+        if (found != null && BlockedAnswer.matches(found.category())) {
             throw AiRefusals.blockedText();
         }
-        return Optional.ofNullable(answered).map(CandidateNationalityClassifier::readingOf);
+        return Optional.ofNullable(found)
+                .map(read -> new AttributedAnswer<>(readingOf(read), answered.answeredBy()));
     }
 
-    private ModelAnswer ask(CandidateDossier dossier, MaterialText material) {
-        return prompt.ask(ModelAnswer.class, user -> user.text(USER_MESSAGE)
+    private AttributedAnswer<ModelAnswer> ask(CandidateDossier dossier, MaterialText material) {
+        return prompt.askAttributed(ModelAnswer.class, user -> user.text(USER_MESSAGE)
                 .param("name", DossierText.orNotStated(dossier.fullName()))
                 .param("headline", headlineOf(dossier))
                 .param("about", DossierText.orNotStated(ContactRedaction.redact(dossier.summary())))

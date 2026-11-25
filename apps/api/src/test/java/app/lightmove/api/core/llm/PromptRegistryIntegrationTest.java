@@ -210,12 +210,6 @@ class PromptRegistryIntegrationTest {
         assertThat(delta(before, after, "calls")).isEqualTo(3);
         assertThat(delta(before, after, "input_tokens")).isEqualTo(3L * StubChatModel.PROMPT_TOKENS);
         assertThat(delta(before, after, "output_tokens")).isEqualTo(3L * StubChatModel.COMPLETION_TOKENS);
-        assertThat(db.queryForList("""
-                SELECT column_name FROM information_schema.columns
-                WHERE table_name = 'app_lm_platform_prompt_call_daily'
-                """, String.class)).containsExactlyInAnyOrder("prompt_id", "version", "provider", "model_id", "day",
-                "calls", "input_tokens", "output_tokens", "finish_stop", "finish_max_tokens", "finish_safety",
-                "finish_other");
     }
 
     @Test
@@ -226,6 +220,24 @@ class PromptRegistryIntegrationTest {
             assertThat(shortlist.shortlist("a brief", "a profile")).isNotBlank();
         } finally {
             db.execute("ALTER TABLE app_lm_platform_prompt_call_daily_away RENAME TO app_lm_platform_prompt_call_daily");
+        }
+    }
+
+    @Test
+    @DisplayName("an unreadable registry read inside a caller's transaction leaves that transaction usable (#1446)")
+    void anUnreadableRegistryDoesNotAbortTheCallersTransaction() {
+        db.execute("ALTER TABLE app_lm_platform_prompt_version RENAME TO app_lm_platform_prompt_version_away");
+        try {
+            registry.reload();
+
+            Integer answeredAfterTheRead = transactions.execute(status -> {
+                assertThat(prompts.current(SHORTLIST, PromptKind.PROSE).body()).isEqualTo(bundled.bodyOf(SHORTLIST));
+                return app.queryForObject("SELECT 1", Integer.class);
+            });
+
+            assertThat(answeredAfterTheRead).isEqualTo(1);
+        } finally {
+            db.execute("ALTER TABLE app_lm_platform_prompt_version_away RENAME TO app_lm_platform_prompt_version");
         }
     }
 

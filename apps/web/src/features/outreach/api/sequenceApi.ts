@@ -121,6 +121,8 @@ export interface EnrollmentScope {
 export interface DraftedOpener {
   candidateId: string;
   opener: string | null;
+  /** The prompt version that drafted it, sent back on enrolment; null when none did. */
+  promptVersion: number | null;
 }
 
 export interface EnrollPerson {
@@ -128,6 +130,7 @@ export interface EnrollPerson {
   toAddress: string;
   opener: string | null;
   openerEdited: boolean;
+  openerPromptVersion: number | null;
 }
 
 export function getSequences(projectId: string, signal?: AbortSignal): Promise<Sequence[]> {

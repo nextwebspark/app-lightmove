@@ -42,6 +42,7 @@ class CompanySearchIntegrationTest {
     private static final int PROFILES = 3;
 
     @Autowired private CompanySearch search;
+    @Autowired private SourcingLimits limits;
     @Autowired private RecordingLiveProfiles live;
     @Autowired private RecordingProfileIndex index;
     @Autowired private LightMoveProperties properties;
@@ -200,6 +201,7 @@ class CompanySearchIntegrationTest {
         List<String> steps = new ArrayList<>();
 
         FoundPeople found = search.search(employer(harrow.company()), FINANCE, Seniority.C_SUITE, UAE, PROFILES,
+                limits.current(),
                 (stage, considered, done, total) -> steps.add(stage + " " + done + "/" + total));
 
         assertThat(steps.getFirst()).isEqualTo("LOOKING 0/0");

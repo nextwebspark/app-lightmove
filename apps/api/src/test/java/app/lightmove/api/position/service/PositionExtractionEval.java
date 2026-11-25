@@ -13,6 +13,7 @@ import app.lightmove.api.core.llm.service.StructuredPrompt;
 import app.lightmove.api.core.llm.service.StructuredPromptFactory;
 import app.lightmove.api.core.llm.service.TextPseudonymiser;
 import app.lightmove.api.core.ratelimit.service.LlmBudgetGuard;
+import app.lightmove.api.core.text.service.LooseTextMatch;
 import app.lightmove.api.position.constant.ExtractionSource;
 import app.lightmove.api.position.constant.ProposalConfidence;
 import app.lightmove.api.position.model.ExtractedField;
@@ -29,10 +30,8 @@ import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
@@ -287,7 +286,7 @@ class PositionExtractionEval {
                 if (wanted == null) {
                     continue;
                 }
-                List<String> acceptable = wanted.stream().map(PositionExtractionEval::normalised).toList();
+                List<String> acceptable = wanted.stream().map(LooseTextMatch::normalised).toList();
                 for (int run = 0; run < runs; run++) {
                     List<String> proposed = document.valuesOf(run, key);
                     if (acceptable.isEmpty()) {
@@ -296,11 +295,11 @@ class PositionExtractionEval {
                     } else if (LIST_KEYS.contains(key) && !proposed.isEmpty()) {
                         judged += proposed.size();
                         right += (int) proposed.stream().filter(item -> acceptable.stream()
-                                .anyMatch(expected -> matches(expected, item))).count();
+                                .anyMatch(expected -> LooseTextMatch.matches(expected, item))).count();
                     } else {
                         judged++;
                         right += proposed.stream().anyMatch(item -> acceptable.stream()
-                                .anyMatch(expected -> matches(expected, item))) ? 1 : 0;
+                                .anyMatch(expected -> LooseTextMatch.matches(expected, item))) ? 1 : 0;
                     }
                 }
             }
@@ -396,34 +395,7 @@ class PositionExtractionEval {
     }
 
     private static String comparable(String key, String value) {
-        return normalised(COMPETENCY_KEYS.contains(key) ? value.split(PACK_SEPARATOR, -1)[0] : value);
-    }
-
-    static String normalised(String value) {
-        return value == null ? "" : value.toLowerCase(Locale.ROOT).replaceAll("[^\\p{L}\\p{N}]+", " ").strip();
-    }
-
-    /**
-     * Equal, one inside the other, or most of the proposal's own words found in the expected line — a
-     * reading shortens a document's sentence into a few words of it, so the overlap is measured from the
-     * proposal's side.
-     */
-    static boolean matches(String expected, String proposed) {
-        if (expected.isEmpty() || proposed.isEmpty()) {
-            return false;
-        }
-        if (expected.equals(proposed) || expected.contains(proposed) || proposed.contains(expected)) {
-            return true;
-        }
-        Set<String> expectedWords = significantWords(expected);
-        Set<String> proposedWords = significantWords(proposed);
-        Set<String> shared = new HashSet<>(proposedWords);
-        shared.retainAll(expectedWords);
-        return shared.size() >= 2 && (double) shared.size() / proposedWords.size() >= 0.6;
-    }
-
-    private static Set<String> significantWords(String value) {
-        return Arrays.stream(value.split(" ")).filter(word -> word.length() > 2).collect(Collectors.toSet());
+        return LooseTextMatch.normalised(COMPETENCY_KEYS.contains(key) ? value.split(PACK_SEPARATOR, -1)[0] : value);
     }
 
     private static String share(long part, long whole) {

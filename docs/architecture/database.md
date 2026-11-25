@@ -148,7 +148,9 @@ adds `AI_SOURCED` to both source CHECKs (the contact ledger's only because `Cont
 exhaustive; nothing writes it).
 V88 holds a mandate to one run in progress (a partial unique index behind the service's own check), and
 the next request fails a run still marked in progress past `run-deadline`, since its worker died with
-the instance.
+the instance. V242 adds `run_deadline_seconds`: the deadline in force when the run was requested, which is the
+one it is judged lost against now that `run-deadline` is an application variable (null on older runs, judged
+against the current value).
 V93 is Strategy's People mode: `app_lm_strategy.people_filter` and `app_lm_strategy_search.kind` +
 `people_filter` (a people search leaves the company `filter` empty rather than null), a nullable
 `app_lm_vendor_people_search.company_slug` (a people-first page is asked of no company), an index over
@@ -539,10 +541,76 @@ per finish reason for each prompt version, provider, model and UTC day, raised b
 scope (`prompts` today), raised in the transaction that changes platform configuration and watched by every
 instance (`PlatformConfigReload`).
 
-V237 adds `app_lm_start_page` (docs/architecture/features.md, Start page): where a member's Uncava opens in one workspace, unique on (`workspace_id`, `user_id`), both cascading, no row for Home. `kind` `POSITIONS` | `CANDIDATES` | `TASKS` | `DASHBOARD` | `POSITION`; `dashboard_id` (cascade) for a dashboard, `project_id` (cascade) and `section` (`BRIEF` | `STRATEGY` | `UNIVERSE` | `OUTREACH` | `DASHBOARD`) for a position, a CHECK holding each shape. The target is checked against the member's access on every read, so a page lost since does not open. Copies every V233 `landing = 'POSITIONS'` here and leaves `app_lm_home_layout.landing` in place, unread, so the revision still serving during a deploy keeps working; a later migration drops it once this release is live everywhere (expand, then contract). Forced RLS on its `workspace_id`. Every member, a pure client included.
-
 V236 seeds the platform actions `PROMPT_MANAGE` (read the prompts, save a version, try it) and `PROMPT_PROMOTE` (move
 the production label), both granted to `SUPER_ADMIN` (#1317). No table changes.
+
+V237 adds `app_lm_start_page` (docs/architecture/features.md, Start page): where a member's Uncava opens in one workspace, unique on (`workspace_id`, `user_id`), both cascading, no row for Home. `kind` `POSITIONS` | `CANDIDATES` | `TASKS` | `DASHBOARD` | `POSITION`; `dashboard_id` (cascade) for a dashboard, `project_id` (cascade) and `section` (`BRIEF` | `STRATEGY` | `UNIVERSE` | `OUTREACH` | `DASHBOARD`) for a position, a CHECK holding each shape. The target is checked against the member's access on every read, so a page lost since does not open. Copies every V233 `landing = 'POSITIONS'` here and leaves `app_lm_home_layout.landing` in place, unread, so the revision still serving during a deploy keeps working; a later migration drops it once this release is live everywhere (expand, then contract). Forced RLS on its `workspace_id`. Every member, a pure client included.
+
+V238 adds the eval datasets (#1319, docs/eval/README.md), two platform tables with no `workspace_id` and no reference
+into a tenant table, and seeds the platform action `EVAL_RUN`, granted to `SUPER_ADMIN`. `app_lm_eval_dataset`: one
+set of cases for one `prompt_id`, unique on (`prompt_id`, `name`); `created_by` null for one shipped with a release.
+`app_lm_eval_case`: `case_key` unique per dataset for ever, `name`, `tag`, `split` `DEV` | `HOLDOUT`, `source` with
+the single value `SYNTHETIC` (a CHECK: there is nothing to store a real person's data under), `input` jsonb in the
+prompt's own prepared shape and `expected` jsonb (null for a prompt only a judge scores). A case is added and
+retired, never rewritten: a trigger lets an UPDATE set `retired_at` and `retired_by` together, once, and after that
+change `created_by` or `retired_by` only to null (an erased account), and refuses DELETE. Not in `harden.sql`: retiring needs UPDATE, and later eval tables
+reference these, which a table owned by `postgres` would refuse.
+
+V239 adds eval runs (#1320), two more platform tables. `app_lm_eval_run`: `number` (an identity, the `R-0042` a
+person reads), the prompt, dataset and split, `case_ids` (the cases in use when it started, so one imported or
+retired since is neither added nor dropped), both versions **by number with no foreign key** (`harden.sql` gives the
+version table to `postgres`, which a key from a table `lm_app` owns could not reference), the model that answered
+for each, `repeats`, `status` `QUEUED` | `RUNNING` | `FINISHED` | `CANCELLED` | `FAILED`, `verdict` `PASS` | `FAIL`
+(only when finished), `failure` (only when failed), `gate_ready` (whether the subject's cases counted at put live
+when it started), calls planned and made, `call_cap`, tokens, `summary` jsonb, `stop_requested_at`, and the worker's
+`claim_token`, `claims` and `heartbeat_at`. `app_lm_eval_run_one_at_a_time` is a unique index on a constant where
+status is `QUEUED` or `RUNNING`: one run platform-wide. `app_lm_eval_result`: one row per run, case, side
+(`CANDIDATE` | `BASELINE`) and repeat, unique on the four, with the bound `answer` jsonb (null when unreadable), the
+raw answer, finish, tokens and each check's verdict by id. A fictional case's answer only. Append-only by trigger.
+Not in `harden.sql`, for V238's reason.
+
+V240 adds the eval judge (#1322), six more platform tables, and three columns on `app_lm_eval_run`: `rubric_id` (the
+rubric its pairs are judged by, fixed at the start; null for a dataset with none), `judge_version` and `judge_model`.
+`app_lm_eval_rubric`: one per dataset and `version`, `criteria` jsonb (`[{key, name, better}]`), append-only by
+trigger, so a changed rubric is a new version. `app_lm_eval_judgement`: the judge's pick on one criterion of one pair
+of a run's answers, unique on run, case, repeat and `criterion_key`, with `candidate_shown_as` (`A` | `B`, the order
+drawn for that pair), `winner` `CANDIDATE` | `BASELINE` | `TIE` (null: no pick that could be read) and its `reason`;
+append-only by trigger. `app_lm_eval_calibration_pair`: the pairs a person labels for one rubric version, by
+`position`, each naming a case and two `app_lm_eval_result` rows as `a_result_id` and `b_result_id`.
+`app_lm_eval_calibration_label`: the person's `pick` (`A` | `B` | `TIE`) per pair and criterion, with who and when; the
+one table here that is updated, since a label may be changed. `app_lm_eval_calibration_check`: one check of the judge
+against a rubric's labels, with the `judge_version` that made the picks, `status` `QUEUED` | `RUNNING` | `FINISHED` |
+`FAILED`, `agreed` of `picks` once finished, its spend and the worker's claim; a partial unique index allows one going
+per rubric. `app_lm_eval_calibration_pick`: the judge's pick per check, pair and criterion, in the pair's own A and B,
+with `a_shown_first` and its reason. No workspace, no reference into a tenant table, and not in `harden.sql`, for
+V238's reason.
+
+V241 adds application variables (#1314), two platform tables, and seeds the `PLATFORM_SETTINGS_MANAGE` action for
+`SUPER_ADMIN`. `app_lm_platform_setting`: one row per overridden variable (`key`, the yml path without `lightmove.`;
+`value` as text; `updated_by`, `updated_at`). No row means the yml value serves; which keys may have a row, their
+bounds and labels are code (`ApplicationVariable`), never data. `app_lm_platform_setting_change`: every change and
+reset, with `old_value` and `new_value` as they served (a reset's new value is the default of that day), the `note`
+and who and when; append-only by trigger, an UPDATE of `changed_by` alone let through for account erasure, and
+`harden.sql` step 2e takes UPDATE and DELETE from the runtime role besides. No workspace and no reference into a
+tenant table. A change bumps the `settings` scope of `app_lm_platform_config_version` (V235).
+
+V243 is per-version monitoring (#1323). `app_lm_platform_prompt_call_daily` gains three counters:
+`guard_refusals` (the injection guard answered in the model's place, so no call is counted beside it),
+`schema_reasks` (an answer failed its schema and was asked again; the re-ask is also a call) and `schema_failures`
+(the model answered in full and the answer still would not bind; one cut off or stopped by the safety filter is
+counted under its finish reason only). `app_lm_platform_prompt_outcome_daily`
+(`prompt_id`, `version`, `day`, `accepted`, `changed`) counts what a person did with an answer a screen asked
+them to keep or change, on the UTC day of the decision; a row is written only for a version that has served (a `production` move names it). Both are
+platform tables holding keys and counts: no content, no person, no workspace. `app_lm_person` gains
+`ai_inferred_by` jsonb: for each key still in `ai_inferred_fields`, the `{promptId, version}` that proposed it,
+so the decision on it is counted against that version; null, or a key missing, is a value proposed before the
+column. Staff-only like the flags, and it names a prompt version, never a reading.
+
+V244 is `app_lm_position_suggested_field` (#1452): for each field a document reading filled on a brief, the
+`prompt_id` and `version` that suggested it, keyed by (`position_id`, `field_key`), until the brief is published and
+each is counted once into `app_lm_platform_prompt_outcome_daily`, then deleted. `field_key` is a scalar's brief key
+or a list's name; for a list, `document_items` is how many rows the reading left. A child of `app_lm_position`
+with V190's policy. Keys and counts only, never a value.
 
 V231 adds `app_lm_dashboard` (docs/custom-dashboards.md): a member's custom dashboard on a position (`project_id`, composite key to the project's workspace) or across the workspace (null) — `owner_user_id` (cascade with the account), `name` (≤ 80, never blank), `shared`, and `widgets` jsonb, an array of `{queryId, chart, options, title, layout: {x, y, w, h}}` (twelve-column grid; rows saved before it carry `size` instead, flowed into place by the SPA) naming charts of the server's query library. The choice only, never a figure: every chart is answered live. Forced RLS on its `workspace_id`. Staff-only.
 

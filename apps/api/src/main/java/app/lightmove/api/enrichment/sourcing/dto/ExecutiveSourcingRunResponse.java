@@ -2,6 +2,7 @@ package app.lightmove.api.enrichment.sourcing.dto;
 
 import app.lightmove.api.enrichment.sourcing.model.ExecutiveSourcingRun;
 import app.lightmove.api.enrichment.sourcing.model.SourcingCompany;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -9,14 +10,16 @@ import java.util.UUID;
 /**
  * A run as the panel and the toolbar button read it: where it stands, the companies it takes in order, what each
  * finished one yielded, the step each started one has reached, how many people fit, what it bought, the search as pressed (null on runs from before the
- * panel), and whether a stop was asked for.
+ * panel), whether a stop was asked for, and how long it may stay in progress before the screen reads it as lost
+ * (its own deadline and the grace; null on a run that recorded none, where the config's figure answers).
  */
 public record ExecutiveSourcingRunResponse(UUID id, String status, List<RunCompany> companies, int companiesTotal,
                                            int companiesDone, int suggested, int profilesBought, int profilesCached,
                                            boolean stopRequested, SourcingCriteriaDto searched,
                                            List<SourcingCompanyOutcomeResponse> outcomes,
                                            List<SourcingCompanyProgressResponse> progress, Instant requestedAt,
-                                           Instant startedAt, Instant finishedAt, String error) {
+                                           Instant startedAt, Instant finishedAt, String error,
+                                           Long lostAfterSeconds) {
 
     public static ExecutiveSourcingRunResponse of(ExecutiveSourcingRun run) {
         return new ExecutiveSourcingRunResponse(run.getId(), run.getStatus().name(),
@@ -27,7 +30,8 @@ public record ExecutiveSourcingRunResponse(UUID id, String status, List<RunCompa
                 run.getProgress().entrySet().stream()
                         .map(entry -> SourcingCompanyProgressResponse.of(entry.getKey(), entry.getValue()))
                         .toList(),
-                run.getCreatedAt(), run.getStartedAt(), run.getFinishedAt(), run.getError());
+                run.getCreatedAt(), run.getStartedAt(), run.getFinishedAt(), run.getError(),
+                run.lostAfter().map(Duration::toSeconds).orElse(null));
     }
 
     /** A company the run takes; {@code searchable} is false for one with no LinkedIn page. */

@@ -99,9 +99,13 @@ step api/14-strategy-company-search.sh
 step api/15-extension-capture.sh
 step api/20-workspace-switching.sh
 step api/21-outreach-conversations.sh
+# The platform console with two-factor and the prompt registry on, as application-e2e.yml sets them. Leaves
+# its cast in platform.env for spa/platform.mjs.
+step api/22-platform-console.sh
 
 step_node spa/run.mjs
 step_node spa/roles.mjs
+step_node spa/platform.mjs
 step_node spa/strategy.mjs
 # The mandate's screens, each over a cast of its own. None presses an AI button or attaches a document.
 step_node spa/position.mjs

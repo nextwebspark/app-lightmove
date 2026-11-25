@@ -20,16 +20,20 @@ import app.lightmove.api.promptregistry.constant.PlatformPrompt;
 import app.lightmove.api.promptregistry.dto.AiModelResponse;
 import app.lightmove.api.promptregistry.dto.PromptAiUse;
 import app.lightmove.api.promptregistry.dto.PromptDetail;
+import app.lightmove.api.promptregistry.dto.PromptLiveHealth;
 import app.lightmove.api.promptregistry.dto.PromptOverview;
+import app.lightmove.api.promptregistry.dto.PromptUsageResponse;
 import app.lightmove.api.promptregistry.dto.PromptTrialInput;
 import app.lightmove.api.promptregistry.dto.PromptVersionBody;
 import app.lightmove.api.promptregistry.dto.PromptVersionSummary;
+import app.lightmove.api.promptregistry.dto.PromotionGateResult;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -49,12 +53,16 @@ public class PromptCatalogService {
     private final List<PromptTrial> trials;
     private final ChatModelProvider provider;
     private final LightMoveProperties properties;
+    private final PromotionGate gate;
+    private final PromptMonitoringService monitoring;
     private final Clock clock;
 
     @Transactional(readOnly = true)
     public List<PromptOverview> list() {
+        Map<String, PromptLiveHealth> health = monitoring.liveHealth();
         return store.livePrompts().stream()
-                .flatMap(live -> PlatformPrompt.of(live.live().promptId()).map(prompt -> overviewOf(prompt, live)).stream())
+                .flatMap(live -> PlatformPrompt.of(live.live().promptId())
+                        .map(prompt -> overviewOf(prompt, live, health.get(prompt.getPromptId()))).stream())
                 .sorted(Comparator.comparing(PromptOverview::name))
                 .toList();
     }
@@ -66,12 +74,14 @@ public class PromptCatalogService {
                 .filter(candidate -> candidate.live().promptId().equals(promptId))
                 .findFirst()
                 .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND, "No version of prompt " + promptId));
+        int liveVersion = live.live().version();
+        Map<Integer, PromotionGateResult> gates = gate.against(promptId, liveVersion);
         List<PromptVersionSummary> versions = store.versionsOf(promptId).stream()
-                .map(version -> summaryOf(version, live.live().version()))
+                .map(version -> summaryOf(version, liveVersion, gates))
                 .toList();
         PromptTrial trial = trialOf(promptId).orElse(null);
         return new PromptDetail(
-                overviewOf(prompt, live),
+                overviewOf(prompt, live, monitoring.liveHealthOf(promptId)),
                 versions,
                 live.newestBundledVersion() == 0 ? null : live.newestBundledVersion(),
                 PromptContract.variablesOf(bundled.bodyOf(promptId)).stream().sorted().toList(),
@@ -92,6 +102,12 @@ public class PromptCatalogService {
                         "No version " + version + " of prompt " + promptId));
     }
 
+    /** Each version's calls and decisions over the last {@code days} days; 30 when none is asked for. */
+    @Transactional(readOnly = true)
+    public PromptUsageResponse usage(String promptId, Integer days) {
+        return monitoring.usage(require(promptId), days);
+    }
+
     public List<AiModelResponse> models() {
         LocalDate today = today();
         return models.all().stream().map(model -> {
@@ -104,7 +120,7 @@ public class PromptCatalogService {
         }).toList();
     }
 
-    PlatformPrompt require(String promptId) {
+    public PlatformPrompt require(String promptId) {
         return PlatformPrompt.of(promptId)
                 .orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND, "No prompt " + promptId));
     }
@@ -114,7 +130,7 @@ public class PromptCatalogService {
     }
 
     /** The model a version of this prompt naming none is answered by: its caller's, else the deployment's. */
-    String defaultModelOf(PlatformPrompt prompt) {
+    public String defaultModelOf(PlatformPrompt prompt) {
         String declared = specOf(prompt).defaultModel();
         return declared != null ? declared : provider.configuredModel();
     }
@@ -133,18 +149,20 @@ public class PromptCatalogService {
     private PromptCallSpec specOf(PlatformPrompt prompt) {
         String promptId = prompt.getPromptId();
         return switch (prompt.getKind()) {
-            case STRUCTURED -> PromptCallSpec.structured(promptId);
+            case STRUCTURED -> PromptCallSpec.structured(promptId, prompt == PlatformPrompt.EVAL_JUDGE
+                    ? properties.platform().eval().pinnedJudgeModel() : null);
             case PROSE -> PromptCallSpec.prose(promptId);
             case TOOL_CALLING -> PromptCallSpec.toolCalling(promptId, promptId, properties.assistant().model(),
                     properties.assistant().generationDefaults());
         };
     }
 
-    private GenerationSettings defaultsOf(PlatformPrompt prompt) {
+    /** The settings a version of this prompt gets where it sets none. */
+    public GenerationSettings defaultsOf(PlatformPrompt prompt) {
         return specOf(prompt).defaults().orElse(provider.configuredSettings());
     }
 
-    private PromptOverview overviewOf(PlatformPrompt prompt, LivePrompt livePrompt) {
+    private PromptOverview overviewOf(PlatformPrompt prompt, LivePrompt livePrompt, PromptLiveHealth health) {
         PromptVersion live = livePrompt.live();
         Optional<AiModel> model = modelOf(live.provider(), live.modelId());
         return new PromptOverview(
@@ -162,15 +180,19 @@ public class PromptCatalogService {
                         today()).isPresent(),
                 livePrompt.shippedChangedSinceTheEdit(),
                 live.createdAt(),
-                live.origin() == PromptOrigin.BUNDLED ? null : live.authorName());
+                live.origin() == PromptOrigin.BUNDLED ? null : live.authorName(),
+                health);
     }
 
-    private PromptVersionSummary summaryOf(PromptVersion version, int liveVersion) {
-        return new PromptVersionSummary(version.version(), version.origin(), version.version() == liveVersion,
+    private PromptVersionSummary summaryOf(PromptVersion version, int liveVersion,
+                                           Map<Integer, PromotionGateResult> gates) {
+        boolean live = version.version() == liveVersion;
+        return new PromptVersionSummary(version.version(), version.origin(), live,
                 version.changeNote(), version.createdAt(), version.authorName(), version.provider(),
                 version.modelId(),
                 modelOf(version.provider(), version.modelId()).map(AiModel::displayName).orElse(version.modelId()),
-                version.settings());
+                version.settings(),
+                live ? null : gates.getOrDefault(version.version(), PromotionGateResult.NONE));
     }
 
     private Optional<AiModel> modelOf(AiProvider provider, String modelId) {

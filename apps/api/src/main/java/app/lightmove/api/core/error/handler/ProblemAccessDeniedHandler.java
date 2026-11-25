@@ -33,8 +33,17 @@ public class ProblemAccessDeniedHandler implements AccessDeniedHandler {
     @Override
     public void handle(HttpServletRequest request, HttpServletResponse response,
                        AccessDeniedException denial) throws IOException {
+        write(request, response, denial, ErrorCode.FORBIDDEN);
+    }
 
-        ErrorCode code = classify(denial, SecurityContextHolder.getContext().getAuthentication());
+    /** For routes that must not admit to existing: a denial that is the caller's own reads as the route missing. */
+    public AccessDeniedHandler asNotFound() {
+        return (request, response, denial) -> write(request, response, denial, ErrorCode.NOT_FOUND);
+    }
+
+    private void write(HttpServletRequest request, HttpServletResponse response, AccessDeniedException denial,
+                       ErrorCode whenRefused) throws IOException {
+        ErrorCode code = classify(denial, SecurityContextHolder.getContext().getAuthentication(), whenRefused);
         ProblemDetail problem = Problems.of(code);
         problem.setInstance(java.net.URI.create(request.getRequestURI()));
 
@@ -45,7 +54,7 @@ public class ProblemAccessDeniedHandler implements AccessDeniedHandler {
         response.getWriter().write(json.writeValueAsString(problem));
     }
 
-    private ErrorCode classify(AccessDeniedException denial, Authentication authentication) {
+    private ErrorCode classify(AccessDeniedException denial, Authentication authentication, ErrorCode whenRefused) {
         // Not a permissions problem: the SPA recovers by re-fetching /auth/csrf.
         if (denial instanceof CsrfException) {
             return ErrorCode.CSRF_TOKEN_INVALID;
@@ -55,7 +64,7 @@ public class ProblemAccessDeniedHandler implements AccessDeniedHandler {
             return ErrorCode.EMAIL_NOT_VERIFIED;
         }
 
-        return ErrorCode.FORBIDDEN;
+        return whenRefused;
     }
 
     /** Anonymous authentication is still an Authentication, and {@code isAuthenticated()} returns true. */

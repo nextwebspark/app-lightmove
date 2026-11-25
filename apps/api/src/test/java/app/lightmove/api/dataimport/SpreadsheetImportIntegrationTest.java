@@ -630,6 +630,41 @@ class SpreadsheetImportIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("a re-import overwriting an AI-proposed value is no one rejecting the answer, so nothing is counted")
+    void aReImportOverAnAiValueDecidesNothing() throws Exception {
+        String admin = adminOf("Import Over AI Value Firm");
+        String projectId = project(admin);
+        importFile(admin, projectId, """
+                Company,Full Name,Job Title,Gender
+                ACWA Power,Layla Haddad,CFO,Female
+                """);
+        int version = db.queryForObject("SELECT version FROM app_lm_platform_prompt_label "
+                + "WHERE prompt_id = 'candidate-ai-enrich' AND label = 'production'", Integer.class);
+        String candidateId = candidates(admin, projectId).get("candidates").get(0).get("id").asText();
+        db.update("""
+                UPDATE app_lm_person SET ai_inferred_fields = '["gender"]', ai_inferred_by = jsonb_build_object(
+                    'gender', jsonb_build_object('promptId', 'candidate-ai-enrich', 'version', ?))
+                WHERE id = (SELECT person_id FROM app_lm_project_candidate WHERE id = ?::uuid)
+                """, version, candidateId);
+        long decidedBefore = decisionsOn("candidate-ai-enrich", version);
+
+        JsonNode second = importFile(admin, projectId, """
+                Company,Full Name,Job Title,Gender
+                ACWA Power,Layla Haddad,CFO,Male
+                """);
+
+        assertThat(second.get("candidatesUpdated").asInt()).isEqualTo(1);
+        assertThat(candidates(admin, projectId).get("candidates").get(0).get("gender").asText()).isEqualTo("male");
+        assertThat(decisionsOn("candidate-ai-enrich", version)).isEqualTo(decidedBefore);
+    }
+
+    private long decisionsOn(String promptId, int version) {
+        return db.queryForObject("SELECT coalesce(sum(accepted + changed), 0) "
+                + "FROM app_lm_platform_prompt_outcome_daily WHERE prompt_id = ? AND version = ?",
+                Long.class, promptId, version);
+    }
+
+    @Test
     @DisplayName("a revenue written with a magnitude is read at that magnitude")
     void readsAMagnitudeSuffix() throws Exception {
         String admin = adminOf("Import Magnitude Firm");
