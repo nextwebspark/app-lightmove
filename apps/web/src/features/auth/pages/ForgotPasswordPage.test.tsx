@@ -76,7 +76,7 @@ describe("ForgotPasswordPage", () => {
     await user.click(screen.getByRole("button", { name: /send reset link/i }));
 
     await waitFor(() =>
-      expect(authApi.requestPasswordReset).toHaveBeenCalledWith("alok@nextwebspark.com"),
+      expect(authApi.requestPasswordReset).toHaveBeenCalledWith("alok@nextwebspark.com", undefined),
     );
     // "If an account exists" — never "we sent it", which would confirm the account.
     expect(await screen.findByText(/if an account exists for/i)).toBeInTheDocument();

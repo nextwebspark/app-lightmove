@@ -270,6 +270,8 @@ interface RequestOptions {
   anonymous?: boolean;
   /** Set for the cookie-authenticated routes, which need the double-submit header. */
   withCsrf?: boolean;
+  /** Extra request headers, such as the sign-in forms' human-check token. */
+  headers?: Record<string, string>;
   signal?: AbortSignal;
 }
 
@@ -278,11 +280,11 @@ interface RequestOptions {
  * response so both the JSON and the file readers below get the same authentication for free.
  */
 async function sendWithAuth(path: string, options: RequestOptions): Promise<Response> {
-  const { method = "GET", body, anonymous = false, withCsrf = false, signal } = options;
+  const { method = "GET", body, anonymous = false, withCsrf = false, headers: extraHeaders, signal } = options;
 
   const dispatch = (token: string | null, csrf: string | null): Promise<Response> => {
     const isRaw = body instanceof FormData || body instanceof URLSearchParams;
-    const headers: Record<string, string> = {};
+    const headers: Record<string, string> = { ...extraHeaders };
     if (body !== undefined && !isRaw) {
       headers["Content-Type"] = "application/json";
     }

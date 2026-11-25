@@ -307,6 +307,8 @@ export interface AuthProviders {
    * both the button and its authorisation path.
    */
   providers: string[];
+  /** The human check's public site key; null where the check is off, and then no widget loads. */
+  humanCheckSiteKey: string | null;
 }
 
 /**

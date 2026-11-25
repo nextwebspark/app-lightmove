@@ -41,7 +41,7 @@ describe("SignupPage", () => {
     // AuthProvider tries to restore a session on mount. There isn't one.
     vi.mocked(authApi.me).mockRejectedValue(new Error("no session"));
     // These tests are about the password form, so the page offers no identity providers.
-    vi.mocked(authApi.providers).mockResolvedValue({ providers: [] });
+    vi.mocked(authApi.providers).mockResolvedValue({ providers: [], humanCheckSiteKey: null });
   });
 
   it("rejects a password with no number, in the mockup's own words", async () => {
@@ -193,7 +193,7 @@ describe("SignupPage", () => {
     await user.click(screen.getByRole("checkbox", { name: /I agree to the Terms/ }));
     await user.click(screen.getByRole("button", { name: /continue/i }));
 
-    await waitFor(() => expect(authApi.signup).toHaveBeenCalledWith(expect.objectContaining({ termsAccepted: true })));
+    await waitFor(() => expect(authApi.signup).toHaveBeenCalledWith(expect.objectContaining({ termsAccepted: true }), undefined));
   });
 
   it("blocks mismatched passwords before reaching the server", async () => {

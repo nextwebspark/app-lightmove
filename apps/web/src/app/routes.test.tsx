@@ -542,9 +542,10 @@ describe("routes — returning to where the guard interrupted", () => {
     const user = userEvent.setup();
     renderAt(consent);
 
-    await user.type(await screen.findByLabelText(/email/i), "someone@firm.example");
-    await user.type(screen.getByLabelText(/password/i), "a long password");
+    await user.type(await screen.findByLabelText("Work email"), "someone@firm.example");
     await user.click(screen.getByRole("button", { name: "Continue" }));
+    await user.type(await screen.findByLabelText("Password"), "a long password");
+    await user.click(screen.getByRole("button", { name: "Sign in" }));
 
     await waitFor(() => expect(screen.getByTestId("pathname")).toHaveTextContent("/oauth/consent"));
     // The path changes on navigate; the consent form mounts and asks a tick later, which a slow CI runner shows.
@@ -665,6 +666,29 @@ describe("routes — an unknown address with no session", () => {
 
     await waitFor(() => expect(screen.getByTestId("pathname")).toHaveTextContent("/login"));
     expect(screen.getByTestId("from")).toHaveTextContent("/projects/p1");
+  });
+});
+
+describe("routes — single sign-on", () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+  });
+
+  it("opens the SSO screen to someone signed out", async () => {
+    vi.mocked(restoreSession).mockResolvedValue(null);
+    vi.mocked(authApi.me).mockRejectedValue(new Error("no session"));
+    renderAt("/login/sso");
+
+    expect(await screen.findByRole("heading", { name: "Sign in with SSO" })).toBeInTheDocument();
+  });
+
+  it("keeps a signed-in member off it", async () => {
+    vi.mocked(restoreSession).mockResolvedValue("token");
+    vi.mocked(authApi.me).mockResolvedValue(userWith(["MEMBER"]));
+    vi.mocked(projectsApi.projects).mockResolvedValue([]);
+    renderAt("/login/sso");
+
+    await waitFor(() => expect(screen.getByTestId("pathname").textContent).not.toBe("/login/sso"));
   });
 });
 

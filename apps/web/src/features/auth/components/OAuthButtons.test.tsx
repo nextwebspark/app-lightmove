@@ -46,7 +46,7 @@ describe("OAuthButtons", () => {
   });
 
   it("offers one button per configured provider", async () => {
-    vi.mocked(authApi.providers).mockResolvedValue({ providers: ["google", "linkedin"] });
+    vi.mocked(authApi.providers).mockResolvedValue({ providers: ["google", "linkedin"], humanCheckSiteKey: null });
 
     render();
 
@@ -54,8 +54,25 @@ describe("OAuthButtons", () => {
     expect(screen.getByRole("button", { name: /Continue with LinkedIn/ })).toBeInTheDocument();
   });
 
+  it("puts LinkedIn first and Google second, whatever order the server answers in", async () => {
+    vi.mocked(authApi.providers).mockResolvedValue({
+      providers: ["azure-ad", "google", "linkedin", "okta"],
+      humanCheckSiteKey: null,
+    });
+
+    render();
+
+    await screen.findByRole("button", { name: /Continue with LinkedIn/ });
+    expect(screen.getAllByRole("button").map((button) => button.textContent)).toEqual([
+      "Continue with LinkedIn",
+      "Continue with Google",
+      "Continue with Azure Ad",
+      "Continue with Okta",
+    ]);
+  });
+
   it("still offers a provider it has no mark for", async () => {
-    vi.mocked(authApi.providers).mockResolvedValue({ providers: ["okta"] });
+    vi.mocked(authApi.providers).mockResolvedValue({ providers: ["okta"], humanCheckSiteKey: null });
 
     render();
 
@@ -63,7 +80,7 @@ describe("OAuthButtons", () => {
   });
 
   it("labels a hyphenated registration id word by word", async () => {
-    vi.mocked(authApi.providers).mockResolvedValue({ providers: ["azure-ad"] });
+    vi.mocked(authApi.providers).mockResolvedValue({ providers: ["azure-ad"], humanCheckSiteKey: null });
 
     render();
 
@@ -71,7 +88,7 @@ describe("OAuthButtons", () => {
   });
 
   it("renders nothing at all when no provider is configured", async () => {
-    vi.mocked(authApi.providers).mockResolvedValue({ providers: [] });
+    vi.mocked(authApi.providers).mockResolvedValue({ providers: [], humanCheckSiteKey: null });
 
     const { client, container } = render();
 
@@ -84,7 +101,7 @@ describe("OAuthButtons", () => {
   });
 
   it("opens the provider's consent screen in a popup rather than leaving the page", async () => {
-    vi.mocked(authApi.providers).mockResolvedValue({ providers: ["linkedin"] });
+    vi.mocked(authApi.providers).mockResolvedValue({ providers: ["linkedin"], humanCheckSiteKey: null });
     const startOAuthSignIn = vi.spyOn(oauthPopup, "startOAuthSignIn").mockReturnValue(() => {});
 
     render();
@@ -94,7 +111,7 @@ describe("OAuthButtons", () => {
   });
 
   it("holds the other providers while one attempt is in flight", async () => {
-    vi.mocked(authApi.providers).mockResolvedValue({ providers: ["google", "linkedin"] });
+    vi.mocked(authApi.providers).mockResolvedValue({ providers: ["google", "linkedin"], humanCheckSiteKey: null });
     vi.spyOn(oauthPopup, "startOAuthSignIn").mockReturnValue(() => {});
 
     render();
@@ -108,7 +125,7 @@ describe("OAuthButtons", () => {
    * be told to show nothing and the button must come back ready for another go.
    */
   it("says nothing and re-arms the button when the user cancels", async () => {
-    vi.mocked(authApi.providers).mockResolvedValue({ providers: ["google", "linkedin"] });
+    vi.mocked(authApi.providers).mockResolvedValue({ providers: ["google", "linkedin"], humanCheckSiteKey: null });
     const onError = vi.fn();
     let cancel = () => {};
     vi.spyOn(oauthPopup, "startOAuthSignIn").mockImplementation((_id, handlers) => {
@@ -129,7 +146,7 @@ describe("OAuthButtons", () => {
   });
 
   it("shows a real refusal, and re-arms the button", async () => {
-    vi.mocked(authApi.providers).mockResolvedValue({ providers: ["linkedin"] });
+    vi.mocked(authApi.providers).mockResolvedValue({ providers: ["linkedin"], humanCheckSiteKey: null });
     const onError = vi.fn();
     let refuse = (_code: string) => {};
     vi.spyOn(oauthPopup, "startOAuthSignIn").mockImplementation((_id, handlers) => {

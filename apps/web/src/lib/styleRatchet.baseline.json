@@ -50,17 +50,8 @@
   "features/auth/pages/AcceptInvitePage.tsx": {
     "arbitraryText": 4
   },
-  "features/auth/pages/ForgotPasswordPage.tsx": {
-    "arbitraryText": 4
-  },
-  "features/auth/pages/LoginPage.tsx": {
-    "arbitraryText": 3
-  },
   "features/auth/pages/ResetPasswordPage.tsx": {
     "arbitraryText": 4
-  },
-  "features/auth/pages/SignupPage.tsx": {
-    "arbitraryText": 3
   },
   "features/auth/pages/SignupVerifyStepPage.tsx": {
     "arbitraryText": 1

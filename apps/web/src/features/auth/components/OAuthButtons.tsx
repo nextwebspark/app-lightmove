@@ -1,15 +1,14 @@
-import { useQuery } from "@tanstack/react-query";
 import { type ReactElement, useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "../../../components/ui";
 import { GoogleMark } from "../../../components/ui/BrandMarks";
 import { useAuth } from "../AuthProvider";
-import * as authApi from "../api/authApi";
 import { PROVIDER_TERMS_PATH } from "../authPaths";
 import { messageForOAuthError } from "../oauthErrors";
 import { startOAuthSignIn } from "../oauthPopup";
 import { TWO_FACTOR_SIGN_IN_PATH } from "../pages/TwoFactorChallengePage";
 import { landingAfterSignIn, takeReturnTo } from "../returnTo";
+import { useAuthProviders } from "../useAuthProviders";
 
 /**
  * The "Continue with …" buttons, one per provider the server reports as wired (registration ids, so a new provider
@@ -19,6 +18,17 @@ const PROVIDER_MARKS: Record<string, { label: string; mark: (props: { size?: num
   google: { label: "Google", mark: GoogleMark },
   linkedin: { label: "LinkedIn", mark: LinkedInMark },
 };
+
+/** LinkedIn leads, then Google, then any other provider alphabetically — the server answers alphabetically. */
+const PROVIDER_ORDER = ["linkedin", "google"];
+
+export function orderedProviders(ids: readonly string[]): string[] {
+  const rank = (id: string) => {
+    const index = PROVIDER_ORDER.indexOf(id);
+    return index === -1 ? PROVIDER_ORDER.length : index;
+  };
+  return [...ids].sort((a, b) => rank(a) - rank(b) || a.localeCompare(b));
+}
 
 /** A provider's name as its button says it, for screens that name the sign-in after the fact. */
 export function providerLabel(id: string): string {
@@ -38,18 +48,18 @@ export interface OAuthButtonsProps {
   stayOnPage?: boolean;
   /** Where a sign-in stopped for a second factor resumes, in place of the remembered destination. */
   returnTo?: string;
+  /** Above the host's form the "or" divider follows the buttons; below it, it leads them. */
+  placement?: "above" | "below";
 }
 
-export function OAuthButtons({ onError, stayOnPage = false, returnTo: hostReturnTo }: OAuthButtonsProps) {
-  // Server state stays in the query cache rather than useState, so Login and Signup share one fetch.
-  // What this deployment has configured cannot change while the page is open — hence no refetching.
-  const { data } = useQuery({
-    queryKey: ["auth", "providers"],
-    queryFn: authApi.providers,
-    staleTime: Infinity,
-    retry: false,
-  });
-  const providers = data?.providers ?? [];
+export function OAuthButtons({
+  onError,
+  stayOnPage = false,
+  returnTo: hostReturnTo,
+  placement = "below",
+}: OAuthButtonsProps) {
+  const { data } = useAuthProviders();
+  const providers = orderedProviders(data?.providers ?? []);
 
   const navigate = useNavigate();
   const { adoptRestoredSession } = useAuth();
@@ -118,13 +128,17 @@ export function OAuthButtons({ onError, stayOnPage = false, returnTo: hostReturn
     return null;
   }
 
+  const divider = (
+    <div className="my-[18px] flex items-center gap-2.5 font-mono text-[10px] font-medium uppercase tracking-[0.1em] text-u-text3">
+      <span className="h-px flex-1 bg-u-border" />
+      <span>or</span>
+      <span className="h-px flex-1 bg-u-border" />
+    </div>
+  );
+
   return (
     <>
-      <div className="my-[18px] flex items-center gap-2.5 font-mono text-[10px] font-medium uppercase tracking-[0.1em] text-u-text3">
-        <span className="h-px flex-1 bg-u-border" />
-        <span>or</span>
-        <span className="h-px flex-1 bg-u-border" />
-      </div>
+      {placement === "below" && divider}
 
       <div className="flex flex-col gap-2">
         {providers.map((id) => {
@@ -150,6 +164,8 @@ export function OAuthButtons({ onError, stayOnPage = false, returnTo: hostReturn
           );
         })}
       </div>
+
+      {placement === "above" && divider}
     </>
   );
 }

@@ -1,7 +1,9 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MemoryRouter, useLocation } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { ApiRequestError } from "../../../lib/apiClient";
 import { AuthProvider } from "../AuthProvider";
 import { LoginPage } from "./LoginPage";
 import * as authApi from "../api/authApi";
@@ -39,7 +41,7 @@ describe("LoginPage", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(authApi.providers).mockResolvedValue({ providers: [] });
+    vi.mocked(authApi.providers).mockResolvedValue({ providers: [], humanCheckSiteKey: null });
   });
 
   it("says nothing at all when the sign-in was cancelled", async () => {
@@ -73,5 +75,107 @@ describe("LoginPage", () => {
     await waitFor(() => expect(screen.getByTestId("search")).toHaveTextContent(""));
     // The message stays on screen; only the parameter that would replay it is gone.
     expect(screen.getByText(/Please sign in with your work account/i)).toBeInTheDocument();
+  });
+
+  describe("email first", () => {
+    it("asks for the password only after the email, whatever the address", async () => {
+      const user = userEvent.setup();
+      renderAt("/login");
+
+      expect(screen.queryByLabelText("Password")).not.toBeInTheDocument();
+      await user.type(await screen.findByLabelText("Work email"), "yara@firm.example");
+      await user.click(screen.getByRole("button", { name: "Continue" }));
+
+      expect(await screen.findByLabelText("Password")).toBeInTheDocument();
+      expect(screen.getByLabelText("Work email")).toHaveValue("yara@firm.example");
+      expect(screen.getByRole("button", { name: "Sign in" })).toBeInTheDocument();
+      expect(authApi.login).not.toHaveBeenCalled();
+    });
+
+    it("refuses to move on without a valid email", async () => {
+      const user = userEvent.setup();
+      renderAt("/login");
+
+      await user.click(await screen.findByRole("button", { name: "Continue" }));
+
+      expect(await screen.findByText("Enter your email")).toBeInTheDocument();
+      expect(screen.queryByLabelText("Password")).not.toBeInTheDocument();
+    });
+
+    it("goes back to the providers with the email kept", async () => {
+      const user = userEvent.setup();
+      renderAt("/login");
+
+      await user.type(await screen.findByLabelText("Work email"), "yara@firm.example");
+      await user.click(screen.getByRole("button", { name: "Continue" }));
+      await user.click(await screen.findByRole("button", { name: "Sign in with Google or SSO" }));
+
+      expect(await screen.findByRole("button", { name: "Continue" })).toBeInTheDocument();
+      expect(screen.queryByLabelText("Password")).not.toBeInTheDocument();
+      expect(screen.getByLabelText("Work email")).toHaveValue("yara@firm.example");
+    });
+
+    it("signs in with both, sending no human check while the check is off", async () => {
+      vi.mocked(authApi.login).mockReturnValue(new Promise(() => {}));
+      const user = userEvent.setup();
+      renderAt("/login");
+
+      await user.type(await screen.findByLabelText("Work email"), "yara@firm.example");
+      await user.click(screen.getByRole("button", { name: "Continue" }));
+      await user.type(await screen.findByLabelText("Password"), "secret123");
+      await user.click(screen.getByRole("button", { name: "Sign in" }));
+
+      await waitFor(() =>
+        expect(authApi.login).toHaveBeenCalledWith({ email: "yara@firm.example", password: "secret123" }, undefined),
+      );
+      expect(screen.queryByTestId("human-check")).not.toBeInTheDocument();
+    });
+
+    it("says a refused password on the password step", async () => {
+      vi.mocked(authApi.login).mockRejectedValue(
+        new ApiRequestError({
+          code: "INVALID_CREDENTIALS",
+          detail: "Invalid email or password",
+          status: 401,
+          correlationId: "ref-1",
+        }),
+      );
+      const user = userEvent.setup();
+      renderAt("/login");
+
+      await user.type(await screen.findByLabelText("Work email"), "yara@firm.example");
+      await user.click(screen.getByRole("button", { name: "Continue" }));
+      await user.type(await screen.findByLabelText("Password"), "wrong-one1");
+      await user.click(screen.getByRole("button", { name: "Sign in" }));
+
+      expect(await screen.findByRole("alert")).toHaveTextContent("Invalid email or password");
+      expect(screen.getByLabelText("Password")).toBeInTheDocument();
+    });
+
+    it("shows what was typed when the eye is pressed", async () => {
+      const user = userEvent.setup();
+      renderAt("/login");
+
+      await user.type(await screen.findByLabelText("Work email"), "yara@firm.example");
+      await user.click(screen.getByRole("button", { name: "Continue" }));
+      const password = await screen.findByLabelText("Password");
+      expect(password).toHaveAttribute("type", "password");
+
+      await user.click(screen.getByRole("button", { name: "Show what you typed" }));
+
+      expect(password).toHaveAttribute("type", "text");
+    });
+
+    it("links the terms and privacy policy, and offers single sign-on", async () => {
+      renderAt("/login");
+
+      expect(await screen.findByRole("link", { name: "Terms of Service" })).toHaveAttribute(
+        "href",
+        "https://uncava.com/terms",
+      );
+      expect(screen.getByRole("link", { name: "Privacy Policy" })).toHaveAttribute("href", "https://uncava.com/privacy");
+      expect(screen.getByRole("link", { name: "Continue with SSO" })).toHaveAttribute("href", "/login/sso");
+      expect(screen.queryByText(/Cloudflare Turnstile/)).not.toBeInTheDocument();
+    });
   });
 });
