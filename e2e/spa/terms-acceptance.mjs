@@ -15,6 +15,7 @@ import { execFileSync } from "node:child_process";
 import { appendFileSync, mkdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { fillSignIn } from "./sign-in.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const RUN_DIR = process.env.RUN_DIR ?? join(HERE, "..", "results", "current");
@@ -185,10 +186,7 @@ try {
     sql(`UPDATE app_lm_user SET privacy_policy_version = '2020-01-01' WHERE email = '${FOUNDER}'`);
     const signedIn = await (await browser.newContext({ viewport: { width: 1440, height: 1000 } })).newPage();
     await signedIn.goto(`${WEB}/login`);
-    await signedIn.getByPlaceholder("you@firm.com").fill(FOUNDER);
-    await signedIn.getByRole("button", { name: "Continue", exact: true }).click();
-    await signedIn.getByPlaceholder("••••••••").fill(PASSWORD);
-    await signedIn.getByRole("button", { name: "Sign in", exact: true }).click();
+    await fillSignIn(signedIn, FOUNDER, PASSWORD);
     const sheet = signedIn.getByRole("dialog", { name: "We've updated our terms" });
     await sheet.waitFor({ timeout: 20000 });
     await shot(signedIn, "updated-terms");

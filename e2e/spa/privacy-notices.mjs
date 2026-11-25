@@ -11,6 +11,7 @@ import { chromium } from "playwright";
 import { appendFileSync, mkdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { fillSignIn } from "./sign-in.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const RUN_DIR = process.env.RUN_DIR ?? join(HERE, "..", "results", "current");
@@ -89,10 +90,7 @@ try {
   console.log("\n\x1b[1;36m== PN1  Settings → Data & retention → Candidate privacy\x1b[0m");
   await step("PN1.1", "an admin fills in the firm's privacy details and saves them", async () => {
     await page.goto(`${WEB}/login`);
-    await page.getByPlaceholder("you@firm.com").fill(EMAIL);
-    await page.getByRole("button", { name: "Continue", exact: true }).click();
-    await page.getByPlaceholder("••••••••").fill(PASSWORD);
-    await page.getByRole("button", { name: "Sign in", exact: true }).click();
+    await fillSignIn(page, EMAIL, PASSWORD);
     await page.waitForURL((url) => !url.pathname.startsWith("/login"), { timeout: 20000 });
     await page.goto(`${WEB}/settings/data`);
     await page.getByText("Candidate privacy").first().waitFor({ timeout: 15000 });

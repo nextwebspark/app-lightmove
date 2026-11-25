@@ -12,6 +12,7 @@ import { execFileSync } from "node:child_process";
 import { appendFileSync, mkdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { fillSignIn } from "./sign-in.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const RUN_DIR = process.env.RUN_DIR ?? join(HERE, "..", "results", "current");
@@ -99,10 +100,7 @@ const signedInPage = async (email) => {
   const context = await browser.newContext({ viewport: { width: 1440, height: 1000 }, acceptDownloads: true });
   const page = await context.newPage();
   await page.goto(`${WEB}/login`);
-  await page.getByPlaceholder("you@firm.com").fill(email);
-  await page.getByRole("button", { name: "Continue", exact: true }).click();
-  await page.getByPlaceholder("••••••••").fill(PASSWORD);
-  await page.getByRole("button", { name: "Sign in", exact: true }).click();
+  await fillSignIn(page, email, PASSWORD);
   await page.waitForURL((url) => !url.pathname.startsWith("/login"), { timeout: 20000 });
   return page;
 };

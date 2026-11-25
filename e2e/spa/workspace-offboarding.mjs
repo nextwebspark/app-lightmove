@@ -15,6 +15,7 @@ import { execFileSync } from "node:child_process";
 import { appendFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { fillSignIn } from "./sign-in.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const RUN_DIR = process.env.RUN_DIR ?? join(HERE, "..", "results", "current");
@@ -119,10 +120,7 @@ const shot = (name) => page.screenshot({ path: join(SHOTS, `offboarding-${name}.
 try {
   await step("WO1.1", "an admin exports the whole workspace and downloads the zip", async () => {
     await page.goto(`${WEB}/login`);
-    await page.getByPlaceholder("you@firm.com").fill(EMAIL);
-    await page.getByRole("button", { name: "Continue", exact: true }).click();
-    await page.getByPlaceholder("••••••••").fill(PASSWORD);
-    await page.getByRole("button", { name: "Sign in", exact: true }).click();
+    await fillSignIn(page, EMAIL, PASSWORD);
     await page.waitForURL((url) => !url.pathname.startsWith("/login"), { timeout: 20000 });
     await page.goto(`${WEB}/settings/data`);
     const card = page.getByRole("region", { name: "Export workspace data" });

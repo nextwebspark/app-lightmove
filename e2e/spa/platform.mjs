@@ -8,6 +8,7 @@ import { chromium } from "playwright";
 import { readFileSync, mkdirSync, appendFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { fillSignIn } from "./sign-in.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const RUN_DIR = process.env.RUN_DIR ?? join(HERE, "..", "results", "current");
@@ -43,10 +44,7 @@ async function signIn(email, label) {
   const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
   const page = await context.newPage();
   await page.goto(`${WEB}/login`);
-  await page.getByPlaceholder("you@firm.com").fill(email);
-  await page.getByRole("button", { name: "Continue", exact: true }).click();
-  await page.getByPlaceholder("••••••••").fill(PASSWORD);
-  await page.getByRole("button", { name: "Sign in", exact: true }).click();
+  await fillSignIn(page, email, PASSWORD);
   await page.waitForTimeout(3000);
   await page.screenshot({ path: join(SHOTS, `platform-${label}-home.png`), fullPage: true });
   return page;
