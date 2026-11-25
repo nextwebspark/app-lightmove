@@ -12,7 +12,7 @@ export function McpGuidePage() {
         <div className="mx-auto flex max-w-[820px] items-center justify-between gap-3 px-4 py-3">
           <Link to="/" className="flex items-center gap-2.5">
             <AppIcon className="h-8" />
-            <span className="font-brand text-[13px] font-extralight uppercase tracking-[0.38em] text-u-text">
+            <span className="font-brand text-[13px] font-normal uppercase tracking-[0.38em] text-u-text">
               Uncava
             </span>
           </Link>

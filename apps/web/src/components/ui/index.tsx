@@ -267,7 +267,7 @@ export function Logo() {
   return (
     <div className="flex animate-fade-up items-center gap-3.5">
       <AppIcon className="h-12" />
-      <span className="font-brand text-[16px] font-extralight uppercase tracking-[0.38em] text-u-text">Uncava</span>
+      <span className="font-brand text-[16px] font-normal uppercase tracking-[0.38em] text-u-text">Uncava</span>
     </div>
   );
 }
@@ -277,7 +277,7 @@ export function AuthLogo() {
   return (
     <div className="flex animate-fade-up items-center gap-3.5">
       <AppIcon className="h-14" />
-      <span className="font-brand text-[19px] font-extralight uppercase tracking-[0.38em] text-u-text">Uncava</span>
+      <span className="font-brand text-[19px] font-normal uppercase tracking-[0.38em] text-u-text">Uncava</span>
     </div>
   );
 }
