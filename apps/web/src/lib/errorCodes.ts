@@ -302,7 +302,7 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   API_KEY_READS_NOTHING: "Choose what the key may read as well as MCP access.",
   RATE_LIMITED: "Too many requests in a short time. Wait a minute and try again.",
   SSO_NOT_CONFIGURED:
-    "Single sign-on isn't set up for that organisation yet. Sign in with Google or your email, or ask your administrator.",
+    "We couldn't find an SSO account for that email. Sign in with your email and password, or sign up.",
   ALREADY_IN_WORKSPACE: "You already belong to a workspace. Found another from Settings → Workspaces.",
   REGISTRATION_EXPIRED: "This sign-up has expired. Sign in again to start over.",
   TERMS_VERSION_OUTDATED: "Our terms changed again while this was open. Reload the page to read them.",

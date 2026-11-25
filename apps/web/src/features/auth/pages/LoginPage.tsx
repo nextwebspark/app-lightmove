@@ -183,7 +183,7 @@ export function LoginPage() {
             Forgot password?
           </Link>
           <button type="button" onClick={() => goTo("email")} className={LINK_CLASS}>
-            Sign in with Google or SSO
+            Sign in with LinkedIn, Google or SSO
           </button>
         </div>
       )}

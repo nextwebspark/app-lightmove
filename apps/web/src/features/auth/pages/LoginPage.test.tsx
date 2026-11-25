@@ -108,7 +108,7 @@ describe("LoginPage", () => {
 
       await user.type(await screen.findByLabelText("Work email"), "yara@firm.example");
       await user.click(screen.getByRole("button", { name: "Continue" }));
-      await user.click(await screen.findByRole("button", { name: "Sign in with Google or SSO" }));
+      await user.click(await screen.findByRole("button", { name: "Sign in with LinkedIn, Google or SSO" }));
 
       expect(await screen.findByRole("button", { name: "Continue" })).toBeInTheDocument();
       expect(screen.queryByLabelText("Password")).not.toBeInTheDocument();

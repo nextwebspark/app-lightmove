@@ -9,7 +9,7 @@ import { SsoSignInPage } from "./SsoSignInPage";
 
 vi.mock("../api/authApi");
 
-const NOT_SET_UP = /Single sign-on isn.t set up for that organisation yet/;
+const NOT_SET_UP = /We couldn.t find an SSO account for that email/;
 
 const notConfigured = () =>
   new ApiRequestError({ code: "SSO_NOT_CONFIGURED", detail: "detail", status: 404, correlationId: "ref-1" });
@@ -39,14 +39,14 @@ describe("SsoSignInPage", () => {
 
     await user.type(email, "yara@firm.example");
     await user.click(screen.getByRole("button", { name: "Continue" }));
-    const firstAnswer = (await screen.findByRole("status")).textContent;
+    const firstAnswer = (await screen.findByRole("alert")).textContent;
 
     await user.clear(email);
     await user.type(email, "nobody@unknown.example");
     await user.click(screen.getByRole("button", { name: "Continue" }));
 
     expect(await screen.findByText(NOT_SET_UP)).toBeInTheDocument();
-    expect(screen.getByRole("status").textContent).toBe(firstAnswer);
+    expect(screen.getByRole("alert").textContent).toBe(firstAnswer);
     expect(authApi.discoverSso).toHaveBeenCalledWith("nobody@unknown.example");
   });
 
@@ -66,6 +66,6 @@ describe("SsoSignInPage", () => {
     renderPage("yara@firm.example");
 
     expect(screen.getByLabelText("Work email")).toHaveValue("yara@firm.example");
-    expect(screen.getByRole("link", { name: "Sign in with Google or email" })).toHaveAttribute("href", "/login");
+    expect(screen.getByRole("link", { name: "Sign in with LinkedIn, Google or email" })).toHaveAttribute("href", "/login");
   });
 });
