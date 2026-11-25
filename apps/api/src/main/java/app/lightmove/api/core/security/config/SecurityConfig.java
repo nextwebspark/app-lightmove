@@ -133,6 +133,7 @@ public class SecurityConfig {
                                 API + "/auth/verify/resend",
                                 API + "/auth/password/forgot",
                                 API + "/auth/password/reset",
+                                API + "/auth/sso/discover",
                                 // Completes a sign-in, like login; its challenge cookie is SameSite and httpOnly.
                                 API + "/auth/mfa/verify",
                                 // The extension's refresh token travels in the body, not a cookie.
@@ -150,6 +151,7 @@ public class SecurityConfig {
                                 API + "/auth/verify/resend",
                                 API + "/auth/password/forgot",
                                 API + "/auth/password/reset",
+                                API + "/auth/sso/discover",
                                 API + "/auth/mfa/verify",   // authenticated by the challenge cookie and the code
                                 // A first provider sign-in's terms step, by the held registration's cookie; its
                                 // submit keeps the double-submit check, since that cookie creates an account.
@@ -258,7 +260,8 @@ public class SecurityConfig {
     @Bean
     @Order(3)
     SecurityFilterChain spaChain(HttpSecurity http, LightMoveProperties properties) throws Exception {
-        String policy = SpaContentSecurityPolicy.of(properties.outreach().nylas().baseUrl());
+        String policy = SpaContentSecurityPolicy.of(properties.outreach().nylas().baseUrl(),
+                properties.auth().humanCheck().enabled());
         return http
                 .securityMatcher(request -> SpaRequestPaths.isSpaPath(request.getRequestURI()))
                 .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())

@@ -30,10 +30,11 @@ public final class TestAuthSettings {
                 null,
                 new CookieSettings("lm_refresh", "/api/v1/auth", true, true, "Strict", null),
                 new LockoutSettings(5, Duration.ofMinutes(15)),
-                new RateLimitSettings(true, 10, 5, 3, 3, 10, 10, 10, 5, 60, 60, 5, 60, 30, 5, 20, 300, 60, 600, 20, 300, 100, 5, 1200, 30, 600,
+                new RateLimitSettings(true, 10, 5, 3, 3, 10, 10, 10, 10, 5, 60, 60, 5, 60, 30, 5, 20, 300, 60, 600, 20, 300, 100, 5, 1200, 30, 600,
                         30, 10, 10, 1000),
-                // Null extension, mfa and oauth: nothing built here pairs a device, asks for a code or
-                // signs in through a provider, and AuthSettings defaults all three.
+                // Null extension, mfa, human check and oauth: nothing built here pairs a device, asks for a
+                // code, checks for a person or signs in through a provider, and AuthSettings defaults all four.
+                null,
                 null,
                 null,
                 Duration.ofMinutes(15), Duration.ofDays(30), Duration.ofHours(24),

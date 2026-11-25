@@ -1,5 +1,7 @@
 package app.lightmove.api.core.security.controller;
 
+import app.lightmove.api.core.botcheck.constant.HumanCheckAction;
+import app.lightmove.api.core.botcheck.service.HumanCheck;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.ratelimit.service.RateLimitGuard;
@@ -15,6 +17,7 @@ import app.lightmove.api.core.security.dto.SwitchWorkspaceRequest;
 import app.lightmove.api.core.security.dto.ResendVerificationRequest;
 import app.lightmove.api.core.security.dto.ResetPasswordRequest;
 import app.lightmove.api.core.security.dto.SignupRequest;
+import app.lightmove.api.core.security.dto.SsoDiscoverRequest;
 import app.lightmove.api.core.security.dto.ReportDeviceTimeZoneRequest;
 import app.lightmove.api.core.security.dto.UpdateProfileRequest;
 import app.lightmove.api.core.security.dto.UserResponse;
@@ -81,6 +84,7 @@ public class AuthController {
     private final AuthResponseAssembler assembler;
     private final MfaChallengeService mfaChallenges;
     private final MfaChallengeCookieFactory mfaChallengeCookie;
+    private final HumanCheck humanCheck;
 
     /** Absent unless at least one OAuth client is configured. */
     private final ObjectProvider<ClientRegistrationRepository> oauthRegistrations;
@@ -88,6 +92,7 @@ public class AuthController {
     @PostMapping("/signup")
     public ResponseEntity<AuthResponse> signup(@Valid @RequestBody SignupRequest request,
                                                HttpServletRequest httpRequest) {
+        humanCheck.require(HumanCheckAction.SIGNUP, httpRequest);
         AuthenticatedSession session = authentication.signup(
                 new SignupCommand(request.fullName(), request.email(), request.password(), request.termsAccepted()),
                 httpRequest);
@@ -98,6 +103,7 @@ public class AuthController {
     /** A session, or for a person with a second factor a challenge in its cookie and {@code mfaRequired}. */
     @PostMapping("/login")
     public ResponseEntity<?> login(@Valid @RequestBody LoginRequest request, HttpServletRequest httpRequest) {
+        humanCheck.require(HumanCheckAction.LOGIN, httpRequest);
         return respond(authentication.login(request.email(), request.password(), httpRequest));
     }
 
@@ -167,8 +173,20 @@ public class AuthController {
     public ResponseEntity<Void> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request,
                                                HttpServletRequest httpRequest) {
         rateLimit.checkPasswordResetRequest(request.email(), httpRequest);
+        humanCheck.require(HumanCheckAction.PASSWORD_RESET, httpRequest);
         passwordReset.requestReset(request.email(), httpRequest);
         return ResponseEntity.accepted().build();
+    }
+
+    /**
+     * The same refusal for every address, until single sign-on ships: no account, domain or workspace is read, so
+     * the answer cannot tell anyone which firms are customers.
+     */
+    @PostMapping("/sso/discover")
+    public void discoverSso(@Valid @RequestBody SsoDiscoverRequest request, HttpServletRequest httpRequest) {
+        rateLimit.checkSsoLookup(request.email(), httpRequest);
+        humanCheck.require(HumanCheckAction.SSO, httpRequest);
+        throw new ApiException(ErrorCode.SSO_NOT_CONFIGURED, "No workspace has single sign-on");
     }
 
     @PostMapping("/password/reset")
@@ -273,7 +291,7 @@ public class AuthController {
         token.getToken();
     }
 
-    /** The configured OAuth registration ids, so a new provider stays a yml block. */
+    /** The configured OAuth registration ids, so a new provider stays a yml block, and the human check's site key. */
     @GetMapping("/providers")
     public AuthProviders providers() {
         ClientRegistrationRepository registrations = oauthRegistrations.getIfAvailable();
@@ -286,10 +304,11 @@ public class AuthController {
                         .toList()
                 : List.of();
 
-        return new AuthProviders(configured);
+        return new AuthProviders(configured, humanCheck.siteKey());
     }
 
-    public record AuthProviders(List<String> providers) {
+    /** {@code humanCheckSiteKey} is null when the check is off: the SPA then draws no widget and sends no token. */
+    public record AuthProviders(List<String> providers, String humanCheckSiteKey) {
     }
 
     /** A challenge sets its own cookie and no refresh cookie: there is no session until the code. */
