@@ -3,7 +3,7 @@
 /* Self-hosted, never fonts.googleapis.com: a Google-served face hands every user's IP to Google (#929). */
 @import "@fontsource-variable/geist";
 @import "@fontsource-variable/jetbrains-mono";
-@import "@fontsource/montserrat/latin-200.css";
+@import "@fontsource/montserrat/latin-400.css";
 
 html,
 body,

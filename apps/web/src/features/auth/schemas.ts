@@ -34,8 +34,14 @@ const email = z
   .min(1, "Enter your work email")
   .email("That doesn't look like a valid email");
 
+const signInEmail = z.string().trim().min(1, "Enter your email").email("That doesn't look like a valid email");
+
+/** Sign-in's first step, and the SSO screen's one field. */
+export const loginEmailSchema = z.object({ email: signInEmail });
+
+/** Sign-in's second step, where the address stays editable beside the password. */
 export const loginSchema = z.object({
-  email: z.string().trim().min(1, "Enter your email").email("That doesn't look like a valid email"),
+  email: signInEmail,
   password: z.string().min(1, "Enter your password"),
 });
 
@@ -145,6 +151,7 @@ export const secondFactorCodeRule = z
 
 export type SecondFactorCodeValues = z.infer<typeof authenticatorCodeSchema>;
 
+export type LoginEmailValues = z.infer<typeof loginEmailSchema>;
 export type LoginValues = z.infer<typeof loginSchema>;
 export type SignupValues = z.infer<typeof signupSchema>;
 export type ForgotPasswordValues = z.infer<typeof forgotPasswordSchema>;

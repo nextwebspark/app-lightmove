@@ -1,15 +1,14 @@
-import { useQuery } from "@tanstack/react-query";
 import { type ReactElement, useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "../../../components/ui";
 import { GoogleMark } from "../../../components/ui/BrandMarks";
 import { useAuth } from "../AuthProvider";
-import * as authApi from "../api/authApi";
 import { PROVIDER_TERMS_PATH } from "../authPaths";
 import { messageForOAuthError } from "../oauthErrors";
 import { startOAuthSignIn } from "../oauthPopup";
 import { TWO_FACTOR_SIGN_IN_PATH } from "../pages/TwoFactorChallengePage";
 import { landingAfterSignIn, takeReturnTo } from "../returnTo";
+import { useAuthProviders } from "../useAuthProviders";
 
 /**
  * The "Continue with …" buttons, one per provider the server reports as wired (registration ids, so a new provider
@@ -25,6 +24,12 @@ export function providerLabel(id: string): string {
   return PROVIDER_MARKS[id]?.label ?? titleCase(id);
 }
 
+/** "Sign in with LinkedIn, Google or SSO", naming only the providers the server reports; `fallback` when it reports none. */
+export function signInWithLabel(providerIds: readonly string[], last: string, fallback: string): string {
+  if (providerIds.length === 0) return fallback;
+  return `Sign in with ${providerIds.map(providerLabel).join(", ")} or ${last}`;
+}
+
 export interface OAuthButtonsProps {
   /**
    * Shown where the host screen shows its own failures. Null clears it — a cancelled sign-in reports
@@ -38,17 +43,17 @@ export interface OAuthButtonsProps {
   stayOnPage?: boolean;
   /** Where a sign-in stopped for a second factor resumes, in place of the remembered destination. */
   returnTo?: string;
+  /** Above the host's form the "or" divider follows the buttons; below it, it leads them. */
+  placement?: "above" | "below";
 }
 
-export function OAuthButtons({ onError, stayOnPage = false, returnTo: hostReturnTo }: OAuthButtonsProps) {
-  // Server state stays in the query cache rather than useState, so Login and Signup share one fetch.
-  // What this deployment has configured cannot change while the page is open — hence no refetching.
-  const { data } = useQuery({
-    queryKey: ["auth", "providers"],
-    queryFn: authApi.providers,
-    staleTime: Infinity,
-    retry: false,
-  });
+export function OAuthButtons({
+  onError,
+  stayOnPage = false,
+  returnTo: hostReturnTo,
+  placement = "below",
+}: OAuthButtonsProps) {
+  const { data } = useAuthProviders();
   const providers = data?.providers ?? [];
 
   const navigate = useNavigate();
@@ -118,13 +123,17 @@ export function OAuthButtons({ onError, stayOnPage = false, returnTo: hostReturn
     return null;
   }
 
+  const divider = (
+    <div className="my-[18px] flex items-center gap-2.5 font-mono text-[10px] font-medium uppercase tracking-[0.1em] text-u-text3">
+      <span className="h-px flex-1 bg-u-border" />
+      <span>or</span>
+      <span className="h-px flex-1 bg-u-border" />
+    </div>
+  );
+
   return (
     <>
-      <div className="my-[18px] flex items-center gap-2.5 font-mono text-[10px] font-medium uppercase tracking-[0.1em] text-u-text3">
-        <span className="h-px flex-1 bg-u-border" />
-        <span>or</span>
-        <span className="h-px flex-1 bg-u-border" />
-      </div>
+      {placement === "below" && divider}
 
       <div className="flex flex-col gap-2">
         {providers.map((id) => {
@@ -150,6 +159,8 @@ export function OAuthButtons({ onError, stayOnPage = false, returnTo: hostReturn
           );
         })}
       </div>
+
+      {placement === "above" && divider}
     </>
   );
 }
@@ -162,7 +173,6 @@ function titleCase(id: string): string {
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
     .join(" ");
 }
-
 
 /** LinkedIn's mark, in their blue. */
 function LinkedInMark() {

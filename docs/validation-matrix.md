@@ -32,8 +32,12 @@ Rows marked ☐ are open in #858; a PR that closes one ticks it and states the r
 ### Auth and onboarding
 | Field | Client | Server | Shown as |
 |---|---|---|---|
+| Sign-in email (step one of `/login`) | trimmed, email; no account is looked up, so the password step always follows | — (sent with the password) | field |
+| Sign-in password | required | `@NotBlank`; every failure one `INVALID_CREDENTIALS`, one timing | red line under Sign in: "Invalid email or password. Please try again." |
+| SSO work email (`/login/sso`) | trimmed, email | normalised, `@NotBlank @Email @Size(255)`; 10 a minute (`RATE_LIMITED`); every address `SSO_NOT_CONFIGURED` until single sign-on ships | field, red line under Continue |
+| Forgot-password email | trimmed, email | normalised, `@NotBlank @Email`; 3 an hour (`RATE_LIMITED`); an unknown address the same 202 | field, red line under Send reset link |
 | Signup full name | 1–160 | `@NotBlank @Size(160)`, trimmed | field |
-| Signup email | trimmed, email | normalised, `@Email @Size(255)`, work domain, MX | field |
+| Signup email | trimmed, email | normalised, `@Email @Size(255)`, work domain, MX | field; a refusal no field owns, red line under Continue |
 | Signup password | 8+, a digit, ≤ 72 bytes | same; bytes in `PasswordPolicy` | field |
 | Signup terms | an unticked box, required | `@AssertTrue` | under the box |
 | Invite accept terms | an unticked box, required | `@NotNull @AssertTrue` | under the box |

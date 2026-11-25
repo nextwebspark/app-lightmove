@@ -38,7 +38,7 @@ public record AuthSettings(
 ) {
 
     public AuthSettings {
-        oauth = oauth == null ? new OAuthQuirkSettings(List.of(), List.of(), List.of()) : oauth;
+        oauth = oauth == null ? new OAuthQuirkSettings(List.of(), List.of(), List.of(), List.of()) : oauth;
         extension = extension == null ? ExtensionSettings.defaults() : extension;
         mfa = mfa == null ? MfaSettings.defaults() : mfa;
     }

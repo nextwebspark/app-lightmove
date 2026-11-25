@@ -19,6 +19,9 @@ public enum ErrorCode {
      */
     INVALID_CREDENTIALS(HttpStatus.UNAUTHORIZED, "Invalid email or password"),
 
+    /** Every address, until single sign-on ships: an answer that varied would say which firms are customers. */
+    SSO_NOT_CONFIGURED(HttpStatus.NOT_FOUND, "We couldn't find an SSO account for that email"),
+
     ACCOUNT_LOCKED(HttpStatus.LOCKED, "Too many failed attempts. Try again later"),
     ACCOUNT_SUSPENDED(HttpStatus.FORBIDDEN, "This account has been suspended"),
     EMAIL_NOT_VERIFIED(HttpStatus.FORBIDDEN, "Please verify your email address to continue"),

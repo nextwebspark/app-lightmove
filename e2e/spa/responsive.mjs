@@ -25,6 +25,7 @@ const VIEWPORTS = [
 
 const ROUTES = [
   { path: "/login", name: "login", anonymous: true },
+  { path: "/login/sso", name: "login-sso", anonymous: true },
   { path: "/signup", name: "signup", anonymous: true },
   { path: "/forgot-password", name: "forgot-password", anonymous: true },
   { path: "/", name: "home" },
