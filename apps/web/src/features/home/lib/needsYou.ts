@@ -89,9 +89,14 @@ export interface Attention {
 /**
  * Needs your attention, in one list of what to act on now: overdue first (longest late at the top), then replies and
  * delivery problems (newest first), then what is due today (soonest first). A task due tomorrow or later is not on it,
- * whether it is the caller's own or a follow-up an executive's outreach row carries; it is only counted.
+ * whether it is the caller's own or a follow-up an executive's outreach row carries; it is only counted. The caller's
+ * own are counted by My tasks' Upcoming tally (`ownUpcoming`), which already holds the ones a row carries.
  */
-export function attentionOf(items: readonly NeedsItem[], now: Date = new Date()): Attention {
+export function attentionOf(
+  items: readonly NeedsItem[],
+  now: Date = new Date(),
+  { myUserId, ownUpcoming = 0 }: { myUserId?: string; ownUpcoming?: number } = {},
+): Attention {
   const today = dayKeyOf(now);
   const reasonOfDue = (dueAt: string | null): AttentionReason => {
     if (!dueAt) return "later";
@@ -156,5 +161,8 @@ export function attentionOf(items: readonly NeedsItem[], now: Date = new Date())
     return left.reason === "reply" || left.reason === "delivery" ? -earlierFirst : earlierFirst;
   });
   const due = sorted.filter((line) => line.reason !== "later");
-  return { lines: due, comingUp: sorted.length - due.length };
+  const othersLater = sorted.filter(
+    (line) => line.reason === "later" && (myUserId === undefined || line.assignee?.userId !== myUserId),
+  ).length;
+  return { lines: due, comingUp: othersLater + ownUpcoming };
 }

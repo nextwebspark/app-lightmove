@@ -16,12 +16,15 @@ export function TodayPanel({
   events,
   pending,
   calendarRefused,
+  tasksRefused,
   mailboxGap,
   now,
 }: {
   events: TodayEvent[];
   pending: boolean;
   calendarRefused: boolean;
+  /** Today's call and meeting tasks could not be read. */
+  tasksRefused: boolean;
   mailboxGap: MailboxGap;
   now: Date;
 }) {
@@ -33,7 +36,7 @@ export function TodayPanel({
       title="Today"
       subtitle={<span className="type-micro-label">{formatWeekdayDate(now)}</span>}
       aside={
-        !pending && (
+        !pending && !calendarRefused && !tasksRefused && (
           <span className="text-note text-u-text3">{events.length === 1 ? "1 event" : `${events.length} events`}</span>
         )
       }
@@ -42,6 +45,16 @@ export function TodayPanel({
         <div className="px-5 pb-4">
           <LinesSkeleton lines={3} />
         </div>
+      ) : events.length === 0 && tasksRefused ? (
+        <CardEmpty
+          icon={ICONS.calendar}
+          title="Couldn't load today"
+          body={
+            calendarRefused
+              ? "Reload the page. Your calendar and the calls you set are still on each executive."
+              : "Reload the page. The calls you set for today are still on My tasks."
+          }
+        />
       ) : events.length === 0 ? (
         mailboxGap === "missing" ? (
           <CardEmpty
@@ -79,6 +92,7 @@ export function TodayPanel({
             ))}
           </ol>
           {calendarRefused && <p className="text-meta text-u-text3">Couldn't read your calendar. Calls you set still show.</p>}
+          {tasksRefused && <p className="text-meta text-u-text3">Couldn't read the calls you set. Your calendar still shows.</p>}
           {nextWithPerson ? (
             <BeforeNextCall event={nextWithPerson} />
           ) : (

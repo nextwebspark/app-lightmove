@@ -467,11 +467,15 @@ under a greeting that counts what waits, today's meetings and the caller's activ
 arranged or added to (the customisable grid of V233 is gone; its table stays unread until a later migration drops it).
 
 - **Needs your attention** — their outreach To do across the positions they work (`GET /me/outreach/needs`,
-  `MyOutreachQueueService`, each position's own `ConversationService.list`; **Team** for a lead reads the whole queue
-  of the positions they lead) and their overdue and today's tasks, a task a row already carries never drawn twice.
+  `MyOutreachQueueService`, each position's own `ConversationService.list`, the merged rows cut to 50 most pressing
+  first — replies, delivery problems and overdue actions ahead of the rest — so the cap never drops one; **Team** for a
+  lead reads the whole queue of the positions they lead, and adds what they handed out to their own) and their
+  overdue and today's tasks, a task a row already carries never drawn twice.
   One list, most urgent first (`attentionOf`): overdue, then replies and delivery problems (newest first), then what
   is due today. A task due tomorrow or later is not listed, even a follow-up an executive's outreach row carries; the
-  foot counts it ("N coming up") beside All my tasks. Each line names the position and its unit (from the positions list), carries a chip
+  foot counts it ("N coming up") beside All my tasks — the caller's own by My tasks' Upcoming tally, a teammate's
+  from the rows. A task read holds 50; a longer list marks the count `50+`. A read that failed says so on its card,
+  and the greeting leaves its count out, rather than reading as nothing due. Each line names the position and its unit (from the positions list), carries a chip
   (`2d overdue`, `24m ago`, `Due 16:00`, `Delivery problem`) and one action — Reply or Resolve into the position's
   queue, Follow up or Open on the executive's record — the first line's drawn primary.
 - **Today** — the meetings on the caller's own calendar today (`GET /me/meetings/today?tz=`, `MyMeetingsService`:

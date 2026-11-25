@@ -174,4 +174,16 @@ describe("attentionOf", () => {
     const [line] = attentionOf(needsYouOf([conversation("quiet", "FOLLOW_UP", "t9")], [], "u1", now), now).lines;
     expect(line).toMatchObject({ group: "FOLLOW_UP", taskKind: "follow_up", taskTitle: "Reply", reason: "overdue" });
   });
+
+  it("counts the caller's own tasks not yet due from My tasks' tally, a teammate's follow-up beside them, never twice", () => {
+    const now = new Date("2026-10-14T07:00:00Z");
+    const later = (candidateId: string, assignee: typeof person): MyConversationRow => {
+      const entry = conversation(candidateId, "FOLLOW_UP", `t-${candidateId}`);
+      return { ...entry, row: { ...entry.row, action: { ...entry.row.action!, dueAt: "2026-10-20T09:00:00Z", assignee } } };
+    };
+    const teammate = { userId: "u2", fullName: "Omar Saleh", avatarUrl: null };
+    const items = needsYouOf([later("mine", person), later("theirs", teammate)], [], "u1", now);
+
+    expect(attentionOf(items, now, { myUserId: "u1", ownUpcoming: 3 })).toEqual({ lines: [], comingUp: 4 });
+  });
 });
