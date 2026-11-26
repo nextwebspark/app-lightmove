@@ -112,8 +112,19 @@ instance to CMEK means a new instance and a migration.
 - **The application's lines** carry ids, never an email or a name, and since #927 every deployed line's message and
   stack trace is masked (`PersonalDataLogMasker`: emails, LinkedIn profile links, phones written with `+`).
 - **Cloud Run's own request log** (`run.googleapis.com/requests`) records each request's full URL, query string
-  included, and is outside the application's reach. A search typed as an address — the Candidates page, the grid, the
-  Outreach list — is a `GET` with `?q=` or `?search=`, so that address is kept there for the 30 days. The email-image
-  route is already excluded (`ops/gcp/bootstrap.sh`). ⚖️ Choose one: an exclusion filter for request entries whose
-  URL carries `q=` or `search=` (those requests then have no platform log line, though the application's own `request`
-  line remains), or a shorter retention on a bucket of their own.
+  included, and is outside the application's reach. A search or lookup is a `GET` whose query holds what was typed or
+  captured: an email address, a name, a LinkedIn link. Two `_Default` exclusions in `ops/gcp/bootstrap.sh` keep such
+  entries from being stored at all:
+  - `email-images`: the email-picture route, a record of who opened what.
+  - `search-terms` (#1494, decision F10): any request whose query carries `q=`, `search=`, `executiveQuery=`, `name=`
+    or `linkedinUrl=`. That covers the Candidates page, the grid, the pipeline, Outreach, the company typeaheads and
+    the "already held?" checks (`/candidates/held`, `/triage/held`), which the browser extension calls with a profile
+    link on every capture and which made up most of the matching entries in a two-week sample.
+    `RequestLogExclusionCoverageTest` fails when a controller adds a text query parameter that neither the filter nor
+    its never-personal list names.
+- **What the exclusion costs:** those requests have no platform log line, so Logs Explorer and the daily
+  `ops/gcp/log-digest` do not see them (the digest's status and 5xx counts miss them). The application's own masked
+  `request` line and any ERROR line remain. Cloud Run's built-in request metrics are not logs and are unaffected. Whether
+  `monitoring.sh`'s project-level 5xx log metric still counts an excluded 5xx is checked when the exclusion is
+  applied. The bucket keeps 30 days (F10).
+- **Applied to production:** not yet. Recorded here, with the date and the Logs Explorer check, once it is.

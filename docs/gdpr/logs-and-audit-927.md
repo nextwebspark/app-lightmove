@@ -130,7 +130,7 @@ A read-only `gcloud` check on 2026-11-10 found:
   screens' "backups age out within 30 days" (`DueForDeletionCard`, `ErasePersonDialog`) is **not true today**.
 - Encryption at rest is Google-managed on Cloud SQL and the documents bucket. There is no CMEK.
 - Cloud Logging's `_Default` bucket keeps entries 30 days. Cloud Run's request log records full URLs, so a search typed
-  as an address (`?q=`, `?search=`) is kept there.
+  as an address (`?q=`, `?search=`) is kept there. (#1494 excludes those entries; `security-of-processing.md`, Logs.)
 
 `docs/gdpr/security-of-processing.md` (new) covers:
 
@@ -167,8 +167,8 @@ It also updates:
   `security-of-processing.md`, in a quiet window: the instance is shared with the Bright Data ETL and may restart.
 - [ ] **Delete the on-demand backup** `1790857353254`, once the first automated backup shows `SUCCESSFUL`.
 - [ ] **Run the restore drill** and record its RPO and RTO in the doc's table.
-- [ ] **Keep searched addresses out of Cloud Run's request log**: an exclusion filter on `run.googleapis.com/requests`,
-  or a log bucket with shorter retention.
+- [ ] **Keep searched addresses out of Cloud Run's request log**: decided as an exclusion filter (F10). Built in #1494
+  as the `search-terms` exclusion in `ops/gcp/bootstrap.sh`; ticked once it is applied to production.
 
 ### Follow-ups and open decisions
 
@@ -219,7 +219,7 @@ It is a business-continuity risk, not only a GDPR one.
 - The DPA and the website's `/security` page cannot drop "[to confirm]".
 
 **Request log left as is.** #1279's masking does not reach it. The masking covers the app's own log lines, not the
-request log Cloud Run writes, so the logs are only partly clean.
+request log Cloud Run writes, so the logs are only partly clean. #1494 closes this with the `search-terms` exclusion.
 
 **Recommended order:**
 

@@ -200,6 +200,24 @@ else
     echo "  ✓ excluded"
 fi
 
+# ── Search terms out of the request log (#1494, F10) ─────────────────────────
+# A search is a GET whose query string holds what was typed — often an email address, a name or a LinkedIn link —
+# and Cloud Run's request log keeps the whole URL for the bucket's 30 days, beyond PersonalDataLogMasker's reach.
+# Those entries are dropped before storage; the app's own masked `request` line for them remains. The parameter list
+# is RequestLogExclusionCoverageTest's, which fails when a controller adds a text parameter neither list names.
+# Re-running replaces the filter, so a widened list reaches production by running this block again.
+SEARCH_TERMS_FILTER='logName:"run.googleapis.com%2Frequests" AND httpRequest.requestUrl=~"[?&](q|search|executiveQuery|name|linkedinUrl)="'
+say "Excluding search terms from the request log"
+if gcloud logging sinks describe _Default --project "$PROJECT" --format='value(exclusions[].name)' | grep -q 'search-terms'; then
+    gcloud logging sinks update _Default --project "$PROJECT" --quiet \
+        --update-exclusion=name=search-terms,filter="$SEARCH_TERMS_FILTER" >/dev/null
+    echo "  ✓ filter refreshed"
+else
+    gcloud logging sinks update _Default --project "$PROJECT" --quiet \
+        --add-exclusion=name=search-terms,filter="$SEARCH_TERMS_FILTER" >/dev/null
+    echo "  ✓ excluded"
+fi
+
 # ── Workload Identity Federation ──────────────────────────────────────────────
 # Keyless GitHub → GCP. No JSON service-account key is ever created, so there is none to leak, rotate,
 # or find in a GitHub secret three years from now.
