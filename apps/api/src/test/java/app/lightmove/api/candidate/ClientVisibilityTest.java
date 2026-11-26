@@ -1,30 +1,42 @@
 package app.lightmove.api.candidate;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import app.lightmove.api.IntegrationTest;
+import java.time.Duration;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import org.awaitility.Awaitility;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.springframework.http.MediaType;
+import org.springframework.test.web.servlet.MvcResult;
 import tools.jackson.databind.JsonNode;
 
 /**
  * An executive hidden from the client is absent from every read a client seat can reach — the list, the drawer, the
- * photo, the Companies grid's filters and sort, the talent map, the report, the export, the projects list's counts and
- * a personal API key — whether staff hid them (V132), the firm restricted their processing, or they said no to being
+ * photo, the Companies grid's filters and sort, the talent map, the report, the export, the projects list's counts, a
+ * personal API key and an AI app reading through one — whether staff hid them (V132), the firm restricted their processing, or they said no to being
  * shared or withdrew it (V246, #1488). A client seat sees exactly what it saw before while everyone is visible; staff,
  * and a workspace API key, still read them everywhere.
  */
 @IntegrationTest
 class ClientVisibilityTest extends PipelineFlowSupport {
+
+    private static final Pattern PRIVACY_LINK = Pattern.compile("/privacy/([A-Za-z0-9_-]+)");
 
     private String projectId;
     private String shown;
@@ -84,12 +96,7 @@ class ClientVisibilityTest extends PipelineFlowSupport {
 
         JsonNode row = pipelineRow(hidden);
         assertThat(row.get("clientHiddenReason").isNull() ? null : row.get("clientHiddenReason").asText())
-                .isEqualTo(switch (by) {
-                    case STAFF -> null;
-                    case RESTRICTION -> "processing_restricted";
-                    case SHARE_DECLINED -> "share_declined";
-                    case SHARE_WITHDRAWN -> "share_withdrawn";
-                });
+                .isEqualTo(reasonOf(by));
         assertThat(row.get("clientVisible").asBoolean()).isEqualTo(by != HiddenBy.STAFF);
         for (String staff : new String[] {admin, researcher}) {
             assertThat(read(staff, candidatesUrl(projectId))).contains("Hidden Person");
@@ -128,14 +135,15 @@ class ClientVisibilityTest extends PipelineFlowSupport {
         assertThat(read(client, candidatesUrl(projectId))).doesNotContain("Alok Kumar");
     }
 
-    @Test
+    @ParameterizedTest(name = "hidden by {0}")
+    @EnumSource(HiddenBy.class)
     @DisplayName("a hidden executive matches neither Companies filter and moves nobody's place in its status sort")
-    void theCompaniesGridIgnoresAHiddenExecutiveForAClient() throws Exception {
+    void theCompaniesGridIgnoresAHiddenExecutiveForAClient(HiddenBy by) throws Exception {
         moveTo(projectId, shown, "interested");
         String masdar = capture(projectId, "Masdar");
         add(projectId, """
                 {"triageCompanyId":"%s","fullName":"Other Person","status":"contacted"}""".formatted(masdar));
-        hide(hidden);
+        hide(by, hidden);
 
         assertThat(companies(admin, "executiveQuery=hidden")).containsExactly("ACWA Power");
         assertThat(companies(client, "executiveQuery=hidden")).isEmpty();
@@ -183,21 +191,9 @@ class ClientVisibilityTest extends PipelineFlowSupport {
     @EnumSource(HiddenBy.class)
     @DisplayName("a colleague holding only the client seat reads as a client, through their session and their own API key")
     void aPersonalKeyReadsAsItsOwnersSeat(HiddenBy by) throws Exception {
-        String colleague = member("omar");
-        mvc.perform(post("/api/v1/projects/" + projectId + "/representatives/invitations")
-                        .header("Authorization", "Bearer " + admin)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"fullName":"Omar","position":"Chair","email":"omar@%s"}""".formatted(domain)))
-                .andExpect(status().isOk());
+        String colleague = colleagueOnTheClientSeat();
         hide(by, hidden);
-        String key = body(mvc.perform(post("/api/v1/workspace/api-keys")
-                        .header("Authorization", "Bearer " + colleague)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"name":"Omar's sheet","scopes":["projects:read","companies:read","candidates:read"]}"""))
-                .andExpect(status().isCreated())
-                .andReturn()).get("secret").asText();
+        String key = personalKeyOf(colleague, "projects:read", "companies:read", "candidates:read");
         String position = "/api/v1/public/projects/" + projectId;
 
         assertThat(read(colleague, candidatesUrl(projectId))).contains("Shown Person").doesNotContain("Hidden Person");
@@ -210,6 +206,82 @@ class ClientVisibilityTest extends PipelineFlowSupport {
                 .get("candidates").asLong()).isEqualTo(1);
         assertThat(body(mvc.perform(get(position + "/summary").header("Authorization", "Bearer " + key)).andReturn())
                 .at("/executives/identified").asLong()).isEqualTo(1);
+    }
+
+    @ParameterizedTest(name = "hidden by {0}")
+    @EnumSource(HiddenBy.class)
+    @DisplayName("an AI app reading through a client seat's key finds no hidden executive, in the list or the universe")
+    void anMcpReadThroughAClientSeatLeavesThemOut(HiddenBy by) throws Exception {
+        String key = personalKeyOf(colleagueOnTheClientSeat(), "companies:read", "candidates:read", "mcp:use");
+        hide(by, hidden);
+        String position = "{\"positionId\":\"" + projectId + "\"}";
+
+        assertThat(mcpTool(key, "uncava_list_candidates", position)).contains("Shown Person")
+                .doesNotContain("Hidden Person");
+        assertThat(mcpTool(key, "uncava_get_universe", position)).contains("Shown Person")
+                .doesNotContain("Hidden Person");
+    }
+
+    @ParameterizedTest(name = "hidden by {0}")
+    @EnumSource(value = HiddenBy.class, names = {"SHARE_DECLINED", "SHARE_WITHDRAWN"})
+    @DisplayName("removed from the position after a no and mapped again, they arrive hidden")
+    void mappedAgainTheyArriveHidden(HiddenBy by) throws Exception {
+        String profile = "https://www.linkedin.com/in/returning-person/";
+        JsonNode first = add(projectId, """
+                {"fullName":"Returning Person","linkedinUrl":"%s"}""".formatted(profile));
+        hide(by, first.get("id").asText());
+        mvc.perform(delete(candidatesUrl(projectId) + "/" + first.get("id").asText())
+                .header("Authorization", "Bearer " + admin)).andExpect(status().isNoContent());
+
+        JsonNode again = add(projectId, """
+                {"fullName":"Returning Person","linkedinUrl":"%s"}""".formatted(profile));
+
+        assertThat(again.get("personId").asText()).isEqualTo(first.get("personId").asText());
+        assertThat(read(client, candidatesUrl(projectId))).contains("Shown Person")
+                .doesNotContain("Returning Person");
+        assertThat(pipelineRow(again.get("id").asText()).get("clientHiddenReason").asText())
+                .isEqualTo(reasonOf(by));
+    }
+
+    @Test
+    @DisplayName("a no recorded by hand hides them from the client and tells the client's open page to read again")
+    void aNoRecordedByHandHidesThem() throws Exception {
+        consentMode();
+        MvcResult stream = openStream("/api/v1/projects/" + projectId + "/stream", client);
+        awaitContent(stream, "event:connected");
+
+        assertThat(write(admin, "POST", "/api/v1/candidates/" + personOf(hidden) + "/consents/recorded", """
+                {"purpose":"share_with_client","projectId":"%s","answer":"declined","answeredOn":"%s"}"""
+                .formatted(projectId, LocalDate.now(ZoneOffset.UTC))).getResponse().getStatus()).isEqualTo(200);
+
+        awaitContent(stream, "candidate-edited");
+        assertThat(read(client, candidatesUrl(projectId))).contains("Shown Person").doesNotContain("Hidden Person");
+        assertThat(pipelineRow(hidden).get("clientHiddenReason").asText()).isEqualTo("share_declined");
+    }
+
+    @Test
+    @DisplayName("a no on the privacy page hides them from the client and tells the client's open page to read again")
+    void aNoOnThePrivacyPageHidesThem() throws Exception {
+        consentMode();
+        String asked = add(projectId, """
+                {"fullName":"Asked Person","emails":[{"value":"asked.person@example.com"}]}""").get("id").asText();
+        assertThat(write(admin, "POST", candidatesUrl(projectId) + "/" + asked + "/share-consent-request", "{}")
+                .getResponse().getStatus()).isEqualTo(200);
+        String token = privacyLinkTo("asked.person@example.com");
+        String consentId = body(mvc.perform(get("/api/v1/privacy/links/" + token)).andExpect(status().isOk())
+                .andReturn()).at("/consents/0/id").asText();
+        assertThat(read(client, candidatesUrl(projectId))).contains("Asked Person");
+        MvcResult stream = openStream("/api/v1/projects/" + projectId + "/stream", client);
+        awaitContent(stream, "event:connected");
+
+        mvc.perform(post("/api/v1/privacy/links/" + token + "/consents").contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"answers":[{"consentId":"%s","answer":"declined"}]}""".formatted(consentId)))
+                .andExpect(status().isNoContent());
+
+        awaitContent(stream, "candidate-edited");
+        assertThat(read(client, candidatesUrl(projectId))).contains("Shown Person").doesNotContain("Asked Person");
+        assertThat(pipelineRow(asked).get("clientHiddenReason").asText()).isEqualTo("share_declined");
     }
 
     @Test
@@ -280,6 +352,70 @@ class ClientVisibilityTest extends PipelineFlowSupport {
                 from app_lm_person_consent k
                 join app_lm_project_candidate c on c.person_id = k.person_id and c.project_id = k.project_id
                 where c.id = ?::uuid and k.purpose = 'SHARE_WITH_CLIENT'""", answer, candidateId);
+    }
+
+    private static String reasonOf(HiddenBy by) {
+        return switch (by) {
+            case STAFF -> null;
+            case RESTRICTION -> "processing_restricted";
+            case SHARE_DECLINED -> "share_declined";
+            case SHARE_WITHDRAWN -> "share_withdrawn";
+        };
+    }
+
+    /** A staff member who also holds the position's client seat, so reads as its client wherever they read it. */
+    private String colleagueOnTheClientSeat() throws Exception {
+        String colleague = member("omar");
+        mvc.perform(post("/api/v1/projects/" + projectId + "/representatives/invitations")
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fullName":"Omar","position":"Chair","email":"omar@%s"}""".formatted(domain)))
+                .andExpect(status().isOk());
+        return colleague;
+    }
+
+    private String personalKeyOf(String token, String... scopes) throws Exception {
+        String scopeList = String.join(",", Arrays.stream(scopes).map(scope -> "\"" + scope + "\"").toList());
+        return body(mvc.perform(post("/api/v1/workspace/api-keys")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name":"Omar's sheet","scopes":[%s]}""".formatted(scopeList)))
+                .andExpect(status().isCreated())
+                .andReturn()).get("secret").asText();
+    }
+
+    private String mcpTool(String key, String tool, String argumentsJson) throws Exception {
+        String answer = mvc.perform(post("/api/v1/mcp")
+                        .header("Authorization", "Bearer " + key)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .accept(MediaType.APPLICATION_JSON, MediaType.TEXT_EVENT_STREAM)
+                        .content("""
+                                {"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"%s","arguments":%s}}"""
+                                .formatted(tool, argumentsJson)))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        assertThat(answer).as(answer).doesNotContain("\"isError\":true");
+        return answer;
+    }
+
+    private void consentMode() throws Exception {
+        assertThat(write(admin, "PUT", "/api/v1/workspace/candidate-privacy", """
+                {"controllerName":"Visibility Search Partners","privacyContactEmail":"privacy@visibility.example",
+                 "noticeUrl":"https://visibility.example/privacy","defaultLawfulBasis":"legitimate_interest",
+                 "privacyMode":"consent","keepOnFile":true,"keepOnFileMonths":24,"shareWithClient":true}""")
+                .getResponse().getStatus()).isEqualTo(200);
+    }
+
+    private String privacyLinkTo(String address) {
+        String text = Awaitility.await().atMost(Duration.ofSeconds(10))
+                .until(() -> email.sent().reversed().stream()
+                        .filter(message -> address.equalsIgnoreCase(message.to())).findFirst(), Optional::isPresent)
+                .orElseThrow().textBody();
+        Matcher link = PRIVACY_LINK.matcher(text);
+        assertThat(link.find()).as(text).isTrue();
+        return link.group(1);
     }
 
     private String personOf(String candidateId) {
