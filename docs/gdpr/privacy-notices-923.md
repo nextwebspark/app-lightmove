@@ -52,7 +52,7 @@ admin picks `CONSENT` or `CONTRACT`).
   500. A single send refuses with the reason; a bulk send skips and names who it could not reach.
 - **Skipped:** no email on file, do not contact, processing restricted, suppressed, sent a notice in the last 14 days,
   or the workspace's daily cap reached (`lightmove.data-protection.privacy-notices-per-day`, 500).
-- **The email** goes through Uncava's own sender (Resend), shown as "{firm} via Uncava" from `EMAIL_FROM`, with
+- **The email** goes through Uncava's own sender (Resend), shown as "{firm} via Uncava" from `EMAIL_PRIVACY_FROM` (#1493; blank, so `EMAIL_FROM`), with
   `reply_to` the firm's privacy contact. It names the firm as controller, where the details came from
   (`PrivacyNoticeWording`, by the person's first door), the basis, the firm's notice link, and a button to the person's
   page. It is sent after the transaction commits, off the request thread (`PrivacyNoticeMailer`, an `@Async`
@@ -115,7 +115,7 @@ Stop emails from us". With the firm's details not yet set it reads "We hold …"
   actor, and `used_at` on the link. In the same transaction outreach's `OutreachOptOutStop` stops every live run on the
   person as `OPTED_OUT` and fails every email still waiting to go (one already taken by the dispatcher meets do not
   contact at its send-time check). An objection from the privacy page does the same. Only a link's first use is
-  recorded, so a mail app posting twice tells nobody twice. Rate-limited per link (10 an hour) and per IP (1,000 an
+  recorded, so a mail app posting twice tells nobody twice. All three doors are one code path, `PersonContactStop`. Rate-limited per link (10 an hour) and per IP (1,000 an
   hour: a provider posts for many people from one address).
 - **Who hears of it:** the person's owner, else whoever sent the email, by a `CANDIDATE_OPTED_OUT` bell under the
   bounced switch. The drawer reads `privacy.optedOutAt` while do not contact stands.
@@ -125,7 +125,42 @@ Stop emails from us". With the firm's details not yet set it reads "We hold …"
   when its own record failed (`claims.recordDelivered`) skips this, so such a person stays Not notified.
 - **Previews.** Add to sequence and the composer read the footer's sentence (`privacyFooter` on
   `EnrollmentCandidateResponse` and `ConversationComposerResponse`) and draw it read-only under the email.
+- **The team's door (B16, #1489).** Replies are never read for "please stop". A consultant who reads one, or hears it
+  on a call, sets the drawer's **Do not contact**: while data protection is on that is the person's objection, after a
+  confirm dialog. `PUT /api/v1/candidates/{id}/do-not-contact` then runs `PersonContactStop` with the colleague as
+  actor (`recordedByTeam`; the page's door is `objectedOnPrivacyPage`, the link's `optedOutByLink`): do not contact
+  ("Objected when contacted, recorded by the team", replacing any earlier reason of the team's; the request's own
+  `reason` is ignored) with `do_not_contact_source` naming the door, the suppression list as `OBJECTED`, an
+  `OBJECTION_RECORDED` line, a `PERSON_OBJECTION_RECORDED` audit event, and `PersonPrivacyRequested(OBJECTION)` with
+  the actor, so every run stops now as `DO_NOT_CONTACT` and every admin but the actor gets the `PERSON_OBJECTED` bell.
+  Its email is the team's own ("A candidate asked not to be contacted": the colleague recorded it), never the privacy
+  page's. Clearing it while the suppression list holds them as `OBJECTED` is refused (`PERSON_OBJECTION_HELD`, 409):
+  outreach reads do not contact, not the list, so clearing would reopen contact. An admin removes the entries in
+  Settings first; an entry for another reason (`erased`, `manual`) holds nothing. With the switch off, the button is
+  the team's own flag as before. All three doors' timeline lines are the person's, read under Contacts on every
+  position.
 - Off with `DATA_PROTECTION_ENABLED`: no footer, no headers, no link minted.
+
+## Uncava's own notice to executives (#1490)
+
+ContactOut confirmed Uncava is an independent controller of the profile data it returns (decision B6), so Uncava owes
+those people a notice of its own: a public page on the website (decision B2), written by counsel.
+
+- **Configuration.** `LEGAL_CANDIDATE_NOTICE_VERSION` and `LEGAL_CANDIDATE_NOTICE_URL` (`lightmove.legal.*`,
+  `LegalSettings`), set together or neither, an https link. Blank until counsel publishes the notice: nothing links
+  it and nothing is recorded. Neither is in `deploy.yml`; set them on the Cloud Run service, as the DPA pair is.
+- **Where it is linked.** Every email a candidate receives: the firm's on-behalf footer ("Sent by {firm} with
+  Uncava · How Uncava handles your details", `EmailRenderer`) on privacy notices, consent and share requests,
+  renewals and confirmations; the outreach footer between Our privacy notice and Stop emails from us; and the public
+  `/privacy/:token` page (`PrivacyPageResponse.uncavaNoticeUrl`), live and expired, whether or not the firm has named
+  itself. The previews draw it from
+  `GET /api/v1/data-protection/config` (`candidateNoticeUrl`).
+- **What is recorded.** `app_lm_person.uncava_notice_version` and `uncava_notice_sent_at` (V247), written by
+  `UncavaNoticeRecords` only once an email carrying the link was delivered: outreach inside its send, the mailers
+  after the provider took it, in a transaction of their own once the refusal records have committed, so neither can
+  roll the other back. A refused email records nothing, and a later delivery never winds the record back. The version
+  must fit the column (32 characters, checked at boot). The subject access export carries both, with the rest of the
+  person row.
 
 ## Not notified
 
@@ -147,8 +182,10 @@ The person's new columns are exported with the rest of their record.
   (`governance-decisions.md` B2). Nothing sends one automatically today.
 - Consent per purpose and share-with-client: built as #1267 phases 2 and 3, in
   [consent-requests-1267.md](consent-requests-1267.md).
-- A dedicated sending subdomain for notices, so bulk cold notices never weigh on invitations' and resets' reputation.
-  Today they go from `EMAIL_FROM`; the move is an ops change to Resend and `EMAIL_FROM` alone.
+- A separate sending address for privacy mail (#1493, B15) is built but not used: every email
+  `EmailRenderer.renderPrivacyMail` renders (notice, consent request, share request, renewal, confirmation) leaves
+  from `EMAIL_PRIVACY_FROM`, which is left blank, so they leave from `noreply@uncava.com`. That is one domain shared
+  with sign-in mail, by decision of 2026-11-26 (`governance-decisions.md` B15).
 - A consent basis with no consent recorded only warns (#1267, `governance-decisions.md` B7); nothing is blocked on it.
 
 ## Testing locally

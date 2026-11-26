@@ -18,6 +18,7 @@ import {
   initialsOf,
   sourceSentence,
   type PrivacyChoice,
+  UNCAVA_NOTICE_LABEL,
 } from "../lib/privacyPageCopy";
 
 type Stage =
@@ -46,6 +47,7 @@ export default function PrivacyLinkPage() {
   });
 
   const firm = page.data?.controllerName ?? null;
+  const uncavaNoticeUrl = page.data?.uncavaNoticeUrl ?? null;
   const purpose = page.data?.purpose;
   const kind = purpose === "consent" ? "Consent request" : purpose === "manage" ? "Your consents" : "Privacy notice";
   const validity =
@@ -85,10 +87,19 @@ export default function PrivacyLinkPage() {
             <Notice token={token} page={page.data} />
           )}
         </div>
-        {firm && (
+        {(firm || uncavaNoticeUrl) && (
           <p className="mx-1 mt-4 font-mono text-meta text-u-text3">
-            {firm} is responsible for your data. This page is provided by Uncava, the software they use.
-            {validity}
+            {firm && `${firm} is responsible for your data. This page is provided by Uncava, the software they use.`}
+            {uncavaNoticeUrl && (
+              <>
+                {firm && " "}
+                <a href={uncavaNoticeUrl} target="_blank" rel="noreferrer" className="text-u-accent">
+                  {UNCAVA_NOTICE_LABEL}
+                </a>
+                .
+              </>
+            )}
+            {firm && validity}
           </p>
         )}
       </div>

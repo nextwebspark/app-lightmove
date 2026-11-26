@@ -31,11 +31,18 @@ export interface PipelineRow {
   statusChangedAt: string;
   nextAction: CandidateNextAction | null;
   clientVisible: boolean;
+  /**
+   * Why a client seat cannot see them whatever `clientVisible` says (#1488): the firm restricted their processing, or
+   * they said no to being shared, or withdrew it. Null while nothing hides them.
+   */
+  clientHiddenReason?: ClientHiddenReason | null;
   /** When research last landed; the photo is asked for only once it has. */
   enrichedAt?: string | null;
   /** Why they left, while out of process and someone has said. */
   exitReason?: CandidateExitReason | null;
 }
+
+export type ClientHiddenReason = "processing_restricted" | "share_declined" | "share_withdrawn";
 
 /** Every live stage with how many rows sit in it in process — the search narrows it, the stage filter does not. */
 export interface PipelineStageCount extends CandidatePipelineStage {

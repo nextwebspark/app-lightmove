@@ -327,7 +327,7 @@ class CandidatePoolCrmIntegrationTest extends FlowTestSupport {
     }
 
     @Test
-    @DisplayName("do not contact is kept with who set it and why, and cleared with nothing left behind")
+    @DisplayName("do not contact is the person's objection, kept with who set it, and cleared once they are unsuppressed")
     void doNotContactIsRecorded() throws Exception {
         firm("Pool DNC Firm");
         String cfo = mandate("Chief Financial Officer");
@@ -341,10 +341,14 @@ class CandidatePoolCrmIntegrationTest extends FlowTestSupport {
                                 {"doNotContact":true,"reason":"Asked us not to approach them."}"""))
                 .andExpect(status().isOk())
                 .andReturn());
-        assertThat(marked.get("doNotContact").get("reason").asText()).isEqualTo("Asked us not to approach them.");
+        assertThat(marked.get("doNotContact").get("reason").asText())
+                .as("with data protection on, the team records the person's objection (#1489)")
+                .isEqualTo("Objected when contacted, recorded by the team");
         assertThat(marked.get("doNotContact").get("setByName").asText()).isEqualTo("Alok Kumar");
         assertThat(rowNamed(pool(Map.of()), "Lina Said").get("doNotContact").asBoolean()).isTrue();
 
+        db.update("delete from app_lm_workspace_suppression where workspace_id ="
+                + " (select workspace_id from app_lm_person where id = ?::uuid)", person);
         JsonNode cleared = body(mvc.perform(put("/api/v1/candidates/" + person + "/do-not-contact")
                         .header("Authorization", "Bearer " + admin)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -354,7 +358,7 @@ class CandidatePoolCrmIntegrationTest extends FlowTestSupport {
                 .andReturn());
         assertThat(cleared.get("doNotContact").isNull()).isTrue();
         assertThat(kindsOf(timeline(person, "contacts")))
-                .containsExactly("DO_NOT_CONTACT_CLEARED", "DO_NOT_CONTACT_SET");
+                .containsExactly("DO_NOT_CONTACT_CLEARED", "OBJECTION_RECORDED");
         assertThat(db.queryForObject("select do_not_contact_reason from app_lm_person where id = ?::uuid",
                 String.class, person)).isNull();
     }

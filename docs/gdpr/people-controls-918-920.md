@@ -27,7 +27,7 @@ A workspace keeps a list of people that no door may file again. Each entry has a
 | Reason | Written by |
 |---|---|
 | `erased` | the erasure itself (the API refuses it from an admin) |
-| `objected` | an admin, or the restriction dialog's "also suppress" tick |
+| `objected` | an admin; the restriction dialog's "also suppress" tick; the person's own objection or stop link (#924); and the drawer's **Do not contact** while data protection is on (#1489) |
 | `manual` | an admin, for anything else (the default) |
 
 A person is recognised by their **LinkedIn profile slug** or an **email address**, never by phone or name. Once a key
@@ -136,7 +136,6 @@ readable and editable, and nothing uses it until someone lifts the restriction.
 
 | Item | Why it is open | Where it is tracked |
 |---|---|---|
-| Keep a restricted person out of what a **client seat** reads (Companies grid, talent map, report, export, public API and MCP universe) | Needs counsel to say whether showing an already-mapped person to the hiring company counts as processing | Follow-up issue to file (asked for in the #1180 review) |
 | The assistant's executive **list** still sends names and titles to the model | Only the profile tool is held back so far | #1180, "Not in this PR" |
 | **Cross-workspace** suppression for an objection sent to Uncava as controller (vendor-sourced data) | Needs a decision from #920 | #920 checklist; not built |
 | **Names in older audit lines.** `CANDIDATE_REMOVED` stored `fullName` until #927 | Resolved by #927: audit details are ids only, and `ops/cloudsql/scrub-audit-pii.sql` removed the names earlier lines held | #927 |
@@ -155,8 +154,8 @@ readable and editable, and nothing uses it until someone lifts the restriction.
    aged out anyway, with an `ERROR` log ("Recall still refused queued bot …"). Watch for it in the logs.
 4. **Storage deletion never gives up.** A permanently refused bucket key retries daily forever. Watch the size of
    `app_lm_storage_deletion`.
-5. **Restriction does not hide anyone from client seats yet** (see above). Until counsel decides, a client
-   representative can still read a restricted person on a mandate they already sat on.
+5. **Restriction hides the person from client seats** (#1488, D2): on every position, on every read a client seat
+   reaches, until it is lifted. Staff still see them, and the Pipeline card says why.
 6. **Erasure is irreversible.** Only ADMIN holds `PERSON_ERASE`, the name must be typed back, and the preview counts
    first. Beyond that there is no undo, and backups are the only copy.
 7. **Lifting a restriction is gated** to whoever set it or an admin. If that colleague leaves, an admin has to lift it.

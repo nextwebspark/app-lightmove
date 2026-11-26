@@ -292,7 +292,7 @@ public class CandidateService {
     public CandidateResponse get(UUID workspaceId, UUID projectId, UUID candidateId, ProjectAudience audience) {
         projects.requireInWorkspace(projectId, workspaceId);
         Candidate candidate = candidates.requireInProject(candidateId, projectId);
-        if (!candidate.isClientVisible() && audience.clientVisibleOnly()) {
+        if (!candidate.isShownToClient() && audience.clientVisibleOnly()) {
             throw ApiException.of(ErrorCode.NOT_FOUND);
         }
         return responses.toDto(candidate);
@@ -326,7 +326,7 @@ public class CandidateService {
         projects.requireInWorkspace(projectId, workspaceId);
         PageRequest wholePosition = PageRequest.of(0, cap, FIRST_MAPPED_FIRST);
         Page<Candidate> found = audience.clientVisibleOnly()
-                ? candidates.findByProjectIdAndClientVisibleTrue(projectId, wholePosition)
+                ? candidates.findByProjectIdAndShownToClientTrue(projectId, wholePosition)
                 : candidates.findByProjectId(projectId, wholePosition);
         return new CandidatesResponse(
                 responses.toDtos(found.getContent()),
@@ -1153,7 +1153,7 @@ public class CandidateService {
         // Existence, not content: a grid of avatars asks this per row, and loading each whole row —
         // profile jsonb included — to throw it away is a scan the scoping does not need.
         UUID personId = (audience.clientVisibleOnly()
-                        ? candidates.findClientVisiblePersonIdByIdAndProjectId(candidateId, projectId)
+                        ? candidates.findShownToClientPersonIdByIdAndProjectId(candidateId, projectId)
                         : candidates.findPersonIdByIdAndProjectId(candidateId, projectId))
                 .orElseThrow(() -> ApiException.of(ErrorCode.NOT_FOUND));
         return photos.findByPersonId(personId)

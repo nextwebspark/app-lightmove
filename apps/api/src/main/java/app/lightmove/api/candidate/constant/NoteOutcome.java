@@ -1,6 +1,9 @@
 package app.lightmove.api.candidate.constant;
 
 import app.lightmove.api.common.constant.ApiValueEnum;
+import java.util.Collections;
+import java.util.EnumSet;
+import java.util.Set;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.Accessors;
@@ -17,6 +20,9 @@ public enum NoteOutcome implements ApiValueEnum {
     WRONG_NUMBER("wrong_number", "Wrong number", PersonNoteKind.CALL),
     SENT("sent", "Sent a message", PersonNoteKind.WHATSAPP),
     REPLIED("replied", "They replied", PersonNoteKind.WHATSAPP);
+
+    /** A call that rang out or reached someone else never reached the person. */
+    public static final Set<NoteOutcome> UNANSWERED = Collections.unmodifiableSet(EnumSet.of(NO_ANSWER, WRONG_NUMBER));
 
     private final String value;
     private final String label;

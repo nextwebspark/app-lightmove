@@ -377,6 +377,9 @@ lightmove:
     provider: ${EMAIL_PROVIDER:resend}
     from-name: Uncava
     from-address: ${EMAIL_FROM:noreply@uncava.com}
+    # Privacy notices and consent emails (#1493). Blank sends them from from-address; a separate address must be on a
+    # domain Resend has verified, or Resend refuses it.
+    privacy-from-address: ${EMAIL_PRIVACY_FROM:}
     resend:
       api-key: ${RESEND_API_KEY:}
     validation:
@@ -842,6 +845,13 @@ lightmove:
     # How often an instance re-reads the platform configuration versions (core/reload), for a notification it
     # missed. Read by @Scheduled from the environment, so it has no settings record.
     config-reload-check: ${PLATFORM_CONFIG_RELOAD_CHECK:PT30S}
+    # How often an instance looks for a sub-processor notice published since and emails it to every workspace's admins
+    # (#1491). Publishing sends nothing itself, so this is the wait before the first email. Read by @Scheduled from the
+    # environment, so it has no settings field.
+    subprocessor-notice-announce: ${PLATFORM_SUBPROCESSOR_NOTICE_ANNOUNCE:PT1M}
+    # How often an instance resends a sub-processor notice email that failed (#1491), each at most hourly at first and
+    # daily later, until the change takes effect. Read by @Scheduled from the environment, so it has no settings field.
+    subprocessor-notice-retry: ${PLATFORM_SUBPROCESSOR_NOTICE_RETRY:PT1H}
     # Eval runs (#1320). A start planning more model calls than max-calls-per-run is refused and a run stops on
     # reaching it. worker-tick is how often an instance looks for a run its start did not hand it (a restart, a
     # worker gone quiet for stale-after); read by @Scheduled from the environment, so it has no settings field.
@@ -857,6 +867,10 @@ lightmove:
   legal:
     dpa-version: ${LEGAL_DPA_VERSION:}
     dpa-url: ${LEGAL_DPA_URL:}
+    # Uncava's own public notice to the executives it holds data on (#1490). Both blank until counsel publishes it:
+    # no email links it and no version is recorded. Set together; an https link.
+    candidate-notice-version: ${LEGAL_CANDIDATE_NOTICE_VERSION:}
+    candidate-notice-url: ${LEGAL_CANDIDATE_NOTICE_URL:}
 
   # How long system rows holding personal data are kept (#921): one value per row of
   # docs/gdpr/retention-schedule.md, swept every sweep-interval by RetentionSweeper. Defaults await counsel.
@@ -880,6 +894,11 @@ lightmove:
     workspace-purge-interval: ${RETENTION_WORKSPACE_PURGE_INTERVAL:PT15M}
     workspace-exports-after: ${RETENTION_WORKSPACE_EXPORTS_AFTER:7d}
     workspace-export-deadline: ${RETENTION_WORKSPACE_EXPORT_DEADLINE:2h}
+    # Grey (no consent) and never contacted (#1490, decisions B2 and E1): erased this many months after being added,
+    # or after the last position they were on was archived. Daily; blank months turns it off.
+    never-contacted-months: ${RETENTION_NEVER_CONTACTED_MONTHS:6}
+    never-contacted-per-run: ${RETENTION_NEVER_CONTACTED_PER_RUN:500}
+    never-contacted-scan: ${RETENTION_NEVER_CONTACTED_SCAN:0 40 2 * * *}
 
   # Forced row-level security on the tenant tables (V184). On, a database that would not enforce it — a superuser or
   # BYPASSRLS runtime role, an unforced table — fails the boot; off, it is only a warning.

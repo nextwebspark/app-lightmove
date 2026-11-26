@@ -52,7 +52,7 @@ public interface CandidateRepository extends JpaRepository<Candidate, UUID>, Jpa
     Page<Candidate> findByProjectId(UUID projectId, Pageable pageable);
 
     /** {@link #findByProjectId} as a client seat reads it: nobody hidden from the client. */
-    Page<Candidate> findByProjectIdAndClientVisibleTrue(UUID projectId, Pageable pageable);
+    Page<Candidate> findByProjectIdAndShownToClientTrue(UUID projectId, Pageable pageable);
 
     /** The Pipeline page's read: the whole position, each row with its person, status and stage. */
     @Query("""
@@ -90,7 +90,7 @@ public interface CandidateRepository extends JpaRepository<Candidate, UUID>, Jpa
     @Query("select c.projectId as projectId, count(c) as total "
             + "from Candidate c where c.projectId in :projectIds "
             + "and c.status.outOfProcess = false "
-            + "and (:clientVisibleOnly = false or c.clientVisible = true) "
+            + "and (:clientVisibleOnly = false or c.shownToClient = true) "
             + "group by c.projectId")
     List<CandidateCount> countStillInTheRunningByProjectIdIn(Collection<UUID> projectIds,
                                                              boolean clientVisibleOnly);
@@ -106,7 +106,7 @@ public interface CandidateRepository extends JpaRepository<Candidate, UUID>, Jpa
             + "and c.status.outOfProcess = false "
             + "and (c.status.systemKey = app.lightmove.api.candidate.constant.CandidateSystemStatus.ENGAGED "
             + "  or c.status.stage.position >= :interestedFrom) "
-            + "and (:clientVisibleOnly = false or c.clientVisible = true) "
+            + "and (:clientVisibleOnly = false or c.shownToClient = true) "
             + "group by c.projectId")
     List<CandidateCount> countEngagedByProjectIdIn(Collection<UUID> projectIds, int interestedFrom,
                                                    boolean clientVisibleOnly);
@@ -121,13 +121,13 @@ public interface CandidateRepository extends JpaRepository<Candidate, UUID>, Jpa
             + "and (c.status.systemKey is null or c.status.systemKey not in ("
             + "  app.lightmove.api.candidate.constant.CandidateSystemStatus.OFF_LIMITS, "
             + "  app.lightmove.api.candidate.constant.CandidateSystemStatus.OUT_OF_SCOPE)) "
-            + "and (:clientVisibleOnly = false or c.clientVisible = true) "
+            + "and (:clientVisibleOnly = false or c.shownToClient = true) "
             + "group by c.projectId")
     List<CandidateCount> countReachedOutByProjectIdIn(Collection<UUID> projectIds, int identifiedAt,
                                                       boolean clientVisibleOnly);
 
     @Query("select c.status.id as statusId, count(c) as total from Candidate c where c.projectId = :projectId "
-            + "and (:clientVisibleOnly = false or c.clientVisible = true) "
+            + "and (:clientVisibleOnly = false or c.shownToClient = true) "
             + "group by c.status.id")
     List<CandidateStatusCount> countByStatusOfProject(UUID projectId, boolean clientVisibleOnly);
 
@@ -139,7 +139,7 @@ public interface CandidateRepository extends JpaRepository<Candidate, UUID>, Jpa
     /** Everyone a mandate has mapped, ruled out or not — the side panel's "Executives mapped". */
     @Query("select c.projectId as projectId, count(c) as total "
             + "from Candidate c where c.projectId in :projectIds "
-            + "and (:clientVisibleOnly = false or c.clientVisible = true) "
+            + "and (:clientVisibleOnly = false or c.shownToClient = true) "
             + "group by c.projectId")
     List<CandidateCount> countEveryoneByProjectIdIn(Collection<UUID> projectIds, boolean clientVisibleOnly);
 
@@ -155,7 +155,7 @@ public interface CandidateRepository extends JpaRepository<Candidate, UUID>, Jpa
                     + "from app_lm_project_candidate c "
                     + "join app_lm_project_triage_company t on t.id = c.triage_company_id "
                     + "where c.project_id in (:projectIds) and t.status <> :declinedStatus "
-                    + "and (:clientVisibleOnly = false or c.client_visible) "
+                    + "and (:clientVisibleOnly = false or c.shown_to_client) "
                     + "group by c.project_id",
             nativeQuery = true)
     List<CandidateCount> countMappedCompaniesByProjectIdIn(Collection<UUID> projectIds, String declinedStatus,
@@ -169,10 +169,13 @@ public interface CandidateRepository extends JpaRepository<Candidate, UUID>, Jpa
     @Query("select c.id from Candidate c where c.projectId = :projectId and c.person.id = :personId")
     Optional<UUID> findIdByProjectIdAndPersonId(UUID projectId, UUID personId);
 
+    @Query("select distinct c.projectId from Candidate c where c.person.id = :personId")
+    List<UUID> findProjectIdsByPersonId(UUID personId);
+
     /** {@link #findPersonIdByIdAndProjectId} as a client seat reads it: nobody hidden from the client. */
     @Query("select c.person.id from Candidate c where c.id = :id and c.projectId = :projectId "
-            + "and c.clientVisible = true")
-    Optional<UUID> findClientVisiblePersonIdByIdAndProjectId(UUID id, UUID projectId);
+            + "and c.shownToClient = true")
+    Optional<UUID> findShownToClientPersonIdByIdAndProjectId(UUID id, UUID projectId);
 
     /**
      * Duplicate guard for someone mapped at one of the mandate's companies (its partner below: at none). Carries the
@@ -252,7 +255,7 @@ public interface CandidateRepository extends JpaRepository<Candidate, UUID>, Jpa
      */
     @Query("select distinct c.triageCompanyId from Candidate c "
             + "where c.projectId = :projectId and c.triageCompanyId is not null and c.triageStatus = :triageStatus "
-            + "and (:clientVisibleOnly = false or c.clientVisible = true) "
+            + "and (:clientVisibleOnly = false or c.shownToClient = true) "
             + "and lower(c.person.fullName) like lower(concat('%', cast(:executiveName as string), '%'))")
     Set<UUID> findTriageCompanyIdsByProjectIdAndFullNameContainingIgnoreCase(
             UUID projectId, TriageCompanyStatus triageStatus, String executiveName, boolean clientVisibleOnly);
@@ -270,7 +273,7 @@ public interface CandidateRepository extends JpaRepository<Candidate, UUID>, Jpa
      */
     @Query(value = "select c.id as \"id\", c.triage_company_id as \"triageCompanyId\" "
             + "from app_lm_project_candidate c join app_lm_person p on p.id = c.person_id "
-            + "where c.project_id = :projectId and (:clientVisibleOnly = false or c.client_visible) "
+            + "where c.project_id = :projectId and (:clientVisibleOnly = false or c.shown_to_client) "
             + "and (cast(:triageStatus as varchar) is null or c.triage_status = :triageStatus) and ("
             + "  lower(p.full_name) like :pattern escape '\\' "
             + "  or lower(coalesce(p.title, '')) like :pattern escape '\\' "
@@ -304,7 +307,7 @@ public interface CandidateRepository extends JpaRepository<Candidate, UUID>, Jpa
     @Query("select distinct c.triageCompanyId from Candidate c "
             + "where c.projectId = :projectId and c.triageCompanyId is not null and c.status.statusKey in :statusKeys "
             + "and c.triageStatus = :triageStatus "
-            + "and (:clientVisibleOnly = false or c.clientVisible = true)")
+            + "and (:clientVisibleOnly = false or c.shownToClient = true)")
     Set<UUID> findTriageCompanyIdsByProjectIdAndStatusKeyIn(UUID projectId, TriageCompanyStatus triageStatus,
                                                            Collection<String> statusKeys, boolean clientVisibleOnly);
 
@@ -315,7 +318,7 @@ public interface CandidateRepository extends JpaRepository<Candidate, UUID>, Jpa
     @Query(value = "select distinct c.triage_company_id from app_lm_project_candidate c "
             + "join app_lm_project_triage_company t on t.id = c.triage_company_id "
             + "where c.project_id = :projectId and c.triage_status = :triageStatus and t.status <> :triageStatus "
-            + "and (:clientVisibleOnly = false or c.client_visible)", nativeQuery = true)
+            + "and (:clientVisibleOnly = false or c.shown_to_client)", nativeQuery = true)
     Set<UUID> findTriageCompanyIdsWithExecutivesMovedTo(UUID projectId, String triageStatus,
                                                        boolean clientVisibleOnly);
 
@@ -323,7 +326,7 @@ public interface CandidateRepository extends JpaRepository<Candidate, UUID>, Jpa
     @Query(value = "select c.triage_status as \"triageStatus\", count(distinct c.triage_company_id) as \"companies\" "
             + "from app_lm_project_candidate c join app_lm_project_triage_company t on t.id = c.triage_company_id "
             + "where c.project_id = :projectId and t.status <> c.triage_status "
-            + "and (:clientVisibleOnly = false or c.client_visible) group by c.triage_status", nativeQuery = true)
+            + "and (:clientVisibleOnly = false or c.shown_to_client) group by c.triage_status", nativeQuery = true)
     List<MovedCompanyCount> countCompaniesWithExecutivesMovedByStage(UUID projectId, boolean clientVisibleOnly);
 
     /** Who a company's move carries by default: the people still standing where the company stood. */
@@ -342,17 +345,17 @@ public interface CandidateRepository extends JpaRepository<Candidate, UUID>, Jpa
     @Query(
             value = "select t.id from app_lm_project_triage_company t "
                     + "left join app_lm_project_candidate c on c.triage_company_id = t.id "
-                    + "  and c.triage_status = :status and (:clientVisibleOnly = false or c.client_visible) "
+                    + "  and c.triage_status = :status and (:clientVisibleOnly = false or c.shown_to_client) "
                     + "left join app_lm_workspace_candidate_status cs on cs.id = c.status_id "
                     + "left join app_lm_workspace_candidate_stage cg on cg.id = cs.stage_id "
                     + "where t.project_id = :projectId and (t.status = :status or exists ("
                     + "  select 1 from app_lm_project_candidate s where s.triage_company_id = t.id "
-                    + "  and s.triage_status = :status and (:clientVisibleOnly = false or s.client_visible))) "
+                    + "  and s.triage_status = :status and (:clientVisibleOnly = false or s.shown_to_client))) "
                     + "and (:companyName is null or lower(t.company_name) like lower(concat('%', :companyName, '%'))) "
                     + "and (:executiveName is null or exists ("
                     + "  select 1 from app_lm_project_candidate x join app_lm_person xp on xp.id = x.person_id "
                     + "  where x.triage_company_id = t.id and x.triage_status = :status "
-                    + "  and (:clientVisibleOnly = false or x.client_visible) "
+                    + "  and (:clientVisibleOnly = false or x.shown_to_client) "
                     + "  and lower(xp.full_name) like lower(concat('%', :executiveName, '%'))"
                     + ")) "
                     + "and (cast(:withinIds as uuid[]) is null or t.id = any(cast(:withinIds as uuid[]))) "
@@ -362,12 +365,12 @@ public interface CandidateRepository extends JpaRepository<Candidate, UUID>, Jpa
             countQuery = "select count(*) from app_lm_project_triage_company t "
                     + "where t.project_id = :projectId and (t.status = :status or exists ("
                     + "  select 1 from app_lm_project_candidate s where s.triage_company_id = t.id "
-                    + "  and s.triage_status = :status and (:clientVisibleOnly = false or s.client_visible))) "
+                    + "  and s.triage_status = :status and (:clientVisibleOnly = false or s.shown_to_client))) "
                     + "and (:companyName is null or lower(t.company_name) like lower(concat('%', :companyName, '%'))) "
                     + "and (:executiveName is null or exists ("
                     + "  select 1 from app_lm_project_candidate x join app_lm_person xp on xp.id = x.person_id "
                     + "  where x.triage_company_id = t.id and x.triage_status = :status "
-                    + "  and (:clientVisibleOnly = false or x.client_visible) "
+                    + "  and (:clientVisibleOnly = false or x.shown_to_client) "
                     + "  and lower(xp.full_name) like lower(concat('%', :executiveName, '%'))"
                     + ")) "
                     + "and (cast(:withinIds as uuid[]) is null or t.id = any(cast(:withinIds as uuid[])))",
@@ -384,17 +387,17 @@ public interface CandidateRepository extends JpaRepository<Candidate, UUID>, Jpa
     @Query(
             value = "select t.id from app_lm_project_triage_company t "
                     + "left join app_lm_project_candidate c on c.triage_company_id = t.id "
-                    + "  and c.triage_status = :status and (:clientVisibleOnly = false or c.client_visible) "
+                    + "  and c.triage_status = :status and (:clientVisibleOnly = false or c.shown_to_client) "
                     + "left join app_lm_workspace_candidate_status cs on cs.id = c.status_id "
                     + "left join app_lm_workspace_candidate_stage cg on cg.id = cs.stage_id "
                     + "where t.project_id = :projectId and (t.status = :status or exists ("
                     + "  select 1 from app_lm_project_candidate s where s.triage_company_id = t.id "
-                    + "  and s.triage_status = :status and (:clientVisibleOnly = false or s.client_visible))) "
+                    + "  and s.triage_status = :status and (:clientVisibleOnly = false or s.shown_to_client))) "
                     + "and (:companyName is null or lower(t.company_name) like lower(concat('%', :companyName, '%'))) "
                     + "and (:executiveName is null or exists ("
                     + "  select 1 from app_lm_project_candidate x join app_lm_person xp on xp.id = x.person_id "
                     + "  where x.triage_company_id = t.id and x.triage_status = :status "
-                    + "  and (:clientVisibleOnly = false or x.client_visible) "
+                    + "  and (:clientVisibleOnly = false or x.shown_to_client) "
                     + "  and lower(xp.full_name) like lower(concat('%', :executiveName, '%'))"
                     + ")) "
                     + "and (cast(:withinIds as uuid[]) is null or t.id = any(cast(:withinIds as uuid[]))) "
@@ -402,7 +405,7 @@ public interface CandidateRepository extends JpaRepository<Candidate, UUID>, Jpa
                     + "  select 1 from app_lm_project_candidate y "
                     + "  join app_lm_workspace_candidate_status ys on ys.id = y.status_id "
                     + "  where y.triage_company_id = t.id and y.triage_status = :status and ys.key in (:executiveStatuses) "
-                    + "  and (:clientVisibleOnly = false or y.client_visible)"
+                    + "  and (:clientVisibleOnly = false or y.shown_to_client)"
                     + ") "
                     + "group by t.id "
                     + "order by (case when :ascending then 1 else -1 end) * min(cg.position * 1000 + cs.position) "
@@ -410,12 +413,12 @@ public interface CandidateRepository extends JpaRepository<Candidate, UUID>, Jpa
             countQuery = "select count(*) from app_lm_project_triage_company t "
                     + "where t.project_id = :projectId and (t.status = :status or exists ("
                     + "  select 1 from app_lm_project_candidate s where s.triage_company_id = t.id "
-                    + "  and s.triage_status = :status and (:clientVisibleOnly = false or s.client_visible))) "
+                    + "  and s.triage_status = :status and (:clientVisibleOnly = false or s.shown_to_client))) "
                     + "and (:companyName is null or lower(t.company_name) like lower(concat('%', :companyName, '%'))) "
                     + "and (:executiveName is null or exists ("
                     + "  select 1 from app_lm_project_candidate x join app_lm_person xp on xp.id = x.person_id "
                     + "  where x.triage_company_id = t.id and x.triage_status = :status "
-                    + "  and (:clientVisibleOnly = false or x.client_visible) "
+                    + "  and (:clientVisibleOnly = false or x.shown_to_client) "
                     + "  and lower(xp.full_name) like lower(concat('%', :executiveName, '%'))"
                     + ")) "
                     + "and (cast(:withinIds as uuid[]) is null or t.id = any(cast(:withinIds as uuid[]))) "
@@ -423,7 +426,7 @@ public interface CandidateRepository extends JpaRepository<Candidate, UUID>, Jpa
                     + "  select 1 from app_lm_project_candidate y "
                     + "  join app_lm_workspace_candidate_status ys on ys.id = y.status_id "
                     + "  where y.triage_company_id = t.id and y.triage_status = :status and ys.key in (:executiveStatuses) "
-                    + "  and (:clientVisibleOnly = false or y.client_visible)"
+                    + "  and (:clientVisibleOnly = false or y.shown_to_client)"
                     + ")",
             nativeQuery = true)
     Page<UUID> findTriageCompanyIdsRankedByExecutiveStatusAndExecutiveStatuses(

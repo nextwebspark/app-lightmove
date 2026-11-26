@@ -10,5 +10,7 @@ public record CandidateRetentionResponse(
         boolean chosen,
         /** The deployment's default, null for never. */
         Integer defaultMonths,
-        List<Integer> options
+        List<Integer> options,
+        /** Months after which the never-contacted are erased without review; null while that rule is off. */
+        Integer neverContactedMonths
 ) {}

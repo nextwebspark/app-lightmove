@@ -2,6 +2,7 @@ package app.lightmove.api.workspace.service;
 
 import app.lightmove.api.core.audit.constant.AuditEventType;
 import app.lightmove.api.core.audit.constant.AuthEventType;
+import app.lightmove.api.core.audit.constant.PersonErasureReason;
 import app.lightmove.api.core.audit.constant.PlatformEventType;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.constant.SecurityEventType;
@@ -157,6 +158,9 @@ public class AuditLogPhrasing {
             case "retention" -> "Changed how long candidates are kept";
             default -> "Updated the workspace's details";
         });
+        on(WorkspaceEventType.SUBPROCESSOR_OBJECTION_RECORDED, line -> line.is("action", "changed")
+                ? "Changed the workspace's objection to a sub-processor change"
+                : "Objected to a sub-processor change");
         on(WorkspaceEventType.WORKSPACE_DELETED, line -> "Deleted the workspace");
         on(WorkspaceEventType.WORKSPACE_RESTORED, line -> "Restored the workspace");
         on(WorkspaceEventType.WORKSPACE_PURGED, line -> "Permanently deleted everything the workspace held");
@@ -174,8 +178,11 @@ public class AuditLogPhrasing {
         on(ProjectEventType.PERSON_SUPPRESSION_REMOVED, line -> "Removed someone from the suppression list");
         on(ProjectEventType.PERSON_PROCESSING_RESTRICTED, line -> "Restricted processing of a candidate");
         on(ProjectEventType.PERSON_PROCESSING_RESTRICTION_LIFTED, line -> "Lifted a candidate's processing restriction");
-        on(ProjectEventType.PERSON_ERASED, line -> line.is("reason", "retention")
-                ? "Permanently deleted a candidate past the retention period" : "Permanently deleted a candidate");
+        on(ProjectEventType.PERSON_ERASED, line -> switch (PersonErasureReason.fromValueOrNull(line.text("reason"))) {
+            case RETENTION -> "Permanently deleted a candidate past the retention period";
+            case NEVER_CONTACTED -> "Automatically deleted a candidate never contacted within the retention period";
+            case null -> "Permanently deleted a candidate";
+        });
         on(ProjectEventType.PERSON_RETENTION_KEPT, line -> "Kept a candidate due for deletion");
         on(ProjectEventType.PERSON_LAWFUL_BASIS_CHANGED, line -> "Recorded a candidate's lawful basis");
         on(ProjectEventType.PERSON_PRIVACY_NOTICE_SENT, line -> "Sent a candidate a privacy notice");
@@ -183,6 +190,8 @@ public class AuditLogPhrasing {
         on(ProjectEventType.PERSON_PRIVACY_NOTICE_FAILED, line -> "A candidate's privacy notice could not be sent");
         on(ProjectEventType.PERSON_OBJECTED, line -> "A candidate objected from their privacy page");
         on(ProjectEventType.PERSON_OPTED_OUT, line -> "A candidate stopped emails from an outreach email");
+        on(ProjectEventType.PERSON_OBJECTION_RECORDED,
+                line -> "Recorded a candidate's objection: do not contact and the suppression list");
         on(ProjectEventType.PERSON_CONSENT_REQUESTED, line -> "Asked a candidate for consent");
         on(ProjectEventType.PERSON_CONSENT_REQUEST_FAILED, line -> "A candidate's consent request could not be sent");
         on(ProjectEventType.PERSON_CONSENT_ANSWERED, line -> "A candidate answered a consent request");

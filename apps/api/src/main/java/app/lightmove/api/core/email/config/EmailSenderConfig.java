@@ -28,7 +28,7 @@ public class EmailSenderConfig {
 
         if (!"resend".equalsIgnoreCase(config.provider())) {
             log.info("Email provider is '{}' — messages will be printed, not sent.", config.provider());
-            return new LogEmailSender();
+            return new LogEmailSender(config);
         }
 
         // Fail at startup rather than at the first signup. A production instance that boots happily
@@ -38,7 +38,8 @@ public class EmailSenderConfig {
                     "lightmove.email.provider=resend but no API key is set (RESEND_API_KEY)");
         }
 
-        log.info("Email provider is Resend, sending as {}", config.fromAddress());
+        log.info("Email provider is Resend, sending as {} and privacy mail as {}", config.fromAddress(),
+                config.privacyFromAddress());
         return new ResendEmailSender(config, RestClient.builder().requestFactory(timeoutBoundFactory()));
     }
 

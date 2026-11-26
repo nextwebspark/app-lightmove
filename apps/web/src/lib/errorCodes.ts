@@ -51,6 +51,7 @@ export type ApiErrorCode =
   | "EVAL_CALIBRATION_INCOMPLETE"
   | "EVAL_JUDGE_CHECK_IN_PROGRESS"
   | "PLATFORM_SETTING_NOT_CHANGED"
+  | "SUBPROCESSOR_NOTICE_CLOSED"
   | "ACCOUNT_SIGN_IN_AGAIN"
   | "ACCOUNT_HANDOVER_REQUIRED"
   | "SESSION_NOT_FOUND"
@@ -121,6 +122,7 @@ export type ApiErrorCode =
   | "EXIT_REASON_NOT_OFFERED"
   | "PERSON_OWNER_NOT_STAFF"
   | "PERSON_DO_NOT_CONTACT"
+  | "PERSON_OBJECTION_HELD"
   | "PERSON_SUPPRESSED"
   | "PERSON_PROCESSING_RESTRICTED"
   | "PERSON_PROCESSING_RESTRICTION_NOT_YOURS"
@@ -335,6 +337,7 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   EVAL_CALIBRATION_INCOMPLETE: "Label every pair before checking the judge.",
   EVAL_JUDGE_CHECK_IN_PROGRESS: "The judge is being checked already.",
   PLATFORM_SETTING_NOT_CHANGED: "That value is already on its default.",
+  SUBPROCESSOR_NOTICE_CLOSED: "This change has already taken effect, so it can no longer be objected to.",
   ACCOUNT_SIGN_IN_AGAIN: "Sign in again to show it's you, then delete your account within 10 minutes.",
   ACCOUNT_HANDOVER_REQUIRED: "Hand over the workspaces and positions only you run first.",
   SESSION_NOT_FOUND: "That session has already ended.",
@@ -397,6 +400,7 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   EXIT_REASON_NOT_OFFERED: "That reason is not offered for this status. Pick another.",
   PERSON_OWNER_NOT_STAFF: "The owner must be someone on your team.",
   PERSON_DO_NOT_CONTACT: "This person is marked do not contact, so contact lookups are off.",
+  PERSON_OBJECTION_HELD: "They objected to being contacted. An admin can lift that from the suppression list in Settings.",
   PERSON_SUPPRESSED: "This person is on your workspace's suppression list, so they can't be added.",
   PERSON_PROCESSING_RESTRICTED:
     "Processing is restricted for this person, so this can't be done until the restriction is lifted.",

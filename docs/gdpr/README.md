@@ -15,7 +15,7 @@ and wait on the decisions in [governance-decisions.md](governance-decisions.md).
 | [residency-adr.md](residency-adr.md) | Where data is processed: Vertex AI's location, a stack per region, the vendor DPAs (#925) |
 | [breach-runbook.md](breach-runbook.md) | Detecting, assessing and notifying a personal data breach; the breach register |
 | [subject-requests-procedure.md](subject-requests-procedure.md) | Requests that reach Uncava rather than a firm (website #28) |
-| [governance-decisions.md](governance-decisions.md) | Every open decision for counsel and the business |
+| [governance-decisions.md](governance-decisions.md) | The 58 decisions for counsel and the business, with the answers of 25 Nov 2026 and the issue that builds each |
 
 ## How the product handles it
 

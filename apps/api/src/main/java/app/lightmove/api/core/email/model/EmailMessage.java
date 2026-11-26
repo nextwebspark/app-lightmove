@@ -1,5 +1,7 @@
 package app.lightmove.api.core.email.model;
 
+import app.lightmove.api.core.email.constant.EmailSenderIdentity;
+
 /**
  * One outbound email, provider-agnostic.
  *
@@ -15,15 +17,16 @@ public record EmailMessage(
         String htmlBody,
         String textBody,
         String senderName,
-        String replyTo
+        String replyTo,
+        EmailSenderIdentity senderIdentity
 ) {
 
     public EmailMessage(String to, String subject, String htmlBody, String textBody) {
-        this(to, subject, htmlBody, textBody, null, null);
+        this(to, subject, htmlBody, textBody, null, null, EmailSenderIdentity.ACCOUNT);
     }
 
-    public EmailMessage onBehalfOf(String sender, String replyAddress) {
-        return new EmailMessage(to, subject, htmlBody, textBody, sender, replyAddress);
+    public EmailMessage onBehalfOf(String sender, String replyAddress, EmailSenderIdentity identity) {
+        return new EmailMessage(to, subject, htmlBody, textBody, sender, replyAddress, identity);
     }
 
     public EmailMessage {
@@ -32,6 +35,9 @@ public record EmailMessage(
         }
         if (subject == null || subject.isBlank()) {
             throw new IllegalArgumentException("Subject is required");
+        }
+        if (senderIdentity == null) {
+            throw new IllegalArgumentException("Sender identity is required");
         }
     }
 }

@@ -200,6 +200,21 @@ else
     echo "  ✓ excluded"
 fi
 
+# ── Search terms and tokens out of the request log (#1494, F10) ──────────────
+# The request log keeps each query string for 30 days, beyond PersonalDataLogMasker's reach. The parameter list is
+# RequestLogExclusionCoverageTest's; re-running this block replaces the filter.
+QUERY_TERMS_FILTER='logName:"run.googleapis.com%2Frequests" AND httpRequest.requestUrl=~"[?&](q|search|executiveQuery|name|linkedinUrl|token|t)="'
+say "Excluding search terms and tokens from the request log"
+if gcloud logging sinks describe _Default --project "$PROJECT" --format='value(exclusions[].name)' | grep -q 'query-terms'; then
+    gcloud logging sinks update _Default --project "$PROJECT" --quiet \
+        --update-exclusion=name=query-terms,filter="$QUERY_TERMS_FILTER" >/dev/null
+    echo "  ✓ filter refreshed"
+else
+    gcloud logging sinks update _Default --project "$PROJECT" --quiet \
+        --add-exclusion=name=query-terms,filter="$QUERY_TERMS_FILTER" >/dev/null
+    echo "  ✓ excluded"
+fi
+
 # ── Workload Identity Federation ──────────────────────────────────────────────
 # Keyless GitHub → GCP. No JSON service-account key is ever created, so there is none to leak, rotate,
 # or find in a GitHub secret three years from now.
@@ -248,6 +263,8 @@ Done. Three things remain, and all three are deliberately manual.
 
      EMAIL_PROVIDER            'resend' once a sending domain is verified (default: 'log')
      EMAIL_FROM                noreply@<your-domain>
+     EMAIL_PRIVACY_FROM        a separate sender for privacy notices and consent emails, on a domain verified
+                               in Resend (blank: EMAIL_FROM)
      PUBLIC_BASE_URL           https://<custom domain>, once one is mapped (README, "Custom domain")
      GOOGLE_OAUTH_CLIENT_ID    enables the "Continue with Google" button
      TRUSTED_PROXY_COUNT       see the README — measure it, do not guess it (default: 0)

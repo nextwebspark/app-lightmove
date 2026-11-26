@@ -283,6 +283,11 @@ function phraseOf(
         text: "stopped emails from an outreach email",
         detail: "Every sequence stopped, do not contact set and added to the suppression list",
       };
+    case "OBJECTION_RECORDED":
+      return {
+        text: "recorded an objection: do not contact",
+        detail: "Every sequence stopped and added to the suppression list",
+      };
     case "CONSENT_REQUESTED":
       return {
         text:

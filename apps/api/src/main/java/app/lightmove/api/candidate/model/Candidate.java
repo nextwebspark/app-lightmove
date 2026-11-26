@@ -1,6 +1,7 @@
 package app.lightmove.api.candidate.model;
 
 import app.lightmove.api.candidate.constant.CandidateSource;
+import app.lightmove.api.candidate.constant.ClientHiddenReason;
 import app.lightmove.api.core.persistence.model.BaseEntity;
 import app.lightmove.api.customcolumn.model.CustomFieldValues;
 import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
@@ -19,7 +20,9 @@ import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.Generated;
 import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.generator.EventType;
 import org.hibernate.type.SqlTypes;
 
 /**
@@ -96,6 +99,20 @@ public class Candidate extends BaseEntity {
     /** False hides them from a client seat on every read it can reach; staff always see them (V132). */
     @Column(name = "client_visible", nullable = false)
     private boolean clientVisible = true;
+
+    /**
+     * Why a client seat cannot see them whatever {@link #clientVisible} says (V246, #1488): written by the database
+     * from the person's restriction and their share answer on this position, never by the application.
+     */
+    @Enumerated(EnumType.STRING)
+    @Generated(event = {EventType.INSERT, EventType.UPDATE})
+    @Column(name = "client_hidden_reason")
+    private ClientHiddenReason clientHiddenReason;
+
+    /** V246's generated column every client read filters on: staff's switch and no reason to hide them. */
+    @Generated(event = {EventType.INSERT, EventType.UPDATE})
+    @Column(name = "shown_to_client")
+    private boolean shownToClient;
 
     /** Why they left (V228), held only while their status is out of process. Staff-only: never on a client's read. */
     @Column(name = "exit_reason_id")

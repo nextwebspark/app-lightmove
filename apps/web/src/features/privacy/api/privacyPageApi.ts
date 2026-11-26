@@ -26,6 +26,8 @@ export interface PrivacyPage {
   controllerName: string | null;
   privacyContactEmail: string | null;
   noticeUrl: string | null;
+  /** Uncava's own notice to executives (#1490); null until counsel publishes it. */
+  uncavaNoticeUrl?: string | null;
   lawfulBasis: "legitimate_interest" | "consent" | "contract" | null;
   /** The door the details came through, a `CandidateSource` token. */
   source: string | null;

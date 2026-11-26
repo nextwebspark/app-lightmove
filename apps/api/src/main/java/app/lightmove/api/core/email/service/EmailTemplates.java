@@ -31,7 +31,7 @@ public class EmailTemplates {
     private final Duration invitationTtl;
 
     public EmailTemplates(LightMoveProperties properties) {
-        this.renderer = new EmailRenderer(properties.web().baseUrl());
+        this.renderer = new EmailRenderer(properties.web().baseUrl(), properties.legal().candidateNoticeUrl());
         this.invitationTtl = properties.auth().invitationTtl();
     }
 
@@ -233,6 +233,28 @@ public class EmailTemplates {
                         + "date into Settings → Integrations. You get this because you manage the workspace.")));
     }
 
+    /**
+     * To each admin of every workspace, at least 30 days before a new sub-processor handles its data (#1491): the
+     * contract's notice. The one link opens the objection in Settings; the published list is named in the note.
+     */
+    public EmailMessage buildSubprocessorNoticeEmail(String recipient, String recipientName, String workspaceName,
+                                                     String provider, String receives, String purpose, String region,
+                                                     String effectiveOn, String listLink, String objectLink) {
+        return renderer.render(recipient, "A new Uncava sub-processor from %s: %s".formatted(effectiveOn, provider),
+                EmailContent.of(
+                        "A new sub-processor",
+                        EmailParagraph.of("Hi %s — from %s, Uncava will use %s as a sub-processor of %s's data.",
+                                plain(firstName(recipientName)), strong(effectiveOn), strong(provider),
+                                strong(workspaceName)),
+                        EmailParagraph.of("What it receives: %s. Purpose: %s. Region: %s.",
+                                plain(receives), plain(purpose), plain(region)),
+                        EmailParagraph.of("If your workspace objects, tell us before it takes effect, in %s.",
+                                strong("Settings → Data & retention")),
+                        new EmailAction("Object to this change", objectLink),
+                        EmailNote.of("The published list of sub-processors is at %s. You get this because you "
+                                + "manage the workspace.", plain(listLink))));
+    }
+
     /** To a workspace's billing managers, once per billing month at 80% and again at 90% of its plan's credits. */
     public EmailMessage buildContactCreditsLowEmail(String recipient, String recipientName, String workspaceName,
                                                     int usedPercent, long creditsLeft, String resetsOn,
@@ -383,7 +405,7 @@ public class EmailTemplates {
      */
     public EmailMessage buildPrivacyNoticeEmail(String recipient, String firm, String replyTo, String sourcePhrase,
                                                 String basisPhrase, String pageLink, String noticeUrl) {
-        return renderer.renderOnBehalfOf(recipient, "How %s holds your details".formatted(firm), EmailContent.of(
+        return renderer.renderPrivacyMail(recipient, "How %s holds your details".formatted(firm), EmailContent.of(
                 "How we hold your details",
                 EmailParagraph.of("%s holds some of your professional details, such as your name, career history and "
                                 + "work contact details, which came from %s. We hold them to consider you for senior "
@@ -412,7 +434,7 @@ public class EmailTemplates {
                 + "answer, nothing changes."));
         blocks.add(new EmailAction("Choose your answers", pageLink));
         blocks.add(consentCloseOf("This link works until %s.".formatted(linkUntil), noticeUrl, replyTo));
-        return renderer.renderOnBehalfOf(recipient, "%s would like your permission".formatted(firm),
+        return renderer.renderPrivacyMail(recipient, "%s would like your permission".formatted(firm),
                 new EmailContent("Your permission", blocks), firm, replyTo);
     }
 
@@ -426,7 +448,7 @@ public class EmailTemplates {
                                                       String linkUntil) {
         String searchFor = clientName == null ? "a confidential client" : clientName;
         String shareWith = clientName == null ? "the client" : clientName;
-        return renderer.renderOnBehalfOf(recipient,
+        return renderer.renderPrivacyMail(recipient,
                 "May we share your profile for %s role?".formatted(IndefiniteArticle.before(roleTitle)),
                 new EmailContent("Your permission", List.of(
                         greetingOf(recipientName),
@@ -446,7 +468,7 @@ public class EmailTemplates {
     public EmailMessage buildConsentRenewalEmail(String recipient, String recipientName, String firm, String replyTo,
                                                  String agreedOn, String endsOn, int months, String pageLink,
                                                  String noticeUrl, String linkUntil) {
-        return renderer.renderOnBehalfOf(recipient, "Your consent to keep your details ends on %s".formatted(endsOn),
+        return renderer.renderPrivacyMail(recipient, "Your consent to keep your details ends on %s".formatted(endsOn),
                 new EmailContent("Your permission", List.of(
                         greetingOf(recipientName),
                         EmailParagraph.of("On %s you agreed that %s could keep your details on file for future roles. "
@@ -477,7 +499,7 @@ public class EmailTemplates {
         } else {
             blocks.add(consentCloseOf("", noticeUrl, replyTo));
         }
-        return renderer.renderOnBehalfOf(recipient, "Your answers to %s".formatted(firm),
+        return renderer.renderPrivacyMail(recipient, "Your answers to %s".formatted(firm),
                 new EmailContent("Your answers are saved", blocks), firm, replyTo);
     }
 
@@ -490,11 +512,19 @@ public class EmailTemplates {
                 + "your details. Questions go to %s, or reply to this email.", plain(noticeUrl), plain(replyTo));
     }
 
-    /** The privacy footer an outreach email ends with; added at send, so a consultant's body never holds it. */
-    public String buildOutreachPrivacyFooterHtml(String statement, String noticeUrl, String stopEmailsUrl) {
+    /**
+     * The privacy footer an outreach email ends with; added at send, so a consultant's body never holds it. Uncava's
+     * own notice to the executive is linked once it is published ({@code candidateNoticeUrl}, #1490).
+     */
+    public String buildOutreachPrivacyFooterHtml(String statement, String noticeUrl, String stopEmailsUrl,
+                                                 String candidateNoticeUrl) {
+        String uncavaNotice = candidateNoticeUrl == null ? ""
+                : "<a href=\"" + escaped(candidateNoticeUrl) + "\" style=\"color:#2563eb\">"
+                        + EmailRenderer.CANDIDATE_NOTICE_LABEL + "</a> &middot; ";
         return "<p style=\"margin:16px 0 0;padding-top:10px;border-top:1px solid #e5e7eb;font-size:12px;"
                 + "line-height:1.55;color:#6b7280\">" + escaped(statement)
                 + " <a href=\"" + escaped(noticeUrl) + "\" style=\"color:#2563eb\">Our privacy notice</a> &middot; "
+                + uncavaNotice
                 + "<a href=\"" + escaped(stopEmailsUrl) + "\" style=\"color:#2563eb\">Stop emails from us</a></p>";
     }
 
@@ -524,6 +554,18 @@ public class EmailTemplates {
                                     + "list.", plain(first), strong(executiveName)),
                     new EmailAction("Open their record", link)));
         };
+    }
+
+    /** To each other admin, when a colleague records that a person asked not to be contacted (B16). */
+    public EmailMessage buildObjectionRecordedEmail(String recipient, String recipientName, String colleagueName,
+                                                    String executiveName, String link) {
+        return renderer.render(recipient, "A candidate asked not to be contacted", EmailContent.of(
+                "A candidate asked not to be contacted",
+                EmailParagraph.of("Hi %s — %s recorded that %s asked not to be contacted. They are marked do not "
+                                + "contact and on your suppression list, and every email to them has stopped.",
+                        plain(firstName(recipientName)), plain(colleagueName), strong(executiveName)),
+                new EmailAction("Open their record", link),
+                EmailNote.of("Only an admin can lift it, from the suppression list in Settings.")));
     }
 
     /** The morning's digest; its layout is the notification feature's, since only it knows what a task is. */

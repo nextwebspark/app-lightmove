@@ -27,7 +27,8 @@ export type PlatformAction =
   | "PROMPT_MANAGE"
   | "PROMPT_PROMOTE"
   | "EVAL_RUN"
-  | "PLATFORM_SETTINGS_MANAGE";
+  | "PLATFORM_SETTINGS_MANAGE"
+  | "SUBPROCESSOR_NOTICE_MANAGE";
 
 export interface WorkspaceSummary {
   id: string;

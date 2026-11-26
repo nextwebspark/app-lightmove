@@ -8,6 +8,7 @@ import * as dataProtectionApi from "../../candidates/api/dataProtectionApi";
 import type { WorkspaceDetail } from "../../workspace/api/types";
 import * as workspaceApi from "../../workspace/api/workspaceApi";
 import * as dataRetentionApi from "../api/dataRetentionApi";
+import * as subprocessorNoticesApi from "../api/subprocessorNoticesApi";
 import type { CandidateRetention, RetentionDue, WorkspaceExport } from "../api/dataRetentionApi";
 import { saveBlob } from "../../../lib/saveBlob";
 import { SettingsDataRetentionPage } from "./SettingsDataRetentionPage";
@@ -36,13 +37,24 @@ vi.mock("../api/dataRetentionApi", async (importOriginal) => ({
   startWorkspaceExport: vi.fn(),
   downloadWorkspaceExport: vi.fn(),
 }));
+vi.mock("../api/subprocessorNoticesApi", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../api/subprocessorNoticesApi")>()),
+  getSubprocessorChanges: vi.fn(),
+  objectToSubprocessorChange: vi.fn(),
+}));
 vi.mock("../../auth/AuthProvider", () => ({ useAuth: () => ({ user: { workspace: { name: "Al-Futtaim Search" } } }) }));
 vi.mock("../../../lib/saveBlob", () => ({ saveBlob: vi.fn() }));
 
 const AI_ON = { inferGender: true, inferNationality: true, draftAssessments: true, enrichAutomatically: true };
 const WORKSPACE = { id: "ws-1", name: "Al-Futtaim Search", aiControls: AI_ON } as WorkspaceDetail;
 
-const TWO_YEARS: CandidateRetention = { months: 24, chosen: false, defaultMonths: 24, options: [12, 24, 36, 60] };
+const TWO_YEARS: CandidateRetention = {
+  months: 24,
+  chosen: false,
+  defaultMonths: 24,
+  options: [12, 24, 36, 60],
+  neverContactedMonths: 6,
+};
 
 const DUE: RetentionDue = {
   months: 24,
@@ -93,6 +105,7 @@ describe("SettingsDataRetentionPage", () => {
     vi.mocked(dataRetentionApi.getSuppressions).mockResolvedValue([]);
     vi.mocked(dataRetentionApi.getLatestWorkspaceExport).mockResolvedValue(null);
     vi.mocked(workspaceApi.workspace).mockResolvedValue(WORKSPACE);
+    vi.mocked(subprocessorNoticesApi.getSubprocessorChanges).mockResolvedValue([]);
   });
 
   it("draws only AI on people where the deployment holds the people controls back", async () => {
@@ -103,6 +116,7 @@ describe("SettingsDataRetentionPage", () => {
     expect(screen.queryByRole("region", { name: "Candidate retention" })).not.toBeInTheDocument();
     expect(dataRetentionApi.getCandidateRetention).not.toHaveBeenCalled();
     expect(dataRetentionApi.getSuppressions).not.toHaveBeenCalled();
+    expect(await screen.findByRole("region", { name: "Sub-processor changes" })).toBeInTheDocument();
   });
 
   describe("AI on people", () => {
@@ -170,6 +184,20 @@ describe("SettingsDataRetentionPage", () => {
     await userEvent.click(save);
 
     await waitFor(() => expect(dataRetentionApi.putCandidateRetention).toHaveBeenCalledWith(null));
+  });
+
+  it("says when the never-contacted are deleted on their own, and nothing while that rule is off", async () => {
+    vi.mocked(dataRetentionApi.getCandidateRetention).mockResolvedValue({ ...TWO_YEARS, neverContactedMonths: 9 });
+    const { unmount } = renderPage();
+    expect(
+      await screen.findByText(/anyone never contacted and with no consent is deleted automatically 9 months after/),
+    ).toBeInTheDocument();
+    unmount();
+
+    vi.mocked(dataRetentionApi.getCandidateRetention).mockResolvedValue({ ...TWO_YEARS, neverContactedMonths: null });
+    renderPage();
+    expect(await screen.findByRole("combobox", { name: "Retention period" })).toBeInTheDocument();
+    expect(screen.queryByText(/never contacted/)).not.toBeInTheDocument();
   });
 
   it("keeps the ticked people, and deletes others only after asking", async () => {

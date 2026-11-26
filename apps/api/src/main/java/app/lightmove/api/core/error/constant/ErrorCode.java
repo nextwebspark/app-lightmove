@@ -130,6 +130,10 @@ public enum ErrorCode {
     /** Resetting an application variable that nothing overrides. */
     PLATFORM_SETTING_NOT_CHANGED(HttpStatus.CONFLICT, "That value is already on its default"),
 
+    /** An objection to a sub-processor change on or after the day it took effect. */
+    SUBPROCESSOR_NOTICE_CLOSED(HttpStatus.CONFLICT,
+            "This change has already taken effect, so it can no longer be objected to"),
+
     /** Account deletion, by a person with no password: the proof is a sign-in moments ago, as for two-factor. */
     ACCOUNT_SIGN_IN_AGAIN(HttpStatus.CONFLICT, "Sign in again, then delete your account within 10 minutes"),
 
@@ -457,6 +461,13 @@ public enum ErrorCode {
     /** Asked again before the last refresh had time to land: the paid read is already on its way. */
     PERSON_RESEARCH_REFRESHING(HttpStatus.CONFLICT,
             "Their research is already being refreshed. Give it a few minutes"),
+
+    /**
+     * Clearing do not contact on someone who objected while their suppression entries stand (B16): outreach does not
+     * read the list, so clearing would reopen contact. An admin removes the entries in Settings first.
+     */
+    PERSON_OBJECTION_HELD(HttpStatus.CONFLICT,
+            "They objected to being contacted. An admin can lift that from the suppression list in Settings"),
 
     /** A LinkedIn profile or email the workspace's suppression list holds: nobody may file that person again. */
     PERSON_SUPPRESSED(HttpStatus.CONFLICT,

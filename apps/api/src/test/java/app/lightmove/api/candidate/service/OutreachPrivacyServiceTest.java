@@ -28,7 +28,7 @@ class OutreachPrivacyServiceTest {
         OutreachPrivacyService privacy = new OutreachPrivacyService(properties, privacyLinks,
                 mock(EmailTemplates.class), people,
                 mock(CandidatePrivacySettingsService.class), mock(PersonActivityRecorder.class),
-                mock(AuditService.class));
+                mock(AuditService.class), mock(UncavaNoticeRecords.class));
 
         assertThat(privacy.footerFor(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), Instant.now()))
                 .isNull();

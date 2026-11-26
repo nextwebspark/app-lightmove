@@ -189,9 +189,9 @@ on a mandate: filing someone onto a position, or writing a note about one, also 
 
 **A platform role sits above every tenant and inside none.** The role-template library (V42) is the
 first thing no workspace owns that someone still has to edit, so V57 added a third scope, `PLATFORM`,
-with one role (`SUPER_ADMIN`). It now grants eight actions (`PlatformAction`): the template library, credit
-grants, invoiced subscriptions, workspace restore and purge, and the platform console's prompts, put live, evals
-and variables (`docs/platform-console.md`). Four things about it are deliberate:
+with one role (`SUPER_ADMIN`). It now grants nine actions (`PlatformAction`): the template library, credit
+grants, invoiced subscriptions, workspace restore and purge, and the platform console's prompts, put live, evals,
+variables and sub-processor notices (`docs/platform-console.md`). Four things about it are deliberate:
 
 - **It opens nothing inside a workspace.** `@platformAuthorizer` gates `/api/v1/platform/**` only and
   never calls `requireWorkspaceId()`; `ProjectAccess`'s workspace-admin bypass does not know it exists.
@@ -213,7 +213,8 @@ and variables (`docs/platform-console.md`). Four things about it are deliberate:
   until every super admin there has enrolled). `PlatformTwoFactor` then asks two more things, after the action and
   never before it, so the 404 above still answers everyone else: an enabled factor on every platform route
   (`PLATFORM_TWO_FACTOR_REQUIRED`, 403), and on a high-impact one (`@RequireRecentTwoFactor`: a credit grant, an
-  invoiced subscription, a prompt put live or rolled back, a variable changed or reset) a code entered within `step-up-window` (`PLATFORM_STEP_UP_REQUIRED`, 403), given at
+  invoiced subscription, a prompt put live or rolled back, a variable changed or reset, a sub-processor change
+  published) a code entered within `step-up-window` (`PLATFORM_STEP_UP_REQUIRED`, 403), given at
   `POST /api/v1/platform/step-up`. When the code was entered is a row (`app_lm_platform_step_up`, V234), never a
   claim: a token cannot say it, and a second instance must agree. It is the person's, not the session's — the
   access token names no session and the refresh cookie never reaches `/api/v1/platform` — and a code older than

@@ -606,11 +606,50 @@ platform tables holding keys and counts: no content, no person, no workspace. `a
 so the decision on it is counted against that version; null, or a key missing, is a value proposed before the
 column. Staff-only like the flags, and it names a prompt version, never a reading.
 
+V247 (#1490) records which version of Uncava's own notice to executives a person was last sent:
+`app_lm_person.uncava_notice_version` and `uncava_notice_sent_at`, both or neither, written once an email carrying
+the link was delivered. `app_lm_person_never_contacted_idx` (`workspace_id, created_at, id`, partial: never told, not
+restricted, not do not contact) serves `NeverContactedErasure`'s oldest-first read.
+
+V246 hides from a client seat whoever said no to being shared, withdrew it, or is restricted (#1488):
+`app_lm_project_candidate.client_hidden_reason` (`PROCESSING_RESTRICTED` · `SHARE_DECLINED` · `SHARE_WITHDRAWN`),
+written only by triggers through `app_lm_client_hidden_reason(person, project)`, and the generated
+`shown_to_client = client_visible AND client_hidden_reason IS NULL` every client read filters on. A share's status
+decides; a re-asked or lapsed request after a no keeps the last answer (`app_lm_person_consent_event`). Backfilled for
+restricted people and every share consent. Staff-only. Adding a `STORED` generated column rewrites the whole of
+`app_lm_project_candidate` under `ACCESS EXCLUSIVE`, so the table is locked while the migration runs at deploy. Each
+trigger update, and the backfill, fires V36's `app_lm_project_candidate_touch`, so a restriction or a share answer
+also moves `updated_at` on every position row it changes.
+
+V245 adds `OBJECTION_RECORDED` to `app_lm_person_activity_kind_chk` (#1489): a colleague recorded that the person
+objected when contacted, the same stop as the privacy page's objection and an email's stop link (`PersonContactStop`),
+with an actor. It also adds `app_lm_person.do_not_contact_source` (`ContactStopKind`: `OBJECTED_ON_PRIVACY_PAGE`,
+`OPTED_OUT_BY_EMAIL`, `RECORDED_BY_TEAM`; null for the team's own flag, and only while `do_not_contact`), written by
+`PersonContactStop` and read by the consent register, the drawer's opt-out banner and `Person.markObjection`, never the
+reason, which is on-screen copy and, with data protection off, a consultant's free text. The backfill reads the first two
+off the reasons the person's own doors wrote with no setter, so a colleague who typed the same words keeps a plain flag.
+No new table, so no policy: the person's row-level security already covers the column.
+
 V244 is `app_lm_position_suggested_field` (#1452): for each field a document reading filled on a brief, the
 `prompt_id` and `version` that suggested it, keyed by (`position_id`, `field_key`), until the brief is published and
 each is counted once into `app_lm_platform_prompt_outcome_daily`, then deleted. `field_key` is a scalar's brief key
 or a list's name; for a list, `document_items` is how many rows the reading left. A child of `app_lm_position`
 with V190's policy. Keys and counts only, never a value.
+
+V248 is sub-processor change notices (#1491, decision F7; `docs/gdpr/subprocessors.md`). `app_lm_subprocessor_notice`
+is a platform table, no workspace: `provider` (≤ 120), `receives` and `purpose` (≤ 200), `region` (≤ 80),
+`effective_on` (a date; a CHECK holds it at least 30 days after `published_at`'s UTC day), `list_url` (≤ 500, https
+by CHECK), `published_by_user_id` (set null with the account), `published_at`, and `announced_at` (stamped by the
+mailer's scheduled pass once every live workspace's admins hold a claim; publishing sends nothing); never edited
+otherwise. Two tenant tables
+under forced RLS beside it: `app_lm_subprocessor_notice_email`, one row per (`notice_id`, `workspace_id`, `user_id`)
+inserted before the email goes, with `attempts`, `next_attempt_at` (null once sent or given up) and `sent_at`; and
+`app_lm_subprocessor_objection`, one per (`workspace_id`, `notice_id`) — `reason` (≤ 2000, never blank),
+`objected_by_user_id`, `objected_at`, rewritten when an admin changes it. Three `SECURITY DEFINER` functions:
+`app_lm_workspaces_with_subprocessor_objections(notice)` and `app_lm_workspaces_with_subprocessor_emails_owed(at)`
+answer workspace ids (the console's read and the retry pass's walk), `app_lm_count_subprocessor_notice_replies()`
+counts per notice (emailed, owed, objections). Seeds the `SUBPROCESSOR_NOTICE_MANAGE` platform action for
+`SUPER_ADMIN`.
 
 V231 adds `app_lm_dashboard` (docs/custom-dashboards.md): a member's custom dashboard on a position (`project_id`, composite key to the project's workspace) or across the workspace (null) — `owner_user_id` (cascade with the account), `name` (≤ 80, never blank), `shared`, and `widgets` jsonb, an array of `{queryId, chart, options, title, layout: {x, y, w, h}}` (twelve-column grid; rows saved before it carry `size` instead, flowed into place by the SPA) naming charts of the server's query library. The choice only, never a figure: every chart is answered live. Forced RLS on its `workspace_id`. Staff-only.
 

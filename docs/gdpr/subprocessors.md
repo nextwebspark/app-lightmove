@@ -12,6 +12,34 @@ listed in [governance-decisions.md](governance-decisions.md); [tia.md](tia.md) a
 - **Uncava's processor**: it processes data Uncava controls (accounts, billing, its own vendor cache).
 - **Customer's own provider**: the consultant connects their own account; Uncava acts through it ⚖️.
 
+## How a change is announced
+
+The contract promises 30 days' notice of a new sub-processor (decision F7, #1491). It is built, not a promise kept by
+hand:
+
+1. **Change the lists first.** Add the provider here and to the website's public list (`uncava-website`
+   `src/content/legal/subprocessors.md`), and publish the website, so the notice can link to it.
+2. **Publish the notice** from Platform → Sub-processors → Publish a change (`docs/platform-console.md`): provider,
+   what it receives, purpose, region, the day it takes effect — at least 30 days from today, counted in UTC — and the
+   https link to the published list. It asks for a fresh two-factor code.
+3. **Every workspace admin is emailed** within a minute or so, by a scheduled pass rather than the publish itself
+   (`lightmove.platform.subprocessor-notice-announce`), from Uncava's account sender, once each: the active holders of
+   `WORKSPACE_MANAGE` in every workspace not deleted, an account that can no longer sign in left out. The email names
+   the provider, what it receives, the purpose, the region, the date, the published list and an Object link. An email
+   the provider refuses is retried, an hour later and then less often (a day at most), until the change takes effect
+   (`lightmove.platform.subprocessor-notice-retry`); an admin who has left by then is no longer owed one. An admin
+   who joins after that pass is not emailed, but sees the change in Settings.
+4. **An admin may object** in Settings → Data & retention → Sub-processor changes, which the email's link opens, until
+   the day it takes effect; the workspace's objection can be changed until then and is refused after
+   (`SUBPROCESSOR_NOTICE_CLOSED`). One objection per workspace, the latest reason and who wrote it. Audited
+   `SUBPROCESSOR_OBJECTION_RECORDED` in the workspace's audit log.
+5. **Uncava reads the objections** on the notice's page in the console (workspace, admin, reason, date) and answers
+   each customer before the date, as the contract's objection clause says ⚖️. Nothing is switched off automatically:
+   what an objection leads to (a different provider for that customer, or ending the contract) is the business's
+   decision with the customer.
+
+Tables: V248 (`docs/architecture/database.md`). What is kept and for how long: [retention-schedule.md](retention-schedule.md).
+
 ## Infrastructure
 
 | Provider | Service | What it receives | Where in code | Region | Role |
@@ -21,8 +49,8 @@ listed in [governance-decisions.md](governance-decisions.md); [tia.md](tia.md) a
 | Google Cloud | Cloud Storage `hak-talent-mapping-lightmove-documents` | CVs, documents, photos, email attachments, workspace export zips | `core/storage/service/GcsDocumentStore` | `us-central1` | sub-processor |
 | Google Cloud | Vertex AI (Gemini chat, `text-embedding-004`) | candidate dossiers, notes, CV text and call transcripts with contacts taken out (`ContactRedaction`); position briefs; assistant chats | `core/llm/**`, `CandidateAiEnricher`, `CandidateNationalityClassifier`, `CandidateScorecardDrafter`, `MeetingSummariser`, `AssistantService` | **`global`** (`GOOGLE_CLOUD_LOCATION` unset; kept until the triggers in [residency-adr.md](residency-adr.md) §1) | sub-processor |
 | Google Cloud | Secret Manager | keysets and provider secrets, no personal data | `deploy.yml` `--set-secrets` | project-level | — |
-| Google Cloud | Cloud Logging | masked application lines (`PersonalDataLogMasker`); Cloud Run's request log keeps full URLs, `?q=` searches included | `logback-spring.xml` | `_Default` bucket, `global`, 30 days | sub-processor and Uncava's processor |
-| Resend | account email | users' names and addresses (verification, reset, invitation, lockout, two-factor, billing, export and purge notices); notification emails name candidates (`NotificationEmails`) | `core/email/service/ResendEmailSender` | [Region] | sub-processor and Uncava's processor |
+| Google Cloud | Cloud Logging | masked application lines (`PersonalDataLogMasker`); Cloud Run's request log keeps full URLs, except searches, lookups and query-string tokens, which the `query-terms` exclusion drops (#1494) | `logback-spring.xml` | `_Default` bucket, `global`, 30 days | sub-processor and Uncava's processor |
+| Resend | account email; privacy mail | users' names and addresses (verification, reset, invitation, lockout, two-factor, billing, export and purge notices); notification emails name candidates (`NotificationEmails`); executives' names and addresses on privacy notices and consent requests (#1493) | `core/email/service/ResendEmailSender` | [Region] | sub-processor and Uncava's processor |
 | Stripe | billing | workspace name and id; Checkout collects the payer's card, address and tax id | `billing/payment/service/StripePaymentGateway`, `StripeSeatSync` | [Region] | Uncava's processor ⚖️ (Stripe may act as controller for payments) |
 | Mapbox | maps, geocoding | a company's city and country (server); the browser loads styles and tiles and opens a billing session, so the user's IP (client). Performance metrics are off (`MAPBOX_PRIVACY_OPTIONS` in `lib/mapboxPrivacy.ts`, #929) | `geocoding/service/MapboxGeocoder`; `TalentMapGlobe.tsx`, `HubGlobe.tsx` | US | sub-processor |
 

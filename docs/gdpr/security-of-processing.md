@@ -43,8 +43,10 @@ gcloud sql instances patch bright-gcc --project hak-talent-mapping \
   --retained-transaction-log-days=7
 ```
 
-Backups go to the multi-region nearest the instance unless `--backup-location` names one; pin it (`us-central1`) or
-leave it with #925's residency decision ⚖️.
+Backups go to the multi-region nearest the instance unless `--backup-location` names one; for `us-central1` that is
+the US multi-region (`us`). F9 (recommended 25 Nov 2026, not yet confirmed; revisit with F3 and F11) keeps them in the
+US: `--backup-location=us` only makes that default explicit. Same-region backups would be
+`--backup-location=us-central1`.
 
 Then, once the first automated backup shows `SUCCESSFUL` in `gcloud sql backups list --instance bright-gcc`, delete the
 old on-demand one so nothing outlives the window:
@@ -110,8 +112,23 @@ instance to CMEK means a new instance and a migration.
 - **The application's lines** carry ids, never an email or a name, and since #927 every deployed line's message and
   stack trace is masked (`PersonalDataLogMasker`: emails, LinkedIn profile links, phones written with `+`).
 - **Cloud Run's own request log** (`run.googleapis.com/requests`) records each request's full URL, query string
-  included, and is outside the application's reach. A search typed as an address — the Candidates page, the grid, the
-  Outreach list — is a `GET` with `?q=` or `?search=`, so that address is kept there for the 30 days. The email-image
-  route is already excluded (`ops/gcp/bootstrap.sh`). ⚖️ Choose one: an exclusion filter for request entries whose
-  URL carries `q=` or `search=` (those requests then have no platform log line, though the application's own `request`
-  line remains), or a shorter retention on a bucket of their own.
+  included, and is outside the application's reach. A search or lookup is a `GET` whose query holds what was typed or
+  captured: an email address, a name, a LinkedIn link. Two `_Default` exclusions in `ops/gcp/bootstrap.sh` keep such
+  entries from being stored at all:
+  - `email-images`: the email-picture route, a record of who opened what.
+  - `query-terms` (#1494, decision F10): any request whose query carries `q=`, `search=`, `executiveQuery=`, `name=`
+    or `linkedinUrl=`, or a raw token in `token=` or `t=`.
+    - The text parameters cover the Candidates page and its export, the grid, the pipeline, Outreach, the company
+      typeaheads and the "already held?" checks (`/candidates/held`, `/triage/held`). The browser extension calls those
+      checks with a profile link on every capture, and they made up most of the matching entries in a two-week sample.
+    - The token parameters cover the invitation preview, the verification and reset links as the SPA page loads them,
+      and the Recall live webhook's shared secret. Tokens are never stored raw, the request log included.
+    - `RequestLogExclusionCoverageTest` fails when a controller adds a text query parameter that the filter and the
+      safe-to-log list both leave out. That includes the keys `PoolCriteria` reads from the Candidates page's raw query.
+- **What the exclusion costs:** those requests have no platform log line, so Logs Explorer and the daily
+  `ops/gcp/log-digest` do not see them (the digest's status and 5xx counts miss them). The application's own masked
+  `request` line and any ERROR line remain. Cloud Run's built-in request metrics are not logs and are unaffected. **Open:** does
+  `monitoring.sh`'s project-level 5xx log metric still count an excluded 5xx? Until that is answered, #927's box stays
+  unticked. If it does not, the 5xx alert moves to Cloud Run's own `request_count` metric (`response_code_class=5xx`),
+  which no exclusion touches. The bucket keeps 30 days (F10).
+- **Applied to production:** not yet. Recorded here, with the date and the Logs Explorer check, once it is.

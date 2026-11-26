@@ -13,6 +13,8 @@ import { PlatformLayout } from "./PlatformLayout";
 import { PLATFORM_HOME, visiblePlatformSections } from "./platformSections";
 import PromptListPage from "./prompts/pages/PromptListPage";
 import PromptPage from "./prompts/pages/PromptPage";
+import SubprocessorNoticePage from "./subprocessors/pages/SubprocessorNoticePage";
+import SubprocessorNoticesPage from "./subprocessors/pages/SubprocessorNoticesPage";
 import VariablesPage from "./variables/pages/VariablesPage";
 
 /** Everything under `/platform`, as one chunk nobody but its holders downloads. */
@@ -38,6 +40,10 @@ export default function PlatformRoutes() {
           <Route path="evals/datasets/:datasetId" element={<EvalDatasetPage />} />
           <Route path="evals/datasets/:datasetId/calibration" element={<EvalCalibrationPage />} />
           <Route path="evals/runs/:runId" element={<EvalRunPage />} />
+        </Route>
+        <Route element={<RequirePlatformAction action="SUBPROCESSOR_NOTICE_MANAGE"><Outlet /></RequirePlatformAction>}>
+          <Route path="subprocessors" element={<SubprocessorNoticesPage />} />
+          <Route path="subprocessors/:noticeId" element={<SubprocessorNoticePage />} />
         </Route>
         <Route path="*" element={<NotFoundPage />} />
       </Route>

@@ -63,6 +63,7 @@ Settings (avatar menu → Settings)
     ├── Candidate retention                                                          #921
     ├── Due for deletion                                                             #921
     ├── Suppression list                                                             #920
+    ├── Sub-processor changes (Object…, also opened by the notice email's link)      #1491
     └── Export workspace data                                                        #926
 
 Notification bell .................... privacy requests, opt-outs, consent answers   #923 #924 #1267
@@ -80,15 +81,17 @@ Chrome extension (LightMove Capture)
 ## 1. Settings → Data & retention
 
 Route `/settings/data`. Sidebar: Settings → **Workspace** group → **Data & retention**. Admins only (the Workspace
-group is hidden from members and clients). With the flag off the page shows only the first card.
+group is hidden from members and clients). With the flag off the page shows only the first card and Sub-processor
+changes.
 
 | Card | What it does | Flag | PR |
 |---|---|---|---|
 | **AI on people** | Four switches: Infer gender, Infer nationality, Draft assessments with AI, AI-enrich on capture. Turning gender or nationality off asks first ("Turn off and clear", "This can't be undone.") and clears the AI's unconfirmed values across the workspace. New workspaces start with all four off. | No | #1300 |
 | **Candidate privacy** | Firm's legal name, privacy contact email, privacy notice link, default lawful basis. Mode: *Notices* or *Notices and consent requests* (locked until the firm's details are saved). In consent mode: the three purposes (keep on file for future roles, share with a client for a specific role, career and market updates), *Valid for*, and *Ask again N days before consent ends* (0–90). A download of the **consent register** CSV for the whole workspace, audited. | Yes | #1328, #1341, #1343 |
-| **Candidate retention** | "Keep candidates untouched for" N months. | Yes | #1186 |
+| **Candidate retention** | "Keep candidates untouched for" N months. Under it, only while that rule runs: anyone never contacted and with no consent is deleted automatically N months (the server's period, 6 by default) after they were added, unless kept, whatever is chosen (#1490). | Yes | #1186, #1490 |
 | **Due for deletion** | Table of candidates past the period (Candidate, Last activity, Positions, Owner), select some or all, **Keep** (another period from today) or **Delete selected**. Empty state "Nobody is due for deletion". Nothing is deleted on its own. | Yes | #1186 |
 | **Suppression list** | Who may never be added again. Add by LinkedIn profile and/or email (hashed on save) with a reason (*Added by an admin* or *Objected*); remove with a confirmation. | Yes | #1186 (list itself #1178) |
+| **Sub-processor changes** | Each new sub-processor Uncava announced (provider, what it receives, Takes effect / In effect since). **Object…** until it takes effect opens *Object to {provider}*: "Why do you object?" (required, 2,000 characters, counted), **Send objection**; once sent the row reads "You objected on {day} · Change". A change already in effect says it can no longer be objected to. The notice email's Object link opens `/settings/data?object={id}`. | No | #1491 |
 | **Export workspace data** | Start export → "Building your export…" → emailed when ready. | Yes | #1188 |
 
 Copy: the page subtitle switches between "What the AI may work out about the people you hold." (flag off) and the
@@ -137,6 +140,7 @@ the flag on.
 |---|---|---|
 | Header | **Processing restricted** pill; a note with reason, who, when, and Lift (or "Only {name} or an admin can lift it.") | #1180 |
 | Header | **Opted out by email.** banner while do not contact stands after an email opt-out; **Do not contact** banner otherwise | #1330 |
+| Header | **Do not contact** pill: with data protection on, a confirm dialog ("Mark {name} do not contact?") records their objection; clearing it while they are suppressed answers "They objected to being contacted. An admin can lift that from the suppression list in Settings." | #1489 |
 | Contact tab → **Privacy** block | Lawful basis select (with "(workspace default)"), Notified / Not notified with the date, Mark as notified | #1328 |
 | Privacy block, consent mode | A row per purpose with a pill (Not asked, Asked, Given, Renewal asked, Declined, Withdrawn, Expired), the "No consent recorded." warning when the basis is Consent, Ask for consent / Record an answer | #1341 |
 | Privacy block, share offered | A share row per position the person was asked about | #1343 |
@@ -153,6 +157,7 @@ Route `/projects/:projectId/companies/:stage`, view switch **Pipeline**. Consent
 | Each card carries a badge: **No consent to share** · **Consent asked** · **Consent given** | #1343 |
 | Card ⋯ → **Ask to share with client…** → `AskShareConsentDialog` (the email says "a confidential client" unless the client is named; a confidential brief never allows naming) | #1343 |
 | Turning a person client-visible without given share consent opens **"No consent to share with {client} yet"**: Ask first · Show anyway · Cancel. Hiding never asks. | #1343 |
+| Someone who said no to sharing, withdrew it, or whose processing is restricted: the switch is locked off with a red **Hidden from {client}** chip and a tooltip saying why; the badge reads **Said no to sharing** or **Withdrew sharing** | #1488 |
 
 ### 3.2 Companies → Table / Map → Advanced ▾
 
@@ -213,6 +218,7 @@ Reached from a privacy notice email, a consent request email, or the outreach fo
 | Your consents (manage link) | What is in force, each withdrawn after one confirmation | #1341 |
 | Share request | Share with a named or "a confidential client" for one role | #1343 |
 | Expired / invalid | "This link has expired" · "This link isn't valid" | #1328 |
+| Every state | Once Uncava's notice to executives is published: **How Uncava handles your details** after "This page is provided by Uncava"; the same link in every candidate email's footer and in the outreach and email previews | #1490 |
 
 ### 6.2 Other public pages
 
@@ -243,7 +249,8 @@ Reached from a privacy notice email, a consent request email, or the outreach fo
 
 Not screens in the app, but what candidates and users see from these features: the privacy notice (#1328), the
 outreach footer and one-click unsubscribe on every outreach email (#1330), the consent request and confirmation
-(#1341), the share request (#1343), the workspace export ready email and the deletion certificate (#1188).
+(#1341), the share request (#1343), the workspace export ready email and the deletion certificate (#1188), and, to
+each workspace admin, the notice of a new sub-processor at least 30 days ahead with its Object link (#1491).
 
 ## 10. GDPR work with no visible change
 
@@ -259,6 +266,4 @@ outreach footer and one-click unsubscribe on every outreach email (#1330), the c
 ## Not built yet
 
 - The `/privacy/requests` page for people a firm does not hold (website #28, needs an artboard).
-- A "Hide from client" action after a declined or withdrawn share (governance decision B12).
-- Hiding a restricted person from client seats (⚖️, #920).
 - The terms version bump that would show the re-acceptance sheet (ships with the counsel-reviewed terms).
