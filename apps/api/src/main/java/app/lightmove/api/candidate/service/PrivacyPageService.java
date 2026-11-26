@@ -85,6 +85,7 @@ public class PrivacyPageService {
     private final PrivacyLinkStore privacyLinks;
     private final EmailTemplates templates;
     private final ShareTargets shareTargets;
+    private final ClientViewRefresh clientView;
     private final String baseUrl;
     private final String candidateNoticeUrl;
 
@@ -94,7 +95,7 @@ public class PrivacyPageService {
                               ApplicationEventPublisher events, Clock clock,
                               PlatformTransactionManager transactionManager, PersonConsentStore consents,
                               PrivacyLinkStore privacyLinks, EmailTemplates templates, ShareTargets shareTargets,
-                              LightMoveProperties properties) {
+                              ClientViewRefresh clientView, LightMoveProperties properties) {
         this.resolvers = resolvers;
         this.rateLimit = rateLimit;
         this.jdbc = jdbc;
@@ -110,6 +111,7 @@ public class PrivacyPageService {
         this.privacyLinks = privacyLinks;
         this.templates = templates;
         this.shareTargets = shareTargets;
+        this.clientView = clientView;
         this.baseUrl = properties.web().baseUrl();
         this.candidateNoticeUrl = properties.legal().candidateNoticeUrl();
     }
@@ -245,6 +247,9 @@ public class PrivacyPageService {
                 : consents.answer(consent.id(), link.id(), status, now, validUntil);
         if (!changed) {
             return false;
+        }
+        if (consent.purpose() == ConsentPurpose.SHARE_WITH_CLIENT && consent.projectId() != null) {
+            clientView.refreshPosition(consent.projectId());
         }
         boolean answeredRequest = status != ConsentStatus.WITHDRAWN;
         consents.appendEvent(link.workspaceId(), person.getId(), consent.id(), ConsentEventAction.ANSWERED, status,

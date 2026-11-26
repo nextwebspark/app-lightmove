@@ -91,6 +91,7 @@ export function PipelineView({
     visibility.mutate({ candidateId: row.candidateId, clientVisible });
   // Turning someone visible with no consent to share asks first (#1267); warn, never block.
   const toggleVisible = (row: PipelineRow) => {
+    if (row.clientHiddenReason) return;
     if (!row.clientVisible && share.needsPrompt(row.candidateId)) setSharePrompt(row);
     else showToClient(row, !row.clientVisible);
   };
@@ -125,6 +126,7 @@ export function PipelineView({
           )}
           <PipelineBoard
             projectId={project.id}
+            clientName={project.clientName}
             rows={rows}
             stageCounts={stageCounts}
             catalog={catalog}

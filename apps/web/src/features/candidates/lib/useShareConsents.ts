@@ -3,7 +3,7 @@ import * as shareConsentApi from "../api/shareConsentApi";
 import type { ShareConsentRow } from "../api/shareConsentApi";
 import { useConsentMode } from "./useConsentMode";
 
-export type ShareConsentBadgeState = "none" | "asked" | "given";
+export type ShareConsentBadgeState = "none" | "asked" | "given" | "declined" | "withdrawn";
 
 export interface ShareConsentState {
   /** The workspace asks for consent to share with the client, so the visibility switch warns (#1267 phase 3). */
@@ -28,7 +28,7 @@ export function useShareConsents(projectId: string): ShareConsentState {
   const rows = new Map((consents.data?.rows ?? []).map((row) => [row.candidateId, row]));
   const badgeOf = (candidateId: string): ShareConsentBadgeState => {
     const row = rows.get(candidateId);
-    if (row?.status === "given") return "given";
+    if (row?.status === "given" || row?.status === "declined" || row?.status === "withdrawn") return row.status;
     if (row?.requestOpenUntil) return "asked";
     return "none";
   };

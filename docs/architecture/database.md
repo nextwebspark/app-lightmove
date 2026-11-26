@@ -611,6 +611,16 @@ V247 (#1490) records which version of Uncava's own notice to executives a person
 the link was delivered. `app_lm_person_never_contacted_idx` (`workspace_id, created_at, id`, partial: never told, not
 restricted, not do not contact) serves `NeverContactedErasure`'s oldest-first read.
 
+V246 hides from a client seat whoever said no to being shared, withdrew it, or is restricted (#1488):
+`app_lm_project_candidate.client_hidden_reason` (`PROCESSING_RESTRICTED` · `SHARE_DECLINED` · `SHARE_WITHDRAWN`),
+written only by triggers through `app_lm_client_hidden_reason(person, project)`, and the generated
+`shown_to_client = client_visible AND client_hidden_reason IS NULL` every client read filters on. A share's status
+decides; a re-asked or lapsed request after a no keeps the last answer (`app_lm_person_consent_event`). Backfilled for
+restricted people and every share consent. Staff-only. Adding a `STORED` generated column rewrites the whole of
+`app_lm_project_candidate` under `ACCESS EXCLUSIVE`, so the table is locked while the migration runs at deploy. Each
+trigger update, and the backfill, fires V36's `app_lm_project_candidate_touch`, so a restriction or a share answer
+also moves `updated_at` on every position row it changes.
+
 V245 adds `OBJECTION_RECORDED` to `app_lm_person_activity_kind_chk` (#1489): a colleague recorded that the person
 objected when contacted, the same stop as the privacy page's objection and an email's stop link (`PersonContactStop`),
 with an actor. It also adds `app_lm_person.do_not_contact_source` (`ContactStopKind`: `OBJECTED_ON_PRIVACY_PAGE`,

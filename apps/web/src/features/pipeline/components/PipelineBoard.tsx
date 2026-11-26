@@ -37,6 +37,7 @@ interface DropSlot {
  */
 export function PipelineBoard({
   projectId,
+  clientName,
   rows,
   stageCounts,
   catalog,
@@ -52,6 +53,7 @@ export function PipelineBoard({
   onAskShare,
 }: {
   projectId: string;
+  clientName: string;
   rows: readonly PipelineRow[];
   stageCounts: readonly PipelineStageCount[];
   catalog: PipelineCatalog;
@@ -257,6 +259,7 @@ export function PipelineBoard({
                   <PipelineCard
                     key={row.candidateId}
                     projectId={projectId}
+                    clientName={clientName}
                     row={row}
                     isSelected={selectedIds.has(row.candidateId)}
                     isDragging={dragging?.candidateId === row.candidateId}
@@ -320,6 +323,7 @@ export function PipelineBoard({
                   <OutOfProcessCard
                     key={row.candidateId}
                     projectId={projectId}
+                    clientName={clientName}
                     row={row}
                     isDragging={dragging?.candidateId === row.candidateId}
                     drag={cardDrag(row)}
