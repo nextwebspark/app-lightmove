@@ -15,8 +15,10 @@ executive who has never heard of the firm holding them, or from a user about the
   extendable by two more for complex or numerous requests, telling the person within the first month.
 - **Ask only what finds the person:** full name, the LinkedIn profile URL, and the email addresses or phone numbers
   they think are held. Nothing else.
-- **Verify proportionately.** Reply from the address on file, or ask the person to confirm control of the LinkedIn
-  profile or the email named. Do not ask for identity documents unless doubt remains ⚖️.
+- **Verify proportionately** (D7). Light checks: reply from the address on file, or ask the person to confirm control
+  of the LinkedIn profile or the email named. Ask for an identity document only where there is real doubt.
+- **Ask which firm.** The requester names the firm that holds or contacted them (D5); Uncava has no tool that searches
+  every customer for a person.
 
 ## 2. Which role Uncava has
 
@@ -41,8 +43,9 @@ what is held for access; delete the rows for erasure. Rows age out after 30 days
 
 ## 4. Uncava as processor: routing to the firms
 
-1. **Find the workspaces.** There is no app tool. Today the only path is ops SQL on production, run by
-   [named person] with a second person's approval, recorded in the request log:
+1. **Find the workspaces.** Start from the firm the requester named (§1). No app tool searches every customer, by
+   decision (D5). Only where the requester cannot name a firm, the fallback is ops SQL on production, run by
+   [named person] with a second person's approval, recorded in the request log (G4):
 
    ```sql
    SET app.rls_maintenance = 'on';   -- bypasses row-level security: ops only (db-ops skill)
@@ -59,7 +62,8 @@ what is held for access; delete the rows for erasure. Rows age out after 30 days
    Write down workspace ids only. Do not open the records.
 2. **Forward** the request to each workspace's admins within [5] working days, through [the contact on the DPA],
    naming the person only as they named themselves. The firm answers within its own month with the tools in
-   [use-cases.md](use-cases.md): export, erasure, restriction, suppression.
+   [use-cases.md](use-cases.md): export, erasure, restriction, suppression. Before a firm sends a subject access
+   export, its admin checks it and removes other people's names by hand (D3); nothing hides them automatically.
 3. **Tell the requester** which role Uncava has, that the request has been passed to [the number of] firms using
    Uncava, and that each will answer them. Whether Uncava may name those firms is ⚖️.
 4. **Act on Uncava's own copy** (§3: the vendor cache) for an erasure or objection.
@@ -68,7 +72,7 @@ what is held for access; delete the rows for erasure. Rows age out after 30 days
 
 ## 5. Request log
 
-Kept in [location, restricted access] for [retention ⚖️].
+Kept in [location, restricted access] for 3 years after each request closes (D6, recommended).
 
 | Ref | Received | Requester (as they named themselves) | Right | Verified | Uncava's role | Workspaces (ids) | Forwarded | Uncava's action | Answered | By |
 |---|---|---|---|---|---|---|---|---|---|---|
@@ -76,9 +80,10 @@ Kept in [location, restricted access] for [retention ⚖️].
 
 ## 6. Follow-ups this procedure needs
 
-- **A platform-admin lookup** ⚖️: "which workspaces hold this slug or address" as a `SUPER_ADMIN`-only endpoint
-  (`@platformAuthorizer`, audited), so step 4.1 needs no raw SQL. It returns workspace ids only. Open it as its own app
-  issue once website #28's page is designed (#917 step 5).
+- **A platform-admin lookup**: not now (D5, recommended); the requester names the firm. If it is built later: a
+  lookup by keyed hash, `SUPER_ADMIN` only, approved by a second person, every use logged (G4), returning workspace ids
+  only.
 - **Cross-workspace suppression** (#920) ⚖️: suppression hashes are keyed per workspace
   (`SuppressionKey.hashInput` takes the workspace id), so an objection to Uncava cannot today stop *every* firm filing
-  the person again. Whether it should is the first open decision in #917.
+  the person again. Recommended: keep the per-firm lists and add an Uncava-level suppression for the data Uncava
+  controls itself, the vendor cache (D1, needs counsel).

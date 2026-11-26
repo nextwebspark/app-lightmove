@@ -39,6 +39,27 @@ would name someone (`email`, `fullName`, `phone`, `linkedinUrl`, …) and strips
 `AuditDetailKeysTest` holds every key that sounds personal to a reviewed list. Rows written before #927 were scrubbed
 once by `ops/cloudsql/scrub-audit-pii.sql`.
 
+**Consent periods (E1, counsel 23 Nov 2026).** How long a candidate is kept, by the consent status of epic #1467.
+Agreed with counsel; the timers are built by #1475, the never-contacted rule by #1490. Every other period below still
+needs counsel's approval before `RETENTION_ENABLED` is turned on ([governance-decisions.md](governance-decisions.md) E1).
+
+| Status | Meaning | Kept for | Built by |
+|---|---|---|---|
+| Grey | no consent: held on legitimate interests | 6 months | #1475 |
+| Never contacted | grey, and never told or reached (B2) | 6 months from being added, then erased | #1490 |
+| Light green | consent for one mandate | until the mandate closes, + 12 months | #1475 |
+| Dark green | consent to stay on file | 24 months | #1475 |
+| Orange | consent requested, no answer yet | 3 months | #1475 |
+| Red | do not contact: an objection or a stop request | no period of its own; never contacted again, and the suppression entry stays until an admin removes it | #924, #1489 |
+
+**Outside the application.** Records Uncava keeps by hand, not in any `app_lm_*` table.
+
+| Record | Kept for | Basis |
+|---|---|---|
+| Request log ([subject-requests-procedure.md](subject-requests-procedure.md) §5) | 3 years after each request closes | D6, recommended |
+| Breach register ([breach-runbook.md](breach-runbook.md)) | 5 years | D6, recommended |
+| Website demo requests | 12 months after the last contact if no deal | G2, recommended |
+
 | Table | Personal data | Purpose | Retention | Trigger | Job |
 |---|---|---|---|---|---|
 | `app_lm_user` | name, work email, sign-in facts | the account | while the account lives; once deleted, a row of no name or address ("Former member"), kept so what it did still resolves | account deletion (#926) | `AccountDeletionService` |
@@ -110,7 +131,7 @@ once by `ops/cloudsql/scrub-audit-pii.sql`.
 | `app_lm_usage_event` | user | fair use and billing usage | 400 days ⚖️ | age | `RetentionSweeper` |
 | `app_lm_credit_hold` | user, person | a paid find in flight | with the ledger | — | — |
 | `app_lm_credit_entry` | user, person | the contact-credit ledger, append-only | statutory ⚖️; financial record | — | none: append-only (#256) |
-| `app_lm_audit_event` | actor, ids, IP address, browser line; never a name or contact in its details (#927) | the security audit trail | statutory ⚖️; floor set by counsel | — | none until #256 |
+| `app_lm_audit_event` | actor, ids, IP address, browser line; never a name or contact in its details (#927) | the security audit trail | 12 months, then deleted (E2, recommended) | age | none until #256; then #921 |
 | `app_lm_workspace_candidate_privacy` | the firm's privacy contact address, the admin who last changed it | the firm as controller in every privacy notice (#923), and its consent mode and purposes (#1267) | while the workspace exists | workspace purge, an admin clearing it | `WorkspacePurge` |
 | `app_lm_workspace_suppression` | one-way hashes only | who no door may file again | until an admin removes the entry | removal | — |
 | `app_lm_vendor_person` | an executive's vendor record | the people cache, shared by every workspace | `lightmove.enrichment.people-cache-ttl` (30 days) | age, erasure | `RetentionSweeper` |
