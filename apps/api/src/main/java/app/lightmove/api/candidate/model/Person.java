@@ -6,7 +6,7 @@ import app.lightmove.api.candidate.constant.CandidateSource;
 import app.lightmove.api.candidate.constant.ContactChannel;
 import app.lightmove.api.candidate.constant.ContactKind;
 import app.lightmove.api.candidate.constant.ContactSource;
-import app.lightmove.api.candidate.constant.DoNotContactReasons;
+import app.lightmove.api.candidate.constant.ContactStopKind;
 import app.lightmove.api.candidate.constant.EnrichmentVendor;
 import app.lightmove.api.candidate.constant.Gender;
 import app.lightmove.api.candidate.constant.LawfulBasis;
@@ -196,6 +196,11 @@ public class Person extends BaseEntity {
 
     @Column(name = "do_not_contact_set_at")
     private Instant doNotContactSetAt;
+
+    /** The door the person's own objection came through (V245); null while do not contact is the team's own flag. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "do_not_contact_source")
+    private ContactStopKind doNotContactSource;
 
     /** Restriction of processing (V198, GDPR Art. 18): on file and readable, used by nothing until it is lifted. */
     @Column(name = "processing_restricted", nullable = false)
@@ -784,40 +789,29 @@ public class Person extends BaseEntity {
         return true;
     }
 
-    public boolean markDoNotContact(String reason, UUID setBy) {
+    public boolean markDoNotContact(String reason, UUID setBy, Instant now) {
         if (doNotContact) {
             return false;
         }
-        this.doNotContact = true;
-        this.doNotContactReason = reason;
-        this.doNotContactSetBy = setBy;
-        this.doNotContactSetAt = Instant.now();
+        setDoNotContact(reason, null, setBy, now);
         return true;
     }
 
     /**
-     * Do not contact as the person's own objection (B16): replaces a consultant's earlier reason, so the consent
-     * register and the drawer read the objection; an objection already standing is kept as first recorded.
+     * Do not contact as the person's own objection (B16): replaces the team's own flag, so the consent register and
+     * the drawer read the objection; an objection already standing is kept as first recorded.
      */
-    public boolean markObjection(String reason, UUID setBy) {
-        if (doNotContact && DoNotContactReasons.isObjection(doNotContactReason)) {
+    public boolean markObjection(ContactStopKind source, UUID setBy, Instant now) {
+        if (doNotContact && doNotContactSource != null) {
             return false;
         }
-        this.doNotContact = true;
-        this.doNotContactReason = reason;
-        this.doNotContactSetBy = setBy;
-        this.doNotContactSetAt = Instant.now();
+        setDoNotContact(source.doNotContactReason(), source, setBy, now);
         return true;
     }
 
-    /**
-     * When the person's own stop link set do not contact, else null: cleared and set again by hand, or set first for
-     * another reason, it is not their opt-out the drawer should tell.
-     */
+    /** When the person's own stop link set do not contact, else null. */
     public Instant optedOutByEmailAt() {
-        boolean byTheirLink = doNotContact && doNotContactSetBy == null
-                && DoNotContactReasons.OPTED_OUT_BY_EMAIL.equals(doNotContactReason);
-        return byTheirLink ? doNotContactSetAt : null;
+        return doNotContact && doNotContactSource == ContactStopKind.OPTED_OUT_BY_EMAIL ? doNotContactSetAt : null;
     }
 
     public boolean clearDoNotContact() {
@@ -826,9 +820,18 @@ public class Person extends BaseEntity {
         }
         this.doNotContact = false;
         this.doNotContactReason = null;
+        this.doNotContactSource = null;
         this.doNotContactSetBy = null;
         this.doNotContactSetAt = null;
         return true;
+    }
+
+    private void setDoNotContact(String reason, ContactStopKind source, UUID setBy, Instant setAt) {
+        this.doNotContact = true;
+        this.doNotContactReason = reason;
+        this.doNotContactSource = source;
+        this.doNotContactSetBy = setBy;
+        this.doNotContactSetAt = setAt;
     }
 
     public boolean restrictProcessing(String reason, UUID restrictedBy) {

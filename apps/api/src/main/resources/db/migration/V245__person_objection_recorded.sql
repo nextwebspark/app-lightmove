@@ -20,3 +20,28 @@ ALTER TABLE app_lm_person_activity
                         'PRIVACY_NOTICE_FAILED', 'PRIVACY_OBJECTED', 'PRIVACY_REQUEST_RECEIVED',
                         'PRIVACY_OPTED_OUT', 'OBJECTION_RECORDED',
                         'CONSENT_REQUESTED', 'CONSENT_REQUEST_FAILED', 'CONSENT_ANSWERED', 'CONSENT_EXPIRED'));
+
+-- Which door a standing do not contact is the person's objection through; null for the team's own flag. The reason
+-- beside it is on-screen copy, and with data protection off a consultant's free text, so it never says which.
+ALTER TABLE app_lm_person
+    ADD COLUMN do_not_contact_source text,
+    ADD CONSTRAINT app_lm_person_do_not_contact_source_chk
+        CHECK (do_not_contact_source IS NULL
+               OR (do_not_contact
+                   AND do_not_contact_source IN ('OBJECTED_ON_PRIVACY_PAGE', 'OPTED_OUT_BY_EMAIL',
+                                                 'RECORDED_BY_TEAM')));
+
+-- Before the column the person's own doors wrote these reasons with nobody as the setter; a colleague typing the
+-- same words set it as themselves, so it stays theirs.
+UPDATE app_lm_person
+SET do_not_contact_source = CASE do_not_contact_reason
+        WHEN 'Objected through their privacy page' THEN 'OBJECTED_ON_PRIVACY_PAGE'
+        WHEN 'Opted out by email' THEN 'OPTED_OUT_BY_EMAIL'
+    END
+WHERE do_not_contact
+  AND do_not_contact_set_by IS NULL
+  AND do_not_contact_reason IN ('Objected through their privacy page', 'Opted out by email');
+UPDATE app_lm_person
+SET do_not_contact_source = 'RECORDED_BY_TEAM'
+WHERE do_not_contact
+  AND do_not_contact_reason = 'Objected when contacted, recorded by the team';

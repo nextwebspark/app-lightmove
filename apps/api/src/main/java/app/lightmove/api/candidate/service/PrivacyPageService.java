@@ -5,7 +5,6 @@ import app.lightmove.api.candidate.constant.ConsentEventVia;
 import app.lightmove.api.candidate.constant.ConsentPurpose;
 import app.lightmove.api.candidate.constant.ConsentStatus;
 import app.lightmove.api.candidate.constant.ContactKind;
-import app.lightmove.api.candidate.constant.ContactStopKind;
 import app.lightmove.api.candidate.constant.PersonActivityKind;
 import app.lightmove.api.candidate.constant.PrivacyLinkPurpose;
 import app.lightmove.api.candidate.constant.PrivacyRequestKind;
@@ -139,7 +138,7 @@ public class PrivacyPageService {
         rateLimit.checkPrivacyPageRequest(tokenHash, request);
         inLinksWorkspace(tokenHash, link -> {
             Person person = liveLinksPerson(link);
-            contactStop.stop(person, ContactStopKind.OBJECTED_ON_PRIVACY_PAGE, null, link.sentBy(), false, request);
+            contactStop.objectedOnPrivacyPage(person, request);
             return null;
         });
     }
@@ -158,7 +157,7 @@ public class PrivacyPageService {
                     UPDATE app_lm_person_privacy_link SET used_at = :usedAt WHERE id = :id AND used_at IS NULL
                     """, new MapSqlParameterSource("id", link.id())
                     .addValue("usedAt", Timestamp.from(clock.instant()))) > 0;
-            contactStop.stop(person, ContactStopKind.OPTED_OUT_BY_EMAIL, null, link.sentBy(), linkFirstUsed, request);
+            contactStop.optedOutByLink(person, link.sentBy(), linkFirstUsed, request);
             return null;
         });
     }

@@ -10,6 +10,7 @@ import app.lightmove.api.FixtureJdbc;
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
 import java.time.Duration;
+import java.util.Arrays;
 import java.util.List;
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.BeforeEach;
@@ -33,6 +34,8 @@ class StaffObjectionIntegrationTest extends FlowTestSupport {
     private String admin;
     private String colleague;
     private String workspace;
+    private String position;
+    private String candidate;
     private String person;
 
     @BeforeEach
@@ -42,11 +45,13 @@ class StaffObjectionIntegrationTest extends FlowTestSupport {
         admin = login(address);
         inviteAndAccept(admin, "Sam Lee", "sam@" + domain, "ADMIN");
         colleague = login("sam@" + domain);
-        String position = mandate("Chief Financial Officer");
-        person = body(call(admin, post("/api/v1/projects/" + position + "/candidates"), """
+        position = mandate("Chief Financial Officer");
+        JsonNode filed = body(call(admin, post("/api/v1/projects/" + position + "/candidates"), """
                 {"fullName":"Noor Haddad","linkedinUrl":"https://www.linkedin.com/in/noor-haddad/",
                  "emails":[{"value":"noor@example.com"}]}""")
-                .andExpect(status().isCreated()).andReturn()).get("personId").asText();
+                .andExpect(status().isCreated()).andReturn());
+        candidate = filed.get("id").asText();
+        person = filed.get("personId").asText();
     }
 
     @Test
@@ -55,8 +60,10 @@ class StaffObjectionIntegrationTest extends FlowTestSupport {
         mark(colleague, true).andExpect(status().isOk());
         mark(colleague, true).andExpect(status().isOk());
 
-        assertThat(db.queryForMap("select do_not_contact, do_not_contact_reason from app_lm_person where id = ?::uuid",
-                person)).containsEntry("do_not_contact", true).containsEntry("do_not_contact_reason", RECORDED_BY_TEAM);
+        assertThat(db.queryForMap("select do_not_contact, do_not_contact_reason, do_not_contact_source"
+                + " from app_lm_person where id = ?::uuid", person))
+                .containsEntry("do_not_contact", true).containsEntry("do_not_contact_reason", RECORDED_BY_TEAM)
+                .containsEntry("do_not_contact_source", "RECORDED_BY_TEAM");
         assertThat(db.queryForList("select reason from app_lm_workspace_suppression where workspace_id = ?::uuid",
                 String.class, workspace)).containsOnly("OBJECTED").hasSize(2);
         assertThat(activityKinds()).containsOnlyOnce("OBJECTION_RECORDED");
@@ -79,6 +86,36 @@ class StaffObjectionIntegrationTest extends FlowTestSupport {
         assertThat(db.queryForObject("select do_not_contact_reason from app_lm_person where id = ?::uuid",
                 String.class, person)).isEqualTo(RECORDED_BY_TEAM);
         assertThat(activityKinds()).containsOnlyOnce("OBJECTION_RECORDED");
+    }
+
+    @Test
+    @DisplayName("a reason in an objection's words is no objection: the register skips it, marking records one")
+    void anObjectionsWordsAreNotAnObjection() throws Exception {
+        db.update("update app_lm_person set do_not_contact = true, do_not_contact_reason = 'Opted out by email',"
+                + " do_not_contact_set_by = (select id from app_lm_user where email = ?), do_not_contact_set_at = now()"
+                + " where id = ?::uuid", "sam@" + domain, person);
+        assertThat(registerLinesOf(person)).isEmpty();
+
+        mark(admin, true).andExpect(status().isOk());
+
+        assertThat(db.queryForMap("select do_not_contact_reason, do_not_contact_source from app_lm_person"
+                + " where id = ?::uuid", person)).containsEntry("do_not_contact_reason", RECORDED_BY_TEAM)
+                .containsEntry("do_not_contact_source", "RECORDED_BY_TEAM");
+        assertThat(activityKinds()).containsOnlyOnce("OBJECTION_RECORDED");
+    }
+
+    @Test
+    @DisplayName("a suppression entry for another reason does not hold the team's own flag")
+    void anotherReasonDoesNotHoldTheFlag() throws Exception {
+        db.update("update app_lm_person set do_not_contact = true, do_not_contact_reason = 'Works at the client',"
+                + " do_not_contact_set_at = now() where id = ?::uuid", person);
+        call(admin, post("/api/v1/workspace/suppressions"), """
+                {"email":"noor@example.com","reason":"manual"}""").andExpect(status().isCreated());
+
+        mark(admin, false).andExpect(status().isOk());
+
+        assertThat(db.queryForObject("select do_not_contact from app_lm_person where id = ?::uuid", Boolean.class,
+                person)).isFalse();
     }
 
     @Test
@@ -116,17 +153,31 @@ class StaffObjectionIntegrationTest extends FlowTestSupport {
     void theRegisterCarriesTheObjection() throws Exception {
         mark(colleague, true).andExpect(status().isOk());
 
-        String csv = call(admin, get("/api/v1/candidates/export/consent-register"), null)
-                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        List<String> header = Arrays.asList(registerLines().getFirst().replace("\uFEFF", "").split(",", -1));
+        assertThat(registerLinesOf(person)).hasSize(1);
+        List<String> line = Arrays.asList(registerLinesOf(person).getFirst().split(",", -1));
 
-        assertThat(csv.lines().filter(line -> line.contains(person)).toList()).singleElement()
-                .satisfies(line -> assertThat(line).contains("Noor Haddad", "Objection to contact", "Objected",
-                        "Sam Lee", "Recorded by the team"));
+        assertThat(line.get(header.indexOf("Name"))).isEqualTo("Noor Haddad");
+        assertThat(line.get(header.indexOf("Purpose"))).isEqualTo("Objection to contact");
+        assertThat(line.get(header.indexOf("Status"))).isEqualTo("Objected");
+        assertThat(line.get(header.indexOf("Asked on"))).as("nobody asked for an objection").isEmpty();
+        assertThat(line.get(header.indexOf("Asked by"))).isEmpty();
+        assertThat(line.get(header.indexOf("Answered on"))).isNotEmpty();
+        assertThat(line.get(header.indexOf("Answered"))).isEqualTo("Recorded by the team: Sam Lee");
     }
 
     private ResultActions mark(String caller, boolean doNotContact) throws Exception {
         return call(caller, put("/api/v1/candidates/" + person + "/do-not-contact"), """
                 {"doNotContact":%s,"reason":"Asked us to stop"}""".formatted(doNotContact));
+    }
+
+    private List<String> registerLines() throws Exception {
+        return call(admin, get("/api/v1/candidates/export/consent-register"), null)
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString().lines().toList();
+    }
+
+    private List<String> registerLinesOf(String personId) throws Exception {
+        return registerLines().stream().filter(line -> line.contains(personId)).toList();
     }
 
     private List<String> activityKinds() {

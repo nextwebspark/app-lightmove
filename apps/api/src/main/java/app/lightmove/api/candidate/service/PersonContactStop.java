@@ -8,6 +8,7 @@ import app.lightmove.api.candidate.model.PersonOptedOut;
 import app.lightmove.api.candidate.model.PersonPrivacyRequested;
 import app.lightmove.api.core.audit.service.AuditService;
 import jakarta.servlet.http.HttpServletRequest;
+import java.time.Clock;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
@@ -16,10 +17,8 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * The one way contact with a person stops (#924, B16), whichever door they used: do not contact, the suppression list
- * as an objection, a timeline line and an audit event, and the announcement on which outreach stops every run and
- * scheduled email in this same transaction ({@code OutreachOptOutStop}). A keyset that cannot be read refuses the
- * whole stop ({@code SUPPRESSION_UNAVAILABLE}), so nothing half-happens.
+ * The one way contact with a person stops (#924, B16), whichever door they used; its announcement stops outreach in
+ * the same transaction. An unreadable keyset refuses the whole stop ({@code SUPPRESSION_UNAVAILABLE}).
  */
 @Service
 @RequiredArgsConstructor
@@ -31,18 +30,37 @@ public class PersonContactStop {
     private final PersonActivityRecorder activity;
     private final AuditService audit;
     private final ApplicationEventPublisher events;
+    private final Clock clock;
 
-    /**
-     * Recorded and announced only when something changed. {@code actorUserId} is the colleague who recorded it, null
-     * when the person acted themselves; {@code linkSenderUserId} is who sent the email whose stop link was used.
-     */
     @Transactional(propagation = Propagation.MANDATORY)
-    public boolean stop(Person person, ContactStopKind kind, UUID actorUserId, UUID linkSenderUserId,
-                        boolean linkFirstUsed, HttpServletRequest request) {
-        boolean marked = person.markObjection(kind.doNotContactReason(), actorUserId);
+    public void objectedOnPrivacyPage(Person person, HttpServletRequest request) {
+        stop(person, ContactStopKind.OBJECTED_ON_PRIVACY_PAGE, null, false, request,
+                new PersonPrivacyRequested(person.getWorkspaceId(), person.getId(), PrivacyRequestKind.OBJECTION));
+    }
+
+    /** {@code linkSenderUserId} hears of it when nobody owns the person; a link's first use is recorded regardless. */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void optedOutByLink(Person person, UUID linkSenderUserId, boolean linkFirstUsed,
+                               HttpServletRequest request) {
+        UUID toldUserId = person.getOwnerUserId() != null ? person.getOwnerUserId() : linkSenderUserId;
+        stop(person, ContactStopKind.OPTED_OUT_BY_EMAIL, null, linkFirstUsed, request,
+                new PersonOptedOut(person.getWorkspaceId(), person.getId(), toldUserId));
+    }
+
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void recordedByTeam(Person person, UUID actorUserId, HttpServletRequest request) {
+        stop(person, ContactStopKind.RECORDED_BY_TEAM, actorUserId, false, request,
+                new PersonPrivacyRequested(person.getWorkspaceId(), person.getId(), PrivacyRequestKind.OBJECTION,
+                        actorUserId));
+    }
+
+    /** Recorded and announced only when something changed. */
+    private void stop(Person person, ContactStopKind kind, UUID actorUserId, boolean recordRegardless,
+                      HttpServletRequest request, Object announcement) {
+        boolean marked = person.markObjection(kind, actorUserId, clock.instant());
         int suppressed = suppression.suppressPerson(person, actorUserId, SuppressionReason.OBJECTED);
-        if (!linkFirstUsed && !marked && suppressed == 0) {
-            return false;
+        if (!recordRegardless && !marked && suppressed == 0) {
+            return;
         }
         activity.record(person, null, actorUserId, kind.activityKind(), PersonActivityDetails.none());
         audit.event(kind.auditType())
@@ -50,17 +68,6 @@ public class PersonContactStop {
                 .from(request)
                 .detail("suppressionEntries", suppressed)
                 .record();
-        events.publishEvent(announcementOf(person, kind, actorUserId, linkSenderUserId));
-        return true;
-    }
-
-    private static Object announcementOf(Person person, ContactStopKind kind, UUID actorUserId,
-                                         UUID linkSenderUserId) {
-        if (kind == ContactStopKind.OPTED_OUT_BY_EMAIL) {
-            return new PersonOptedOut(person.getWorkspaceId(), person.getId(),
-                    person.getOwnerUserId() != null ? person.getOwnerUserId() : linkSenderUserId);
-        }
-        return new PersonPrivacyRequested(person.getWorkspaceId(), person.getId(), PrivacyRequestKind.OBJECTION,
-                actorUserId);
+        events.publishEvent(announcement);
     }
 }
