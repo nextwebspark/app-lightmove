@@ -88,6 +88,9 @@ and `DATA_PROTECTION_ENABLED` are on.
 | `app_lm_user_mfa_factor` | sealed authenticator secret | two-factor | while two-factor is on | turned off, account deletion | — |
 | `app_lm_user_mfa_recovery_code` | hashed codes | two-factor recovery | while two-factor is on | regenerated, turned off, account deletion | — |
 | `app_lm_platform_step_up` | user, when a two-factor code was last entered | a platform admin's fresh code for a high-impact action | while the account exists; overwritten by each code | account deletion | — |
+| `app_lm_subprocessor_notice` | the Uncava admin who published it | a new sub-processor announced 30 days ahead (#1491), the contract's notice | kept ⚖️: the record that notice was given | — | — |
+| `app_lm_subprocessor_notice_email` | user: which admin of a workspace a notice was emailed to, when, how many tries | the once-only send and its retries (#1491) | with its workspace ⚖️: the record of who was told | workspace purge | `WorkspacePurge` |
+| `app_lm_subprocessor_objection` | the admin who last wrote it, the workspace's reason | the workspace's objection to a sub-processor change (#1491), contract correspondence | with its workspace ⚖️ | workspace purge | `WorkspacePurge` |
 | `app_lm_user_platform_role` | who is Uncava staff | platform access | while granted | revoked by ops script | — |
 | `app_lm_pending_registration` | provider subject, work email, name, picture link | a first provider sign-in waiting on the terms tick (#928), before any account exists | 10 minutes; the row 1 day past expiry ⚖️ | the tick, a later sign-in by the same identity, expiry | `PendingRegistrationService`, `RetentionSweeper` |
 | `app_lm_mfa_challenge` | user, challenge hash | a sign-in waiting on its code | 1 day past expiry ⚖️ | expiry, account deletion | `RetentionSweeper` |

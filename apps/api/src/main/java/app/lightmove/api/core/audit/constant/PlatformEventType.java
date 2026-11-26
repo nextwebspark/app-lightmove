@@ -36,7 +36,9 @@ public enum PlatformEventType implements AuditEventType {
     EVAL_JUDGE_CHECK_FINISHED,
 
     PLATFORM_SETTING_CHANGED,
-    PLATFORM_SETTING_RESET;
+    PLATFORM_SETTING_RESET,
+
+    SUBPROCESSOR_NOTICE_PUBLISHED;
 
     @Override
     public String code() {

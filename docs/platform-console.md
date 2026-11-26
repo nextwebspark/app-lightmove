@@ -5,7 +5,10 @@ need a release: a sourcing limit, the text and model of an AI prompt. A change i
 seconds, is recorded with who made it and why, and can be put back.
 
 It sits **above every tenant and inside none**. No screen, Try it, eval case or count reads a workspace's people,
-notes or documents, and every table it adds is a platform table with no `workspace_id`.
+notes or documents, and every table it adds is a platform table with no `workspace_id` — but one. A workspace's
+objection to a sub-processor change (`app_lm_subprocessor_objection`, and who was emailed about it) is a tenant table:
+it is the customer's correspondence about the contract, never people data, and the console reads it one workspace at
+a time, each named by V248's resolver and read inside that workspace's own scope ([Sub-processors](#sub-processors)).
 
 | Screen | Route | What it changes | Detail |
 |---|---|---|---|
@@ -13,16 +16,18 @@ notes or documents, and every table it adds is a platform table with no `workspa
 | Variables | `/platform/variables` | Allowlisted application values, over their yml defaults | [Variables](#variables) |
 | Prompts | `/platform/prompts` | Each AI prompt's text, model and generation settings, as versions | [Prompts](#prompts) |
 | Evals | `/platform/evals` | Nothing that serves: datasets, runs and the check before a version goes live | [Evals](#evals) |
+| Sub-processors | `/platform/subprocessors` | Announces a new sub-processor to every workspace's admins, 30 days ahead; reads their objections | [Sub-processors](#sub-processors) |
 
 The call path every prompt goes through is `docs/llm-guardrails.md`. The second factor is
-`docs/security/platform-two-factor.md`. Tables are in `docs/architecture/database.md` (V57, V234 to V243).
+`docs/security/platform-two-factor.md`. Tables are in `docs/architecture/database.md` (V57, V234 to V243, V248).
 
 ## Who gets in
 
 - **The role is `SUPER_ADMIN`** (V57), granted only by `ops/cloudsql/grant-platform-role.sh <email>`, never by the
   application, and never carried in the JWT: every check re-reads the database.
-- **Eight platform actions** hang off it: `TEMPLATE_LIBRARY_MANAGE`, `CREDIT_GRANT`, `SUBSCRIPTION_MANAGE`,
-  `WORKSPACE_LIFECYCLE_MANAGE`, `PROMPT_MANAGE`, `PROMPT_PROMOTE`, `EVAL_RUN`, `PLATFORM_SETTINGS_MANAGE`.
+- **Nine platform actions** hang off it: `TEMPLATE_LIBRARY_MANAGE`, `CREDIT_GRANT`, `SUBSCRIPTION_MANAGE`,
+  `WORKSPACE_LIFECYCLE_MANAGE`, `PROMPT_MANAGE`, `PROMPT_PROMOTE`, `EVAL_RUN`, `PLATFORM_SETTINGS_MANAGE`,
+  `SUBPROCESSOR_NOTICE_MANAGE`.
   `RbacCatalogTest` keeps the enum and the seeded rows in step.
 - **Everyone else is told 404, on every route.** A workspace admin's `WORKSPACE_MANAGE` opens none of it. Two
   guards make that true:
@@ -38,7 +43,7 @@ The call path every prompt goes through is `docs/llm-guardrails.md`. The second 
 - **The SPA is not the boundary.** The avatar menu shows Platform only to a user whose `/me` lists a platform
   action, and the `/platform` chunk is lazy, so tenant users never download it; the server refuses regardless.
 - **Two-factor.** With `lightmove.platform.require-two-factor` on, a super admin without a factor is answered
-  `PLATFORM_TWO_FACTOR_REQUIRED` and shown Set up two-factor. High-impact acts (a variable change or reset, a
+  `PLATFORM_TWO_FACTOR_REQUIRED` and shown Set up two-factor. High-impact acts (a sub-processor change published, a variable change or reset, a
   prompt put live or rolled back, a credit grant, an invoiced subscription) also need a code entered within the
   last ten minutes (`PLATFORM_STEP_UP_REQUIRED`, the Confirm it's you dialog).
 
@@ -113,6 +118,23 @@ The call path every prompt goes through is `docs/llm-guardrails.md`. The second 
   A version that regressed, or has no run, can still go live with a written reason, which is audited.
 - **A pack gates only once reviewed**, and a rubric counts only while the judge agrees with a person's labels on
   80% of 20 pairs.
+
+## Sub-processors
+
+`subprocessor`; V248. Screens: Platform → Sub-processors, one notice, Publish a sub-processor change (#1491, decision
+F7). The customer side is Settings → Data & retention's Sub-processor changes; the whole flow is
+`docs/gdpr/subprocessors.md` (How a change is announced).
+
+- **Publish** (`POST /api/v1/platform/subprocessor-notices`, `SUBPROCESSOR_NOTICE_MANAGE` and a fresh code, since it
+  reaches every workspace): provider, what it receives, purpose, region, the day it takes effect — at least 30 days
+  from today (UTC) — and an https link to the published list. A notice is never edited or withdrawn; a correction is
+  a new notice. Audited `SUBPROCESSOR_NOTICE_PUBLISHED` with the provider and the date.
+- **The list** answers each notice with three counts from `app_lm_count_subprocessor_notice_replies()`: admins
+  emailed, admins owed an email (not yet sent and not given up, retried until it takes effect, `owed` on the response
+  and "owed, retrying" on screen), workspaces that objected. Counts, never which.
+- **One notice's objections** (`GET …/{id}/objections`): `app_lm_workspaces_with_subprocessor_objections` names the
+  workspaces holding one, and each is read in its own `WorkspaceScope`: the workspace's name, the admin who last wrote
+  it, the reason and when. The console reads nothing else of any workspace.
 
 ## Nothing outside the database
 

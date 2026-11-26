@@ -233,6 +233,28 @@ public class EmailTemplates {
                         + "date into Settings → Integrations. You get this because you manage the workspace.")));
     }
 
+    /**
+     * To each admin of every workspace, at least 30 days before a new sub-processor handles its data (#1491): the
+     * contract's notice. The one link opens the objection in Settings; the published list is named in the note.
+     */
+    public EmailMessage buildSubprocessorNoticeEmail(String recipient, String recipientName, String workspaceName,
+                                                     String provider, String receives, String purpose, String region,
+                                                     String effectiveOn, String listLink, String objectLink) {
+        return renderer.render(recipient, "A new Uncava sub-processor from %s: %s".formatted(effectiveOn, provider),
+                EmailContent.of(
+                        "A new sub-processor",
+                        EmailParagraph.of("Hi %s — from %s, Uncava will use %s as a sub-processor of %s's data.",
+                                plain(firstName(recipientName)), strong(effectiveOn), strong(provider),
+                                strong(workspaceName)),
+                        EmailParagraph.of("What it receives: %s. Purpose: %s. Region: %s.",
+                                plain(receives), plain(purpose), plain(region)),
+                        EmailParagraph.of("If your workspace objects, tell us before it takes effect, in %s.",
+                                strong("Settings → Data & retention")),
+                        new EmailAction("Object to this change", objectLink),
+                        EmailNote.of("The published list of sub-processors is at %s. You get this because you "
+                                + "manage the workspace.", plain(listLink))));
+    }
+
     /** To a workspace's billing managers, once per billing month at 80% and again at 90% of its plan's credits. */
     public EmailMessage buildContactCreditsLowEmail(String recipient, String recipientName, String workspaceName,
                                                     int usedPercent, long creditsLeft, String resetsOn,

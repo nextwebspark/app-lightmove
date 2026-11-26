@@ -136,6 +136,28 @@ class PlatformTwoFactorIntegrationTest extends BillingFlowSupport {
     }
 
     @Test
+    @DisplayName("publishing a sub-processor change, which emails every workspace's admins, asks for a fresh code first")
+    void aSubprocessorChangeAsksForAFreshCode() throws Exception {
+        String notices = "/api/v1/platform/subprocessor-notices";
+        Session admin = superAdminSession();
+        String secret = enrol(admin);
+        MockHttpServletRequestBuilder publish = post(notices).contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"provider":"Step Up Mail","receives":"Account email addresses","purpose":"Email delivery",
+                         "region":"European Union","effectiveOn":"%s","listUrl":"https://uncava.com/legal/subprocessors"}
+                        """.formatted(java.time.LocalDate.now(java.time.ZoneOffset.UTC).plusDays(30)));
+
+        assertThat(as(admin, get(notices)).getResponse().getStatus()).isEqualTo(200);
+        expectRefused(403, "PLATFORM_STEP_UP_REQUIRED", as(admin, publish));
+        assertThat(db.queryForObject("SELECT count(*) FROM app_lm_subprocessor_notice WHERE provider = 'Step Up Mail'",
+                Integer.class)).isZero();
+
+        stepUp(admin, freshCode(admin, secret));
+
+        assertThat(as(admin, publish).getResponse().getStatus()).isEqualTo(201);
+    }
+
+    @Test
     @DisplayName("the fresh code lasts for the step-up window and no longer")
     void theWindowCloses() throws Exception {
         UUID workspace = newWorkspace();

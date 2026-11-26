@@ -8,6 +8,7 @@ import * as dataProtectionApi from "../../candidates/api/dataProtectionApi";
 import type { WorkspaceDetail } from "../../workspace/api/types";
 import * as workspaceApi from "../../workspace/api/workspaceApi";
 import * as dataRetentionApi from "../api/dataRetentionApi";
+import * as subprocessorNoticesApi from "../api/subprocessorNoticesApi";
 import type { CandidateRetention, RetentionDue, WorkspaceExport } from "../api/dataRetentionApi";
 import { saveBlob } from "../../../lib/saveBlob";
 import { SettingsDataRetentionPage } from "./SettingsDataRetentionPage";
@@ -35,6 +36,11 @@ vi.mock("../api/dataRetentionApi", async (importOriginal) => ({
   getLatestWorkspaceExport: vi.fn(),
   startWorkspaceExport: vi.fn(),
   downloadWorkspaceExport: vi.fn(),
+}));
+vi.mock("../api/subprocessorNoticesApi", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../api/subprocessorNoticesApi")>()),
+  getSubprocessorChanges: vi.fn(),
+  objectToSubprocessorChange: vi.fn(),
 }));
 vi.mock("../../auth/AuthProvider", () => ({ useAuth: () => ({ user: { workspace: { name: "Al-Futtaim Search" } } }) }));
 vi.mock("../../../lib/saveBlob", () => ({ saveBlob: vi.fn() }));
@@ -99,6 +105,7 @@ describe("SettingsDataRetentionPage", () => {
     vi.mocked(dataRetentionApi.getSuppressions).mockResolvedValue([]);
     vi.mocked(dataRetentionApi.getLatestWorkspaceExport).mockResolvedValue(null);
     vi.mocked(workspaceApi.workspace).mockResolvedValue(WORKSPACE);
+    vi.mocked(subprocessorNoticesApi.getSubprocessorChanges).mockResolvedValue([]);
   });
 
   it("draws only AI on people where the deployment holds the people controls back", async () => {
@@ -109,6 +116,7 @@ describe("SettingsDataRetentionPage", () => {
     expect(screen.queryByRole("region", { name: "Candidate retention" })).not.toBeInTheDocument();
     expect(dataRetentionApi.getCandidateRetention).not.toHaveBeenCalled();
     expect(dataRetentionApi.getSuppressions).not.toHaveBeenCalled();
+    expect(await screen.findByRole("region", { name: "Sub-processor changes" })).toBeInTheDocument();
   });
 
   describe("AI on people", () => {

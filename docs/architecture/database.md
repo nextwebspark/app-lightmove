@@ -636,6 +636,21 @@ each is counted once into `app_lm_platform_prompt_outcome_daily`, then deleted. 
 or a list's name; for a list, `document_items` is how many rows the reading left. A child of `app_lm_position`
 with V190's policy. Keys and counts only, never a value.
 
+V248 is sub-processor change notices (#1491, decision F7; `docs/gdpr/subprocessors.md`). `app_lm_subprocessor_notice`
+is a platform table, no workspace: `provider` (≤ 120), `receives` and `purpose` (≤ 200), `region` (≤ 80),
+`effective_on` (a date; a CHECK holds it at least 30 days after `published_at`'s UTC day), `list_url` (≤ 500, https
+by CHECK), `published_by_user_id` (set null with the account), `published_at`, and `announced_at` (stamped by the
+mailer's scheduled pass once every live workspace's admins hold a claim; publishing sends nothing); never edited
+otherwise. Two tenant tables
+under forced RLS beside it: `app_lm_subprocessor_notice_email`, one row per (`notice_id`, `workspace_id`, `user_id`)
+inserted before the email goes, with `attempts`, `next_attempt_at` (null once sent or given up) and `sent_at`; and
+`app_lm_subprocessor_objection`, one per (`workspace_id`, `notice_id`) — `reason` (≤ 2000, never blank),
+`objected_by_user_id`, `objected_at`, rewritten when an admin changes it. Three `SECURITY DEFINER` functions:
+`app_lm_workspaces_with_subprocessor_objections(notice)` and `app_lm_workspaces_with_subprocessor_emails_owed(at)`
+answer workspace ids (the console's read and the retry pass's walk), `app_lm_count_subprocessor_notice_replies()`
+counts per notice (emailed, owed, objections). Seeds the `SUBPROCESSOR_NOTICE_MANAGE` platform action for
+`SUPER_ADMIN`.
+
 V231 adds `app_lm_dashboard` (docs/custom-dashboards.md): a member's custom dashboard on a position (`project_id`, composite key to the project's workspace) or across the workspace (null) — `owner_user_id` (cascade with the account), `name` (≤ 80, never blank), `shared`, and `widgets` jsonb, an array of `{queryId, chart, options, title, layout: {x, y, w, h}}` (twelve-column grid; rows saved before it carry `size` instead, flowed into place by the SPA) naming charts of the server's query library. The choice only, never a figure: every chart is answered live. Forced RLS on its `workspace_id`. Staff-only.
 
 V230 cancels the open tasks an executive's removal orphaned before #1402 (`candidate_id` null and an `UNMAPPED` activity line for the person on the position at or after the task's creation; a rule task filed for someone never mapped has no such line and stays open), releasing a rule task's key as `Task.releaseRuleKey` does. Data only.

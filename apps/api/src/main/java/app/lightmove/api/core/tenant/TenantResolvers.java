@@ -129,6 +129,18 @@ public class TenantResolvers {
         return copies;
     }
 
+    /** Per sub-processor notice, the admins emailed, those still owed one and the objections: counts, never who. */
+    public Map<UUID, SubprocessorNoticeReplies> subprocessorNoticeReplies() {
+        Map<UUID, SubprocessorNoticeReplies> replies = new HashMap<>();
+        jdbc.query("SELECT notice_id, emailed, owed, objections FROM app_lm_count_subprocessor_notice_replies()",
+                (RowCallbackHandler) row -> {
+                    UUID noticeId = row.getObject("notice_id", UUID.class);
+                    replies.put(noticeId, new SubprocessorNoticeReplies(row.getLong("emailed"), row.getLong("owed"),
+                            row.getLong("objections")));
+                });
+        return replies;
+    }
+
     /** A run's or a consultant's own email due at {@code at}, or a claim still held: the dispatcher's work (V191). */
     public List<UUID> workspacesWithSendsDue(Instant at) {
         return workspaces("SELECT * FROM app_lm_workspaces_with_sends_due(?)", Timestamp.from(at));
@@ -172,6 +184,16 @@ public class TenantResolvers {
     /** An unsettled hold past its time, or a grant past its expiry still holding credits. */
     public List<UUID> workspacesWithLapsedCredits(Instant at, int limit) {
         return workspaces("SELECT * FROM app_lm_workspaces_with_lapsed_credits(?, ?)", Timestamp.from(at), limit);
+    }
+
+    /** The workspaces holding an objection to this sub-processor notice: the console reads each in its own scope. */
+    public List<UUID> workspacesWithSubprocessorObjections(UUID noticeId) {
+        return workspaces("SELECT * FROM app_lm_workspaces_with_subprocessor_objections(?)", noticeId);
+    }
+
+    /** A sub-processor notice email not yet sent and due again at {@code at}, for a notice not yet in effect (V248). */
+    public List<UUID> workspacesWithSubprocessorEmailsOwed(Instant at) {
+        return workspaces("SELECT * FROM app_lm_workspaces_with_subprocessor_emails_owed(?)", Timestamp.from(at));
     }
 
     private List<UUID> workspaces(String sql, Object... args) {

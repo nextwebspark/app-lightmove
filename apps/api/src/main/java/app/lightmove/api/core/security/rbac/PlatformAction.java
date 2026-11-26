@@ -25,5 +25,8 @@ public enum PlatformAction {
     EVAL_RUN,
 
     /** Read the application variables and their history, change one and reset it to its default. */
-    PLATFORM_SETTINGS_MANAGE
+    PLATFORM_SETTINGS_MANAGE,
+
+    /** Publish a sub-processor change, which emails every workspace's admins, and read the objections to it. */
+    SUBPROCESSOR_NOTICE_MANAGE
 }

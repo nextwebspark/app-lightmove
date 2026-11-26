@@ -130,6 +130,10 @@ public enum ErrorCode {
     /** Resetting an application variable that nothing overrides. */
     PLATFORM_SETTING_NOT_CHANGED(HttpStatus.CONFLICT, "That value is already on its default"),
 
+    /** An objection to a sub-processor change on or after the day it took effect. */
+    SUBPROCESSOR_NOTICE_CLOSED(HttpStatus.CONFLICT,
+            "This change has already taken effect, so it can no longer be objected to"),
+
     /** Account deletion, by a person with no password: the proof is a sign-in moments ago, as for two-factor. */
     ACCOUNT_SIGN_IN_AGAIN(HttpStatus.CONFLICT, "Sign in again, then delete your account within 10 minutes"),
 

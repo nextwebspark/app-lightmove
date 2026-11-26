@@ -3,6 +3,7 @@ import type { PlatformAction, User } from "../auth/api/types";
 import { TEMPLATE_LIBRARY_PATH } from "../templates/lib/labels";
 import { EVALS_PATH } from "./evals/lib/evalLabels";
 import { PROMPTS_PATH } from "./prompts/lib/promptLabels";
+import { SUBPROCESSORS_PATH } from "./subprocessors/lib/subprocessorLabels";
 import { VARIABLES_PATH } from "./variables/lib/variableLabels";
 
 export const PLATFORM_HOME = "/platform";
@@ -30,6 +31,7 @@ export const PLATFORM_SECTIONS: readonly PlatformSection[] = [
   { to: VARIABLES_PATH, label: "Variables", icon: ICONS.sliders, action: "PLATFORM_SETTINGS_MANAGE", wide: true },
   { to: PROMPTS_PATH, label: "Prompts", icon: ICONS.file, action: "PROMPT_MANAGE", wide: true, workArea: true },
   { to: EVALS_PATH, label: "Evals", icon: ICONS.flask, action: "EVAL_RUN", wide: true },
+  { to: SUBPROCESSORS_PATH, label: "Sub-processors", icon: ICONS.building, action: "SUBPROCESSOR_NOTICE_MANAGE", wide: true },
 ];
 
 /** Whether the person holds any platform action: what shows the Platform item and opens `/platform` at all. */

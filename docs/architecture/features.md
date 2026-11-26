@@ -897,6 +897,20 @@ with the value serving now, its default and who last changed it; an inline edit 
 and asking a change note (`VariableEditForm`), Reset to default (`ResetVariableDialog`) and History
 (`VariableHistoryDrawer`). A change and a reset go through the Confirm it's you dialog where two-factor is required.
 
+**Sub-processor notices** (#1491, decision F7, `subprocessor`, V248; `docs/gdpr/subprocessors.md`). A super admin
+publishes a new sub-processor from **Platform → Sub-processors** (`features/platform/subprocessors`,
+`/platform/subprocessors`) at least 30 days ahead, behind a fresh code. Publishing only commits the notice;
+`SubprocessorNoticeMailer`'s scheduled pass (`lightmove.platform.subprocessor-notice-announce`, a minute) then emails
+each active `WORKSPACE_MANAGE` holder of every workspace not deleted, once each (a claim per admin in
+`app_lm_subprocessor_notice_email` before the send), stamps the notice `announced_at` once every workspace passed (one
+that failed is walked again), and retries a refused one hourly with backoff until the change takes effect. Never on
+the request thread: the async pool's overflow runs on its submitter, so a listener there would walk every workspace
+inside the publish request. An admin objects in **Settings → Data & retention → Sub-processor changes** (`SubprocessorChangesCard`,
+drawn whether or not the deployment offers the people controls), which the email's link opens at
+`/settings/data?object={id}` through `useAddressedPanel`; one objection per workspace, changeable until the date, then
+`SUBPROCESSOR_NOTICE_CLOSED`. The console lists each notice with counts and reads one notice's objections workspace by
+workspace — its one tenant read (`docs/platform-console.md`).
+
 
 **Back navigation** is one rule across the SPA. Opening something — a drawer, a side panel, a record, another view — is a
 step in history (`useAddressedPanel`, `lib/useAddressedPanel.ts`), so Back closes it and lands on the list as it was left;
