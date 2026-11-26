@@ -10,12 +10,14 @@ its answer, status and basis, then fill the placeholders it names.
 **Status.** *Decided*: answered; only the build is left. *Agreed direction*: the business or counsel agreed the
 direction; a detail or a legal check remains. *Recommended*: engineering's proposal; the owner confirms.
 *Needs counsel*: a legal answer is required; the recommendation is stated. *Needs input*: a fact or choice from the
-business. 58 rows: 10 Decided, 7 Agreed direction, 23 Recommended, 14 Needs counsel, 4 Needs input.
+business. 58 rows: 9 Decided, 8 Agreed direction, 23 Recommended, 14 Needs counsel, 4 Needs input. F4 and F12 are
+engineering calls the 25 Nov answers adopted as settled, so they count as *Decided*.
 
 **Basis.** *Counsel 23 Nov*: counsel's inline reply. *Email 25 Nov*: the business's email. *Engineering*: an
 engineering recommendation. *Leadership* and *product default* as named.
 
-**Build** names the issue that carries the answer into the product (epic #1467), or says none is needed.
+**Build** names the issue that carries the answer into the product (epic #1467), or says none is needed. A document
+that receives the answer goes under **Fills**.
 
 ## A. Who we are (nextwebspark/uncava-website#26)
 
@@ -68,11 +70,11 @@ engineering recommendation. *Leadership* and *product default* as named.
 |---|---|---|---|---|---|---|
 | D1 | Does an objection to Uncava block the person for every customer? | keep the per-firm lists, and add an Uncava-level suppression for data Uncava controls itself (the vendor cache, B6) | Needs counsel | engineering | an issue to open once answered | — |
 | D2 | Is a restricted person hidden from client seats? | yes, automatically; the same build as B12 | Agreed direction | email 25 Nov | #1488 | — |
-| D3 | Are other people's names hidden in a subject access export? | keep: the firm's admin checks and removes them by hand. Confirm the sender of the email did not mean automatic hiding | Decided | email 25 Nov | none | [subject-requests-procedure.md](subject-requests-procedure.md) §3 |
-| D4 | May Uncava tell a requester which customers hold their data? | say that Uncava processes data for customers and send them to the firm; name firms only where the customer agrees; for the vendor cache, say what Uncava holds | Needs counsel | engineering | [subject-requests-procedure.md](subject-requests-procedure.md) §4 | — |
+| D3 | Are other people's names hidden in a subject access export? | keep: the firm's admin checks and removes them by hand. The sender of the 25 Nov email confirms they did not mean automatic hiding; if they did, an issue is opened to build it | Agreed direction | email 25 Nov | none unless the confirmation says otherwise | [subject-requests-procedure.md](subject-requests-procedure.md) §4 |
+| D4 | May Uncava tell a requester which customers hold their data? | say that Uncava processes data for customers and send them to the firm; name firms only where the customer agrees; for the vendor cache, say what Uncava holds | Needs counsel | engineering | none | [subject-requests-procedure.md](subject-requests-procedure.md) §4 |
 | D5 | A staff tool to find a person across every customer | not now: the requester names the firm. If built later: lookup by keyed hash, platform role only, second-person approval, every use logged (G4) | Recommended | engineering | none | — |
-| D6 | How long the request log and the breach register are kept | 3 years after each request closes; 5 years for the breach register | Recommended | engineering | docs ([retention-schedule.md](retention-schedule.md)) | — |
-| D7 | How carefully a requester's identity is checked | keep: light checks; ask for ID only where there is real doubt | Recommended | product default | docs ([subject-requests-procedure.md](subject-requests-procedure.md) §1) | — |
+| D6 | How long the request log and the breach register are kept | 3 years after each request closes; 5 years for the breach register | Recommended | engineering | none | [retention-schedule.md](retention-schedule.md) |
+| D7 | How carefully a requester's identity is checked | keep: light checks; ask for ID only where there is real doubt | Recommended | product default | none | [subject-requests-procedure.md](subject-requests-procedure.md) §1 |
 
 ## E. How long things are kept (#921)
 
@@ -90,7 +92,7 @@ engineering recommendation. *Leadership* and *product default* as named.
 | F1 | Transfer mechanism per US supplier (DPF, SCCs, UK IDTA or addendum) | collected per supplier when its DPA is signed; fills the sub-processor list | Needs input: Alok | engineering | — | `[mechanism to confirm]` on the DPA, privacy policy, sub-processor list |
 | F2 | Region of each email, payment and data supplier | known: Google Cloud `us-central1`, Vertex AI `global`, Recall `us-east-1`, ContactOut AWS `us-west-1`. Alok asks Resend, Stripe, Bright Data, HarvestAPI, Mapbox and Nylas | Needs input: Alok | engineering | — | `[Region]` on the sub-processor list |
 | F3 | Nylas and Recall: US or EU | stay on the US; switching to the EU is a configuration change, made when a customer or counsel requires it | Recommended | engineering | #1482 parked | sub-processor list |
-| F4 | Pin Vertex AI to one region | not now: the models used are not offered in a single region. Revisit when a customer or the law requires it ([residency-adr.md](residency-adr.md) §1). Supersedes #917 step 1's "pin to us-central1" and #925's first box | Decided | already decided | none | privacy policy, sub-processor list |
+| F4 | Pin Vertex AI to one region | not now: the models used are not offered in a single region. Revisit when a customer or the law requires it ([residency-adr.md](residency-adr.md) §1). Supersedes #917 step 1's "pin to us-central1" and #925's first box | Decided | email 25 Nov | none | privacy policy, sub-processor list |
 | F5 | How fast a customer hears of a breach, and which Gulf regulators are told | 48 hours from the moment Uncava knows; regulators per regime (UAE, DIFC, ADGM) and their deadlines are on counsel's list | Recommended | engineering | DPA text (website #29) | DPA, breach runbook |
 | F6 | Customer audits: frequency and notice | once a year, 30 days' notice, remote first; an extra audit after a breach | Recommended | engineering | DPA text (website #29) | DPA |
 | F7 | How customers hear of a new sub-processor, and the notice period | 30 days, by email to workspace admins and on the sub-processor page, with a right to object | Recommended | engineering | #1491 | DPA, sub-processor list |
@@ -98,14 +100,14 @@ engineering recommendation. *Leadership* and *product default* as named.
 | F9 | Where backups live | the database's region, the US; revisit with F3 and F11 | Recommended | engineering | #255 | security-of-processing |
 | F10 | Search terms in Cloud Run's request log | filter them out; deployed application logs already mask emails, LinkedIn links and phone numbers (#927); keep 30 days | Recommended | engineering | #1494 | — |
 | F11 | A separate European copy of Uncava | not now; revisit when an EU customer requires it ([residency-adr.md](residency-adr.md) §2) | Recommended | engineering | none | — |
-| F12 | A data processing agreement with every supplier | yes, with all of them, one by one; ContactOut first | Decided | engineering | business (Alok) | sub-processor list |
+| F12 | A data processing agreement with every supplier | yes, with all of them, one by one; ContactOut first; Alok owns it | Decided | engineering | business (Alok) | sub-processor list |
 
 ## G. Website and how the company runs (website #26, #27, #29, #30)
 
 | # | Decision | Answer | Status | Basis | Build | Fills |
 |---|---|---|---|---|---|---|
 | G1 | Which service handles the demo form and newsletter, and is the newsletter double opt-in? | Hakan chooses; it must offer a DPA and join the sub-processor list. Recommended: double opt-in | Needs input: Hakan | leadership | — | `[form processor]`, `[Provider]`, `[confirmed by double opt-in]` |
-| G2 | How long demo requests are kept | 12 months after the last contact if no deal; counsel confirms | Recommended | engineering | docs ([retention-schedule.md](retention-schedule.md)) | privacy policy `[period]` |
+| G2 | How long demo requests are kept | 12 months after the last contact if no deal; counsel confirms | Recommended | engineering | none | privacy policy `[period]`; [retention-schedule.md](retention-schedule.md) |
 | G3 | How long billing records are kept | follows A1; the accountant sets it (UAE rules ask 5 to 7 years, to verify) | Recommended | engineering | accountant, after A1 | privacy policy `[statutory period]` |
 | G4 | Staff access to live customer data | emergency only, recorded, approved by a second person | Recommended | engineering | #1485 | DPA Annex 1 |
 | G5 | Security training, supplier checks and incident response as written policies | drafts of the security, access-control, backup and incident policies are in PR #1406; staff training and supplier checks still to write | Recommended | engineering | PR #1406 | DPA Annex 1 |

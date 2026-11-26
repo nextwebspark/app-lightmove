@@ -19,7 +19,8 @@ table is swept only in the workspaces `app_lm_resolve_workspaces_with_retention_
 `WorkspaceScope`. `PersonErasureService` (#918) is how a person goes: by an admin from Candidates, or by an admin
 reviewing candidate retention (#921 part 2) — a workspace's period (Settings → Data & retention, V200
 `app_lm_workspace_retention`, `lightmove.retention.candidate-months` where it has not chosen, 24 ⚖️) lists whoever is
-untouched that long and on no live position; nothing deletes a person without that review. `WorkspacePurge` (#926,
+untouched that long and on no live position; nothing deletes a person without that review, except the never-contacted
+rule in **Consent periods** below (#1490), which erases without one. `WorkspacePurge` (#926,
 `lightmove.retention.workspace-purge-interval`) is how a workspace goes: a deleted workspace's members lose access at
 once, and `lightmove.retention.deleted-workspaces-after` (30 days ⚖️) later every row of every table carrying its
 `workspace_id` is deleted — but the audit trail and the billing records, kept by id — with every file under its
@@ -39,9 +40,16 @@ would name someone (`email`, `fullName`, `phone`, `linkedinUrl`, …) and strips
 `AuditDetailKeysTest` holds every key that sounds personal to a reviewed list. Rows written before #927 were scrubbed
 once by `ops/cloudsql/scrub-audit-pii.sql`.
 
-**Consent periods (E1, counsel 23 Nov 2026).** How long a candidate is kept, by the consent status of epic #1467.
-Agreed with counsel; the timers are built by #1475, the never-contacted rule by #1490. Every other period below still
-needs counsel's approval before `RETENTION_ENABLED` is turned on ([governance-decisions.md](governance-decisions.md) E1).
+**Consent periods (E1, counsel 23 Nov 2026; Never contacted B2, email 25 Nov 2026).** How long a candidate is kept,
+by the consent status of epic #1467. Agreed with counsel; the timers are built by #1475, the never-contacted rule by
+#1490. Every other period below still needs counsel's approval before `RETENTION_ENABLED` is turned on
+([governance-decisions.md](governance-decisions.md) E1).
+
+How they meet the workspace's review period: until #1475 ships, the review period above (24 months ⚖️ by default) is
+the only clock, and it still deletes no one without an admin's review. #1475 replaces that single period with the
+status's own; whether a status timer lists the person for review or deletes them is #1475's to settle with counsel.
+The one rule that already erases without review is Never contacted (#1490), and only where both `RETENTION_ENABLED`
+and `DATA_PROTECTION_ENABLED` are on.
 
 | Status | Meaning | Kept for | Built by |
 |---|---|---|---|
@@ -49,7 +57,7 @@ needs counsel's approval before `RETENTION_ENABLED` is turned on ([governance-de
 | Never contacted | grey, and never told or reached (B2) | 6 months from being added, then erased | #1490 |
 | Light green | consent for one mandate | until the mandate closes, + 12 months | #1475 |
 | Dark green | consent to stay on file | 24 months | #1475 |
-| Orange | consent requested, no answer yet | 3 months | #1475 |
+| Orange | consent requested, no answer yet. The request lapses unanswered after 30 days and the person is grey again (B8); the 3 months count from the request, so a lapsed request still holds the person until then | 3 months from the request | #1475 |
 | Red | do not contact: an objection or a stop request | no period of its own; never contacted again, and the suppression entry stays until an admin removes it | #924, #1489 |
 
 **Outside the application.** Records Uncava keeps by hand, not in any `app_lm_*` table.
@@ -59,6 +67,8 @@ needs counsel's approval before `RETENTION_ENABLED` is turned on ([governance-de
 | Request log ([subject-requests-procedure.md](subject-requests-procedure.md) §5) | 3 years after each request closes | D6, recommended |
 | Breach register ([breach-runbook.md](breach-runbook.md)) | 5 years | D6, recommended |
 | Website demo requests | 12 months after the last contact if no deal | G2, recommended |
+
+**Inside the application, by table.**
 
 | Table | Personal data | Purpose | Retention | Trigger | Job |
 |---|---|---|---|---|---|
@@ -89,7 +99,7 @@ needs counsel's approval before `RETENTION_ENABLED` is turned on ([governance-de
 | `app_lm_mailbox_authorization` | user | a mailbox connect in flight | until the connect completes | completion, account deletion | — |
 | `app_lm_mailbox_connection` | user, address, sealed refresh token | sending from the consultant's own mailbox | while connected | disconnected, workspace purge, account deletion | — |
 | `app_lm_zoom_connection` | user, sealed refresh token | Zoom links | while connected | disconnected, workspace purge, account deletion | — |
-| `app_lm_person` | the executive: name, profile, background, package | the candidate record | while held; reviewed for deletion once untouched for the workspace's period (default 24 months ⚖️) and on no live position | erasure, retention review | `PersonErasureService` |
+| `app_lm_person` | the executive: name, profile, background, package | the candidate record | while held; reviewed for deletion once untouched for the workspace's period (default 24 months ⚖️) and on no live position; the consent periods above set each status's own (#1475), and a never-contacted grey person is erased after 6 months without review (#1490) | erasure, retention review | `PersonErasureService` |
 | `app_lm_person_contact` | emails, phones | reaching the executive | with the person | erasure, edit | cascade |
 | `app_lm_person_photo` | photo | the drawer | with the person | erasure | cascade |
 | `app_lm_person_vendor_record` | each research vendor's answer for the executive, as sent; may name other people (people also viewed, recommenders) | the profile's further facts, without buying them again | with the person; replaced by the next answer from the same vendor | erasure | cascade |

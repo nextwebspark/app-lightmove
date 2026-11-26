@@ -63,7 +63,8 @@ what is held for access; delete the rows for erasure. Rows age out after 30 days
 2. **Forward** the request to each workspace's admins within [5] working days, through [the contact on the DPA],
    naming the person only as they named themselves. The firm answers within its own month with the tools in
    [use-cases.md](use-cases.md): export, erasure, restriction, suppression. Before a firm sends a subject access
-   export, its admin checks it and removes other people's names by hand (D3); nothing hides them automatically.
+   export, its admin checks it and removes other people's names by hand (D3, agreed direction: the sender of the
+   25 Nov email confirms automatic hiding was not meant); nothing hides them automatically.
 3. **Tell the requester** which role Uncava has, that the request has been passed to [the number of] firms using
    Uncava, and that each will answer them. Whether Uncava may name those firms is ⚖️.
 4. **Act on Uncava's own copy** (§3: the vendor cache) for an erasure or objection.
