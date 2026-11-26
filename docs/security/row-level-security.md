@@ -167,6 +167,12 @@ neither Hibernate nor `TriageCompanyWriter`'s native insert has to name it; and 
 composite FK, `(project_id, workspace_id) → app_lm_project (id, workspace_id)`, backed by
 `app_lm_project_id_workspace_uk`.
 
+**Client hiding is kept by triggers (V246, #1488).** `app_lm_project_candidate.client_hidden_reason` is written by
+three plain (`SECURITY INVOKER`) triggers — a candidate inserted, a person's `processing_restricted` changed, a share
+consent inserted or its status changed — through one rule function, `app_lm_client_hidden_reason`. They run as the
+writer, inside the writer's fence: the public privacy page and the consent scanner already open `WorkspaceScope`,
+so a trigger only ever reads and updates rows of the workspace whose row changed.
+
 **harden.sql owns two of the tables.** Once it has run, `app_lm_audit_event` and `app_lm_credit_entry` belong to
 `postgres`, which `lm_app` cannot `ALTER`. V190 protects them where Flyway still owns them and skips them with a
 warning where it does not; harden.sql's step 2c does the same as their owner, idempotently. **Re-run harden.sql as

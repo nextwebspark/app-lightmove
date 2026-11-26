@@ -117,7 +117,16 @@ them; a change is made in both.
 - **Asking from the person's record still needs the position.** The person-level doors (`consent-requests`,
   `consents/recorded`) ride the pool's `CANDIDATE_POOL_MANAGE`, so a share there also asks the named position's
   `WORK_EXECUTE`, as the position's own door does; the drawer lists only the positions the viewer works.
-- **The visibility switch warns, never blocks.** In consent mode with share offered, turning a person visible on the
+- **A no hides them from the client (#1488, B12).** A declined or withdrawn share hides the person from every read a
+  client seat reaches on that position — list, drawer, photo, Companies grid, talent map, report, export, projects
+  list counts, public API and MCP — whatever the team's switch says. The database keeps it: V246's
+  `app_lm_project_candidate.client_hidden_reason`, written by triggers when a share's status changes, a restriction
+  is set or lifted, or someone is mapped again, and every client read filters on the generated `shown_to_client`.
+  Asking again after a no, or the request lapsing, keeps them hidden until a yes (the last answer is read, since a
+  re-ask turns the row back to `REQUESTED`). The Pipeline card locks its switch off with "Hidden from {client}" and
+  the badge says Said no to sharing · Withdrew sharing; the pipeline row's `clientHiddenReason` is staff-only.
+- **The visibility switch warns, never blocks** for someone never asked or not yet answered (grey; B7 and B14 are with
+  counsel). In consent mode with share offered, turning a person visible on the
   Pipeline card or the Outreach pane's Client visible switch without a given share consent opens "No consent to share
   with {client} yet" (Ask first · Show anyway · Cancel). Show anyway shows them; the timeline line and the audit event
   then carry `withoutShareConsent: true`. Hiding someone never asks. The Outreach pane's Ask first sends at once in the
@@ -141,7 +150,5 @@ them; a change is made in both.
   responsible for your data. Sent by Uncava, the software they use." — changing it changes the privacy notice too.
 - The bulk dialog cannot say who will be skipped before it sends (the mockup's "{n} will be asked · {n} skipped");
   it says who was, after.
-- A withdrawn or declined share leaves the person visible to the client; the bell and badge say so, but nothing offers
-  Hide from client (governance decision B12).
 - The Ask dialog does not pre-tick the share purpose, as the mockup does: sharing is a separate act for one position.
 - Marketing consent is recorded only; nothing sends marketing.

@@ -24,6 +24,11 @@ public record PipelineRowResponse(
         Instant statusChangedAt,
         CandidateNextActionDto nextAction,
         boolean clientVisible,
+        /**
+         * Why a client seat cannot see them whatever {@code clientVisible} says (#1488): {@code processing_restricted},
+         * {@code share_declined} or {@code share_withdrawn}; null when nothing hides them. Staff-only, like the row.
+         */
+        String clientHiddenReason,
         /** When research filled the profile in; the photo is asked for only once it has. */
         String enrichedAt,
         /** Why they left, while they are out of process and someone has said; null otherwise. */

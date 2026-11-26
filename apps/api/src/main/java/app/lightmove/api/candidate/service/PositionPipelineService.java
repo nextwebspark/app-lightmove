@@ -241,6 +241,8 @@ public class PositionPipelineService {
                 row.getStatus().isOutOfProcess(), CandidateResponseMapper.stageOf(row.getStatus()),
                 row.getCreatedAt(), row.getStatusChangedAt(),
                 next.get(row.getId()),
-                row.isClientVisible(), row.getPerson().getProfile().enrichedAt(), why.get(row.getId()));
+                row.isClientVisible(),
+                row.getClientHiddenReason() == null ? null : row.getClientHiddenReason().value(),
+                row.getPerson().getProfile().enrichedAt(), why.get(row.getId()));
     }
 }

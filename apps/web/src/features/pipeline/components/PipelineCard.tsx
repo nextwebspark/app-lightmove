@@ -7,7 +7,7 @@ import { CandidateAvatar } from "../../candidates/components/CandidateAvatar";
 import { pipelineSwatchClass } from "../../candidates/lib/pipelineStatus";
 import type { PipelineRow } from "../api/types";
 import { shortDate } from "../lib/pipelineView";
-import { VisibilityToggle } from "./PipelineControls";
+import { HiddenFromClient, VisibilityToggle } from "./PipelineControls";
 import { BoardNextAction } from "./PipelineNextAction";
 import { useWorkspaceVocabulary } from "../../workspace/lib/vocabulary";
 
@@ -23,6 +23,7 @@ export interface CardDrag {
  */
 export function PipelineCard({
   projectId,
+  clientName,
   row,
   isSelected,
   isDragging,
@@ -37,6 +38,7 @@ export function PipelineCard({
   onAskShare,
 }: {
   projectId: string;
+  clientName: string;
   row: PipelineRow;
   isSelected: boolean;
   isDragging: boolean;
@@ -129,7 +131,7 @@ export function PipelineCard({
       <BoardNextAction row={row} onOpen={onOpenNextAction} />
       {shareBadge && <span className="flex min-w-0">{shareBadge}</span>}
       <span className="flex items-center gap-2">
-        <VisibilityToggle visible={row.clientVisible} name={row.fullName} onToggle={() => onToggleVisible(row)} />
+        <CardVisibility row={row} clientName={clientName} onToggleVisible={onToggleVisible} />
         {actions}
       </span>
     </article>
@@ -139,6 +141,7 @@ export function PipelineCard({
 /** Someone out of process, in the band under the stage their way out sits in: who, which way out, and since when. */
 export function OutOfProcessCard({
   projectId,
+  clientName,
   row,
   isDragging,
   drag,
@@ -148,6 +151,7 @@ export function OutOfProcessCard({
   shareBadge,
 }: {
   projectId: string;
+  clientName: string;
   row: PipelineRow;
   isDragging: boolean;
   drag: CardDrag;
@@ -184,9 +188,31 @@ export function OutOfProcessCard({
       </span>
       {shareBadge && <span className="flex min-w-0">{shareBadge}</span>}
       <span className="flex items-center gap-2">
-        <VisibilityToggle visible={row.clientVisible} name={row.fullName} onToggle={() => onToggleVisible(row)} />
+        <CardVisibility row={row} clientName={clientName} onToggleVisible={onToggleVisible} />
         {actions}
       </span>
     </article>
   );
+}
+
+/** The foot's switch, or, while a refusal or a restriction hides them from the client, the switch locked with why. */
+function CardVisibility({
+  row,
+  clientName,
+  onToggleVisible,
+}: {
+  row: PipelineRow;
+  clientName: string;
+  onToggleVisible: (row: PipelineRow) => void;
+}) {
+  if (row.clientHiddenReason) {
+    return (
+      <HiddenFromClient
+        reason={row.clientHiddenReason}
+        name={row.fullName}
+        clientName={clientName}
+      />
+    );
+  }
+  return <VisibilityToggle visible={row.clientVisible} name={row.fullName} onToggle={() => onToggleVisible(row)} />;
 }

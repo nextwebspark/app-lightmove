@@ -112,6 +112,8 @@ step_node spa/position.mjs
 step_node spa/companies.mjs
 step_node spa/import-export.mjs
 step_node spa/reports.mjs
+# A restricted person leaves the client's view. Skips itself while data protection is off, as it is on this profile.
+step_node spa/client-hiding.mjs
 # Stubs /api/v1 itself and needs only Vite: every screen at phone, tablet and desktop width.
 step_node spa/responsive.mjs
 # The same stubs: dialogs and drawers keep Tab inside and hand focus back on close.

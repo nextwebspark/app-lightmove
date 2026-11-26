@@ -164,6 +164,9 @@ Switch on `code`, never on `detail`. Quote `correlationId` when asking for suppo
 | 401 | `API_KEY_INVALID` | The key is missing, malformed, unknown, revoked or expired, or its owner lost access |
 | 403 | `API_KEY_SCOPE_MISSING` | The key lacks the scope the route needs (`requiredScope` names it) |
 | 403 | `FORBIDDEN` | A personal key's owner is not on that position |
+
+A personal key reads a position as its owner's seat: an owner seated only as the client reads no one hidden from the
+client — staff's switch, a restriction, or a declined or withdrawn share (#1488). A workspace key reads as staff.
 | 404 | `NOT_FOUND` | No such position in the key's workspace |
 | 429 | `RATE_LIMITED` | Too many requests; wait for `Retry-After` |
 
