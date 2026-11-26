@@ -1,6 +1,5 @@
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
-/** What an opened panel leaves in its history entry: which param it opened, and the rest of the address then. */
 interface PanelEntry {
   addressedPanel: { param: string; rest: string };
 }
@@ -8,23 +7,14 @@ interface PanelEntry {
 /** A panel held in the address (`?client=…`): opening is a step in history, stepping and closing are not. */
 export interface AddressedPanel {
   value: string | null;
-  /**
-   * Opens the panel as a step in history, so Back closes it; already open, it moves along instead. `alongside` sets
-   * params that live with it in the same write (`{ tab: "activity" }`).
-   */
+  /** A step in history from a closed panel; already open, it moves along instead. */
   open: (value: string, alongside?: Readonly<Record<string, string>>) => void;
-  /** Moves the open panel to another value in place, as Previous and Next do. */
   step: (value: string, alongside?: Readonly<Record<string, string>>) => void;
   /** Pops the step that opened it while the rest of the address is as it was; otherwise clears it in place. */
   close: () => void;
 }
 
-/**
- * The one rule for a panel, drawer or record opened from a list (`docs/architecture/features.md`, Back navigation):
- * opening adds a step, so Back closes it and lands on the list as left; moving along it or closing it adds none, so
- * Back never walks through everyone looked at, nor reopens what was just closed. `alsoClears` are the params that
- * live and die with the panel (`?tab=`, `?note=`).
- */
+/** The Back rule for a panel opened from a list: `docs/architecture/features.md`, Back navigation. */
 export function useAddressedPanel(param: string, alsoClears: readonly string[] = []): AddressedPanel {
   const [searchParams, setSearchParams] = useSearchParams();
   const location = useLocation();
@@ -60,7 +50,6 @@ export function useAddressedPanel(param: string, alsoClears: readonly string[] =
   return { value, open, step, close };
 }
 
-/** What else the entry carries (the Executives view's way back), kept on the step the panel adds. */
 function stateOf(state: unknown): Record<string, unknown> {
   return typeof state === "object" && state !== null ? (state as Record<string, unknown>) : {};
 }

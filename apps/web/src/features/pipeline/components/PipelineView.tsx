@@ -9,7 +9,7 @@ import { AskShareConsentDialog } from "../../candidates/components/consent/AskSh
 import { ShareConsentBadge } from "../../candidates/components/consent/ShareConsentBadge";
 import { ShareConsentPromptDialog } from "../../candidates/components/consent/ShareConsentPromptDialog";
 import { useShareConsents } from "../../candidates/lib/useShareConsents";
-import { drawerSectionOf, POSITION_STAFF_TABS, type DrawerSection } from "../../candidates/lib/drawerTabs";
+import { drawerSectionOf, OPEN_RECORD_COMPANIONS, POSITION_STAFF_TABS, type DrawerSection } from "../../candidates/lib/drawerTabs";
 import { EmailComposerDialog } from "../../outreach/components/EmailComposerDialog";
 import { NoteComposerModal } from "../../outreach/components/NoteComposerModal";
 import { mailboxStateOf, type MailboxState } from "../../outreach/lib/mailboxState";
@@ -24,9 +24,6 @@ import { useBoardMove, useClientVisibility } from "../lib/usePipelineWrites";
 import { PipelineBoard } from "./PipelineBoard";
 import type { CardActionKind, CardActionsUnavailable } from "./PipelineCardActions";
 import { ScheduleCallLauncher } from "./ScheduleCallLauncher";
-
-/** Where a link lands inside the open executive: these live and die with `?candidate=`. */
-const OPEN_EXECUTIVE_COMPANIONS = ["note", "section", "tab"] as const;
 
 /**
  * In universe read as the position's pipeline (`Position.dc.html`, `view=pipeline`): every executive on the position
@@ -52,7 +49,7 @@ export function PipelineView({
   const queryClient = useQueryClient();
   const { catalog } = usePipelineCatalog();
   const [searchParams] = useSearchParams();
-  const openPanel = useAddressedPanel("candidate", OPEN_EXECUTIVE_COMPANIONS);
+  const openPanel = useAddressedPanel("candidate", OPEN_RECORD_COMPANIONS);
   const [nextActionFor, setNextActionFor] = useState<NextActionTarget | null>(null);
   const [cardAction, setCardAction] = useState<{ kind: CardActionKind; row: PipelineRow } | null>(null);
   const [sharePrompt, setSharePrompt] = useState<PipelineRow | null>(null);

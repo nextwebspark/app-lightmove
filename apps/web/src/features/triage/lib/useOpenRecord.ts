@@ -7,10 +7,7 @@ import { useAddressedPanel } from "../../../lib/useAddressedPanel";
 import * as candidatesApi from "../../candidates/api/candidatesApi";
 import type { Candidate } from "../../candidates/api/types";
 import type { CandidateCompanyContext } from "../../candidates/components/CandidateDrawer";
-import { POSITION_STAFF_TABS, type DrawerTab } from "../../candidates/lib/drawerTabs";
-
-/** The params that live and die with the open executive: where a link lands inside the record. */
-export const OPEN_RECORD_COMPANIONS = ["note", "section", "tab"] as const;
+import { OPEN_RECORD_COMPANIONS, POSITION_STAFF_TABS, type DrawerTab } from "../../candidates/lib/drawerTabs";
 
 /**
  * What the profile drawer is open on: an existing executive, or a blank one at a known company. Both

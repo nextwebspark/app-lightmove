@@ -12,7 +12,7 @@ import { messageFor } from "../../../lib/errorCodes";
 import { hasRoomForRails } from "../../../lib/viewport";
 import { LeaveGuard } from "../../../components/layout/LeaveGuard";
 import { useAddressedPanel } from "../../../lib/useAddressedPanel";
-import { useAddressedSearch } from "../../../lib/useAddressedSearch";
+import { useAddressedQuery } from "../../../lib/useAddressedSearch";
 import { useAddressedGridPaging } from "../../../lib/useGridPaging";
 import { useAutosave } from "../../../lib/useAutosave";
 import { FULLSCREEN_PANEL, useFullscreen } from "../../../lib/useFullscreen";
@@ -50,9 +50,6 @@ const COMPANY_LAYOUT_COLUMNS = layoutColumnsOf(companyColumns);
 const DEFAULT_SORT: CompanySort = { field: "employees", direction: "desc" };
 
 const COMPANY_PARAM = "company";
-
-/** The search box has no chip beside it; `useAddressedSearch` asks for one. */
-const NO_CHIPS = ["all"] as const;
 
 /** A stable empty selection, so "nothing ticked" is one identity rather than a new object per render. */
 const NOTHING_SELECTED: RowSelectionState = {};
@@ -126,9 +123,7 @@ function StrategyEditor({ toggle }: { toggle: ReactNode }) {
 
   const [filter, setFilter] = useState<StrategyFilter>(() => strategy.data?.filter ?? NO_FILTER);
   const [showFilters, setShowFilters] = useState(hasRoomForRails);
-  const [searchParams] = useSearchParams();
-  const { query, setQuery, flushQuery } = useAddressedSearch("chip", NO_CHIPS, "all");
-  const debouncedQuery = searchParams.get("q") ?? "";
+  const { query, setQuery, flushQuery, addressedQuery: debouncedQuery } = useAddressedQuery();
   const paging = useAddressedGridPaging();
   const { page, size: pageSize } = paging;
   const [sort, setSort] = useGridSort("strategy", project.id, COMPANY_SORT_FIELDS, DEFAULT_SORT);

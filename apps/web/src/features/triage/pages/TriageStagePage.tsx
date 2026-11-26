@@ -13,6 +13,7 @@ import { cn } from "../../../lib/cn";
 import { codeOf, messageFor } from "../../../lib/errorCodes";
 import { useProjectRowsChanged } from "../../../lib/projectRows";
 import { useAddressedPanel } from "../../../lib/useAddressedPanel";
+import { useAddressedQuery } from "../../../lib/useAddressedSearch";
 import { useColumnVisibility } from "../../../lib/useColumnVisibility";
 import { useAddressedGridPaging } from "../../../lib/useGridPaging";
 import { EMPTY_GRID_LAYOUT, layoutColumnsOf, useGridLayout } from "../../../lib/useGridLayout";
@@ -21,6 +22,7 @@ import { sortableFieldsOf, useGridSort, type GridSort } from "../../../lib/useGr
 import { useAuth } from "../../auth/AuthProvider";
 import * as candidatesApi from "../../candidates/api/candidatesApi";
 import * as shareConsentApi from "../../candidates/api/shareConsentApi";
+import { OPEN_RECORD_COMPANIONS } from "../../candidates/lib/drawerTabs";
 import { useConsentMode } from "../../candidates/lib/useConsentMode";
 import { useWorkspaceVocabulary } from "../../workspace/lib/vocabulary";
 import { useExecutivesAtCompany } from "../../candidates/lib/useExecutivesAtCompany";
@@ -80,7 +82,7 @@ import { OFFERED_TRIAGE_STAGES, offeredStageBySlug } from "../lib/triageStages";
 import { COMPANIES_VIEW_LABELS, resolveCompaniesView, useCompaniesViews } from "../lib/useCompaniesViews";
 import { useLineSelection } from "../lib/useLineSelection";
 import { useExecutivesVisit } from "../lib/useExecutivesVisit";
-import { OPEN_RECORD_COMPANIONS, useOpenRecord } from "../lib/useOpenRecord";
+import { useOpenRecord } from "../lib/useOpenRecord";
 import { executivesOf } from "../lib/triageVocabulary";
 import { useProjectStream, type ProjectStreamKind } from "../../../lib/useProjectStream";
 
@@ -150,7 +152,7 @@ function TriageStage() {
   const paging = useAddressedGridPaging();
   const { page, size: pageSize } = paging;
   /** The toolbar's search, the same in every view: the server matches it, so the three views agree. */
-  const { search, setSearch, debouncedSearch } = useAddressedToolbarSearch();
+  const { query: search, setQuery: setSearch, addressedQuery: debouncedSearch } = useAddressedQuery();
   /** The Company column's own header filter: the company's name alone. */
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
@@ -1415,48 +1417,6 @@ function TriageStage() {
       {changeCandidateStatus.dialog}
     </div>
   );
-}
-
-/**
- * The toolbar's search held in the address (`?q=`), as `useAddressedSearch` holds a list's: written in place once
- * typing pauses, and an address moved elsewhere, by Back, is followed. The entry's state is kept on each write, since
- * the Executives view's way back rides on it. `debouncedSearch` is trimmed, so a trailing space neither refetches the
- * same page under a new key nor reads as a search.
- */
-function useAddressedToolbarSearch() {
-  const [searchParams, setSearchParams] = useSearchParams();
-  const location = useLocation();
-  const addressed = searchParams.get("q") ?? "";
-  const [search, setSearch] = useState(addressed);
-  const [seenAddressed, setSeenAddressed] = useState(addressed);
-  // What this hook last wrote and the address has yet to show; anything else arriving there is someone else's.
-  const [pending, setPending] = useState<string | null>(null);
-
-  if (addressed !== seenAddressed) {
-    setSeenAddressed(addressed);
-    if (addressed === pending) setPending(null);
-    else setSearch(addressed);
-  }
-
-  useEffect(() => {
-    const next = search.trim();
-    if (next === addressed) return;
-    const timer = window.setTimeout(() => {
-      setPending(next);
-      setSearchParams(
-        (current) => {
-          const params = new URLSearchParams(current);
-          if (next === "") params.delete("q");
-          else params.set("q", next);
-          return params;
-        },
-        { replace: true, state: location.state },
-      );
-    }, 300);
-    return () => window.clearTimeout(timer);
-  }, [search, addressed, setSearchParams, location.state]);
-
-  return { search, setSearch, debouncedSearch: addressed.trim() };
 }
 
 /** Previous and Next along the grid's people in the grid's order, and the peek's way into the Executives view. */
