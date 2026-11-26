@@ -22,7 +22,6 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * A workspace admin's side: every change Uncava announced, with this workspace's objection to each, and the objection
@@ -34,7 +33,6 @@ public class SubprocessorObjectionService {
 
     private final SubprocessorNoticeRepository notices;
     private final SubprocessorObjectionRepository objections;
-    private final TransactionTemplate transactions;
     private final AuditService audit;
     private final Clock clock;
 
@@ -56,16 +54,12 @@ public class SubprocessorObjectionService {
             throw ApiException.of(ErrorCode.SUBPROCESSOR_NOTICE_CLOSED);
         }
         String reason = request.reason().strip();
-        boolean changed = Boolean.TRUE.equals(transactions.execute(status -> {
-            boolean objectedBefore = objections.find(workspaceId, noticeId).isPresent();
-            objections.save(workspaceId, noticeId, userId, reason);
-            return objectedBefore;
-        }));
+        boolean objectedBefore = objections.save(workspaceId, noticeId, userId, reason);
         audit.event(WorkspaceEventType.SUBPROCESSOR_OBJECTION_RECORDED)
                 .actor(userId)
                 .workspace(workspaceId)
                 .target("subprocessorNotice", noticeId)
-                .detail("action", changed ? "changed" : "objected")
+                .detail("action", objectedBefore ? "changed" : "objected")
                 .detail("provider", notice.provider())
                 .from(httpRequest)
                 .record();

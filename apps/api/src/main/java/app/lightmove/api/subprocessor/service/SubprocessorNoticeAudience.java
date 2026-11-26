@@ -5,10 +5,14 @@ import app.lightmove.api.core.security.rbac.WorkspaceAction;
 import app.lightmove.api.core.security.repository.UserRepository;
 import app.lightmove.api.workspace.constant.MemberStatus;
 import app.lightmove.api.workspace.repository.WorkspaceMemberRepository;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springframework.jdbc.core.RowCallbackHandler;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Component;
 
@@ -39,11 +43,15 @@ public class SubprocessorNoticeAudience {
     }
 
     /** Any workspace's name, deleted or not: the console names who objected even after they left. */
-    public Optional<String> workspaceName(UUID workspaceId) {
-        return jdbc.sql("SELECT name FROM app_lm_workspace WHERE id = :id")
-                .param("id", workspaceId)
-                .query(String.class)
-                .optional();
+    public Map<UUID, String> workspaceNames(Collection<UUID> workspaceIds) {
+        if (workspaceIds.isEmpty()) {
+            return Map.of();
+        }
+        Map<UUID, String> names = new HashMap<>();
+        jdbc.sql("SELECT id, name FROM app_lm_workspace WHERE id IN (:ids)")
+                .param("ids", workspaceIds)
+                .query((RowCallbackHandler) row -> names.put(row.getObject("id", UUID.class), row.getString("name")));
+        return names;
     }
 
     public List<User> adminsOf(UUID workspaceId) {

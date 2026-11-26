@@ -196,6 +196,8 @@ class SubprocessorNoticeIntegrationTest extends PositionTemplateFlowSupport {
                 .isEqualTo(1);
         assertThat(count("SELECT count(*) FROM app_lm_audit_event WHERE event_type = 'SUBPROCESSOR_OBJECTION_RECORDED'"
                 + " AND target_id = '" + noticeId + "' AND metadata->>'action' = 'changed'")).isEqualTo(1);
+        assertThat(count("SELECT count(*) FROM app_lm_audit_event WHERE event_type = 'SUBPROCESSOR_OBJECTION_RECORDED'"
+                + " AND target_id = '" + noticeId + "' AND metadata->>'action' = 'objected'")).isEqualTo(1);
 
         expect(400, putJson(alpha.token(), objection(noticeId), reason("   ")));
         expect(400, putJson(alpha.token(), objection(noticeId), reason("x".repeat(2001))));

@@ -12,6 +12,7 @@ import app.lightmove.api.subprocessor.dto.PlatformSubprocessorObjectionResponse;
 import app.lightmove.api.subprocessor.dto.PublishSubprocessorNoticeRequest;
 import app.lightmove.api.subprocessor.model.SubprocessorNotice;
 import app.lightmove.api.subprocessor.model.SubprocessorNoticeDraft;
+import app.lightmove.api.subprocessor.model.SubprocessorObjection;
 import app.lightmove.api.subprocessor.repository.SubprocessorNoticeRepository;
 import app.lightmove.api.subprocessor.repository.SubprocessorObjectionRepository;
 import jakarta.servlet.http.HttpServletRequest;
@@ -77,11 +78,16 @@ public class SubprocessorNoticeService {
     /** Every workspace's objection to the notice, the latest first. */
     public List<PlatformSubprocessorObjectionResponse> objectionsTo(UUID noticeId) {
         require(noticeId);
-        return resolvers.workspacesWithSubprocessorObjections(noticeId).stream()
+        List<SubprocessorObjection> held = resolvers.workspacesWithSubprocessorObjections(noticeId).stream()
                 .flatMap(workspaceId -> WorkspaceScope.call(workspaceId,
                         () -> objections.find(workspaceId, noticeId)).stream())
+                .toList();
+        Map<UUID, String> workspaceNames = audience.workspaceNames(held.stream()
+                .map(SubprocessorObjection::workspaceId)
+                .toList());
+        return held.stream()
                 .map(objection -> new PlatformSubprocessorObjectionResponse(objection.workspaceId(),
-                        audience.workspaceName(objection.workspaceId()).orElse("A deleted workspace"),
+                        workspaceNames.getOrDefault(objection.workspaceId(), "A deleted workspace"),
                         objection.objectedByName(), objection.reason(), objection.objectedAt()))
                 .sorted(Comparator.comparing(PlatformSubprocessorObjectionResponse::objectedAt).reversed())
                 .toList();

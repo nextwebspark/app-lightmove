@@ -38,20 +38,26 @@ public class SubprocessorObjectionRepository {
                 .optional();
     }
 
-    /** A second objection from the workspace replaces its first, with who wrote it and when. */
-    public void save(UUID workspaceId, UUID noticeId, UUID userId, String reason) {
-        jdbc.sql("""
+    /**
+     * A second objection from the workspace replaces its first, with who wrote it and when.
+     *
+     * @return true when the workspace had objected before: one statement, so two admins at once cannot both be first
+     */
+    public boolean save(UUID workspaceId, UUID noticeId, UUID userId, String reason) {
+        return jdbc.sql("""
                         INSERT INTO app_lm_subprocessor_objection (workspace_id, notice_id, objected_by_user_id, reason)
                         VALUES (:workspaceId, :noticeId, :userId, :reason)
                         ON CONFLICT (workspace_id, notice_id) DO UPDATE
                             SET reason = EXCLUDED.reason, objected_by_user_id = EXCLUDED.objected_by_user_id,
                                 objected_at = now()
+                        RETURNING (xmax <> 0) AS objected_before
                         """)
                 .param("workspaceId", workspaceId)
                 .param("noticeId", noticeId)
                 .param("userId", userId)
                 .param("reason", reason)
-                .update();
+                .query(Boolean.class)
+                .single();
     }
 
     private static SubprocessorObjection objectionOf(ResultSet row, int rowNumber) throws SQLException {
