@@ -606,6 +606,11 @@ platform tables holding keys and counts: no content, no person, no workspace. `a
 so the decision on it is counted against that version; null, or a key missing, is a value proposed before the
 column. Staff-only like the flags, and it names a prompt version, never a reading.
 
+V247 (#1490) records which version of Uncava's own notice to executives a person was last sent:
+`app_lm_person.uncava_notice_version` and `uncava_notice_sent_at`, both or neither, written once an email carrying
+the link was delivered. `app_lm_person_never_contacted_idx` (`workspace_id, created_at, id`, partial: never told, not
+restricted, not do not contact) serves `NeverContactedErasure`'s oldest-first read.
+
 V244 is `app_lm_position_suggested_field` (#1452): for each field a document reading filled on a brief, the
 `prompt_id` and `version` that suggested it, keyed by (`position_id`, `field_key`), until the brief is published and
 each is counted once into `app_lm_platform_prompt_outcome_daily`, then deleted. `field_key` is a scalar's brief key

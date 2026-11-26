@@ -3,6 +3,6 @@ package app.lightmove.api.candidate.model;
 /**
  * The fixed block one outreach email ends with, and the one-click address its {@code List-Unsubscribe} header
  * names. {@code givesNotice} says the firm's privacy details are set up, so the email told the person what a privacy
- * notice would have.
+ * notice would have; {@code linksUncavaNotice} that it linked Uncava's own notice to executives (#1490).
  */
-public record OutreachPrivacyFooter(String html, String oneClickUrl, boolean givesNotice) {}
+public record OutreachPrivacyFooter(String html, String oneClickUrl, boolean givesNotice, boolean linksUncavaNotice) {}

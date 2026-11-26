@@ -857,6 +857,10 @@ lightmove:
   legal:
     dpa-version: ${LEGAL_DPA_VERSION:}
     dpa-url: ${LEGAL_DPA_URL:}
+    # Uncava's own public notice to the executives it holds data on (#1490). Both blank until counsel publishes it:
+    # no email links it and no version is recorded. Set together; an https link.
+    candidate-notice-version: ${LEGAL_CANDIDATE_NOTICE_VERSION:}
+    candidate-notice-url: ${LEGAL_CANDIDATE_NOTICE_URL:}
 
   # How long system rows holding personal data are kept (#921): one value per row of
   # docs/gdpr/retention-schedule.md, swept every sweep-interval by RetentionSweeper. Defaults await counsel.
@@ -880,6 +884,11 @@ lightmove:
     workspace-purge-interval: ${RETENTION_WORKSPACE_PURGE_INTERVAL:PT15M}
     workspace-exports-after: ${RETENTION_WORKSPACE_EXPORTS_AFTER:7d}
     workspace-export-deadline: ${RETENTION_WORKSPACE_EXPORT_DEADLINE:2h}
+    # Grey (no consent) and never contacted (#1490, decisions B2 and E1): erased this many months after being added,
+    # or after the last position they were on was archived. Daily; blank months turns it off.
+    never-contacted-months: ${RETENTION_NEVER_CONTACTED_MONTHS:6}
+    never-contacted-per-run: ${RETENTION_NEVER_CONTACTED_PER_RUN:500}
+    never-contacted-scan: ${RETENTION_NEVER_CONTACTED_SCAN:0 40 2 * * *}
 
   # Forced row-level security on the tenant tables (V184). On, a database that would not enforce it — a superuser or
   # BYPASSRLS runtime role, an unforced table — fails the boot; off, it is only a warning.

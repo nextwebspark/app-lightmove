@@ -71,6 +71,24 @@ describe("PrivacyLinkPage", () => {
     expect(privacyPageApi.objectFromPrivacyPage).toHaveBeenCalledWith("the-token");
   });
 
+  it("links Uncava's own notice to executives once it is published, and nothing before (#1490)", async () => {
+    vi.mocked(privacyPageApi.getPrivacyPage).mockResolvedValue(PAGE);
+    const { unmount } = renderPage();
+    expect(await screen.findByRole("heading", { name: "What we hold about you, and your choices" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "How Uncava handles your details" })).not.toBeInTheDocument();
+    unmount();
+
+    vi.mocked(privacyPageApi.getPrivacyPage).mockResolvedValue({
+      ...PAGE,
+      uncavaNoticeUrl: "https://uncava.com/executive-privacy",
+    });
+    renderPage();
+    expect(await screen.findByRole("link", { name: "How Uncava handles your details" })).toHaveAttribute(
+      "href",
+      "https://uncava.com/executive-privacy",
+    );
+  });
+
   it("opens an email's stop link on its confirmation, and stops emails only once confirmed", async () => {
     vi.mocked(privacyPageApi.getPrivacyPage).mockResolvedValue(PAGE);
     vi.mocked(privacyPageApi.optOutFromPrivacyPage).mockResolvedValue(undefined);

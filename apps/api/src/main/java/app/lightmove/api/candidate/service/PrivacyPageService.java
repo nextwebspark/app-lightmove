@@ -92,6 +92,7 @@ public class PrivacyPageService {
     private final EmailTemplates templates;
     private final ShareTargets shareTargets;
     private final String baseUrl;
+    private final String candidateNoticeUrl;
 
     public PrivacyPageService(TenantResolvers resolvers, RateLimitGuard rateLimit, NamedParameterJdbcTemplate jdbc,
                               PersonRepository people, CandidatePrivacySettingsService settings,
@@ -116,6 +117,7 @@ public class PrivacyPageService {
         this.templates = templates;
         this.shareTargets = shareTargets;
         this.baseUrl = properties.web().baseUrl();
+        this.candidateNoticeUrl = properties.legal().candidateNoticeUrl();
     }
 
     public PrivacyPageResponse open(String token, HttpServletRequest request) {
@@ -126,7 +128,7 @@ public class PrivacyPageService {
             if (link.isExpired(clock.instant())) {
                 return new PrivacyPageResponse(true, firm.controllerName(), firm.privacyContactEmail(),
                         firm.noticeUrl(), null, null, null, List.of(), link.expiresAt(), link.purpose().value(),
-                        List.of());
+                        List.of(), candidateNoticeUrl);
             }
             jdbc.update("UPDATE app_lm_person_privacy_link SET last_opened_at = now() WHERE id = :id",
                     new MapSqlParameterSource("id", link.id()));
@@ -134,7 +136,7 @@ public class PrivacyPageService {
             return new PrivacyPageResponse(false, firm.controllerName(), firm.privacyContactEmail(), firm.noticeUrl(),
                     PersonPrivacyService.basisOf(person, firm).value(), person.getSource().value(),
                     person.getCreatedAt(), categoriesOf(person), link.expiresAt(), link.purpose().value(),
-                    consentsShownOn(link, person, firm));
+                    consentsShownOn(link, person, firm), candidateNoticeUrl);
         });
     }
 

@@ -175,7 +175,10 @@ public class AuditLogPhrasing {
         on(ProjectEventType.PERSON_PROCESSING_RESTRICTED, line -> "Restricted processing of a candidate");
         on(ProjectEventType.PERSON_PROCESSING_RESTRICTION_LIFTED, line -> "Lifted a candidate's processing restriction");
         on(ProjectEventType.PERSON_ERASED, line -> line.is("reason", "retention")
-                ? "Permanently deleted a candidate past the retention period" : "Permanently deleted a candidate");
+                ? "Permanently deleted a candidate past the retention period"
+                : line.is("reason", "retention-never-contacted")
+                        ? "Automatically deleted a candidate never contacted within the retention period"
+                        : "Permanently deleted a candidate");
         on(ProjectEventType.PERSON_RETENTION_KEPT, line -> "Kept a candidate due for deletion");
         on(ProjectEventType.PERSON_LAWFUL_BASIS_CHANGED, line -> "Recorded a candidate's lawful basis");
         on(ProjectEventType.PERSON_PRIVACY_NOTICE_SENT, line -> "Sent a candidate a privacy notice");

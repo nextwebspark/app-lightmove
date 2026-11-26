@@ -84,11 +84,21 @@ public class PersonErasureService {
     @Transactional
     public boolean eraseUnderRetention(UUID userId, UUID workspaceId, UUID personId, Predicate<UUID> stillDue,
                                        HttpServletRequest httpRequest) {
+        return eraseUnderRetention(userId, workspaceId, personId, stillDue, httpRequest, RETENTION_REASON);
+    }
+
+    /**
+     * As above, under a rule of its own ({@code reason}, the audit line's): the never-contacted pass (#1490) erases
+     * with no actor and no request, and its line says why.
+     */
+    @Transactional
+    public boolean eraseUnderRetention(UUID userId, UUID workspaceId, UUID personId, Predicate<UUID> stillDue,
+                                       HttpServletRequest httpRequest, String reason) {
         Optional<ErasingRow> row = lockPerson(workspaceId, personId);
         if (row.isEmpty() || !stillDue.test(personId)) {
             return false;
         }
-        eraseLocked(userId, workspaceId, personId, row.get(), false, RETENTION_REASON, httpRequest);
+        eraseLocked(userId, workspaceId, personId, row.get(), false, reason, httpRequest);
         return true;
     }
 

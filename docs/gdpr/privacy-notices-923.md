@@ -127,6 +127,24 @@ Stop emails from us". With the firm's details not yet set it reads "We hold …"
   `EnrollmentCandidateResponse` and `ConversationComposerResponse`) and draw it read-only under the email.
 - Off with `DATA_PROTECTION_ENABLED`: no footer, no headers, no link minted.
 
+## Uncava's own notice to executives (#1490)
+
+ContactOut confirmed Uncava is an independent controller of the profile data it returns (decision B6), so Uncava owes
+those people a notice of its own: a public page on the website (decision B2), written by counsel.
+
+- **Configuration.** `LEGAL_CANDIDATE_NOTICE_VERSION` and `LEGAL_CANDIDATE_NOTICE_URL` (`lightmove.legal.*`,
+  `LegalSettings`), set together or neither, an https link. Blank until counsel publishes the notice: nothing links
+  it and nothing is recorded. Neither is in `deploy.yml`; set them on the Cloud Run service, as the DPA pair is.
+- **Where it is linked.** Every email a candidate receives: the firm's on-behalf footer ("Sent by {firm} with
+  Uncava · How Uncava handles your details", `EmailRenderer`) on privacy notices, consent and share requests,
+  renewals and confirmations; the outreach footer between Our privacy notice and Stop emails from us; and the public
+  `/privacy/:token` page (`PrivacyPageResponse.uncavaNoticeUrl`), live and expired. The previews draw it from
+  `GET /api/v1/data-protection/config` (`candidateNoticeUrl`).
+- **What is recorded.** `app_lm_person.uncava_notice_version` and `uncava_notice_sent_at` (V247), written by
+  `UncavaNoticeRecords` only once an email carrying the link was delivered (the mailers after the provider took it,
+  outreach after the send); a refused email records nothing, and a later delivery never winds the record back. The
+  subject access export carries both, with the rest of the person row.
+
 ## Not notified
 
 The Candidates view `not_notified` (Filter → Show): held more than 30 days and never told. It is a list to act on, not a rule:

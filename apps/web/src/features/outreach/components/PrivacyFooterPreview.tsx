@@ -1,16 +1,23 @@
 import { Icon, ICONS } from "../../../components/layout/Icon";
+import { useDataProtection } from "../../candidates/lib/useDataProtection";
 
 /**
  * The privacy footer every outreach email ends with (`Outreach.dc.html`'s review footer), drawn as the executive
  * receives it. The links are drawn, never followed: each email gets a stop link of its own when it is sent.
  */
 export function PrivacyFooterPreview({ statement }: { statement: string }) {
+  const { candidateNoticeUrl } = useDataProtection();
   return (
     <div
       aria-label="Privacy footer"
       className="mt-3.5 border-t border-u-border pt-2.5 text-meta text-u-text3"
     >
       {statement} <span className="text-u-accent underline">Our privacy notice</span> ·{" "}
+      {candidateNoticeUrl && (
+        <>
+          <span className="text-u-accent underline">How Uncava handles your details</span> ·{" "}
+        </>
+      )}
       <span className="text-u-accent underline">Stop emails from us</span>
       <div className="mt-1 flex items-center gap-1.5 font-mono text-meta text-u-text3">
         <Icon d={ICONS.lock} size={11} />

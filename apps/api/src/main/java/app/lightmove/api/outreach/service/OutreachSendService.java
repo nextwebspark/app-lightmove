@@ -267,6 +267,8 @@ public class OutreachSendService {
             privacy.recordToldByOutreach(enrollment.getWorkspaceId(), enrollment.getPersonId(),
                     enrollment.getSenderUserId(), now);
         }
+        privacy.recordUncavaNoticeDelivered(enrollment.getWorkspaceId(), enrollment.getPersonId(), prepared.footer(),
+                now);
         audit.projectEvent(ProjectEventType.OUTREACH_EMAIL_SENT, enrollment.getSenderUserId(),
                         enrollment.getWorkspaceId(), enrollment.getProjectId(), null)
                 .detail("sequenceId", sequence.getId().toString())

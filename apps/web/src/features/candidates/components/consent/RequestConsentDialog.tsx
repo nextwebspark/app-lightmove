@@ -20,6 +20,7 @@ import {
   type PersonalPurpose,
 } from "../../lib/consentPreview";
 import { DAY_MS, recentAnswerOrAskOf } from "../../lib/consentRecency";
+import { useDataProtection } from "../../lib/useDataProtection";
 import { useWorkspaceVocabulary } from "../../../workspace/lib/vocabulary";
 
 /** One person from the drawer, or the Candidates selection. */
@@ -71,6 +72,7 @@ export function RequestConsentDialog({
 }) {
   const vocabulary = useWorkspaceVocabulary();
   const toast = useToast();
+  const { candidateNoticeUrl } = useDataProtection();
   const [now] = useState(() => Date.now());
   const single = target.kind === "person" ? target.person : null;
   const people = target.kind === "selection" ? target.people : [];
@@ -345,6 +347,9 @@ export function RequestConsentDialog({
               Choose your answers
             </span>
             <span className="font-mono text-meta text-u-accent">Our privacy notice</span>
+            {candidateNoticeUrl && (
+              <span className="font-mono text-meta text-u-accent">How Uncava handles your details</span>
+            )}
           </div>
         </div>
         {blocked && single && (

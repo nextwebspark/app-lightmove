@@ -7,7 +7,11 @@ import app.lightmove.api.candidate.model.QueuedConsentRequest;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.email.service.EmailSender;
+import java.time.Clock;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
@@ -29,25 +33,33 @@ public class ConsentRequestMailer {
     private final PersonConsentStore consents;
     private final PersonActivityRecorder activity;
     private final AuditService audit;
+    private final UncavaNoticeRecords uncavaNotice;
+    private final Clock clock;
 
     @Async
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onQueued(ConsentRequestsQueued queued) {
-        List<QueuedConsentRequest> refused = queued.requests().stream()
-                .filter(request -> !emailSender.trySend(request.email()))
-                .toList();
-        if (refused.isEmpty()) {
+        Map<Boolean, List<QueuedConsentRequest>> byDelivery = queued.requests().stream()
+                .collect(Collectors.partitioningBy(request -> emailSender.trySend(request.email())));
+        List<UUID> delivered = byDelivery.get(true).stream().map(QueuedConsentRequest::personId).toList();
+        List<QueuedConsentRequest> refused = byDelivery.get(false);
+        if (refused.isEmpty() && (delivered.isEmpty() || uncavaNotice.versionCarried() == null)) {
             return;
         }
-        refusals.inOwnTransaction(queued.workspaceId(),
-                () -> refused.forEach(request -> recordRefused(queued, request)));
+        refusals.inOwnTransaction(queued.workspaceId(), () -> {
+            uncavaNotice.recordDelivered(queued.workspaceId(), delivered, clock.instant());
+            refused.forEach(request -> recordRefused(queued, request));
+        });
     }
 
     /** A refused confirmation undoes nothing: the answer stands, and the person can still write to the firm. */
     @Async
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onConfirmation(ConsentConfirmationQueued confirmation) {
-        emailSender.trySend(confirmation.email());
+        if (emailSender.trySend(confirmation.email()) && uncavaNotice.versionCarried() != null) {
+            refusals.inOwnTransaction(confirmation.workspaceId(), () -> uncavaNotice.recordDelivered(
+                    confirmation.workspaceId(), List.of(confirmation.personId()), clock.instant()));
+        }
     }
 
     private void recordRefused(ConsentRequestsQueued queued, QueuedConsentRequest request) {

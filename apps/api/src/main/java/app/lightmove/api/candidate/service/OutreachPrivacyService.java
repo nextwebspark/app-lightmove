@@ -15,6 +15,7 @@ import app.lightmove.api.core.email.service.EmailTemplates;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -44,6 +45,7 @@ public class OutreachPrivacyService {
     private final CandidatePrivacySettingsService settings;
     private final PersonActivityRecorder activity;
     private final AuditService audit;
+    private final UncavaNoticeRecords uncavaNotice;
 
     public boolean isOffered() {
         DataProtectionSettings dataProtection = properties.dataProtection();
@@ -63,10 +65,11 @@ public class OutreachPrivacyService {
         String baseUrl = properties.web().baseUrl();
         String page = baseUrl + "/privacy/" + token;
         String notice = firm.noticeUrl() == null ? page : firm.noticeUrl();
+        String candidateNoticeUrl = properties.legal().candidateNoticeUrl();
         String html = templates.buildOutreachPrivacyFooterHtml(statementOf(person, firm), notice,
-                page + "?action=opt-out");
+                page + "?action=opt-out", candidateNoticeUrl);
         return new OutreachPrivacyFooter(html, baseUrl + "/api/v1/privacy/links/" + token + "/opt-out",
-                firm.isReadyForNotices());
+                firm.isReadyForNotices(), candidateNoticeUrl != null);
     }
 
     /**
@@ -100,6 +103,15 @@ public class OutreachPrivacyService {
                 .actor(senderUserId).workspace(workspaceId).target(PERSON_TARGET, personId)
                 .detail("channel", PrivacyNoticeChannel.OUTREACH_EMAIL.value())
                 .record();
+    }
+
+    /** The email that went linked Uncava's own notice: its version is now the person's (#1490). */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void recordUncavaNoticeDelivered(UUID workspaceId, UUID personId, OutreachPrivacyFooter footer,
+                                            Instant sentAt) {
+        if (footer != null && footer.linksUncavaNotice() && personId != null) {
+            uncavaNotice.recordDelivered(workspaceId, List.of(personId), sentAt);
+        }
     }
 
     private static String statementOf(Person person, CandidatePrivacySettings firm) {

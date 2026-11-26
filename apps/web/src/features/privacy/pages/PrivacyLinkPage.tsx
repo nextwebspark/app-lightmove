@@ -88,6 +88,15 @@ export default function PrivacyLinkPage() {
         {firm && (
           <p className="mx-1 mt-4 font-mono text-meta text-u-text3">
             {firm} is responsible for your data. This page is provided by Uncava, the software they use.
+            {page.data?.uncavaNoticeUrl && (
+              <>
+                {" "}
+                <a href={page.data.uncavaNoticeUrl} target="_blank" rel="noreferrer" className="text-u-accent">
+                  How Uncava handles your details
+                </a>
+                .
+              </>
+            )}
             {validity}
           </p>
         )}
