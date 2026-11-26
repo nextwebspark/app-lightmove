@@ -9,6 +9,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import app.lightmove.api.FixtureJdbc;
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
+import app.lightmove.api.core.email.constant.EmailSenderIdentity;
 import app.lightmove.api.core.email.model.EmailMessage;
 import app.lightmove.api.notification.service.NotificationEmails;
 import java.time.Duration;
@@ -90,6 +91,7 @@ class PersonPrivacyNoticeIntegrationTest extends FlowTestSupport {
         assertThat(notice.to()).isEqualTo("noor@example.com");
         assertThat(notice.senderName()).isEqualTo("Meridian Search Partners FZ-LLC");
         assertThat(notice.replyTo()).isEqualTo("privacy@meridian.example");
+        assertThat(notice.senderIdentity()).isEqualTo(EmailSenderIdentity.PRIVACY);
         assertThat(notice.textBody()).contains("https://meridian.example/privacy").doesNotContain("Uncava ·")
                 .contains("which came from our own research");
         String token = tokenOf(notice);

@@ -405,7 +405,7 @@ public class EmailTemplates {
      */
     public EmailMessage buildPrivacyNoticeEmail(String recipient, String firm, String replyTo, String sourcePhrase,
                                                 String basisPhrase, String pageLink, String noticeUrl) {
-        return renderer.renderOnBehalfOf(recipient, "How %s holds your details".formatted(firm), EmailContent.of(
+        return renderer.renderPrivacyMail(recipient, "How %s holds your details".formatted(firm), EmailContent.of(
                 "How we hold your details",
                 EmailParagraph.of("%s holds some of your professional details, such as your name, career history and "
                                 + "work contact details, which came from %s. We hold them to consider you for senior "
@@ -434,7 +434,7 @@ public class EmailTemplates {
                 + "answer, nothing changes."));
         blocks.add(new EmailAction("Choose your answers", pageLink));
         blocks.add(consentCloseOf("This link works until %s.".formatted(linkUntil), noticeUrl, replyTo));
-        return renderer.renderOnBehalfOf(recipient, "%s would like your permission".formatted(firm),
+        return renderer.renderPrivacyMail(recipient, "%s would like your permission".formatted(firm),
                 new EmailContent("Your permission", blocks), firm, replyTo);
     }
 
@@ -448,7 +448,7 @@ public class EmailTemplates {
                                                       String linkUntil) {
         String searchFor = clientName == null ? "a confidential client" : clientName;
         String shareWith = clientName == null ? "the client" : clientName;
-        return renderer.renderOnBehalfOf(recipient,
+        return renderer.renderPrivacyMail(recipient,
                 "May we share your profile for %s role?".formatted(IndefiniteArticle.before(roleTitle)),
                 new EmailContent("Your permission", List.of(
                         greetingOf(recipientName),
@@ -468,7 +468,7 @@ public class EmailTemplates {
     public EmailMessage buildConsentRenewalEmail(String recipient, String recipientName, String firm, String replyTo,
                                                  String agreedOn, String endsOn, int months, String pageLink,
                                                  String noticeUrl, String linkUntil) {
-        return renderer.renderOnBehalfOf(recipient, "Your consent to keep your details ends on %s".formatted(endsOn),
+        return renderer.renderPrivacyMail(recipient, "Your consent to keep your details ends on %s".formatted(endsOn),
                 new EmailContent("Your permission", List.of(
                         greetingOf(recipientName),
                         EmailParagraph.of("On %s you agreed that %s could keep your details on file for future roles. "
@@ -499,7 +499,7 @@ public class EmailTemplates {
         } else {
             blocks.add(consentCloseOf("", noticeUrl, replyTo));
         }
-        return renderer.renderOnBehalfOf(recipient, "Your answers to %s".formatted(firm),
+        return renderer.renderPrivacyMail(recipient, "Your answers to %s".formatted(firm),
                 new EmailContent("Your answers are saved", blocks), firm, replyTo);
     }
 

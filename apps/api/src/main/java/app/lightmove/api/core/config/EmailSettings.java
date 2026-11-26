@@ -14,6 +14,15 @@ public record EmailSettings(
         @DefaultValue("resend") String provider,
         @DefaultValue("Uncava") String fromName,
         @DefaultValue("noreply@uncava.com") String fromAddress,
+        /** Privacy notices and consent emails' own sender (#1493); blank means {@code fromAddress}. */
+        String privacyFromAddress,
         ResendSettings resend,
         EmailValidationSettings validation
-) {}
+) {
+
+    public EmailSettings {
+        if (privacyFromAddress == null || privacyFromAddress.isBlank()) {
+            privacyFromAddress = fromAddress;
+        }
+    }
+}

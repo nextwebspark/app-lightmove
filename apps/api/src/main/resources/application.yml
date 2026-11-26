@@ -377,6 +377,9 @@ lightmove:
     provider: ${EMAIL_PROVIDER:resend}
     from-name: Uncava
     from-address: ${EMAIL_FROM:noreply@uncava.com}
+    # Privacy notices and consent emails (#1493). Blank sends them from from-address; a separate address must be on a
+    # domain Resend has verified, or Resend refuses it.
+    privacy-from-address: ${EMAIL_PRIVACY_FROM:}
     resend:
       api-key: ${RESEND_API_KEY:}
     validation:
