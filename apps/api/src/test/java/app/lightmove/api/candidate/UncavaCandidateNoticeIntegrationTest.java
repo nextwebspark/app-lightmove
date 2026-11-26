@@ -45,22 +45,8 @@ class UncavaCandidateNoticeIntegrationTest extends FlowTestSupport {
     @Test
     @DisplayName("a privacy notice links Uncava's notice, records its version once delivered, and the page links it")
     void theNoticeIsLinkedAndRecorded() throws Exception {
-        String address = "notice-firm@" + domain;
-        createWorkspace(verifiedUser("Alok Kumar", address), "Notice Firm");
-        admin = login(address);
-        call(put("/api/v1/workspace/candidate-privacy"), """
-                {"controllerName":"Meridian Search Partners FZ-LLC","privacyContactEmail":"privacy@meridian.example",
-                 "noticeUrl":"https://meridian.example/privacy","defaultLawfulBasis":"legitimate_interest"}""")
-                .andExpect(status().isOk());
-        String clientId = body(call(post("/api/v1/clients"), "{\"customName\":\"Finance Unit\"}").andReturn())
-                .get("id").asText();
-        String position = body(call(post("/api/v1/projects"), """
-                {"clientId":"%s","positionTitle":"Chief Financial Officer"}""".formatted(clientId))
-                .andExpect(status().isCreated()).andReturn()).get("id").asText();
-        String person = body(call(post("/api/v1/projects/" + position + "/candidates"), """
-                {"fullName":"Noor Haddad","linkedinUrl":"https://www.linkedin.com/in/noor-haddad/",
-                 "emails":[{"value":"noor@example.com"}]}""").andExpect(status().isCreated()).andReturn())
-                .get("personId").asText();
+        String position = firmWithPosition("notice-firm", "Notice Firm");
+        String person = candidate(position, "Noor Haddad", "noor-haddad", "noor@example.com");
 
         call(post("/api/v1/candidates/" + person + "/privacy-notice"), null).andExpect(status().isOk());
 
@@ -83,6 +69,50 @@ class UncavaCandidateNoticeIntegrationTest extends FlowTestSupport {
         assertThat(page.get("uncavaNoticeUrl").asText()).isEqualTo(NOTICE);
         assertThat(body(call(get("/api/v1/data-protection/config"), null).andReturn())
                 .get("candidateNoticeUrl").asText()).isEqualTo(NOTICE);
+    }
+
+    @Test
+    @DisplayName("in one send, a refused notice is undone and a delivered one records its version, each on its own")
+    void refusedAndDeliveredAreRecordedApart() throws Exception {
+        String position = firmWithPosition("split-firm", "Split Firm");
+        String delivered = candidate(position, "Dana Delivered", "dana-delivered", "dana@example.com");
+        String refused = candidate(position, "Rami Refused", "rami-refused", "rami@example.com");
+        email.refuseDeliveryTo("rami@example.com");
+
+        call(post("/api/v1/candidates/bulk/privacy-notice"), """
+                {"personIds":["%s","%s"]}""".formatted(delivered, refused)).andExpect(status().isOk());
+
+        Awaitility.await().atMost(Duration.ofSeconds(10)).untilAsserted(() -> {
+            assertThat(db.queryForObject("select uncava_notice_version from app_lm_person where id = ?::uuid",
+                    String.class, delivered)).isEqualTo("2026-12");
+            assertThat(db.queryForObject("select count(*) from app_lm_audit_event where event_type ="
+                    + " 'PERSON_PRIVACY_NOTICE_FAILED' and target_id = ?", Long.class, refused)).isEqualTo(1);
+        });
+        assertThat(db.queryForMap("select uncava_notice_version, privacy_notified_at from app_lm_person"
+                + " where id = ?::uuid", refused)).containsEntry("uncava_notice_version", null)
+                .containsEntry("privacy_notified_at", null);
+    }
+
+    private String firmWithPosition(String mailbox, String firmName) throws Exception {
+        String address = mailbox + "@" + domain;
+        createWorkspace(verifiedUser("Alok Kumar", address), firmName);
+        admin = login(address);
+        call(put("/api/v1/workspace/candidate-privacy"), """
+                {"controllerName":"Meridian Search Partners FZ-LLC","privacyContactEmail":"privacy@meridian.example",
+                 "noticeUrl":"https://meridian.example/privacy","defaultLawfulBasis":"legitimate_interest"}""")
+                .andExpect(status().isOk());
+        String clientId = body(call(post("/api/v1/clients"), "{\"customName\":\"Finance Unit\"}").andReturn())
+                .get("id").asText();
+        return body(call(post("/api/v1/projects"), """
+                {"clientId":"%s","positionTitle":"Chief Financial Officer"}""".formatted(clientId))
+                .andExpect(status().isCreated()).andReturn()).get("id").asText();
+    }
+
+    private String candidate(String position, String fullName, String slug, String address) throws Exception {
+        return body(call(post("/api/v1/projects/" + position + "/candidates"), """
+                {"fullName":"%s","linkedinUrl":"https://www.linkedin.com/in/%s/",
+                 "emails":[{"value":"%s"}]}""".formatted(fullName, slug, address))
+                .andExpect(status().isCreated()).andReturn()).get("personId").asText();
     }
 
     private ResultActions call(MockHttpServletRequestBuilder request, String content) throws Exception {

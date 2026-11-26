@@ -3,13 +3,14 @@ package app.lightmove.api.core.config;
 import org.springframework.util.StringUtils;
 
 /**
- * Uncava's own legal documents — {@code lightmove.legal.*}. The data processing agreement a founder accepts for their
- * firm (#928), and Uncava's public notice to the executives it holds data on (#1490, decisions B2 and B6), linked
- * from every email a candidate receives. Each pair is blank until counsel publishes it: then nothing is asked or
- * linked, and nothing is recorded.
+ * Uncava's own legal documents — {@code lightmove.legal.*}: the DPA a founder accepts (#928) and the notice to
+ * executives every candidate email links (#1490). While a pair is blank, nothing asks for or links it.
  */
 public record LegalSettings(String dpaVersion, String dpaUrl, String candidateNoticeVersion,
                             String candidateNoticeUrl) {
+
+    /** {@code app_lm_person.uncava_notice_version} is {@code varchar(32)} (V247). */
+    public static final int CANDIDATE_NOTICE_VERSION_MAX = 32;
 
     public LegalSettings {
         if (StringUtils.hasText(dpaVersion) != StringUtils.hasText(dpaUrl)) {
@@ -22,6 +23,11 @@ public record LegalSettings(String dpaVersion, String dpaUrl, String candidateNo
         }
         if (StringUtils.hasText(candidateNoticeUrl) && !candidateNoticeUrl.trim().startsWith("https://")) {
             throw new IllegalArgumentException("lightmove.legal.candidate-notice-url must be an https link");
+        }
+        if (StringUtils.hasText(candidateNoticeVersion)
+                && candidateNoticeVersion.trim().length() > CANDIDATE_NOTICE_VERSION_MAX) {
+            throw new IllegalArgumentException("lightmove.legal.candidate-notice-version must be at most "
+                    + CANDIDATE_NOTICE_VERSION_MAX + " characters");
         }
         dpaVersion = textOrNull(dpaVersion);
         dpaUrl = textOrNull(dpaUrl);

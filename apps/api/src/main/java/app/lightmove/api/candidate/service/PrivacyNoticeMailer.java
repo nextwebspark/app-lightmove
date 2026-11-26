@@ -42,13 +42,11 @@ public class PrivacyNoticeMailer {
                 .collect(Collectors.partitioningBy(notice -> emailSender.trySend(notice.email())));
         List<UUID> delivered = byDelivery.get(true).stream().map(QueuedPrivacyNotice::personId).toList();
         List<QueuedPrivacyNotice> refused = byDelivery.get(false);
-        if (refused.isEmpty() && (delivered.isEmpty() || uncavaNotice.versionCarried() == null)) {
-            return;
+        if (!refused.isEmpty()) {
+            refusals.inOwnTransaction(queued.workspaceId(),
+                    () -> refused.forEach(notice -> recordRefused(queued, notice)));
         }
-        refusals.inOwnTransaction(queued.workspaceId(), () -> {
-            uncavaNotice.recordDelivered(queued.workspaceId(), delivered, clock.instant());
-            refused.forEach(notice -> recordRefused(queued, notice));
-        });
+        uncavaNotice.recordDeliveredInOwnTransaction(queued.workspaceId(), delivered, clock.instant());
     }
 
     private void recordRefused(PrivacyNoticesQueued queued, QueuedPrivacyNotice notice) {

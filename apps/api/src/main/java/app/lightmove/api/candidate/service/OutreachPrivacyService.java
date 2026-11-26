@@ -69,7 +69,7 @@ public class OutreachPrivacyService {
         String html = templates.buildOutreachPrivacyFooterHtml(statementOf(person, firm), notice,
                 page + "?action=opt-out", candidateNoticeUrl);
         return new OutreachPrivacyFooter(html, baseUrl + "/api/v1/privacy/links/" + token + "/opt-out",
-                firm.isReadyForNotices(), candidateNoticeUrl != null);
+                firm.isReadyForNotices(), properties.legal().linksCandidateNotice());
     }
 
     /**

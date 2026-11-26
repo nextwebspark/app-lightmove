@@ -23,4 +23,15 @@ class LegalSettingsTest {
         assertThatThrownBy(() -> new LegalSettings(null, null, "2026-12", "http://uncava.com/executive-privacy"))
                 .isInstanceOf(IllegalArgumentException.class);
     }
+
+    @Test
+    @DisplayName("a notice version longer than the person's column holds fails the boot, not every delivery")
+    void theCandidateNoticeVersionFitsItsColumn() {
+        String longest = "v".repeat(LegalSettings.CANDIDATE_NOTICE_VERSION_MAX);
+        assertThat(new LegalSettings(null, null, " " + longest + " ", "https://uncava.com/executive-privacy")
+                .candidateNoticeVersion()).isEqualTo(longest);
+        assertThatThrownBy(() -> new LegalSettings(null, null, longest + "v", "https://uncava.com/executive-privacy"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("candidate-notice-version");
+    }
 }

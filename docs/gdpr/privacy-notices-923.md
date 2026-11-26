@@ -138,12 +138,15 @@ those people a notice of its own: a public page on the website (decision B2), wr
 - **Where it is linked.** Every email a candidate receives: the firm's on-behalf footer ("Sent by {firm} with
   Uncava · How Uncava handles your details", `EmailRenderer`) on privacy notices, consent and share requests,
   renewals and confirmations; the outreach footer between Our privacy notice and Stop emails from us; and the public
-  `/privacy/:token` page (`PrivacyPageResponse.uncavaNoticeUrl`), live and expired. The previews draw it from
+  `/privacy/:token` page (`PrivacyPageResponse.uncavaNoticeUrl`), live and expired, whether or not the firm has named
+  itself. The previews draw it from
   `GET /api/v1/data-protection/config` (`candidateNoticeUrl`).
 - **What is recorded.** `app_lm_person.uncava_notice_version` and `uncava_notice_sent_at` (V247), written by
-  `UncavaNoticeRecords` only once an email carrying the link was delivered (the mailers after the provider took it,
-  outreach after the send); a refused email records nothing, and a later delivery never winds the record back. The
-  subject access export carries both, with the rest of the person row.
+  `UncavaNoticeRecords` only once an email carrying the link was delivered: outreach inside its send, the mailers
+  after the provider took it, in a transaction of their own once the refusal records have committed, so neither can
+  roll the other back. A refused email records nothing, and a later delivery never winds the record back. The version
+  must fit the column (32 characters, checked at boot). The subject access export carries both, with the rest of the
+  person row.
 
 ## Not notified
 

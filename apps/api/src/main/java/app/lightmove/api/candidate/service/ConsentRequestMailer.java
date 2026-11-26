@@ -43,22 +43,20 @@ public class ConsentRequestMailer {
                 .collect(Collectors.partitioningBy(request -> emailSender.trySend(request.email())));
         List<UUID> delivered = byDelivery.get(true).stream().map(QueuedConsentRequest::personId).toList();
         List<QueuedConsentRequest> refused = byDelivery.get(false);
-        if (refused.isEmpty() && (delivered.isEmpty() || uncavaNotice.versionCarried() == null)) {
-            return;
+        if (!refused.isEmpty()) {
+            refusals.inOwnTransaction(queued.workspaceId(),
+                    () -> refused.forEach(request -> recordRefused(queued, request)));
         }
-        refusals.inOwnTransaction(queued.workspaceId(), () -> {
-            uncavaNotice.recordDelivered(queued.workspaceId(), delivered, clock.instant());
-            refused.forEach(request -> recordRefused(queued, request));
-        });
+        uncavaNotice.recordDeliveredInOwnTransaction(queued.workspaceId(), delivered, clock.instant());
     }
 
     /** A refused confirmation undoes nothing: the answer stands, and the person can still write to the firm. */
     @Async
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onConfirmation(ConsentConfirmationQueued confirmation) {
-        if (emailSender.trySend(confirmation.email()) && uncavaNotice.versionCarried() != null) {
-            refusals.inOwnTransaction(confirmation.workspaceId(), () -> uncavaNotice.recordDelivered(
-                    confirmation.workspaceId(), List.of(confirmation.personId()), clock.instant()));
+        if (emailSender.trySend(confirmation.email())) {
+            uncavaNotice.recordDeliveredInOwnTransaction(confirmation.workspaceId(),
+                    List.of(confirmation.personId()), clock.instant());
         }
     }
 
