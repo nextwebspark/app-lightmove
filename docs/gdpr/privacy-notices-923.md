@@ -128,12 +128,17 @@ Stop emails from us". With the firm's details not yet set it reads "We hold …"
 - **The team's door (B16, #1489).** Replies are never read for "please stop". A consultant who reads one, or hears it
   on a call, sets the drawer's **Do not contact**: while data protection is on that is the person's objection, after a
   confirm dialog. `PUT /api/v1/candidates/{id}/do-not-contact` then runs `PersonContactStop` with the colleague as
-  actor: do not contact ("Objected when contacted, recorded by the team", replacing any earlier reason of the team's),
-  the suppression list as `OBJECTED`, an `OBJECTION_RECORDED` line, a `PERSON_OBJECTION_RECORDED` audit event, and
-  `PersonPrivacyRequested(OBJECTION)` with the actor, so every run stops now as `DO_NOT_CONTACT` and every admin but
-  the actor gets the `PERSON_OBJECTED` bell. Clearing it while the suppression list holds them is refused
-  (`PERSON_OBJECTION_HELD`, 409): outreach reads do not contact, not the list, so clearing would reopen contact. An
-  admin removes the entries in Settings first. With the switch off, the button is the team's own flag as before.
+  actor (`recordedByTeam`; the page's door is `objectedOnPrivacyPage`, the link's `optedOutByLink`): do not contact
+  ("Objected when contacted, recorded by the team", replacing any earlier reason of the team's; the request's own
+  `reason` is ignored) with `do_not_contact_source` naming the door, the suppression list as `OBJECTED`, an
+  `OBJECTION_RECORDED` line, a `PERSON_OBJECTION_RECORDED` audit event, and `PersonPrivacyRequested(OBJECTION)` with
+  the actor, so every run stops now as `DO_NOT_CONTACT` and every admin but the actor gets the `PERSON_OBJECTED` bell.
+  Its email is the team's own ("A candidate asked not to be contacted": the colleague recorded it), never the privacy
+  page's. Clearing it while the suppression list holds them as `OBJECTED` is refused (`PERSON_OBJECTION_HELD`, 409):
+  outreach reads do not contact, not the list, so clearing would reopen contact. An admin removes the entries in
+  Settings first; an entry for another reason (`erased`, `manual`) holds nothing. With the switch off, the button is
+  the team's own flag as before. All three doors' timeline lines are the person's, read under Contacts on every
+  position.
 - Off with `DATA_PROTECTION_ENABLED`: no footer, no headers, no link minted.
 
 ## Not notified

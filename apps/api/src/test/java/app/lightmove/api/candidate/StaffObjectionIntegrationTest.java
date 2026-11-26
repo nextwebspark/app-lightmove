@@ -14,6 +14,7 @@ import app.lightmove.api.notification.service.NotificationEmails;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import org.awaitility.Awaitility;
@@ -140,6 +141,22 @@ class StaffObjectionIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("every door's stop is the person's: shown under Contacts on the position and across positions")
+    void everyDoorIsOnThePersonsTimeline() throws Exception {
+        db.update("""
+                insert into app_lm_person_activity (workspace_id, person_id, kind, occurred_at)
+                values (?::uuid, ?::uuid, 'PRIVACY_OBJECTED', now() - interval '2 minutes'),
+                       (?::uuid, ?::uuid, 'PRIVACY_OPTED_OUT', now() - interval '1 minute')""",
+                workspace, person, workspace, person);
+        mark(colleague, true).andExpect(status().isOk());
+        List<String> stops = List.of("OBJECTION_RECORDED", "PRIVACY_OPTED_OUT", "PRIVACY_OBJECTED");
+
+        assertThat(timelineKinds("/api/v1/projects/" + position + "/candidates/" + candidate + "/timeline"))
+                .containsSubsequence(stops);
+        assertThat(timelineKinds("/api/v1/candidates/" + person + "/timeline")).containsSubsequence(stops);
+    }
+
+    @Test
     @DisplayName("clearing it is refused while the suppression list holds them, and allowed once an admin lifts that")
     void clearingWaitsForTheSuppressionList() throws Exception {
         mark(admin, true).andExpect(status().isOk());
@@ -199,6 +216,15 @@ class StaffObjectionIntegrationTest extends FlowTestSupport {
 
     private List<String> registerLinesOf(String personId) throws Exception {
         return registerLines().stream().filter(line -> line.contains(personId)).toList();
+    }
+
+    private List<String> timelineKinds(String route) throws Exception {
+        List<String> kinds = new ArrayList<>();
+        for (JsonNode entry : body(call(admin, get(route).param("group", "contacts"), null)
+                .andExpect(status().isOk()).andReturn()).get("entries")) {
+            kinds.add(entry.get("kind").asText());
+        }
+        return kinds;
     }
 
     private List<String> activityKinds() {
