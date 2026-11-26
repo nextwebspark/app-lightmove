@@ -116,15 +116,19 @@ instance to CMEK means a new instance and a migration.
   captured: an email address, a name, a LinkedIn link. Two `_Default` exclusions in `ops/gcp/bootstrap.sh` keep such
   entries from being stored at all:
   - `email-images`: the email-picture route, a record of who opened what.
-  - `search-terms` (#1494, decision F10): any request whose query carries `q=`, `search=`, `executiveQuery=`, `name=`
-    or `linkedinUrl=`. That covers the Candidates page, the grid, the pipeline, Outreach, the company typeaheads and
-    the "already held?" checks (`/candidates/held`, `/triage/held`), which the browser extension calls with a profile
-    link on every capture and which made up most of the matching entries in a two-week sample.
-    `RequestLogExclusionCoverageTest` fails when a controller adds a text query parameter that neither the filter nor
-    its never-personal list names.
+  - `query-terms` (#1494, decision F10): any request whose query carries `q=`, `search=`, `executiveQuery=`, `name=`
+    or `linkedinUrl=`, or a raw token in `token=` or `t=`.
+    - The text parameters cover the Candidates page and its export, the grid, the pipeline, Outreach, the company
+      typeaheads and the "already held?" checks (`/candidates/held`, `/triage/held`). The browser extension calls those
+      checks with a profile link on every capture, and they made up most of the matching entries in a two-week sample.
+    - The token parameters cover the invitation preview, the verification and reset links as the SPA page loads them,
+      and the Recall live webhook's shared secret. Tokens are never stored raw, the request log included.
+    - `RequestLogExclusionCoverageTest` fails when a controller adds a text query parameter that the filter and the
+      safe-to-log list both leave out. That includes the keys `PoolCriteria` reads from the Candidates page's raw query.
 - **What the exclusion costs:** those requests have no platform log line, so Logs Explorer and the daily
   `ops/gcp/log-digest` do not see them (the digest's status and 5xx counts miss them). The application's own masked
-  `request` line and any ERROR line remain. Cloud Run's built-in request metrics are not logs and are unaffected. Whether
-  `monitoring.sh`'s project-level 5xx log metric still counts an excluded 5xx is checked when the exclusion is
-  applied. The bucket keeps 30 days (F10).
+  `request` line and any ERROR line remain. Cloud Run's built-in request metrics are not logs and are unaffected. **Open:** does
+  `monitoring.sh`'s project-level 5xx log metric still count an excluded 5xx? Until that is answered, #927's box stays
+  unticked. If it does not, the 5xx alert moves to Cloud Run's own `request_count` metric (`response_code_class=5xx`),
+  which no exclusion touches. The bucket keeps 30 days (F10).
 - **Applied to production:** not yet. Recorded here, with the date and the Logs Explorer check, once it is.

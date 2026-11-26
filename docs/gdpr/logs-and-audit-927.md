@@ -168,7 +168,8 @@ It also updates:
 - [ ] **Delete the on-demand backup** `1790857353254`, once the first automated backup shows `SUCCESSFUL`.
 - [ ] **Run the restore drill** and record its RPO and RTO in the doc's table.
 - [ ] **Keep searched addresses out of Cloud Run's request log**: decided as an exclusion filter (F10). Built in #1494
-  as the `search-terms` exclusion in `ops/gcp/bootstrap.sh`; ticked once it is applied to production.
+  as the `query-terms` exclusion in `ops/gcp/bootstrap.sh`; ticked once it is applied to production and the 5xx metric
+  question in `security-of-processing.md` is answered.
 
 ### Follow-ups and open decisions
 
@@ -219,7 +220,7 @@ It is a business-continuity risk, not only a GDPR one.
 - The DPA and the website's `/security` page cannot drop "[to confirm]".
 
 **Request log left as is.** #1279's masking does not reach it. The masking covers the app's own log lines, not the
-request log Cloud Run writes, so the logs are only partly clean. #1494 closes this with the `search-terms` exclusion.
+request log Cloud Run writes, so the logs are only partly clean. #1494 closes this with the `query-terms` exclusion.
 
 **Recommended order:**
 
