@@ -88,7 +88,7 @@ changes.
 |---|---|---|---|
 | **AI on people** | Four switches: Infer gender, Infer nationality, Draft assessments with AI, AI-enrich on capture. Turning gender or nationality off asks first ("Turn off and clear", "This can't be undone.") and clears the AI's unconfirmed values across the workspace. New workspaces start with all four off. | No | #1300 |
 | **Candidate privacy** | Firm's legal name, privacy contact email, privacy notice link, default lawful basis. Mode: *Notices* or *Notices and consent requests* (locked until the firm's details are saved). In consent mode: the three purposes (keep on file for future roles, share with a client for a specific role, career and market updates), *Valid for*, and *Ask again N days before consent ends* (0–90). A download of the **consent register** CSV for the whole workspace, audited. | Yes | #1328, #1341, #1343 |
-| **Candidate retention** | "Keep candidates untouched for" N months. | Yes | #1186 |
+| **Candidate retention** | "Keep candidates untouched for" N months. Under it, only while that rule runs: anyone never contacted and with no consent is deleted automatically N months (the server's period, 6 by default) after they were added, unless kept, whatever is chosen (#1490). | Yes | #1186, #1490 |
 | **Due for deletion** | Table of candidates past the period (Candidate, Last activity, Positions, Owner), select some or all, **Keep** (another period from today) or **Delete selected**. Empty state "Nobody is due for deletion". Nothing is deleted on its own. | Yes | #1186 |
 | **Suppression list** | Who may never be added again. Add by LinkedIn profile and/or email (hashed on save) with a reason (*Added by an admin* or *Objected*); remove with a confirmation. | Yes | #1186 (list itself #1178) |
 | **Sub-processor changes** | Each new sub-processor Uncava announced (provider, what it receives, Takes effect / In effect since). **Object…** until it takes effect opens *Object to {provider}*: "Why do you object?" (required, 2,000 characters, counted), **Send objection**; once sent the row reads "You objected on {day} · Change". A change already in effect says it can no longer be objected to. The notice email's Object link opens `/settings/data?object={id}`. | No | #1491 |
@@ -218,6 +218,7 @@ Reached from a privacy notice email, a consent request email, or the outreach fo
 | Your consents (manage link) | What is in force, each withdrawn after one confirmation | #1341 |
 | Share request | Share with a named or "a confidential client" for one role | #1343 |
 | Expired / invalid | "This link has expired" · "This link isn't valid" | #1328 |
+| Every state | Once Uncava's notice to executives is published: **How Uncava handles your details** after "This page is provided by Uncava"; the same link in every candidate email's footer and in the outreach and email previews | #1490 |
 
 ### 6.2 Other public pages
 

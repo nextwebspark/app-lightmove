@@ -2,6 +2,7 @@ package app.lightmove.api.workspace.service;
 
 import app.lightmove.api.core.audit.constant.AuditEventType;
 import app.lightmove.api.core.audit.constant.AuthEventType;
+import app.lightmove.api.core.audit.constant.PersonErasureReason;
 import app.lightmove.api.core.audit.constant.PlatformEventType;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.constant.SecurityEventType;
@@ -177,8 +178,11 @@ public class AuditLogPhrasing {
         on(ProjectEventType.PERSON_SUPPRESSION_REMOVED, line -> "Removed someone from the suppression list");
         on(ProjectEventType.PERSON_PROCESSING_RESTRICTED, line -> "Restricted processing of a candidate");
         on(ProjectEventType.PERSON_PROCESSING_RESTRICTION_LIFTED, line -> "Lifted a candidate's processing restriction");
-        on(ProjectEventType.PERSON_ERASED, line -> line.is("reason", "retention")
-                ? "Permanently deleted a candidate past the retention period" : "Permanently deleted a candidate");
+        on(ProjectEventType.PERSON_ERASED, line -> switch (PersonErasureReason.fromValueOrNull(line.text("reason"))) {
+            case RETENTION -> "Permanently deleted a candidate past the retention period";
+            case NEVER_CONTACTED -> "Automatically deleted a candidate never contacted within the retention period";
+            case null -> "Permanently deleted a candidate";
+        });
         on(ProjectEventType.PERSON_RETENTION_KEPT, line -> "Kept a candidate due for deletion");
         on(ProjectEventType.PERSON_LAWFUL_BASIS_CHANGED, line -> "Recorded a candidate's lawful basis");
         on(ProjectEventType.PERSON_PRIVACY_NOTICE_SENT, line -> "Sent a candidate a privacy notice");

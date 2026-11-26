@@ -17,6 +17,7 @@ public class DataProtectionConfigController {
     @GetMapping("/api/v1/data-protection/config")
     public DataProtectionConfigResponse config() {
         DataProtectionSettings settings = properties.dataProtection();
-        return new DataProtectionConfigResponse(settings != null && settings.enabled());
+        return new DataProtectionConfigResponse(settings != null && settings.enabled(),
+                properties.legal().candidateNoticeUrl());
     }
 }

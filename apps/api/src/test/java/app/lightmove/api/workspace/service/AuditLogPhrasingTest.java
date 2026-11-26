@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import app.lightmove.api.core.audit.constant.AuditEventType;
 import app.lightmove.api.core.audit.constant.AuditOutcome;
 import app.lightmove.api.core.audit.constant.AuthEventType;
+import app.lightmove.api.core.audit.constant.PersonErasureReason;
 import app.lightmove.api.core.audit.constant.PlatformEventType;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.constant.SecurityEventType;
@@ -80,6 +81,18 @@ class AuditLogPhrasingTest {
         assertThat(AuditLogPhrasing.humanised("TRIAGE_COMPANY_MOVED")).isEqualTo("Company moved");
         assertThat(AuditLogPhrasing.humanised("PERSON_NOTE_ADDED")).isEqualTo("Candidate note added");
         assertThat(phrase("NOT_A_REAL_TYPE", Map.of(), null, WorkspaceMode.COMPANY)).isEqualTo("Other activity");
+    }
+
+    @Test
+    @DisplayName("an erasure says which rule deleted the candidate, and an admin's own says none")
+    void erasuresNameTheirRule() {
+        assertThat(phrase("PERSON_ERASED", Map.of("reason", PersonErasureReason.RETENTION.value()), null,
+                WorkspaceMode.COMPANY)).isEqualTo("Permanently deleted a candidate past the retention period");
+        assertThat(phrase("PERSON_ERASED", Map.of("reason", PersonErasureReason.NEVER_CONTACTED.value()), null,
+                WorkspaceMode.COMPANY))
+                .isEqualTo("Automatically deleted a candidate never contacted within the retention period");
+        assertThat(phrase("PERSON_ERASED", Map.of(), null, WorkspaceMode.COMPANY))
+                .isEqualTo("Permanently deleted a candidate");
     }
 
     private String phrase(String code, Map<String, Object> metadata, String targetName, WorkspaceMode mode) {

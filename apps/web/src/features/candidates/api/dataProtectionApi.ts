@@ -8,6 +8,8 @@ export const DATA_PROTECTION_CONFIG_KEY = ["dataProtection", "config"] as const;
 
 export interface DataProtectionConfig {
   enabled: boolean;
+  /** Uncava's own notice to executives (#1490) every candidate email links; null until counsel publishes it. */
+  candidateNoticeUrl?: string | null;
 }
 
 export function getDataProtectionConfig(signal?: AbortSignal): Promise<DataProtectionConfig> {

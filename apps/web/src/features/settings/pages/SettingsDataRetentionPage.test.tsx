@@ -48,7 +48,13 @@ vi.mock("../../../lib/saveBlob", () => ({ saveBlob: vi.fn() }));
 const AI_ON = { inferGender: true, inferNationality: true, draftAssessments: true, enrichAutomatically: true };
 const WORKSPACE = { id: "ws-1", name: "Al-Futtaim Search", aiControls: AI_ON } as WorkspaceDetail;
 
-const TWO_YEARS: CandidateRetention = { months: 24, chosen: false, defaultMonths: 24, options: [12, 24, 36, 60] };
+const TWO_YEARS: CandidateRetention = {
+  months: 24,
+  chosen: false,
+  defaultMonths: 24,
+  options: [12, 24, 36, 60],
+  neverContactedMonths: 6,
+};
 
 const DUE: RetentionDue = {
   months: 24,
@@ -178,6 +184,20 @@ describe("SettingsDataRetentionPage", () => {
     await userEvent.click(save);
 
     await waitFor(() => expect(dataRetentionApi.putCandidateRetention).toHaveBeenCalledWith(null));
+  });
+
+  it("says when the never-contacted are deleted on their own, and nothing while that rule is off", async () => {
+    vi.mocked(dataRetentionApi.getCandidateRetention).mockResolvedValue({ ...TWO_YEARS, neverContactedMonths: 9 });
+    const { unmount } = renderPage();
+    expect(
+      await screen.findByText(/anyone never contacted and with no consent is deleted automatically 9 months after/),
+    ).toBeInTheDocument();
+    unmount();
+
+    vi.mocked(dataRetentionApi.getCandidateRetention).mockResolvedValue({ ...TWO_YEARS, neverContactedMonths: null });
+    renderPage();
+    expect(await screen.findByRole("combobox", { name: "Retention period" })).toBeInTheDocument();
+    expect(screen.queryByText(/never contacted/)).not.toBeInTheDocument();
   });
 
   it("keeps the ticked people, and deletes others only after asking", async () => {

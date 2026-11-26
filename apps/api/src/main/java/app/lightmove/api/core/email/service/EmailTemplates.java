@@ -31,7 +31,7 @@ public class EmailTemplates {
     private final Duration invitationTtl;
 
     public EmailTemplates(LightMoveProperties properties) {
-        this.renderer = new EmailRenderer(properties.web().baseUrl());
+        this.renderer = new EmailRenderer(properties.web().baseUrl(), properties.legal().candidateNoticeUrl());
         this.invitationTtl = properties.auth().invitationTtl();
     }
 
@@ -512,11 +512,19 @@ public class EmailTemplates {
                 + "your details. Questions go to %s, or reply to this email.", plain(noticeUrl), plain(replyTo));
     }
 
-    /** The privacy footer an outreach email ends with; added at send, so a consultant's body never holds it. */
-    public String buildOutreachPrivacyFooterHtml(String statement, String noticeUrl, String stopEmailsUrl) {
+    /**
+     * The privacy footer an outreach email ends with; added at send, so a consultant's body never holds it. Uncava's
+     * own notice to the executive is linked once it is published ({@code candidateNoticeUrl}, #1490).
+     */
+    public String buildOutreachPrivacyFooterHtml(String statement, String noticeUrl, String stopEmailsUrl,
+                                                 String candidateNoticeUrl) {
+        String uncavaNotice = candidateNoticeUrl == null ? ""
+                : "<a href=\"" + escaped(candidateNoticeUrl) + "\" style=\"color:#2563eb\">"
+                        + EmailRenderer.CANDIDATE_NOTICE_LABEL + "</a> &middot; ";
         return "<p style=\"margin:16px 0 0;padding-top:10px;border-top:1px solid #e5e7eb;font-size:12px;"
                 + "line-height:1.55;color:#6b7280\">" + escaped(statement)
                 + " <a href=\"" + escaped(noticeUrl) + "\" style=\"color:#2563eb\">Our privacy notice</a> &middot; "
+                + uncavaNotice
                 + "<a href=\"" + escaped(stopEmailsUrl) + "\" style=\"color:#2563eb\">Stop emails from us</a></p>";
     }
 

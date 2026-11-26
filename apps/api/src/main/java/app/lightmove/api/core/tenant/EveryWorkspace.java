@@ -28,6 +28,11 @@ public class EveryWorkspace {
         return jdbc.queryForList("SELECT id FROM app_lm_workspace ORDER BY id", UUID.class);
     }
 
+    /** Every workspace not deleted: a deleted one is its purge's to empty. */
+    public List<UUID> liveIds() {
+        return jdbc.queryForList("SELECT id FROM app_lm_workspace WHERE deleted_at IS NULL ORDER BY id", UUID.class);
+    }
+
     public void forEach(Consumer<UUID> perWorkspace) {
         forEach(ids(), perWorkspace);
     }

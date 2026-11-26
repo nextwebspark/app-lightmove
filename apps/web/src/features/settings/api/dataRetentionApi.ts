@@ -20,6 +20,8 @@ export interface CandidateRetention {
   chosen: boolean;
   defaultMonths: number | null;
   options: number[];
+  /** Months after which anyone never contacted is deleted without review; null while that rule is off. */
+  neverContactedMonths: number | null;
 }
 
 export interface RetentionDuePerson {

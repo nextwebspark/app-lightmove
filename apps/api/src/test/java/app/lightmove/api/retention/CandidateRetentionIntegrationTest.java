@@ -40,6 +40,7 @@ class CandidateRetentionIntegrationTest extends FlowTestSupport {
         JsonNode initial = body(period().andExpect(status().isOk()).andReturn());
         assertThat(initial.get("months").asInt()).isEqualTo(24);
         assertThat(initial.get("chosen").asBoolean()).isFalse();
+        assertThat(initial.get("neverContactedMonths").asInt()).as("both switches on in tests").isEqualTo(6);
 
         assertThat(codeOf(choose("18").andExpect(status().isBadRequest()).andReturn())).isEqualTo("VALIDATION_FAILED");
         choose("12").andExpect(status().isOk());
@@ -48,6 +49,7 @@ class CandidateRetentionIntegrationTest extends FlowTestSupport {
         assertThat(never.get("months").isNull()).isTrue();
         assertThat(never.get("chosen").asBoolean()).isTrue();
         assertThat(never.get("defaultMonths").asInt()).isEqualTo(24);
+        assertThat(never.get("neverContactedMonths").asInt()).as("whatever the workspace chose").isEqualTo(6);
 
         assertThat(db.queryForList("select metadata ->> 'months' from app_lm_audit_event"
                 + " where workspace_id = ?::uuid and event_type = 'WORKSPACE_UPDATED' and metadata ->> 'section' = 'retention'"
