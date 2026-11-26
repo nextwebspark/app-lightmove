@@ -99,6 +99,12 @@ describe("activity presentation", () => {
     expect(familyOf(line(1, "TAGGED"))).toBe("profile");
   });
 
+  it("files every door a person's objection to contact comes through under Contact, as the server groups them", () => {
+    for (const kind of ["PRIVACY_OBJECTED", "PRIVACY_OPTED_OUT", "OBJECTION_RECORDED"] as const) {
+      expect(familyOf(line(1, kind)), kind).toBe("contact");
+    }
+  });
+
   it("counts quick changes as minor, so a run of them folds; a background AI run is minor, an assessment is not", () => {
     expect(isMinor(line(1, "NOTE_ADDED"))).toBe(false);
     expect(isMinor(line(1, "EMAIL_SENT"))).toBe(false);

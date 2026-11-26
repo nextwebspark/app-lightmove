@@ -39,7 +39,7 @@ public final class CandidateListFilter {
             List<Predicate> where = new ArrayList<>();
             where.add(cb.equal(root.get("projectId"), projectId));
             if (clientVisibleOnly) {
-                where.add(cb.isTrue(root.get("clientVisible")));
+                where.add(cb.isTrue(root.get("shownToClient")));
             }
             if (statusIds != null) {
                 where.add(root.get("status").get("id").in(statusIds));

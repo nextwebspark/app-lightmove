@@ -36,6 +36,7 @@ import { firstNameOf } from "../../../tasks/lib/team";
 import { ActionMenu, MenuItem, MenuSeparator } from "../../../../components/ui/ActionMenu";
 import { useIsWorkspaceAdmin } from "../../../auth/useIsWorkspaceAdmin";
 import { ErasePersonDialog } from "./ErasePersonDialog";
+import { RecordObjectionDialog } from "./RecordObjectionDialog";
 import { RestrictProcessingDialog } from "./RestrictProcessingDialog";
 import { SubjectAccessExportDialog } from "./SubjectAccessExportDialog";
 import { useConsentMode } from "../../lib/useConsentMode";
@@ -131,6 +132,7 @@ function PersonDrawerBody({
   const [erasing, setErasing] = useState(false);
   const [exportingData, setExportingData] = useState(false);
   const [restricting, setRestricting] = useState(false);
+  const [recordingObjection, setRecordingObjection] = useState(false);
   const [noticing, setNoticing] = useState(false);
   const [markingNotified, setMarkingNotified] = useState(false);
   const [askingConsent, setAskingConsent] = useState(false);
@@ -336,12 +338,10 @@ function PersonDrawerBody({
               type="button"
               aria-pressed={doNotContact !== null}
               disabled={marking.isPending}
-              onClick={() => marking.mutate(doNotContact === null)}
-              title={
-                doNotContact
-                  ? "Clear do not contact"
-                  : "Mark do not contact — shown on every position and turns off contact lookups"
+              onClick={() =>
+                dataProtection && doNotContact === null ? setRecordingObjection(true) : marking.mutate(doNotContact === null)
               }
+              title={doNotContactTitleOf(doNotContact !== null, dataProtection)}
               className={cn(
                 "flex h-7 items-center gap-1.5 rounded-full border px-2.5 font-mono text-[11px] font-semibold",
                 doNotContact
@@ -528,6 +528,16 @@ function PersonDrawerBody({
         onClose={closePreview}
       />
 
+      {recordingObjection && (
+        <RecordObjectionDialog
+          person={person}
+          onClose={() => setRecordingObjection(false)}
+          onRecorded={(record) => {
+            changed(record);
+            setRecordingObjection(false);
+          }}
+        />
+      )}
       {restricting && (
         <RestrictProcessingDialog
           person={person}
@@ -602,4 +612,15 @@ function PersonDrawerBody({
       )}
     </>
   );
+}
+
+function doNotContactTitleOf(isMarked: boolean, dataProtection: boolean): string {
+  if (!isMarked) {
+    return dataProtection
+      ? "Mark do not contact — they asked us to stop. Works like the stop link in our emails"
+      : "Mark do not contact — shown on every position and turns off contact lookups";
+  }
+  return dataProtection
+    ? "Clear do not contact. If they objected, an admin lifts that from the suppression list in Settings → Data & retention first"
+    : "Clear do not contact";
 }

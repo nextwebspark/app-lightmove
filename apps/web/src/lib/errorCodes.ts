@@ -122,6 +122,7 @@ export type ApiErrorCode =
   | "EXIT_REASON_NOT_OFFERED"
   | "PERSON_OWNER_NOT_STAFF"
   | "PERSON_DO_NOT_CONTACT"
+  | "PERSON_OBJECTION_HELD"
   | "PERSON_SUPPRESSED"
   | "PERSON_PROCESSING_RESTRICTED"
   | "PERSON_PROCESSING_RESTRICTION_NOT_YOURS"
@@ -399,6 +400,7 @@ const MESSAGES: Partial<Record<ApiErrorCode, string>> = {
   EXIT_REASON_NOT_OFFERED: "That reason is not offered for this status. Pick another.",
   PERSON_OWNER_NOT_STAFF: "The owner must be someone on your team.",
   PERSON_DO_NOT_CONTACT: "This person is marked do not contact, so contact lookups are off.",
+  PERSON_OBJECTION_HELD: "They objected to being contacted. An admin can lift that from the suppression list in Settings.",
   PERSON_SUPPRESSED: "This person is on your workspace's suppression list, so they can't be added.",
   PERSON_PROCESSING_RESTRICTED:
     "Processing is restricted for this person, so this can't be done until the restriction is lifted.",

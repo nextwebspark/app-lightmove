@@ -286,10 +286,41 @@ class OutreachDispatchIntegrationTest extends FlowTestSupport {
         String personId = body(as(consultant, get("/api/v1/projects/" + projectId + "/candidates/" + priya))
                 .andReturn()).get("personId").asText();
 
+        as(consultant, put("/api/v1/candidates/" + personId + "/do-not-contact").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"doNotContact\":false}")).andExpect(status().isConflict());
+        jdbc.update("delete from app_lm_workspace_suppression where workspace_id = (select workspace_id from"
+                + " app_lm_person where id = ?::uuid)", personId);
+
         markDoNotContact(personId, "{\"doNotContact\":false}");
         JsonNode remarked = markDoNotContact(personId, "{\"doNotContact\":true,\"reason\":\"Placed elsewhere\"}");
 
         assertThat(remarked.get("privacy").get("optedOutAt").isNull()).isTrue();
+        assertThat(personColumn(priya, "do_not_contact_reason"))
+                .isEqualTo("Objected when contacted, recorded by the team");
+    }
+
+    @Test
+    @DisplayName("the team marking do not contact stops the run and the waiting emails at once, as the stop link does")
+    void staffObjectionStopsTheRunAtOnce() throws Exception {
+        savePrivacySettings();
+        String priya = executive("Priya Raman", "priya@" + domain);
+        start(createSequence("Approach"), priya, "priya@" + domain, null);
+        dispatcher.dispatchAt(monday);
+        as(consultant, post(outreach("/conversations/" + priya + "/messages")).contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"toAddress":"priya@%s","subject":"Later","replyInThread":false,"body":"Hello",
+                         "sendAt":"%s"}""".formatted(domain, monday.plus(Duration.ofDays(10)))))
+                .andExpect(status().isCreated());
+
+        markDoNotContact(priya);
+
+        assertThat(enrollmentOf(priya)).containsEntry("status", "STOPPED")
+                .containsEntry("stop_reason", "DO_NOT_CONTACT");
+        assertThat(jdbc.queryForObject("select fail_reason from app_lm_outreach_message where candidate_id = ?::uuid "
+                + "and enrollment_id is null", String.class, priya)).isEqualTo("DO_NOT_CONTACT");
+        assertThat(activityKinds(priya)).containsOnlyOnce("OBJECTION_RECORDED");
+        dispatcher.dispatchAt(monday.plus(Duration.ofDays(11)));
+        assertThat(sentTo("priya@" + domain)).hasSize(1);
     }
 
     @Test

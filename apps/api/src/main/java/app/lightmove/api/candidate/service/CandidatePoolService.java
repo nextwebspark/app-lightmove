@@ -24,6 +24,7 @@ import app.lightmove.api.candidate.repository.PersonPoolQuery;
 import app.lightmove.api.candidate.repository.PersonRepository;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
+import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.security.model.User;
@@ -34,6 +35,7 @@ import app.lightmove.api.core.security.repository.UserRepository;
 import app.lightmove.api.project.model.Project;
 import app.lightmove.api.project.repository.ProjectRepository;
 import jakarta.servlet.http.HttpServletRequest;
+import java.time.Clock;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
@@ -77,6 +79,10 @@ public class CandidatePoolService {
     private final PersonTimelineService timeline;
     private final PersonActivityRecorder activity;
     private final AuditService audit;
+    private final PersonContactStop contactStop;
+    private final SuppressionGate suppressionGate;
+    private final LightMoveProperties properties;
+    private final Clock clock;
 
     @Transactional(readOnly = true)
     public CandidatePoolResponse list(UUID userId, UUID workspaceId, PoolCriteria criteria, Integer page,
@@ -166,12 +172,27 @@ public class CandidatePoolService {
         return new BulkPeopleChangeResponse(changed);
     }
 
+    /**
+     * With data protection on, marking records the person's objection (B16) and its fixed reason, ignoring the one
+     * sent; clearing it is refused while the suppression list holds them as objecting. Off, it is the team's flag.
+     */
     @Transactional
     public PersonRecordResponse markDoNotContact(UUID userId, UUID workspaceId, UUID personId, boolean doNotContact,
                                                  String reason, HttpServletRequest httpRequest) {
         Person person = people.requireInWorkspace(personId, workspaceId);
+        if (properties.dataProtection().enabled()) {
+            if (doNotContact) {
+                contactStop.recordedByTeam(person, userId, httpRequest);
+                return records.toRecord(userId, person);
+            }
+            // Outreach reads do not contact, never the list, so clearing it here would reopen contact.
+            if (person.isDoNotContact() && suppressionGate.holdsObjectionOf(workspaceId, person)) {
+                throw ApiException.of(ErrorCode.PERSON_OBJECTION_HELD);
+            }
+        }
         String why = reason == null || reason.isBlank() ? null : reason.strip();
-        boolean changed = doNotContact ? person.markDoNotContact(why, userId) : person.clearDoNotContact();
+        boolean changed = doNotContact ? person.markDoNotContact(why, userId, clock.instant())
+                : person.clearDoNotContact();
         if (changed) {
             activity.record(person, null, userId, doNotContact ? PersonActivityKind.DO_NOT_CONTACT_SET
                     : PersonActivityKind.DO_NOT_CONTACT_CLEARED, PersonActivityDetails.none());

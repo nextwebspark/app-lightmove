@@ -548,6 +548,18 @@ public class EmailTemplates {
         };
     }
 
+    /** To each other admin, when a colleague records that a person asked not to be contacted (B16). */
+    public EmailMessage buildObjectionRecordedEmail(String recipient, String recipientName, String colleagueName,
+                                                    String executiveName, String link) {
+        return renderer.render(recipient, "A candidate asked not to be contacted", EmailContent.of(
+                "A candidate asked not to be contacted",
+                EmailParagraph.of("Hi %s — %s recorded that %s asked not to be contacted. They are marked do not "
+                                + "contact and on your suppression list, and every email to them has stopped.",
+                        plain(firstName(recipientName)), plain(colleagueName), strong(executiveName)),
+                new EmailAction("Open their record", link),
+                EmailNote.of("Only an admin can lift it, from the suppression list in Settings.")));
+    }
+
     /** The morning's digest; its layout is the notification feature's, since only it knows what a task is. */
     public EmailMessage buildNotificationDigestEmail(String recipient, String date, EmailContent content) {
         return renderer.render(recipient, "Your Uncava day — %s".formatted(date), content);

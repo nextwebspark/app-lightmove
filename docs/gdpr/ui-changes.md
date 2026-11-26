@@ -140,6 +140,7 @@ the flag on.
 |---|---|---|
 | Header | **Processing restricted** pill; a note with reason, who, when, and Lift (or "Only {name} or an admin can lift it.") | #1180 |
 | Header | **Opted out by email.** banner while do not contact stands after an email opt-out; **Do not contact** banner otherwise | #1330 |
+| Header | **Do not contact** pill: with data protection on, a confirm dialog ("Mark {name} do not contact?") records their objection; clearing it while they are suppressed answers "They objected to being contacted. An admin can lift that from the suppression list in Settings." | #1489 |
 | Contact tab → **Privacy** block | Lawful basis select (with "(workspace default)"), Notified / Not notified with the date, Mark as notified | #1328 |
 | Privacy block, consent mode | A row per purpose with a pill (Not asked, Asked, Given, Renewal asked, Declined, Withdrawn, Expired), the "No consent recorded." warning when the basis is Consent, Ask for consent / Record an answer | #1341 |
 | Privacy block, share offered | A share row per position the person was asked about | #1343 |
@@ -156,6 +157,7 @@ Route `/projects/:projectId/companies/:stage`, view switch **Pipeline**. Consent
 | Each card carries a badge: **No consent to share** · **Consent asked** · **Consent given** | #1343 |
 | Card ⋯ → **Ask to share with client…** → `AskShareConsentDialog` (the email says "a confidential client" unless the client is named; a confidential brief never allows naming) | #1343 |
 | Turning a person client-visible without given share consent opens **"No consent to share with {client} yet"**: Ask first · Show anyway · Cancel. Hiding never asks. | #1343 |
+| Someone who said no to sharing, withdrew it, or whose processing is restricted: the switch is locked off with a red **Hidden from {client}** chip and a tooltip saying why; the badge reads **Said no to sharing** or **Withdrew sharing** | #1488 |
 
 ### 3.2 Companies → Table / Map → Advanced ▾
 
@@ -263,6 +265,4 @@ each workspace admin, the notice of a new sub-processor at least 30 days ahead w
 ## Not built yet
 
 - The `/privacy/requests` page for people a firm does not hold (website #28, needs an artboard).
-- A "Hide from client" action after a declined or withdrawn share (governance decision B12).
-- Hiding a restricted person from client seats (⚖️, #920).
 - The terms version bump that would show the re-acceptance sheet (ships with the counsel-reviewed terms).

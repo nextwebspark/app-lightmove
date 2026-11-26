@@ -1,6 +1,6 @@
 package app.lightmove.api.dataexport.service;
 
-import app.lightmove.api.candidate.model.ConsentRegisterRow;
+import app.lightmove.api.candidate.model.ConsentRegisterLine;
 import app.lightmove.api.candidate.service.PersonConsentService;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
@@ -29,7 +29,7 @@ public class ConsentRegisterExportService {
     }
 
     public String register(UUID userId, UUID workspaceId, UUID projectId, HttpServletRequest httpRequest) {
-        List<ConsentRegisterRow> rows = consents.registerOf(workspaceId, projectId, caps.maxCandidates());
+        List<ConsentRegisterLine> rows = consents.registerOf(workspaceId, projectId, caps.maxCandidates());
         audit.event(ProjectEventType.CONSENT_REGISTER_EXPORTED).actor(userId).workspace(workspaceId).from(httpRequest)
                 .detail("rows", rows.size())
                 .detailIfPresent("projectId", projectId == null ? null : projectId.toString())

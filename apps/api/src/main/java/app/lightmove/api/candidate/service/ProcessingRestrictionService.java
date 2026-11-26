@@ -37,6 +37,7 @@ public class ProcessingRestrictionService {
     private final WorkspaceAccess workspaceAccess;
     private final AuditService audit;
     private final ApplicationEventPublisher events;
+    private final ClientViewRefresh clientView;
 
     /**
      * Restricting needs a reason, and may also put the person on the suppression list as an objection; lifting leaves
@@ -70,6 +71,7 @@ public class ProcessingRestrictionService {
             if (restricting) {
                 events.publishEvent(new PersonProcessingRestricted(workspaceId, personId, userId));
             }
+            clientView.refreshPositionsOf(personId);
         } else if (suppressing) {
             audit.event(ProjectEventType.PERSON_SUPPRESSION_ADDED)
                     .actor(userId).workspace(workspaceId).target(PERSON_TARGET, personId).from(httpRequest)

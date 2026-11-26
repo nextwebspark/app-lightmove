@@ -5,8 +5,10 @@ import app.lightmove.api.candidate.constant.ConsentEventAction;
 import app.lightmove.api.candidate.constant.ConsentEventVia;
 import app.lightmove.api.candidate.constant.ConsentPurpose;
 import app.lightmove.api.candidate.constant.ConsentStatus;
+import app.lightmove.api.candidate.constant.ContactStopKind;
 import app.lightmove.api.candidate.model.ConsentPriorState;
 import app.lightmove.api.candidate.model.ConsentRegisterRow;
+import app.lightmove.api.candidate.model.ObjectionRegisterRow;
 import app.lightmove.api.candidate.model.PersonConsent;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -82,6 +84,29 @@ class PersonConsentStore {
                     via == null ? null : ConsentAnsweredVia.valueOf(via), instantOf(row, "valid_until"),
                     row.getString("wording_version"), row.getString("wording"));
         });
+    }
+
+    /** Everyone whose objection to contact stands (B16), at most {@code limit}; a position narrows it to whom it maps. */
+    List<ObjectionRegisterRow> objectionsOf(UUID workspaceId, UUID projectId, int limit) {
+        MapSqlParameterSource parameters = new MapSqlParameterSource("workspaceId", workspaceId)
+                .addValue("projectId", projectId)
+                .addValue("limit", limit);
+        return jdbc.query("""
+                SELECT p.id, p.full_name, p.do_not_contact_source, p.do_not_contact_set_at,
+                       u.full_name AS recorded_by_name
+                FROM app_lm_person p
+                LEFT JOIN app_lm_user u ON u.id = p.do_not_contact_set_by
+                WHERE p.workspace_id = :workspaceId
+                  AND p.do_not_contact
+                  AND p.do_not_contact_source IS NOT NULL
+                  AND (CAST(:projectId AS uuid) IS NULL OR EXISTS (
+                      SELECT 1 FROM app_lm_project_candidate pc
+                      WHERE pc.person_id = p.id AND pc.project_id = :projectId))
+                ORDER BY p.full_name, p.id
+                LIMIT :limit
+                """, parameters, (row, index) -> new ObjectionRegisterRow(row.getObject("id", UUID.class),
+                row.getString("full_name"), ContactStopKind.valueOf(row.getString("do_not_contact_source")),
+                instantOf(row, "do_not_contact_set_at"), row.getString("recorded_by_name")));
     }
 
     /** Every share-with-client consent on a position, whatever it stands at. */
