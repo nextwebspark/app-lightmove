@@ -367,8 +367,7 @@ dot, the name with the company's logo, and title · company under it, beside the
 on the page's first person. The toolbar keeps the view switch, its search and Filter (which narrow the list) and the
 record bar (Hide list, "N of M", ↑ ↓, Back to …), which the record's controls portal into (`RecordStepper.bar`); the
 grid's actions (Add to sequence for ticks, Find executives, Advanced, Create) are the Table's.
-The view folds the main sidebar to its icons while open (`useSidebarYield`), without touching the stored preference. An
-action row under the header (`RecordActionRow`) offers Write email and Add to sequence, then Add note, Log and ⋯ (Book a
+An action row under the header (`RecordActionRow`) offers Write email and Add to sequence, then Add note, Log and ⋯ (Book a
 meeting, Set next action, Remove). From `xl` the Details rail (`RecordDetailsRail`) holds what stays true on every tab —
 next action, contact, tags, client visibility and the person's other positions (staff only), and when and how they were
 added — so the header, footer and Outreach tab leave theirs out there; Profile's folds split into two columns once the

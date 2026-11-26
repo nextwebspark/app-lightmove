@@ -6,7 +6,6 @@ import { ICONS } from "../../../components/layout/Icon";
 import { FullscreenButton } from "../../../components/ui";
 import { ColumnPickerList, hideableColumnsOf } from "../../../components/ui/ColumnPicker";
 import { GridFilterButton } from "../../../components/ui/GridFilters";
-import { useSidebarYield } from "../../../components/layout/sidebarYield";
 import type { DataGridColumnFilter } from "../../../lib/gridFilters";
 import { PaginationBar } from "../../../components/ui/PaginationBar";
 import { useToast } from "../../../components/ui/Toast";
@@ -242,7 +241,6 @@ function TriageStage() {
   const view = resolveCompaniesView(views, requestedView, mapPreferences.view);
   const isBoard = view === "pipeline";
   const isRecordView = view === "executives";
-  useSidebarYield(isRecordView);
   /** Declined is a list of what was ruled out, whose one act is Back to universe. */
   const declinedStage = stage.status === "declined";
   // A tick made on one reading of the stage must not ride silently into another.
