@@ -8,6 +8,7 @@ import app.lightmove.api.candidate.dto.ErasePersonRequest;
 import app.lightmove.api.candidate.dto.PersonErasurePreviewResponse;
 import app.lightmove.api.candidate.model.ErasedPerson;
 import app.lightmove.api.candidate.model.SuppressionKey;
+import app.lightmove.api.core.audit.constant.PersonErasureReason;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.error.constant.ErrorCode;
@@ -40,7 +41,6 @@ import org.springframework.transaction.annotation.Transactional;
 public class PersonErasureService {
 
     private static final String PERSON_TARGET = "person";
-    private static final String RETENTION_REASON = "retention";
 
     private final NamedParameterJdbcTemplate jdbc;
     private final SuppressionListService suppression;
@@ -84,7 +84,8 @@ public class PersonErasureService {
     @Transactional
     public boolean eraseUnderRetention(UUID userId, UUID workspaceId, UUID personId, Predicate<UUID> stillDue,
                                        HttpServletRequest httpRequest) {
-        return eraseUnderRetention(userId, workspaceId, personId, stillDue, httpRequest, RETENTION_REASON);
+        return eraseUnderRetention(userId, workspaceId, personId, stillDue, httpRequest,
+                PersonErasureReason.RETENTION);
     }
 
     /**
@@ -93,12 +94,12 @@ public class PersonErasureService {
      */
     @Transactional
     public boolean eraseUnderRetention(UUID userId, UUID workspaceId, UUID personId, Predicate<UUID> stillDue,
-                                       HttpServletRequest httpRequest, String reason) {
+                                       HttpServletRequest httpRequest, PersonErasureReason reason) {
         Optional<ErasingRow> row = lockPerson(workspaceId, personId);
         if (row.isEmpty() || !stillDue.test(personId)) {
             return false;
         }
-        eraseLocked(userId, workspaceId, personId, row.get(), false, reason, httpRequest);
+        eraseLocked(userId, workspaceId, personId, row.get(), false, reason.value(), httpRequest);
         return true;
     }
 

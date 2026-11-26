@@ -7,6 +7,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import app.lightmove.api.FixtureJdbc;
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
+import app.lightmove.api.core.audit.constant.PersonErasureReason;
 import app.lightmove.api.retention.service.NeverContactedErasure;
 import java.time.Instant;
 import java.util.List;
@@ -19,8 +20,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
 /**
  * #1490 (B2, E1): someone held without consent and never contacted is erased six months after they were added, or
  * after the last position they were on was archived — unless anything says they matter: a live position, a
- * restriction, do not contact, an admin's keep, a consent, a notice, an email either way, a meeting, a call that
- * reached them.
+ * restriction, do not contact, an admin's keep however old, a consent, a notice, an email either way, a meeting, a
+ * call that reached them.
  */
 @IntegrationTest
 class NeverContactedErasureIntegrationTest extends FlowTestSupport {
@@ -60,7 +61,7 @@ class NeverContactedErasureIntegrationTest extends FlowTestSupport {
         db.update("update app_lm_person set created_at = now() - interval '5 months' where id = ?::uuid", young);
         db.update("update app_lm_person set processing_restricted = true, processing_restricted_reason = 'Request',"
                 + " processing_restricted_at = now() where id = ?::uuid", restricted);
-        db.update("update app_lm_person set retention_kept_at = now() - interval '1 month' where id = ?::uuid", kept);
+        db.update("update app_lm_person set retention_kept_at = now() - interval '2 years' where id = ?::uuid", kept);
         db.update("update app_lm_person set privacy_notified_at = now() - interval '6 months',"
                 + " privacy_notice_channel = 'MARKED_BY_HAND' where id = ?::uuid", notified);
         db.update("update app_lm_person set do_not_contact = true, do_not_contact_reason = 'Asked us to stop',"
@@ -87,7 +88,7 @@ class NeverContactedErasureIntegrationTest extends FlowTestSupport {
         assertThat(erased).isEqualTo(2);
         assertThat(db.queryForList("select metadata ->> 'reason' from app_lm_audit_event"
                 + " where event_type = 'PERSON_ERASED' and workspace_id = ?::uuid", String.class, workspaceId))
-                .containsOnly(NeverContactedErasure.REASON).hasSize(2);
+                .containsOnly(PersonErasureReason.NEVER_CONTACTED.value()).hasSize(2);
         assertThat(db.queryForObject("select count(*) from app_lm_audit_event where event_type = 'PERSON_ERASED'"
                 + " and workspace_id = ?::uuid and actor_user_id is not null", Long.class, workspaceId)).isZero();
         assertThat(db.queryForObject("select count(*) from app_lm_workspace_suppression where workspace_id = ?::uuid",
