@@ -317,7 +317,8 @@ class OutreachOwnEmailIntegrationTest extends FlowTestSupport {
         assertThat(after.at("/contact/doNotContact").asBoolean()).isTrue();
         JsonNode connection = mailbox();
         assertThat(connection.get("sentToday").asLong()).isEqualTo(1);
-        assertThat(connection.get("scheduledEmails").asLong()).isEqualTo(1);
+        assertThat(connection.get("scheduledEmails").asLong())
+                .as("the objection fails the waiting email at once, as the stop link does (#1489)").isZero();
     }
 
     @Test

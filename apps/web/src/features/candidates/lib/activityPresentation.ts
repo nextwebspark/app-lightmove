@@ -93,7 +93,7 @@ const FAMILY_OF: Record<PersonActivityKind, ActivityFamily> = {
   PRIVACY_OBJECTED: "profile",
   PRIVACY_REQUEST_RECEIVED: "profile",
   PRIVACY_OPTED_OUT: "profile",
-  OBJECTION_RECORDED: "profile",
+  OBJECTION_RECORDED: "contact",
   CONSENT_REQUESTED: "profile",
   CONSENT_REQUEST_FAILED: "profile",
   CONSENT_ANSWERED: "profile",
