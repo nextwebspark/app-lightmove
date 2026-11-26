@@ -126,7 +126,12 @@ them; a change is made in both.
   in a workspace that asks, most cards carry the first until people are asked.
 - **The consent register.** Every request and answer as a CSV (name, person id, purpose, position, client named,
   status, asked on and by, answered on and how, valid until, wording version, wording), never a contact detail, formula
-  cells defused, refused past `lightmove.export.max-candidates` lines. From Settings (the whole workspace) and the
+  cells defused, refused past `lightmove.export.max-candidates` lines. A standing objection to contact (#1489) is a line
+  of its own (`ObjectionRegisterRow`, beside the consents' `ConsentRegisterRow`): purpose "Objection to contact",
+  status "Objected", nothing under "Asked on" or "Asked by" since nobody asked, answered on the day it was set, and how
+  under "Answered" (on their privacy page, by the stop link in an email, or "Recorded by the team: {colleague}"). The
+  door is `do_not_contact_source`, never the reason's words; a position's register carries the objections of the
+  people it maps. From Settings (the whole workspace) and the
   position's Advanced menu (that position's shares).
 - **The drawer** lists a share row per position the person was asked about, or is on while share is offered.
 

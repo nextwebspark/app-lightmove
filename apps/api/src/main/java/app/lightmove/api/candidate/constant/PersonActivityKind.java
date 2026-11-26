@@ -127,6 +127,9 @@ public enum PersonActivityKind {
 
     PRIVACY_OPTED_OUT,
 
+    /** A colleague recorded that the person objected when contacted: the same stop as the page's, with an actor. */
+    OBJECTION_RECORDED,
+
     /** The person was asked for consent (#1267); {@code purposes} names what, {@code renewal} a renewal. */
     CONSENT_REQUESTED,
 

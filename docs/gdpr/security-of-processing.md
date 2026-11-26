@@ -43,8 +43,10 @@ gcloud sql instances patch bright-gcc --project hak-talent-mapping \
   --retained-transaction-log-days=7
 ```
 
-Backups go to the multi-region nearest the instance unless `--backup-location` names one; pin it (`us-central1`) or
-leave it with #925's residency decision ⚖️.
+Backups go to the multi-region nearest the instance unless `--backup-location` names one; for `us-central1` that is
+the US multi-region (`us`). F9 (recommended 25 Nov 2026, not yet confirmed; revisit with F3 and F11) keeps them in the
+US: `--backup-location=us` only makes that default explicit. Same-region backups would be
+`--backup-location=us-central1`.
 
 Then, once the first automated backup shows `SUCCESSFUL` in `gcloud sql backups list --instance bright-gcc`, delete the
 old on-demand one so nothing outlives the window:

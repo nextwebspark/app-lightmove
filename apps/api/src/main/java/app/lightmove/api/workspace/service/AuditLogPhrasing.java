@@ -187,6 +187,8 @@ public class AuditLogPhrasing {
         on(ProjectEventType.PERSON_PRIVACY_NOTICE_FAILED, line -> "A candidate's privacy notice could not be sent");
         on(ProjectEventType.PERSON_OBJECTED, line -> "A candidate objected from their privacy page");
         on(ProjectEventType.PERSON_OPTED_OUT, line -> "A candidate stopped emails from an outreach email");
+        on(ProjectEventType.PERSON_OBJECTION_RECORDED,
+                line -> "Recorded a candidate's objection: do not contact and the suppression list");
         on(ProjectEventType.PERSON_CONSENT_REQUESTED, line -> "Asked a candidate for consent");
         on(ProjectEventType.PERSON_CONSENT_REQUEST_FAILED, line -> "A candidate's consent request could not be sent");
         on(ProjectEventType.PERSON_CONSENT_ANSWERED, line -> "A candidate answered a consent request");

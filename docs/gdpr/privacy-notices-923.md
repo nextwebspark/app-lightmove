@@ -115,7 +115,7 @@ Stop emails from us". With the firm's details not yet set it reads "We hold …"
   actor, and `used_at` on the link. In the same transaction outreach's `OutreachOptOutStop` stops every live run on the
   person as `OPTED_OUT` and fails every email still waiting to go (one already taken by the dispatcher meets do not
   contact at its send-time check). An objection from the privacy page does the same. Only a link's first use is
-  recorded, so a mail app posting twice tells nobody twice. Rate-limited per link (10 an hour) and per IP (1,000 an
+  recorded, so a mail app posting twice tells nobody twice. All three doors are one code path, `PersonContactStop`. Rate-limited per link (10 an hour) and per IP (1,000 an
   hour: a provider posts for many people from one address).
 - **Who hears of it:** the person's owner, else whoever sent the email, by a `CANDIDATE_OPTED_OUT` bell under the
   bounced switch. The drawer reads `privacy.optedOutAt` while do not contact stands.
@@ -125,6 +125,20 @@ Stop emails from us". With the firm's details not yet set it reads "We hold …"
   when its own record failed (`claims.recordDelivered`) skips this, so such a person stays Not notified.
 - **Previews.** Add to sequence and the composer read the footer's sentence (`privacyFooter` on
   `EnrollmentCandidateResponse` and `ConversationComposerResponse`) and draw it read-only under the email.
+- **The team's door (B16, #1489).** Replies are never read for "please stop". A consultant who reads one, or hears it
+  on a call, sets the drawer's **Do not contact**: while data protection is on that is the person's objection, after a
+  confirm dialog. `PUT /api/v1/candidates/{id}/do-not-contact` then runs `PersonContactStop` with the colleague as
+  actor (`recordedByTeam`; the page's door is `objectedOnPrivacyPage`, the link's `optedOutByLink`): do not contact
+  ("Objected when contacted, recorded by the team", replacing any earlier reason of the team's; the request's own
+  `reason` is ignored) with `do_not_contact_source` naming the door, the suppression list as `OBJECTED`, an
+  `OBJECTION_RECORDED` line, a `PERSON_OBJECTION_RECORDED` audit event, and `PersonPrivacyRequested(OBJECTION)` with
+  the actor, so every run stops now as `DO_NOT_CONTACT` and every admin but the actor gets the `PERSON_OBJECTED` bell.
+  Its email is the team's own ("A candidate asked not to be contacted": the colleague recorded it), never the privacy
+  page's. Clearing it while the suppression list holds them as `OBJECTED` is refused (`PERSON_OBJECTION_HELD`, 409):
+  outreach reads do not contact, not the list, so clearing would reopen contact. An admin removes the entries in
+  Settings first; an entry for another reason (`erased`, `manual`) holds nothing. With the switch off, the button is
+  the team's own flag as before. All three doors' timeline lines are the person's, read under Contacts on every
+  position.
 - Off with `DATA_PROTECTION_ENABLED`: no footer, no headers, no link minted.
 
 ## Uncava's own notice to executives (#1490)

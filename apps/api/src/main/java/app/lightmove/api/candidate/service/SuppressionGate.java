@@ -1,5 +1,6 @@
 package app.lightmove.api.candidate.service;
 
+import app.lightmove.api.candidate.constant.SuppressionReason;
 import app.lightmove.api.candidate.model.CandidateContact;
 import app.lightmove.api.candidate.model.Person;
 import app.lightmove.api.candidate.model.SuppressionKey;
@@ -61,21 +62,36 @@ public class SuppressionGate {
     public Set<UUID> suppressedPeopleOf(UUID workspaceId, Collection<Person> people) {
         Map<SuppressionKey, Set<UUID>> peopleByKey = new HashMap<>();
         for (Person person : people) {
-            SuppressionKey profile = SuppressionKey.ofProfileUrlOrNull(person.getLinkedinUrl());
-            if (profile != null) {
-                peopleByKey.computeIfAbsent(profile, key -> new HashSet<>()).add(person.getId());
-            }
-            for (CandidateContact email : person.emailContacts()) {
-                SuppressionKey key = SuppressionKey.ofEmailOrNull(email.getValue());
-                if (key != null) {
-                    peopleByKey.computeIfAbsent(key, held -> new HashSet<>()).add(person.getId());
-                }
+            for (SuppressionKey key : keysOf(person)) {
+                peopleByKey.computeIfAbsent(key, held -> new HashSet<>()).add(person.getId());
             }
         }
         Set<UUID> suppressed = new HashSet<>();
         entries.entriesFor(workspaceId, peopleByKey.keySet()).keySet()
                 .forEach(key -> suppressed.addAll(peopleByKey.get(key)));
         return suppressed;
+    }
+
+    /** Whether the list holds the person's profile or any address of theirs as an objection, not another reason. */
+    @Transactional(readOnly = true)
+    public boolean holdsObjectionOf(UUID workspaceId, Person person) {
+        return entries.entriesFor(workspaceId, keysOf(person)).values().stream()
+                .anyMatch(entry -> entry.getReason() == SuppressionReason.OBJECTED);
+    }
+
+    private static Set<SuppressionKey> keysOf(Person person) {
+        Set<SuppressionKey> keys = new HashSet<>();
+        SuppressionKey profile = SuppressionKey.ofProfileUrlOrNull(person.getLinkedinUrl());
+        if (profile != null) {
+            keys.add(profile);
+        }
+        for (CandidateContact email : person.emailContacts()) {
+            SuppressionKey key = SuppressionKey.ofEmailOrNull(email.getValue());
+            if (key != null) {
+                keys.add(key);
+            }
+        }
+        return keys;
     }
 
     /** Which of these profile slugs the list holds, in every spelling they were given — one query for a page. */

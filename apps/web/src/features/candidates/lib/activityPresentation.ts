@@ -90,9 +90,10 @@ const FAMILY_OF: Record<PersonActivityKind, ActivityFamily> = {
   PRIVACY_NOTICE_SENT: "profile",
   PRIVACY_NOTICE_MARKED: "profile",
   PRIVACY_NOTICE_FAILED: "profile",
-  PRIVACY_OBJECTED: "profile",
+  PRIVACY_OBJECTED: "contact",
   PRIVACY_REQUEST_RECEIVED: "profile",
-  PRIVACY_OPTED_OUT: "profile",
+  PRIVACY_OPTED_OUT: "contact",
+  OBJECTION_RECORDED: "contact",
   CONSENT_REQUESTED: "profile",
   CONSENT_REQUEST_FAILED: "profile",
   CONSENT_ANSWERED: "profile",
@@ -214,6 +215,7 @@ export function iconOf(entry: PersonTimelineEntry): string | null {
       return ICONS.info;
     case "PRIVACY_OBJECTED":
     case "PRIVACY_OPTED_OUT":
+    case "OBJECTION_RECORDED":
       return ICONS.ban;
     case "CONSENT_REQUESTED":
       return ICONS.shield;
@@ -391,6 +393,8 @@ export function verbOf(entry: PersonTimelineEntry): string {
       return "objected from their privacy page";
     case "PRIVACY_OPTED_OUT":
       return "stopped emails from an outreach email";
+    case "OBJECTION_RECORDED":
+      return "recorded an objection: do not contact";
     case "PRIVACY_REQUEST_RECEIVED":
       return details.kind === "deletion" ? "asked for their data to be deleted" : "asked for a copy of their data";
     case "CONSENT_REQUESTED":

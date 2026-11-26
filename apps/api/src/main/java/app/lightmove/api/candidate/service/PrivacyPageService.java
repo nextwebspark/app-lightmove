@@ -5,11 +5,9 @@ import app.lightmove.api.candidate.constant.ConsentEventVia;
 import app.lightmove.api.candidate.constant.ConsentPurpose;
 import app.lightmove.api.candidate.constant.ConsentStatus;
 import app.lightmove.api.candidate.constant.ContactKind;
-import app.lightmove.api.candidate.constant.DoNotContactReasons;
 import app.lightmove.api.candidate.constant.PersonActivityKind;
 import app.lightmove.api.candidate.constant.PrivacyLinkPurpose;
 import app.lightmove.api.candidate.constant.PrivacyRequestKind;
-import app.lightmove.api.candidate.constant.SuppressionReason;
 import app.lightmove.api.candidate.dto.ConsentAnswerRequest;
 import app.lightmove.api.candidate.dto.PrivacyPageConsentResponse;
 import app.lightmove.api.candidate.dto.PrivacyPageResponse;
@@ -67,10 +65,6 @@ import org.springframework.transaction.support.TransactionTemplate;
 public class PrivacyPageService {
 
     private static final String PERSON_TARGET = "person";
-    private static final ContactStop OBJECTION = new ContactStop(DoNotContactReasons.OBJECTED_THROUGH_PRIVACY_PAGE,
-            PersonActivityKind.PRIVACY_OBJECTED, ProjectEventType.PERSON_OBJECTED);
-    private static final ContactStop OPT_OUT = new ContactStop(DoNotContactReasons.OPTED_OUT_BY_EMAIL,
-            PersonActivityKind.PRIVACY_OPTED_OUT, ProjectEventType.PERSON_OPTED_OUT);
 
     /** A second click on the same request within a day tells nobody again. */
     private static final Duration REPEAT_WINDOW = Duration.ofDays(1);
@@ -81,7 +75,7 @@ public class PrivacyPageService {
     private final NamedParameterJdbcTemplate jdbc;
     private final PersonRepository people;
     private final CandidatePrivacySettingsService settings;
-    private final SuppressionListService suppression;
+    private final PersonContactStop contactStop;
     private final PersonActivityRecorder activity;
     private final AuditService audit;
     private final ApplicationEventPublisher events;
@@ -96,7 +90,7 @@ public class PrivacyPageService {
 
     public PrivacyPageService(TenantResolvers resolvers, RateLimitGuard rateLimit, NamedParameterJdbcTemplate jdbc,
                               PersonRepository people, CandidatePrivacySettingsService settings,
-                              SuppressionListService suppression, PersonActivityRecorder activity, AuditService audit,
+                              PersonContactStop contactStop, PersonActivityRecorder activity, AuditService audit,
                               ApplicationEventPublisher events, Clock clock,
                               PlatformTransactionManager transactionManager, PersonConsentStore consents,
                               PrivacyLinkStore privacyLinks, EmailTemplates templates, ShareTargets shareTargets,
@@ -106,7 +100,7 @@ public class PrivacyPageService {
         this.jdbc = jdbc;
         this.people = people;
         this.settings = settings;
-        this.suppression = suppression;
+        this.contactStop = contactStop;
         this.activity = activity;
         this.audit = audit;
         this.events = events;
@@ -146,8 +140,7 @@ public class PrivacyPageService {
         rateLimit.checkPrivacyPageRequest(tokenHash, request);
         inLinksWorkspace(tokenHash, link -> {
             Person person = liveLinksPerson(link);
-            stopContact(link, person, false, OBJECTION, request,
-                    new PersonPrivacyRequested(link.workspaceId(), person.getId(), PrivacyRequestKind.OBJECTION));
+            contactStop.objectedOnPrivacyPage(person, request);
             return null;
         });
     }
@@ -166,8 +159,7 @@ public class PrivacyPageService {
                     UPDATE app_lm_person_privacy_link SET used_at = :usedAt WHERE id = :id AND used_at IS NULL
                     """, new MapSqlParameterSource("id", link.id())
                     .addValue("usedAt", Timestamp.from(clock.instant()))) > 0;
-            stopContact(link, person, linkFirstUsed, OPT_OUT, request, new PersonOptedOut(link.workspaceId(),
-                    person.getId(), person.getOwnerUserId() != null ? person.getOwnerUserId() : link.sentBy()));
+            contactStop.optedOutByLink(person, link.sentBy(), linkFirstUsed, request);
             return null;
         });
     }
@@ -243,25 +235,6 @@ public class PrivacyPageService {
             events.publishEvent(new PersonPrivacyRequested(link.workspaceId(), person.getId(), kind));
             return null;
         });
-    }
-
-    /**
-     * Do not contact and the suppression list as an objection, so no door files them again. Recorded and announced
-     * only when something changed.
-     */
-    private void stopContact(PrivacyLink link, Person person, boolean linkFirstUsed, ContactStop stop,
-                             HttpServletRequest request, Object announcement) {
-        boolean marked = person.markDoNotContact(stop.doNotContactReason(), null);
-        int suppressed = suppression.suppressPerson(person, null, SuppressionReason.OBJECTED);
-        if (!linkFirstUsed && !marked && suppressed == 0) {
-            return;
-        }
-        activity.record(person, null, null, stop.activityKind(), PersonActivityDetails.none());
-        audit.event(stop.auditType())
-                .workspace(link.workspaceId()).target(PERSON_TARGET, person.getId()).from(request)
-                .detail("suppressionEntries", suppressed)
-                .record();
-        events.publishEvent(announcement);
     }
 
     private boolean recordAnswer(PrivacyLink link, Person person, PersonConsent consent, ConsentStatus status,
@@ -465,10 +438,6 @@ public class PrivacyPageService {
 
     private boolean exists(String query, MapSqlParameterSource parameters) {
         return Boolean.TRUE.equals(jdbc.queryForObject("SELECT EXISTS (" + query + ")", parameters, Boolean.class));
-    }
-
-    private record ContactStop(String doNotContactReason, PersonActivityKind activityKind,
-                               ProjectEventType auditType) {
     }
 
     /** {@code wasLive}: in force when answered, so a no only closed its renewal and it runs to its own date. */

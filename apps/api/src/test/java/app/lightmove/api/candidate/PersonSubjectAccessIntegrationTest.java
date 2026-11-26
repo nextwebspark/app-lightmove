@@ -5,6 +5,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.request;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -85,6 +86,10 @@ class PersonSubjectAccessIntegrationTest extends FlowTestSupport {
                     updated_by, ai_drafted, ai_drafted_at)
                 values (?::uuid, ?::uuid, ?::uuid, 'DRAFT', '[]', '{}', ?::uuid, '["report:summary"]', now())""",
                 workspaceId, cfo, candidateId, adminId);
+        mvc.perform(put("/api/v1/candidates/" + personId + "/do-not-contact")
+                        .header("Authorization", "Bearer " + admin).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"doNotContact\":true}"))
+                .andExpect(status().isOk());
 
         MvcResult streaming = mvc.perform(get("/api/v1/candidates/" + personId + "/subject-access-export")
                         .header("Authorization", "Bearer " + admin))
@@ -123,6 +128,10 @@ class PersonSubjectAccessIntegrationTest extends FlowTestSupport {
         assertThat(data.at("/tasks/0/title").asText()).isEqualTo("Call back");
         assertThat(data.get("scorecards")).hasSize(1);
         assertThat(data.get("timeline").size()).isGreaterThan(0);
+        assertThat(data.at("/person/0/do_not_contact_reason").asText())
+                .as("their objection is theirs to see").isEqualTo("Objected when contacted, recorded by the team");
+        assertThat(data.get("timeline").valueStream().map(line -> line.get("kind").asText()))
+                .contains("OBJECTION_RECORDED");
         assertThat(person.get("aiLogic").valueStream().map(use -> use.get("use").asText()))
                 .as("a confirmed AI value is still explained by its run's timeline line")
                 .contains("NATIONALITY", "BACKGROUND", "ASSESSMENT_DRAFT", "CALL_CHANGES");
