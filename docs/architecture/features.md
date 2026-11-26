@@ -194,8 +194,9 @@ Candidates page's — share one header (`PersonHeaderLayout`: the photo beside o
 mark — the drawer's only view of the link, edited with the details' pencil — then on a position the
 status picker and that pencil, the primary email and phone with "+N" and the contact details window, the tags held to
 one line with a +N chip, and do not contact) and one tab order, `Position.dc.html`'s, grouped by what the consultant
-is doing: **Profile · Notes · Assessment · Outreach · Activity** — Profile's folds Summary, Experience, Education,
-Background, Compensation, Documents and Your columns, Summary alone open on arrival (`useProfileSections`); Outreach
+is doing: **Profile · Notes · Documents · Assessment · Outreach · Activity** — Profile's folds Summary, Experience,
+Education, Background, Compensation and Your columns, Summary alone open on arrival (`useProfileSections`); Documents
+the whole tab a drop target, and a file dragged over any tab opens it; Outreach
 the conversation — the action row first (Write email, Log call, Log meeting, Log LinkedIn, Log WhatsApp, Book a meeting, Add to sequence, held
 while a run is live), then the run where there is one, the calls to come, then one timeline (its latest five, See more for
 the rest) (`DrawerOutreachTimeline`, over the conversation read and
@@ -247,7 +248,7 @@ uploader's or a `WORKSPACE_MANAGE` holder's (`PERSON_DOCUMENT_NOT_YOURS`), every
 and each change is a timeline line that names the document only while it exists. The bytes live in a
 private GCS bucket behind `core/storage`'s `DocumentStore` (`lightmove.storage.*`; the filesystem store
 for `npm run dev` and tests), streamed by the API, never by a signed URL. The SPA draws them in
-`components/documents`: both drawers' Documents fold (on Profile) and a preview sheet (a PDF or image fetched as a blob, never a link); the
+`components/documents`: both drawers' Documents tab and a preview sheet (a PDF or image fetched as a blob, never a link); the
 upload tray says what each file will become before sending, and a duplicate is the server's 409.
 `CandidateResponse.linkedinUrlLocked` says the plugin read the held URL off its page; it fences nothing —
 a person's URL is always editable, and an edit that changes it clears the flag.
@@ -361,14 +362,18 @@ reopens it; over the grid its header steps to the previous and next executive in
 held while an edit is open (`RecordCornerControls`); the open person's line stays tinted in the grid after the peek
 closes (`DataGrid`'s `activeRowId`). Every stage also reads as **Executives** (`?view=executives`,
 `CandidateRecordPage`; the old `?record=page` link lands there): a list of the grid's executives — the grid's own read,
-so its stage, filters, sort and page, turned by the list's own pager — each a photo with a status dot, the name with the
-company's logo, and title · company under it, beside the record at the full width left, opening on the page's first
-person. The toolbar stays: its search and Filter narrow the list, Add to sequence takes the open person, Find executives
-waits for the Table. The record's corner holds Hide list, "N of M" and ↑ ↓; an action row under the header
-(`RecordActionRow`) offers Write email, Add note, Log and ⋯ (Book a meeting, Add to sequence, Set next action, Remove).
-From `xl` the Details rail (`RecordDetailsRail`) holds what stays true on every tab — next action, contact, tags, client
-visibility and the person's other positions (staff only), and when and how they were added — so the header, footer and
-Outreach tab leave theirs out there; Profile's folds split into two columns once the record is wide enough. The peek's ⤢
+so its stage, filters, sort and page, in the grid's order, turned by the list's own pager — each a photo with a status
+dot, the name with the company's logo, and title · company under it, beside the record at the full width left, opening
+on the page's first person. The toolbar keeps the view switch, its search and Filter (which narrow the list) and the
+record bar (Hide list, "N of M", ↑ ↓, Back to …), which the record's controls portal into (`RecordStepper.bar`); the
+grid's actions (Add to sequence for ticks, Find executives, Advanced, Create) are the Table's.
+The view folds the main sidebar to its icons while open (`useSidebarYield`), without touching the stored preference. An
+action row under the header (`RecordActionRow`) offers Write email and Add to sequence, then Add note, Log and ⋯ (Book a
+meeting, Set next action, Remove). From `xl` the Details rail (`RecordDetailsRail`) holds what stays true on every tab —
+next action, contact, tags, client visibility and the person's other positions (staff only), and when and how they were
+added — so the header, footer and Outreach tab leave theirs out there; Profile's folds split into two columns once the
+record is wide enough. Profile hides an empty Summary, Experience or Languages and offers them as one line of "+" chips
+instead; its figures read as label-over-value text (`DetailTile`), and section pencils show on hover where there is one. The peek's ⤢
 (the grid's, and the board's) opens Executives as a visit: a step in history that leaves the remembered view alone, so
 the record's ⤡ Back to Table / Back to Pipeline, Esc or Back return there with the peek open on whoever is open by then.
 The list is as wide as Outreach's conversations (`listPane.ts`). Below `lg` the list waits behind a List button. Nothing

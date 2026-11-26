@@ -685,17 +685,17 @@ describe("CandidatesPage", () => {
     expect(screen.getAllByRole("tab").map((tab) => tab.textContent?.replace(/\d+$/, ""))).toEqual([
       "Profile",
       "Notes",
+      "Documents",
       "Activity",
       "Positions",
     ]);
     // Tags are the person's, on view whichever tab is open; so is the primary email.
     expect(await screen.findByRole("button", { name: "Remove tag Open to work" })).toBeInTheDocument();
     expect(screen.getByText("fatima@example.com")).toBeInTheDocument();
-    // The package and the documents are folds of Profile, closed until asked for.
+    // The package is a fold of Profile, closed until asked for.
     const profile = screen.getByRole("tabpanel");
     expect(within(profile).getByRole("button", { name: /^Summary/ })).toHaveAttribute("aria-expanded", "true");
     expect(within(profile).getByRole("button", { name: /^Compensation/ })).toHaveAttribute("aria-expanded", "false");
-    expect(within(profile).getByRole("button", { name: /^Documents/ })).toHaveAttribute("aria-expanded", "false");
 
     await userEvent.click(screen.getByRole("tab", { name: /^Notes/ }));
     expect(await screen.findByLabelText("New note")).toBeInTheDocument();

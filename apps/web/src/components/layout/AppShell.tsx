@@ -9,6 +9,7 @@ import { TimeZoneMoveNotice } from "../../features/settings/components/TimeZoneM
 import { MobileMoreSheet } from "./mobile/MobileMoreSheet";
 import { MobileTabBar, type MobileTab } from "./mobile/MobileTabBar";
 import { Sidebar, type SidebarGroup, type SidebarItem } from "./Sidebar";
+import { SidebarYieldProvider } from "./sidebarYield";
 import { Topbar } from "./Topbar";
 
 /**
@@ -63,57 +64,59 @@ export function AppShell({
 
   return (
     <HelpProvider>
-      {/* Clear of the notch and the status bar: the home-screen app is drawn edge to edge (viewport-fit=cover). */}
-      <div className="flex h-dvh flex-col overflow-hidden pt-[env(safe-area-inset-top)] ps-[env(safe-area-inset-left)] pe-[env(safe-area-inset-right)]">
-        <Topbar breadcrumb={breadcrumb} actions={topbarActions} workspaceChrome={workspaceChrome} />
+      <SidebarYieldProvider>
+        {/* Clear of the notch and the status bar: the home-screen app is drawn edge to edge (viewport-fit=cover). */}
+        <div className="flex h-dvh flex-col overflow-hidden pt-[env(safe-area-inset-top)] ps-[env(safe-area-inset-left)] pe-[env(safe-area-inset-right)]">
+          <Topbar breadcrumb={breadcrumb} actions={topbarActions} workspaceChrome={workspaceChrome} />
 
-        <TimeZoneMoveNotice />
+          <TimeZoneMoveNotice />
 
-        {notice && <div className="px-3.5 pb-2.5">{notice}</div>}
+          {notice && <div className="px-3.5 pb-2.5">{notice}</div>}
 
-        {/* Below `lg` main ends above the bottom bar rather than under it. */}
-        <div className="flex min-h-0 flex-1 px-3.5 pb-3.5 max-lg:pb-[calc(var(--mobile-nav-clearance)+0.875rem)]">
-          <Sidebar
+          {/* Below `lg` main ends above the bottom bar rather than under it. */}
+          <div className="flex min-h-0 flex-1 px-3.5 pb-3.5 max-lg:pb-[calc(var(--mobile-nav-clearance)+0.875rem)]">
+            <Sidebar
+              groups={navGroups}
+              backLink={navBackLink}
+              assistantOpen={!!assistantProjectId && isOpenFor(assistantProjectId)}
+            />
+
+            <main
+              ref={mainRef}
+              className="min-w-0 flex-1 overflow-y-auto rounded-[10px] border border-u-border-strong bg-u-surface"
+            >
+              <div className={cn(contentClassName)}>{children}</div>
+            </main>
+
+            {/* Docked, not overlaid: main is flex-1, so this narrows it and covers nothing. The mockup
+              draws it this way because the grid has to stay tickable while the assistant is open. The
+              dock is the slot rather than the panel, so main narrows on the same curve the panel
+              arrives on instead of losing its width a frame ahead of it. */}
+            {/* Beside a position's Strategy only, and opened from its AI Research: no screen floats its own way in. */}
+            {assistantProjectId && (
+              <AssistantDock
+                contextLabel={assistantContext}
+                projectId={assistantProjectId}
+              />
+            )}
+          </div>
+
+          <MobileTabBar
+            tabs={mobileTabs}
+            pathname={pathname}
+            moreOpen={moreOpen}
+            onMore={() => setMoreOpen((open) => !open)}
+            onQuickAction={onQuickAction}
+          />
+          <MobileMoreSheet
+            open={moreOpen}
+            onClose={() => setMoreOpen(false)}
+            title={mobileTitle}
             groups={navGroups}
             backLink={navBackLink}
-            assistantOpen={!!assistantProjectId && isOpenFor(assistantProjectId)}
           />
-
-          <main
-            ref={mainRef}
-            className="min-w-0 flex-1 overflow-y-auto rounded-[10px] border border-u-border-strong bg-u-surface"
-          >
-            <div className={cn(contentClassName)}>{children}</div>
-          </main>
-
-          {/* Docked, not overlaid: main is flex-1, so this narrows it and covers nothing. The mockup
-            draws it this way because the grid has to stay tickable while the assistant is open. The
-            dock is the slot rather than the panel, so main narrows on the same curve the panel
-            arrives on instead of losing its width a frame ahead of it. */}
-          {/* Beside a position's Strategy only, and opened from its AI Research: no screen floats its own way in. */}
-          {assistantProjectId && (
-            <AssistantDock
-              contextLabel={assistantContext}
-              projectId={assistantProjectId}
-            />
-          )}
         </div>
-
-        <MobileTabBar
-          tabs={mobileTabs}
-          pathname={pathname}
-          moreOpen={moreOpen}
-          onMore={() => setMoreOpen((open) => !open)}
-          onQuickAction={onQuickAction}
-        />
-        <MobileMoreSheet
-          open={moreOpen}
-          onClose={() => setMoreOpen(false)}
-          title={mobileTitle}
-          groups={navGroups}
-          backLink={navBackLink}
-        />
-      </div>
+      </SidebarYieldProvider>
     </HelpProvider>
   );
 }

@@ -36,20 +36,18 @@ interface TrayItem {
 let trayKeys = 0;
 
 /**
- * A person's documents (`Candidates.dc.html`'s tab, compact in the executive drawer): drop anywhere, a tray predicts
+ * A person's documents (`Candidates.dc.html`'s tab), a tab of both person drawers: drop anywhere, a tray predicts
  * each file's outcome from names on the person, cards grouped CV first. A duplicate is known by bytes — the server's 409.
  */
 export function DocumentsPanel({
   scope,
   documents,
   personName,
-  compact = false,
   onPreview,
 }: {
   scope: DocumentScope;
   documents: PersonDocuments;
   personName: string;
-  compact?: boolean;
   onPreview: (document: PersonDocument, version: PersonDocumentVersion) => void;
 }) {
   const toast = useToast();
@@ -146,7 +144,7 @@ export function DocumentsPanel({
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
-      className={cn("relative", compact ? "pb-3" : "min-h-full pb-2")}
+      className="relative min-h-full pb-2"
     >
       <input
         ref={filesInput}
@@ -173,32 +171,19 @@ export function DocumentsPanel({
         }}
       />
 
-      <div
-        className={cn(
-          "flex items-center gap-3 rounded-[10px] border-[1.5px] border-dashed border-u-border-strong bg-u-raised",
-          compact ? "px-2.5 py-2" : "mt-0 px-3.5 py-3",
-        )}
-      >
-        {!compact && (
-          <span className="grid size-[34px] flex-none place-items-center rounded-[8px] bg-u-surface text-u-text3">
-            <Icon d={ICONS.uploadCloud} size={17} />
-          </span>
-        )}
+      <div className="mt-0 flex items-center gap-3 rounded-[10px] border-[1.5px] border-dashed border-u-border-strong bg-u-raised px-3.5 py-3">
+        <span className="grid size-[34px] flex-none place-items-center rounded-[8px] bg-u-surface text-u-text3">
+          <Icon d={ICONS.uploadCloud} size={17} />
+        </span>
         <div className="min-w-0 flex-1">
-          {compact ? (
-            <p className="font-mono text-[11.5px] text-u-text3">Drop a CV, cover letter or reference here</p>
-          ) : (
-            <>
-              <p className="text-[13px] font-semibold text-u-text">Drop files anywhere on this tab</p>
-              <p className="mt-0.5 font-mono text-[11.5px] text-u-text3">
-                PDF, Word, ODT, RTF, TXT, PNG or JPEG · up to {formatBytes(MAX_DOCUMENT_BYTES)} each
-              </p>
-            </>
-          )}
+          <p className="text-[13px] font-semibold text-u-text">Drop files anywhere on this tab</p>
+          <p className="mt-0.5 font-mono text-[11.5px] text-u-text3">
+            PDF, Word, ODT, RTF, TXT, PNG or JPEG · up to {formatBytes(MAX_DOCUMENT_BYTES)} each
+          </p>
         </div>
         <Button
           type="button"
-          className={cn("flex-none", compact ? "px-2.5 py-1 text-[12px]" : "px-3 py-2 text-[13px]")}
+          className="flex-none px-3 py-2 text-[13px]"
           onClick={() => filesInput.current?.click()}
         >
           <Icon d={ICONS.exportOut} size={13} />
@@ -256,18 +241,16 @@ export function DocumentsPanel({
       ) : documents.documents.isPending ? (
         <LinesSkeleton className="mt-4" />
       ) : list.length === 0 ? (
-        <EmptyDocuments compact={compact} />
+        <EmptyDocuments />
       ) : (
         groups.map((group) => (
-          <section key={group.category.value} className={compact ? "mt-2" : "mt-4"}>
-            {!compact && (
-              <h3 className="type-micro-label mb-2 flex items-center gap-2 text-u-text3">
-                {group.category.label}
-                <span className="rounded-[4px] bg-u-raised px-1.5 py-px font-mono text-[9.5px]">
-                  {group.documents.length}
-                </span>
-              </h3>
-            )}
+          <section key={group.category.value} className="mt-4">
+            <h3 className="type-micro-label mb-2 flex items-center gap-2 text-u-text3">
+              {group.category.label}
+              <span className="rounded-[4px] bg-u-raised px-1.5 py-px font-mono text-[9.5px]">
+                {group.documents.length}
+              </span>
+            </h3>
             <ul className="flex flex-col gap-2">
               {group.documents.map((document) => (
                 <DocumentCard
@@ -284,12 +267,6 @@ export function DocumentsPanel({
             </ul>
           </section>
         ))
-      )}
-
-      {!compact && (
-        <p className="mt-3.5 font-mono text-[11px] text-u-text3">
-          Shared with your whole team. Client contacts never see documents, and every download is recorded.
-        </p>
       )}
 
       {dragging && (
@@ -421,24 +398,13 @@ function outcomeOf(
   };
 }
 
-function EmptyDocuments({ compact }: { compact: boolean }) {
-  if (compact) {
-    return (
-      <p className="mt-2.5 font-mono text-[12px] text-u-text3">
-        No documents yet. A CV filed here is shared with the team on every position this person is in.
-      </p>
-    );
-  }
+function EmptyDocuments() {
   return (
     <div className="px-3 pb-5 pt-9 text-center">
       <span className="mx-auto grid size-10 place-items-center rounded-[10px] bg-u-raised text-u-text3">
         <Icon d={ICONS.fileText} size={18} />
       </span>
       <p className="mt-2.5 text-[13px] font-semibold text-u-text">No documents yet</p>
-      <p className="mx-auto mt-1 max-w-[340px] font-mono text-[12px]/[1.5] text-u-text3">
-        A CV, cover letter or reference filed here is shared by every position this person is in. The first
-        CV becomes the one the header opens.
-      </p>
     </div>
   );
 }

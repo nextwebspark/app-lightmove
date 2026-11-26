@@ -85,7 +85,8 @@ The pattern Bullhorn and Ashby use, laid onto the drawers we already have:
 
 1. **Workspace person drawer** (`Candidates.dc.html`). The tabs become **Profile · Notes · Documents
    (count) · Timeline**.
-2. **A position's executive drawer.** A **Documents** section after Notes, staff only.
+2. **Both person drawers** (a position's executive, the workspace's person). A **Documents** tab after Notes, staff
+   only; a file dragged over any tab of the record opens it.
 3. **CV one click away.** The drawer header carries a **CV · v3 · 12 Mar** chip for the primary CV,
    with Preview and Download. Opening the CV is the most common act, so it is not buried in a tab.
 4. **The Documents tab:**

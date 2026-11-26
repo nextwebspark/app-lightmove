@@ -11,6 +11,8 @@ import { useShareConsents } from "../../candidates/lib/useShareConsents";
 import { useWorkspaceVocabulary } from "../../workspace/lib/vocabulary";
 import { useClientVisibility } from "../lib/usePipelineWrites";
 
+const CLIENT_VISIBLE_HINT = "Client-visible profile only. Emails and private notes remain internal.";
+
 /**
  * Whether the client sees this executive, switched in place. Showing someone who has not agreed asks first where the
  * workspace keeps consent; `onChanged` hears the saved value so the caller's own read holds the switch's new place.
@@ -60,9 +62,10 @@ export function ClientVisibleSwitch({
 
   return (
     <div>
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2" title={CLIENT_VISIBLE_HINT}>
         <Icon d={ICONS.eye} size={14} className="text-u-text3" />
         <span className="text-body text-u-text">Client visible</span>
+        <Icon d={ICONS.info} size={13} className="text-u-text3" />
         <span className="ms-auto">
           <Toggle
             checked={shown}
@@ -75,7 +78,7 @@ export function ClientVisibleSwitch({
           />
         </span>
       </div>
-      <p className="mt-1 text-meta text-u-text3">Client-visible profile only. Emails and private notes remain internal.</p>
+      <p className="sr-only">{CLIENT_VISIBLE_HINT}</p>
       {sharePrompt && (
         <ShareConsentPromptDialog
           fullName={fullName}

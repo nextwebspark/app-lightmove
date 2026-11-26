@@ -178,6 +178,8 @@ const yasmin: Candidate = {
   },
 };
 
+const summarised: Candidate = { ...yasmin, summary: "Group finance lead across GCC consumer goods." };
+
 const renderDrawer = (
   props: Partial<Parameters<typeof CandidateDrawer>[0]> = {},
   Panel: typeof CandidateDrawer = CandidateDrawer,
@@ -316,7 +318,7 @@ const activityLine = (
 });
 
 /** The parts of the Profile tab that were tabs of their own, and the folds beside them. */
-const PROFILE_FOLDS = ["Summary", "Experience", "Education", "Background", "Compensation", "Documents"];
+const PROFILE_FOLDS = ["Summary", "Experience", "Education", "Background", "Compensation"];
 
 /** Opens the currency picker and picks one, as a consultant does. */
 const pickCurrency = async (option: string) => {
@@ -1266,7 +1268,7 @@ describe("CandidateDrawer", () => {
   });
 
   it("folds a section on its header, and keeps that fold for the next profile", async () => {
-    const { unmount } = renderDrawer({ candidate: yasmin, company: null });
+    const { unmount } = renderDrawer({ candidate: summarised, company: null });
 
     const background = screen.getByRole("button", { name: /^Background/ });
     expect(background).toHaveAttribute("aria-expanded", "false");
@@ -1276,16 +1278,12 @@ describe("CandidateDrawer", () => {
 
     // A fold is the reader's preference, not a fact about one candidate.
     unmount();
-    renderDrawer({ candidate: { ...yasmin, id: "c2", fullName: "Omar Haddad" }, company: null });
+    renderDrawer({ candidate: { ...summarised, id: "c2", fullName: "Omar Haddad" }, company: null });
     expect(screen.getByRole("button", { name: /^Background/ })).toHaveAttribute("aria-expanded", "true");
     // Except Summary, which every profile opens on; everything else waits to be asked for.
     expect(screen.getByRole("button", { name: /^Summary/ })).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByRole("button", { name: /^Experience/ })).toHaveAttribute("aria-expanded", "false");
     expect(screen.getByRole("button", { name: /^Compensation/ })).toHaveAttribute("aria-expanded", "false");
-    expect(screen.getByRole("button", { name: /^Documents/ })).toHaveAttribute("aria-expanded", "false");
-
-    await userEvent.click(screen.getByRole("button", { name: /Collapse all/i }));
-    expect(screen.getByRole("button", { name: /^Background/ })).toHaveAttribute("aria-expanded", "false");
   });
 
   it("shows education and skills only when research produced them", async () => {
@@ -1498,7 +1496,7 @@ describe("CandidateDrawer", () => {
 
   it("cancels a section on Escape and leaves the panel open", async () => {
     const onClose = vi.fn();
-    renderDrawer({ candidate: yasmin, company: null, onClose });
+    renderDrawer({ candidate: summarised, company: null, onClose });
 
     await userEvent.click(screen.getByRole("button", { name: /Edit summary/i }));
     expect(screen.getByLabelText(/Profile summary/i)).toBeInTheDocument();
@@ -1517,9 +1515,9 @@ describe("CandidateDrawer", () => {
   });
 
   it("splits the profile into the mockup's tabs, and opens the next person on the tab this one was left on", async () => {
-    const { unmount } = renderDrawer({ candidate: yasmin, company: null });
+    const { unmount } = renderDrawer({ candidate: summarised, company: null });
 
-    expect(tabLabels()).toEqual(["Profile", "Notes", "Assessment", "Outreach", "Activity"]);
+    expect(tabLabels()).toEqual(["Profile", "Notes", "Documents", "Assessment", "Outreach", "Activity"]);
     expect(screen.getByRole("tab", { name: "Profile" })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByRole("button", { name: /^Summary/ })).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByRole("button", { name: /^Experience/ })).toHaveAttribute("aria-expanded", "false");
@@ -1664,7 +1662,7 @@ describe("CandidateDrawer", () => {
     expect(screen.getByRole("tab", { name: "Profile" })).toHaveAttribute("aria-selected", "true");
   });
 
-  it("keeps tags in the header, notes on their own tab, documents a fold of Profile, and no Positions tab", async () => {
+  it("keeps tags in the header, notes and documents on their own tabs, and no Positions tab", async () => {
     renderDrawer({ candidate: yasmin, company: null });
 
     // Tags are a fact about the person, on view whichever tab is open.
@@ -1672,10 +1670,9 @@ describe("CandidateDrawer", () => {
     await openTab("Notes");
     expect(screen.getByRole("tabpanel", { name: /^Notes/ })).toContainElement(screen.getByRole("region", { name: "Notes" }));
     await openTab("Documents");
-    expect(screen.getByRole("tabpanel", { name: /^Profile/ })).toContainElement(
-      document.getElementById("documents-section-body"),
+    expect(screen.getByRole("tabpanel", { name: /^Documents/ })).toContainElement(
+      screen.getByRole("button", { name: "Upload" }),
     );
-    expect(screen.queryByRole("tab", { name: /^Documents/ })).not.toBeInTheDocument();
     // The person's other positions are the Candidates page's drawer's alone: this one's bar was too crowded.
     expect(screen.queryByRole("tab", { name: /^Positions/ })).not.toBeInTheDocument();
     expect(screen.queryByRole("region", { name: "Other positions" })).not.toBeInTheDocument();
@@ -1703,8 +1700,34 @@ describe("CandidateDrawer", () => {
     expect(onClose).toHaveBeenCalled();
   });
 
-  it("gives a client seat the profile alone, with no tab bar and no package", async () => {
+  it("offers what the profile lacks as one line of additions instead of empty sections", async () => {
+    renderDrawer({ candidate: { ...yasmin, career: [], languages: [] }, company: null });
+
+    const additions = screen.getByRole("group", { name: "Add to the profile" });
+    expect(within(additions).getAllByRole("button").map((chip) => chip.textContent)).toEqual([
+      "Summary",
+      "Experience",
+      "Languages",
+    ]);
+    expect(screen.queryByRole("button", { name: /Edit summary/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Edit experience/i })).not.toBeInTheDocument();
+    expect(screen.queryByText("No languages recorded.")).not.toBeInTheDocument();
+
+    await userEvent.click(within(additions).getByRole("button", { name: "Summary" }));
+    expect(screen.getByLabelText(/Profile summary/i)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: /^Cancel$/i }));
+    expect(screen.queryByLabelText(/Profile summary/i)).not.toBeInTheDocument();
+    expect(within(additions).getByRole("button", { name: "Summary" })).toBeInTheDocument();
+  });
+
+  it("offers a client seat no additions", async () => {
     renderDrawer({ candidate: yasmin, company: null, canWrite: false });
+
+    expect(screen.queryByRole("group", { name: "Add to the profile" })).not.toBeInTheDocument();
+  });
+
+  it("gives a client seat the profile alone, with no tab bar and no package", async () => {
+    renderDrawer({ candidate: summarised, company: null, canWrite: false });
 
     expect(screen.queryByRole("tablist", { name: "Executive sections" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^Summary/ })).toHaveAttribute("aria-expanded", "true");

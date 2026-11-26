@@ -686,7 +686,7 @@ function wayOf(entry: PersonTimelineEntry, position: PositionOfLine | null, to: 
     case "DOCUMENT_VERSION_ADDED":
     case "DOCUMENT_REMOVED":
     case "DOCUMENT_VERSION_REMOVED":
-      return { kind: "action", label: "Open Documents", run: () => to.onOpenTab("profile", "documents") };
+      return { kind: "action", label: "Open Documents", run: () => to.onOpenTab("documents") };
     case "AI_ASSESSED":
       return entry.details.scope === "BACKGROUND"
         ? { kind: "action", label: "Open Background", run: () => to.onOpenTab("profile", "background") }

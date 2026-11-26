@@ -17,7 +17,7 @@ export function DrawerTabBar({
   tabs: readonly DrawerTab[];
   value: DrawerTab;
   onChange: (tab: DrawerTab) => void;
-  counts?: Partial<Record<"notes" | "positions", number>>;
+  counts?: Partial<Record<"notes" | "documents" | "positions", number>>;
 }) {
   return (
     <TabList
@@ -37,7 +37,7 @@ export function DrawerTabBar({
           : {
               value: tab,
               label: DRAWER_TAB_LABELS[tab],
-              count: tab === "notes" || tab === "positions" ? counts[tab] : undefined,
+              count: tab === "notes" || tab === "documents" || tab === "positions" ? counts[tab] : undefined,
             },
       )}
     />

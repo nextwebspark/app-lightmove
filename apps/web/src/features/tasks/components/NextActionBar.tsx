@@ -34,6 +34,7 @@ export function NextActionBar({
   onPromptSettled,
   onOpen,
   onShowNote,
+  emptyAsLink = false,
   className,
 }: {
   projectId: string;
@@ -47,6 +48,8 @@ export function NextActionBar({
   onOpen: (taskId: string | null) => void;
   /** Brings the note a task was set from into view. */
   onShowNote?: (noteId: string) => void;
+  /** With nothing set, only the Set next action link: the rail's narrow column truncates the full bar. */
+  emptyAsLink?: boolean;
   className?: string;
 }) {
   const tasks = useCandidateTasks(projectId, candidateId);
@@ -94,6 +97,19 @@ export function NextActionBar({
           Set next action
         </button>
       </div>
+    );
+  }
+
+  if (!first && emptyAsLink) {
+    return (
+      <button
+        type="button"
+        onClick={() => onOpen(null)}
+        className="flex items-center gap-1.5 self-start rounded-u-control text-note font-semibold text-u-accent hover:underline"
+      >
+        <Icon d={ICONS.plus} size={12} />
+        Set next action
+      </button>
     );
   }
 

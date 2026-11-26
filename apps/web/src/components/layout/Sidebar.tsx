@@ -4,6 +4,7 @@ import { cn } from "../../lib/cn";
 import { useHelp } from "../../features/help/HelpProvider";
 import { APP_VERSION } from "../../lib/version";
 import { Icon, ICONS } from "./Icon";
+import { useSidebarYielded } from "./sidebarYield";
 import { useSidebarCollapsed } from "./useSidebarCollapsed";
 
 export interface SidebarItem {
@@ -26,8 +27,8 @@ export interface SidebarGroup {
 }
 
 /**
- * The left rail (210px, 56px collapsed), drawn from `lg` only. `assistantOpen` collapses it without touching
- * the stored preference.
+ * The left rail (210px, 56px collapsed), drawn from `lg` only. `assistantOpen`, or a screen that asks through
+ * `useSidebarYield`, collapses it without touching the stored preference.
  */
 export function Sidebar({
   groups,
@@ -40,14 +41,16 @@ export function Sidebar({
 }) {
   const preference = useSidebarCollapsed();
   const { openHelp } = useHelp();
-  const [expandedBesideAssistant, setExpandedBesideAssistant] = useState(false);
-  const [assistantWasOpen, setAssistantWasOpen] = useState(assistantOpen);
-  if (assistantWasOpen !== assistantOpen) {
-    setAssistantWasOpen(assistantOpen);
-    setExpandedBesideAssistant(false);
+  const yieldedToScreen = useSidebarYielded();
+  const yielding = assistantOpen || yieldedToScreen;
+  const [expandedWhileYielding, setExpandedWhileYielding] = useState(false);
+  const [wasYielding, setWasYielding] = useState(yielding);
+  if (wasYielding !== yielding) {
+    setWasYielding(yielding);
+    setExpandedWhileYielding(false);
   }
-  const collapsed = assistantOpen ? !expandedBesideAssistant : preference.collapsed;
-  const toggle = assistantOpen ? () => setExpandedBesideAssistant((expanded) => !expanded) : preference.toggle;
+  const collapsed = yielding ? !expandedWhileYielding : preference.collapsed;
+  const toggle = yielding ? () => setExpandedWhileYielding((expanded) => !expanded) : preference.toggle;
   const rowClass = (extra?: string) => railRowClass(collapsed, extra);
   const labelsHidden = collapsed ? "hidden" : "";
 
