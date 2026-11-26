@@ -2,7 +2,7 @@
 
 _Draft for counsel (#925, #930, epic #917). Engineering facts read from the code on 2026-11-15; not legal advice._
 
-Status: **decided for now** for 1, **proposed** for 2. Inputs: [tia.md](tia.md) §4,
+Status: **decided** for 1 (decision F4, 25 Nov 2026), **proposed** for 2. Inputs: [tia.md](tia.md) §4,
 [data-protection-plan.md](data-protection-plan.md) §5 item 3.4, [subprocessors.md](subprocessors.md).
 
 ## 1. Vertex AI stays at `global`
@@ -21,6 +21,11 @@ model (`text-embedding-004`) is regional.
 Keep `global` for both until one of the triggers below fires. Pinning the chat model today means a different, older
 regional model, a quality and throughput regression on every AI feature, for a residency gain that matters only once a
 customer needs it.
+
+Confirmed by the business as decision F4 of the decision list answered on 25 Nov 2026
+([governance-decisions.md](governance-decisions.md)): the models used are not offered in a single region, so the AI
+does not run in one fixed region for now. This supersedes the "pin Vertex to `us-central1`" box of #917 step 1 and
+the first box of #925.
 
 ### Consequences
 - The sub-processor list, the TIA and the privacy policy say "Vertex AI, `global`" rather than a region.
