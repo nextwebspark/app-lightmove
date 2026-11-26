@@ -9,7 +9,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import app.lightmove.api.FixtureJdbc;
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
+import app.lightmove.api.core.email.model.EmailMessage;
+import app.lightmove.api.notification.service.NotificationEmails;
 import java.time.Duration;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
 import java.util.List;
 import org.awaitility.Awaitility;
@@ -30,6 +34,7 @@ class StaffObjectionIntegrationTest extends FlowTestSupport {
     private static final String RECORDED_BY_TEAM = "Objected when contacted, recorded by the team";
 
     @Autowired @FixtureJdbc JdbcTemplate db;
+    @Autowired NotificationEmails notificationEmails;
 
     private String admin;
     private String colleague;
@@ -73,6 +78,22 @@ class StaffObjectionIntegrationTest extends FlowTestSupport {
                 .isOne();
         Awaitility.await().atMost(Duration.ofSeconds(10)).untilAsserted(() -> assertThat(notifiedEmails())
                 .containsExactly("alok@" + domain));
+    }
+
+    @Test
+    @DisplayName("the admins' email says a colleague recorded it, never that they objected on their privacy page")
+    void theAdminsEmailNamesTheColleague() throws Exception {
+        mark(colleague, true).andExpect(status().isOk());
+        Awaitility.await().atMost(Duration.ofSeconds(10)).untilAsserted(() -> assertThat(notifiedEmails())
+                .containsExactly("alok@" + domain));
+
+        notificationEmails.emailUnreadAt(Instant.now().plus(1, ChronoUnit.HOURS));
+
+        EmailMessage told = email.sent().stream().filter(message -> message.to().equals("alok@" + domain))
+                .filter(message -> message.subject().contains("contacted")).findFirst().orElseThrow();
+        assertThat(told.subject()).isEqualTo("A candidate asked not to be contacted");
+        assertThat(told.textBody()).contains("Sam Lee recorded that Noor Haddad asked not to be contacted")
+                .doesNotContain("privacy page").doesNotContain("holding and using");
     }
 
     @Test
