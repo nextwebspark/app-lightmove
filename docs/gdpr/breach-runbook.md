@@ -113,3 +113,42 @@ and an S1 cross-tenant exposure. Record the date and the gaps found here.
 | Date | Scenario | Gaps found | By |
 |---|---|---|---|
 | — | — | — | — |
+
+## UAE addendum (2026-11-19)
+
+_Draft for counsel; not legal advice. Nothing above this heading has changed._
+
+§5 above sets the Uncava-as-controller deadline from **Art. 33 GDPR, 72 hours from awareness**, and takes the
+customer deadline from the DPA ([24 to 48] hours, decision F5 in [governance-decisions.md](governance-decisions.md),
+still **open**: 24 hours or 48 hours to customers). The last row of §5 ("UAE / KSA / Qatar regulators, per the customer's
+jurisdiction") is a placeholder. This addendum fills the UAE part of it as a list of questions, not as settled law.
+
+The lawyer's advice is to build to the highest common standard across the three regimes (Alac Partners, 2026-10-29), so
+the **shortest** deadline that any regime sets should govern the internal clock once counsel confirms it. She lists an
+"incident response and breach notification procedure" among the documents referred to in the DPA (message 6).
+
+### 1. Authorities and deadlines
+
+| Regime | Authority | Who notifies | Deadline | Threshold | Notify individuals |
+|---|---|---|---|---|---|
+| Federal PDPL (Decree-Law 45 of 2021) | [UAE Data Office, or the authority designated; Counsel to confirm] | [Controller; processor to the controller; Counsel to confirm] | [Counsel to confirm] | [Counsel to confirm] | [Counsel to confirm] |
+| DIFC DP Law 2020 | Commissioner of Data Protection (DIFC) | [Controller; processor to the controller without undue delay; Counsel to confirm] | [Counsel to confirm; the law's own wording, not a GDPR assumption] | [Counsel to confirm] | [Counsel to confirm] |
+| ADGM DP Regulations 2021 | Office of Data Protection (ADGM) | [Controller; Counsel to confirm] | [Counsel to confirm] | [Counsel to confirm] | [Counsel to confirm] |
+
+### 2. How it fits the existing runbook
+
+| Item | Position |
+|---|---|
+| Uncava as processor | The customer is the controller and decides whether to notify its authority; Uncava notifies the customer within the F5 period and assists. The DPA must meet the DIFC and ADGM service-provider terms [Counsel to confirm] |
+| Uncava as controller (accounts, billing, the vendor cache, and, on the lawyer's reading, **data passed on from ContactOut**) | The 72-hour GDPR clock in §5 stays. For a UAE data subject it may be shorter under one of the regimes above [Counsel to confirm]. ContactOut's own breach notice to us starts our awareness clock (§2 detection sources, "Provider notices") |
+| Which regime applies | Decided per incident from where the affected people and the customer are: mainland UAE (PDPL), a DIFC entity, an ADGM entity, or none. A customer's contract may name the regime [Counsel to confirm] |
+| Contacts | The privacy contact and the incident lead (§1) hold a per-regime contact sheet for each authority [to fill in] |
+| Templates (§6) | Reuse; each authority's required content [Counsel to confirm] |
+| Rehearsal (§8) | Include one UAE scenario (a cross-tenant exposure touching a DIFC customer) in the next tabletop |
+
+### 3. Open decisions
+
+- **F5**: 24 or 48 hours to customers; pick the shorter if any UAE regime or a large client's terms require it.
+- The deadlines and thresholds in §1, from counsel.
+- Whether one internal clock (the shortest across all regimes) replaces the three, as the highest-common-standard approach suggests.
+- KSA and Qatar regulators remain in the placeholder row of §5; the lawyer said KSA can be addressed later.

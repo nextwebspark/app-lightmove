@@ -54,3 +54,55 @@ relevant given TLS throughout. Engineering facts that bear on it:
 ## 5. Conclusion
 
 [Counsel: whether the mechanisms with the measures above give essentially equivalent protection, per recipient.]
+
+## UAE addendum (2026-11-19)
+
+_Draft for counsel; not legal advice. Nothing above this heading has changed._
+
+§§1 to 5 above assess transfers of **EU, EEA and UK** data to the United States. They do not assess transfers of UAE
+data. This addendum records the facts for that second assessment, so counsel can do it. The destination is the same
+for most recipients; the legal test differs by regime and is counsel's [Counsel to confirm].
+
+**No UAE or GCC region is in use.** Every deployed component is in the US or global. A Gulf region (`me-central2`
+Dammam, `me-central1` Doha) is only a candidate in `data-protection-plan.md` §3.4, and a separate regional stack is only
+**proposed** in [residency-adr.md](residency-adr.md) §2 ("when the first customer needs it"). Nothing has been decided or
+built. Data of a person in the UAE therefore leaves the country when a customer adds it.
+
+### 1. UAE data to the US and the rest of the world
+
+| Recipient | Data | Location | Mechanism under PDPL / DIFC / ADGM | Notes |
+|---|---|---|---|---|
+| Google Cloud Run, Cloud SQL, Cloud Storage | everything | `us-central1` | [Counsel to confirm] | Google-managed keys; no CMEK; applies to every workspace, including UAE customers |
+| Google Vertex AI | dossiers, notes, CV text, transcripts (contacts redacted), briefs, assistant chats | `global`: may be served from any region | [Counsel to confirm] | unchanged by this addendum; see [residency-adr.md](residency-adr.md) §1 |
+| Google Cloud Logging | masked log lines; full request URLs | `global` bucket | [Counsel to confirm] | 30 days |
+| Recall.ai | call audio and video, transcript, calendar tokens | `us-east-1` by default; an EU region is selectable through `RECALL_BASE_URL` | [Counsel to confirm] | the EU option moves the data to the EU, not to the UAE; whether that helps depends on the mechanism [Counsel to confirm]; a call recording is among the highest-risk items (the lawyer, message 7) |
+| ContactOut | LinkedIn URLs, names and search criteria we send; contact data it returns | AWS `us-west-1` (vendor statement, unverified) | controller-to-controller SCCs under its DPA §3 for what it returns [Counsel to confirm module and acceptance]; processor terms for what we send [Counsel to confirm] | an independent controller of what it returns: [ropa.md](ropa.md) UAE addendum §B; written compliance approval to store its data requested 2026-11-19 |
+| Nylas | mailboxes, emails, replies, calendars | US by default (`api.us.nylas.com`); EU available through `NYLAS_BASE_URL` | [Counsel to confirm] | |
+| Resend | users' emails; candidate names in notification emails | [Region] | [Counsel to confirm] | |
+| Stripe | billing data | [Region] | [Counsel to confirm] | |
+| Bright Data, HarvestAPI | LinkedIn URLs and slugs, search criteria | [Region] | [Counsel to confirm] | sources as well as recipients |
+| Mapbox | company city and country; users' IP from tiles | US | [Counsel to confirm] | |
+| Firebase Hosting (website) | visitor logs | [Region] | [Counsel to confirm] | |
+
+### 2. Transfer mechanisms under the three regimes
+
+For counsel. Uncava has not established which of these is available or sufficient, and none is asserted here.
+
+| Regime | Questions [Counsel to confirm] |
+|---|---|
+| Federal PDPL | what the transfer rules permit outside the UAE (adequacy, contract, consent); whether any list of adequate countries exists; whether consent to a transfer can be built into the consent register proposed on 2026-11-10 |
+| DIFC DP Law 2020 | adequacy, appropriate safeguards (standard contractual clauses, binding rules), and exceptions; whether a DIFC customer may require us to pass terms on |
+| ADGM DP Regulations 2021 | the equivalent adequacy and safeguards rules; whether the ADGM's own clauses are expected |
+
+The lawyer's recommendation is a single highest common standard (message 1). If a UAE or DIFC/ADGM customer requires
+data in-country or in a named region, the only path today is the regional stack in [residency-adr.md](residency-adr.md)
+§2 plus a UAE or Gulf Vertex region, which has no stated availability for the models used here.
+
+### 3. What the existing sections do and do not cover
+
+| Existing section | UAE position |
+|---|---|
+| §2 (laws and practices of the destination) | US law only; not extended here. Whether the same US-law facts bear on a UAE test is [Counsel to confirm] |
+| §3 (supplementary measures) | applies equally: contacts redacted from model input, sealed secrets, masked logs |
+| §4 (options) | adds a Gulf-region stack; no code change, the work is ops |
+| §5 (conclusion) | not given for the UAE; [Counsel: per recipient] |
