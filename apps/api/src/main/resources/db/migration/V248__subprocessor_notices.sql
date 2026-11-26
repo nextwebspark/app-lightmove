@@ -109,10 +109,10 @@ BEGIN
 END
 $$;
 
--- The console's list: per notice, how many admins were emailed, how many are still owed one, and how many workspaces
--- objected. Counts only, never which workspace or who.
+-- The console's list: per notice, how many admins were emailed, how many are still owed one (not sent and not given
+-- up), and how many workspaces objected. Counts only, never which workspace or who.
 CREATE FUNCTION app_lm_count_subprocessor_notice_replies()
-    RETURNS TABLE (notice_id uuid, emailed bigint, failed bigint, objections bigint)
+    RETURNS TABLE (notice_id uuid, emailed bigint, owed bigint, objections bigint)
     LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
     outside text := current_setting('app.rls_maintenance', true);
@@ -123,7 +123,7 @@ BEGIN
                (SELECT count(*) FROM app_lm_subprocessor_notice_email e
                  WHERE e.notice_id = n.id AND e.sent_at IS NOT NULL),
                (SELECT count(*) FROM app_lm_subprocessor_notice_email e
-                 WHERE e.notice_id = n.id AND e.sent_at IS NULL),
+                 WHERE e.notice_id = n.id AND e.sent_at IS NULL AND e.next_attempt_at IS NOT NULL),
                (SELECT count(*) FROM app_lm_subprocessor_objection o WHERE o.notice_id = n.id)
           FROM app_lm_subprocessor_notice n;
     PERFORM set_config('app.rls_maintenance', coalesce(outside, ''), true);

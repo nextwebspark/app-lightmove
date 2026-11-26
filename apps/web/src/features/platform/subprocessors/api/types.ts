@@ -14,8 +14,8 @@ export interface SubprocessorNotice {
   publishedBy: string | null;
   /** Workspace admins the email reached. */
   emailed: number;
-  /** Admins still owed one: retried until the change takes effect. */
-  failed: number;
+  /** Admins still owed one, not given up: retried until the change takes effect. */
+  owed: number;
   objections: number;
 }
 

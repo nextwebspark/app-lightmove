@@ -29,7 +29,7 @@ const notice = (overrides: Partial<SubprocessorNotice> = {}): SubprocessorNotice
   publishedAt: "2026-11-25T09:00:00Z",
   publishedBy: "Noor Rahman",
   emailed: 142,
-  failed: 3,
+  owed: 3,
   objections: 1,
   ...overrides,
 });
@@ -41,7 +41,7 @@ const MAPS = notice({
   purpose: "Maps and place search",
   effectiveOn: "2026-10-01",
   inEffect: true,
-  failed: 0,
+  owed: 0,
   objections: 0,
 });
 
@@ -80,7 +80,7 @@ describe("Sub-processor notices", () => {
     expect(within(acme).getByText("Acme Mail")).toBeInTheDocument();
     expect(within(acme).getByText("Account email addresses")).toBeInTheDocument();
     expect(within(acme).getByText("142 admins")).toBeInTheDocument();
-    expect(within(acme).getByText("3 failed, retrying")).toBeInTheDocument();
+    expect(within(acme).getByText("3 owed, retrying")).toBeInTheDocument();
     expect(within(acme).getByText("1 objection")).toBeInTheDocument();
     expect(within(maps).getByText("In effect")).toBeInTheDocument();
     expect(within(maps).getByText("None")).toBeInTheDocument();
@@ -174,7 +174,7 @@ describe("Sub-processor notices", () => {
     renderAt("/platform/subprocessors/sp1");
 
     expect(await screen.findByRole("heading", { name: "Acme Mail" })).toBeInTheDocument();
-    expect(screen.getByText("142 workspace admins · 3 failed, retrying")).toBeInTheDocument();
+    expect(screen.getByText("142 workspace admins · 3 owed, retrying")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "https://uncava.com/legal/subprocessors" })).toBeInTheDocument();
     const objections = await screen.findByRole("table", { name: "Objections" });
     expect(within(objections).getByText("Gulf Talent Partners")).toBeInTheDocument();

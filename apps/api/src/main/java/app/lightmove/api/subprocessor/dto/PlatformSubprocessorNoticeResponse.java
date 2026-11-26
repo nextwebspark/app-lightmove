@@ -23,7 +23,7 @@ public record PlatformSubprocessorNoticeResponse(
         Instant publishedAt,
         @Nullable String publishedBy,
         long emailed,
-        long failed,
+        long owed,
         long objections
 ) {
 
@@ -32,6 +32,6 @@ public record PlatformSubprocessorNoticeResponse(
         return new PlatformSubprocessorNoticeResponse(notice.id(), notice.provider(), notice.receives(),
                 notice.purpose(), notice.region(), notice.effectiveOn(), notice.listUrl(),
                 notice.isInEffectOn(today), notice.publishedAt(), notice.publishedByName(), replies.emailed(),
-                replies.failed(), replies.objections());
+                replies.owed(), replies.objections());
     }
 }

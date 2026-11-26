@@ -13,7 +13,7 @@ import * as subprocessorApi from "../api/subprocessorApi";
 import type { SubprocessorNotice } from "../api/types";
 import {
   effectiveLabel,
-  failedLabel,
+  owedLabel,
   publishedLabel,
   SUBPROCESSORS_PATH,
   workspaceAdmins,
@@ -43,7 +43,7 @@ export default function SubprocessorNoticePage() {
     ["Region", notice.region],
     [notice.inEffect ? "In effect since" : "Takes effect", effectiveLabel(notice)],
     ["Published", publishedLabel(notice)],
-    ["Emailed", `${workspaceAdmins(notice.emailed)}${notice.failed > 0 ? ` · ${failedLabel(notice)}` : ""}`],
+    ["Emailed", `${workspaceAdmins(notice.emailed)}${notice.owed > 0 ? ` · ${owedLabel(notice)}` : ""}`],
   ];
 
   return (

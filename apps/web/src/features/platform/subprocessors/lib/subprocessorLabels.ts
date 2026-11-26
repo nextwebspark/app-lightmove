@@ -33,9 +33,9 @@ export function workspaceAdmins(count: number): string {
   return count === 1 ? "1 workspace admin" : `${count} workspace admins`;
 }
 
-/** Under the emailed count: still retried until the change takes effect, given up after. */
-export function failedLabel(notice: SubprocessorNotice): string {
-  return notice.inEffect ? `${notice.failed} never delivered` : `${notice.failed} failed, retrying`;
+/** Under the emailed count: still retried until the change takes effect, never delivered after. */
+export function owedLabel(notice: SubprocessorNotice): string {
+  return notice.inEffect ? `${notice.owed} never delivered` : `${notice.owed} owed, retrying`;
 }
 
 export function objectionsLabel(count: number): string {

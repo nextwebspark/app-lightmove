@@ -130,7 +130,8 @@ F7). The customer side is Settings → Data & retention's Sub-processor changes;
   from today (UTC) — and an https link to the published list. A notice is never edited or withdrawn; a correction is
   a new notice. Audited `SUBPROCESSOR_NOTICE_PUBLISHED` with the provider and the date.
 - **The list** answers each notice with three counts from `app_lm_count_subprocessor_notice_replies()`: admins
-  emailed, admins still owed an email (retrying until it takes effect), workspaces that objected. Counts, never which.
+  emailed, admins owed an email (not yet sent and not given up, retried until it takes effect, `owed` on the response
+  and "owed, retrying" on screen), workspaces that objected. Counts, never which.
 - **One notice's objections** (`GET …/{id}/objections`): `app_lm_workspaces_with_subprocessor_objections` names the
   workspaces holding one, and each is read in its own `WorkspaceScope`: the workspace's name, the admin who last wrote
   it, the reason and when. The console reads nothing else of any workspace.

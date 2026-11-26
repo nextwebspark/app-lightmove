@@ -132,10 +132,10 @@ public class TenantResolvers {
     /** Per sub-processor notice, the admins emailed, those still owed one and the objections: counts, never who. */
     public Map<UUID, SubprocessorNoticeReplies> subprocessorNoticeReplies() {
         Map<UUID, SubprocessorNoticeReplies> replies = new HashMap<>();
-        jdbc.query("SELECT notice_id, emailed, failed, objections FROM app_lm_count_subprocessor_notice_replies()",
+        jdbc.query("SELECT notice_id, emailed, owed, objections FROM app_lm_count_subprocessor_notice_replies()",
                 (RowCallbackHandler) row -> {
                     UUID noticeId = row.getObject("notice_id", UUID.class);
-                    replies.put(noticeId, new SubprocessorNoticeReplies(row.getLong("emailed"), row.getLong("failed"),
+                    replies.put(noticeId, new SubprocessorNoticeReplies(row.getLong("emailed"), row.getLong("owed"),
                             row.getLong("objections")));
                 });
         return replies;

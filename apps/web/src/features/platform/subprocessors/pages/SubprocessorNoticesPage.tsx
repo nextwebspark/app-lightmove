@@ -11,7 +11,7 @@ import { PromptPill } from "../../prompts/components/PromptPill";
 import * as subprocessorApi from "../api/subprocessorApi";
 import type { SubprocessorNotice } from "../api/types";
 import { PublishSubprocessorNoticeDialog } from "../components/PublishSubprocessorNoticeDialog";
-import { admins, effectiveLabel, failedLabel, noticePath, objectionsLabel } from "../lib/subprocessorLabels";
+import { admins, effectiveLabel, noticePath, objectionsLabel, owedLabel } from "../lib/subprocessorLabels";
 
 const ROW_GRID =
   "grid min-w-[760px] grid-cols-[minmax(170px,1.3fr)_minmax(170px,1.4fr)_minmax(110px,.8fr)_minmax(130px,.9fr)_minmax(110px,.8fr)] items-center gap-3 px-4";
@@ -111,7 +111,7 @@ function NoticeRow({ notice, onOpen }: { notice: SubprocessorNotice; onOpen: () 
       </span>
       <span role="cell" className="block min-w-0">
         <span className="block text-body text-u-text2">{admins(notice.emailed)}</span>
-        {notice.failed > 0 && <span className="mt-0.5 block font-mono text-xs text-u-offlimits">{failedLabel(notice)}</span>}
+        {notice.owed > 0 && <span className="mt-0.5 block font-mono text-xs text-u-offlimits">{owedLabel(notice)}</span>}
       </span>
       <span role="cell" className="block min-w-0">
         {notice.objections > 0 ? (
