@@ -5,7 +5,7 @@ import { Button, Select, useToast } from "../../../components/ui";
 import { messageFor } from "../../../lib/errorCodes";
 import * as dataRetentionApi from "../api/dataRetentionApi";
 import type { CandidateRetention } from "../api/dataRetentionApi";
-import { NEVER, periodLabel, retentionNote, savedToast } from "../lib/dataRetention";
+import { NEVER, neverContactedNote, periodLabel, retentionNote, savedToast } from "../lib/dataRetention";
 
 /** How long a candidate nobody is working with stays before they wait for review (`Settings.dc.html`, `data`). */
 export function CandidateRetentionCard({ saved }: { saved: CandidateRetention }) {
@@ -45,10 +45,9 @@ export function CandidateRetentionCard({ saved }: { saved: CandidateRetention })
         </Select>
         <span>after their last activity, once they're in no live position.</span>
       </label>
-      <p className="mt-2 font-mono text-meta text-u-text3">
-        Separately, anyone never contacted and with no consent is deleted automatically 6 months after they were added
-        — unless they&apos;re on a live position, restricted, or you chose Keep. This applies whatever you choose above.
-      </p>
+      {saved.neverContactedMonths !== null && (
+        <p className="mt-2 font-mono text-meta text-u-text3">{neverContactedNote(saved.neverContactedMonths)}</p>
+      )}
       <div className="mt-3.5 flex gap-2.5 rounded-u-chip border border-u-border bg-u-surface px-3 py-2.5 font-mono text-meta text-u-text2">
         <Icon d={ICONS.info} size={15} className="mt-px flex-none text-u-text3" />
         <span>{retentionNote(choice)}</span>

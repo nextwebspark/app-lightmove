@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiRequestError } from "../../../lib/apiClient";
 import * as privacyPageApi from "../api/privacyPageApi";
 import type { PrivacyPage } from "../api/privacyPageApi";
+import { UNCAVA_NOTICE_LABEL } from "../lib/privacyPageCopy";
 import PrivacyLinkPage from "./PrivacyLinkPage";
 
 vi.mock("../../auth/AuthProvider", () => ({
@@ -75,7 +76,7 @@ describe("PrivacyLinkPage", () => {
     vi.mocked(privacyPageApi.getPrivacyPage).mockResolvedValue(PAGE);
     const { unmount } = renderPage();
     expect(await screen.findByRole("heading", { name: "What we hold about you, and your choices" })).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "How Uncava handles your details" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: UNCAVA_NOTICE_LABEL })).not.toBeInTheDocument();
     unmount();
 
     vi.mocked(privacyPageApi.getPrivacyPage).mockResolvedValue({
@@ -83,10 +84,24 @@ describe("PrivacyLinkPage", () => {
       uncavaNoticeUrl: "https://uncava.com/executive-privacy",
     });
     renderPage();
-    expect(await screen.findByRole("link", { name: "How Uncava handles your details" })).toHaveAttribute(
+    expect(await screen.findByRole("link", { name: UNCAVA_NOTICE_LABEL })).toHaveAttribute(
       "href",
       "https://uncava.com/executive-privacy",
     );
+  });
+
+  it("links Uncava's notice even before the firm has named itself", async () => {
+    vi.mocked(privacyPageApi.getPrivacyPage).mockResolvedValue({
+      ...PAGE,
+      controllerName: null,
+      uncavaNoticeUrl: "https://uncava.com/executive-privacy",
+    });
+    renderPage();
+    expect(await screen.findByRole("link", { name: UNCAVA_NOTICE_LABEL })).toHaveAttribute(
+      "href",
+      "https://uncava.com/executive-privacy",
+    );
+    expect(screen.queryByText(/is responsible for your data/)).not.toBeInTheDocument();
   });
 
   it("opens an email's stop link on its confirmation, and stops emails only once confirmed", async () => {

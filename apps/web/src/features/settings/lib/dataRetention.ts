@@ -21,6 +21,12 @@ export function retentionNote(months: number | null): string {
   return `Nobody is deleted without review. Whoever passes ${period} waits under Due for deletion until an admin deletes them or keeps them for another ${period}.`;
 }
 
+/** The rule that deletes without review (#1490); an admin's Keep holds against it for good. */
+export function neverContactedNote(months: number): string {
+  const period = months === 1 ? "1 month" : `${months} months`;
+  return `Separately, anyone never contacted and with no consent is deleted automatically ${period} after they were added — unless they're on a live position, restricted, or you chose Keep. This applies whatever you choose above.`;
+}
+
 export function dueSubtitle(savedMonths: number | null): string {
   if (savedMonths === null) return "Retention is off, so nobody becomes due.";
   const period = `${savedMonths} months`;

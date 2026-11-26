@@ -2,6 +2,9 @@ import type { PrivacyCategory, PrivacyPage } from "../api/privacyPageApi";
 
 /** The public privacy page's words (`Privacy.dc.html`): the firm speaks as controller, Uncava only as the software. */
 
+/** The link to Uncava's own notice to executives (#1490), as every candidate email and the privacy page name it. */
+export const UNCAVA_NOTICE_LABEL = "How Uncava handles your details";
+
 const CATEGORIES: Record<PrivacyCategory, string> = {
   name_and_role: "Name and current role",
   career: "Career history",

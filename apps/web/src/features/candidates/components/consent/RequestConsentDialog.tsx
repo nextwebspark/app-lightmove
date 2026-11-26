@@ -21,6 +21,7 @@ import {
 } from "../../lib/consentPreview";
 import { DAY_MS, recentAnswerOrAskOf } from "../../lib/consentRecency";
 import { useDataProtection } from "../../lib/useDataProtection";
+import { UNCAVA_NOTICE_LABEL } from "../../../privacy/lib/privacyPageCopy";
 import { useWorkspaceVocabulary } from "../../../workspace/lib/vocabulary";
 
 /** One person from the drawer, or the Candidates selection. */
@@ -348,7 +349,7 @@ export function RequestConsentDialog({
             </span>
             <span className="font-mono text-meta text-u-accent">Our privacy notice</span>
             {candidateNoticeUrl && (
-              <span className="font-mono text-meta text-u-accent">How Uncava handles your details</span>
+              <span className="font-mono text-meta text-u-accent">{UNCAVA_NOTICE_LABEL}</span>
             )}
           </div>
         </div>

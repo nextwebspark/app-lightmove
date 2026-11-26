@@ -1,5 +1,6 @@
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { useDataProtection } from "../../candidates/lib/useDataProtection";
+import { UNCAVA_NOTICE_LABEL } from "../../privacy/lib/privacyPageCopy";
 
 /**
  * The privacy footer every outreach email ends with (`Outreach.dc.html`'s review footer), drawn as the executive
@@ -15,7 +16,7 @@ export function PrivacyFooterPreview({ statement }: { statement: string }) {
       {statement} <span className="text-u-accent underline">Our privacy notice</span> ·{" "}
       {candidateNoticeUrl && (
         <>
-          <span className="text-u-accent underline">How Uncava handles your details</span> ·{" "}
+          <span className="text-u-accent underline">{UNCAVA_NOTICE_LABEL}</span> ·{" "}
         </>
       )}
       <span className="text-u-accent underline">Stop emails from us</span>
