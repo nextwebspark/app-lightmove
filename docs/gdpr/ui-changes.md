@@ -63,6 +63,7 @@ Settings (avatar menu → Settings)
     ├── Candidate retention                                                          #921
     ├── Due for deletion                                                             #921
     ├── Suppression list                                                             #920
+    ├── Sub-processor changes (Object…, also opened by the notice email's link)      #1491
     └── Export workspace data                                                        #926
 
 Notification bell .................... privacy requests, opt-outs, consent answers   #923 #924 #1267
@@ -80,7 +81,8 @@ Chrome extension (LightMove Capture)
 ## 1. Settings → Data & retention
 
 Route `/settings/data`. Sidebar: Settings → **Workspace** group → **Data & retention**. Admins only (the Workspace
-group is hidden from members and clients). With the flag off the page shows only the first card.
+group is hidden from members and clients). With the flag off the page shows only the first card and Sub-processor
+changes.
 
 | Card | What it does | Flag | PR |
 |---|---|---|---|
@@ -89,6 +91,7 @@ group is hidden from members and clients). With the flag off the page shows only
 | **Candidate retention** | "Keep candidates untouched for" N months. | Yes | #1186 |
 | **Due for deletion** | Table of candidates past the period (Candidate, Last activity, Positions, Owner), select some or all, **Keep** (another period from today) or **Delete selected**. Empty state "Nobody is due for deletion". Nothing is deleted on its own. | Yes | #1186 |
 | **Suppression list** | Who may never be added again. Add by LinkedIn profile and/or email (hashed on save) with a reason (*Added by an admin* or *Objected*); remove with a confirmation. | Yes | #1186 (list itself #1178) |
+| **Sub-processor changes** | Each new sub-processor Uncava announced (provider, what it receives, Takes effect / In effect since). **Object…** until it takes effect opens *Object to {provider}*: "Why do you object?" (required, 2,000 characters, counted), **Send objection**; once sent the row reads "You objected on {day} · Change". A change already in effect says it can no longer be objected to. The notice email's Object link opens `/settings/data?object={id}`. | No | #1491 |
 | **Export workspace data** | Start export → "Building your export…" → emailed when ready. | Yes | #1188 |
 
 Copy: the page subtitle switches between "What the AI may work out about the people you hold." (flag off) and the
@@ -243,7 +246,8 @@ Reached from a privacy notice email, a consent request email, or the outreach fo
 
 Not screens in the app, but what candidates and users see from these features: the privacy notice (#1328), the
 outreach footer and one-click unsubscribe on every outreach email (#1330), the consent request and confirmation
-(#1341), the share request (#1343), the workspace export ready email and the deletion certificate (#1188).
+(#1341), the share request (#1343), the workspace export ready email and the deletion certificate (#1188), and, to
+each workspace admin, the notice of a new sub-processor at least 30 days ahead with its Object link (#1491).
 
 ## 10. GDPR work with no visible change
 

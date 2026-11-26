@@ -216,6 +216,7 @@ caller.
 | Stripe customer | `app_lm_resolve_billing_customer` |
 | One trial per founder, across workspaces | `app_lm_trial_started_by` (a boolean) |
 | The platform library's per-code count of firm copies | `app_lm_count_firm_templates_by_code` (counts only) |
+| Per sub-processor notice: admins emailed, still owed, workspaces objecting (V248) | `app_lm_count_subprocessor_notice_replies` (counts only) |
 
 **V191, the job resolvers.** A frequent job used to open every workspace's scope on every tick to ask its own claim:
 a transaction per tenant per tick, most answering nothing, which also took the backend suite from about 11 to about
@@ -232,6 +233,8 @@ out would leave its work stuck.
 | `TaskDueScanner.scanAt` | 5 min | `app_lm_workspaces_with_tasks_falling_due(after, until)` | an open task in the due-soon or overdue window not yet announced as both |
 | `StripeSeatSync.syncDueAt` | 5 min | `app_lm_workspaces_owing_seat_sync(before, limit)` | a seat quantity owed to Stripe |
 | `CreditLedgerSweeper.sweepAt` | 5 min | `app_lm_workspaces_with_lapsed_credits(at, limit)` | an unsettled hold past its time, or a lapsed grant still holding credits |
+| `SubprocessorNoticeMailer.retryAt` (V248) | 1 h | `app_lm_workspaces_with_subprocessor_emails_owed(at)` | a notice email not yet sent, due again, for a notice not yet in effect |
+| `SubprocessorNoticeService.objectionsTo` (V248, the console) | on request | `app_lm_workspaces_with_subprocessor_objections(notice)` | a workspace holding an objection to the notice, then read in its own scope |
 
 The hourly and daily jobs (the purges, the digest, the reply poll, the billing resets and notices, the reconcile) keep
 walking every workspace: their cost is small at that rate.
@@ -260,6 +263,7 @@ A resolver is a deliberate hole in the fence. The rules: one key or one job ques
 | Invitations (accept, pending for an address), onboarding's trial | V189, then scope; `runInJoinedTransaction` for the trial | #1173 |
 | `IntegrationSecretExpiryWarnings`, `ZoomService`, `MailboxService` | walks the workspaces / V189 by user | #1173 |
 | Platform screens (credit grants, subscriptions, template library) | scope per workspace; the library counts through V189 | #1173 |
+| Sub-processor notices (`SubprocessorNoticeMailer`, the console's objections) | the first pass walks the live workspaces, each in a joined scope (it may run on the publishing thread after commit); the retry pass and the objections through V248's resolvers | #1491 |
 | MCP tools (`McpToolCalls`) | the caller's workspace | #1132 |
 
 **Fail-open traps, all pinned by tests.** A check that reads "not found" as "allowed" turns RLS's empty answer into a
