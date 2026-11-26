@@ -1,6 +1,4 @@
 import type { DragEvent, ReactNode } from "react";
-import { useOutletContext } from "react-router-dom";
-import type { ProjectOutletContext } from "../../../components/layout/ProjectLayout";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { ActionMenu, MenuItem } from "../../../components/ui/ActionMenu";
 import { SelectionCheckbox } from "../../../components/ui/SelectionCheckbox";
@@ -25,6 +23,7 @@ export interface CardDrag {
  */
 export function PipelineCard({
   projectId,
+  clientName,
   row,
   isSelected,
   isDragging,
@@ -39,6 +38,7 @@ export function PipelineCard({
   onAskShare,
 }: {
   projectId: string;
+  clientName: string;
   row: PipelineRow;
   isSelected: boolean;
   isDragging: boolean;
@@ -131,7 +131,7 @@ export function PipelineCard({
       <BoardNextAction row={row} onOpen={onOpenNextAction} />
       {shareBadge && <span className="flex min-w-0">{shareBadge}</span>}
       <span className="flex items-center gap-2">
-        <CardVisibility row={row} onToggleVisible={onToggleVisible} />
+        <CardVisibility row={row} clientName={clientName} onToggleVisible={onToggleVisible} />
         {actions}
       </span>
     </article>
@@ -141,6 +141,7 @@ export function PipelineCard({
 /** Someone out of process, in the band under the stage their way out sits in: who, which way out, and since when. */
 export function OutOfProcessCard({
   projectId,
+  clientName,
   row,
   isDragging,
   drag,
@@ -150,6 +151,7 @@ export function OutOfProcessCard({
   shareBadge,
 }: {
   projectId: string;
+  clientName: string;
   row: PipelineRow;
   isDragging: boolean;
   drag: CardDrag;
@@ -186,7 +188,7 @@ export function OutOfProcessCard({
       </span>
       {shareBadge && <span className="flex min-w-0">{shareBadge}</span>}
       <span className="flex items-center gap-2">
-        <CardVisibility row={row} onToggleVisible={onToggleVisible} />
+        <CardVisibility row={row} clientName={clientName} onToggleVisible={onToggleVisible} />
         {actions}
       </span>
     </article>
@@ -194,15 +196,21 @@ export function OutOfProcessCard({
 }
 
 /** The foot's switch, or, while a refusal or a restriction hides them from the client, the switch locked with why. */
-function CardVisibility({ row, onToggleVisible }: { row: PipelineRow; onToggleVisible: (row: PipelineRow) => void }) {
-  const outlet = useOutletContext<ProjectOutletContext | undefined>();
-  const vocabulary = useWorkspaceVocabulary();
+function CardVisibility({
+  row,
+  clientName,
+  onToggleVisible,
+}: {
+  row: PipelineRow;
+  clientName: string;
+  onToggleVisible: (row: PipelineRow) => void;
+}) {
   if (row.clientHiddenReason) {
     return (
       <HiddenFromClient
         reason={row.clientHiddenReason}
         name={row.fullName}
-        clientName={outlet?.project.clientName ?? `the ${vocabulary.unitLower}`}
+        clientName={clientName}
       />
     );
   }

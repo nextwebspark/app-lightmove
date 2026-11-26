@@ -29,13 +29,14 @@ const viewer: { id: string; fullName: string; avatarUrl: null; workspace: { role
 };
 vi.mock("../../auth/AuthProvider", () => ({ useAuth: () => ({ user: viewer }) }));
 // The workspace's consent to share (#1267 phase 3): off unless a test turns it on.
-const share = { on: false, given: new Set<string>() };
+const share = { on: false, given: new Set<string>(), declined: new Set<string>() };
 vi.mock("../../candidates/lib/useShareConsents", () => ({
   useShareConsents: () => ({
     on: share.on,
     clientNamable: true,
     rowOf: () => undefined,
-    badgeOf: (candidateId: string) => (share.given.has(candidateId) ? "given" : "none"),
+    badgeOf: (candidateId: string) =>
+      share.given.has(candidateId) ? "given" : share.declined.has(candidateId) ? "declined" : "none",
     needsPrompt: (candidateId: string) => share.on && !share.given.has(candidateId),
   }),
 }));
@@ -294,6 +295,7 @@ describe("PipelineView", () => {
     localStorage.clear();
     share.on = false;
     share.given = new Set();
+    share.declined = new Set();
   });
 
   describe("consent to share with the client (#1267)", () => {
@@ -329,6 +331,7 @@ describe("PipelineView", () => {
 
     it("locks the switch for someone who said no or is restricted, and says why (#1488)", async () => {
       share.on = true;
+      share.declined = new Set(["a"]);
       vi.mocked(pipelineApi.getPipeline).mockResolvedValue(
         aPipelinePage([
           { ...rows[0], clientVisible: true, clientHiddenReason: "share_declined" },
@@ -351,6 +354,24 @@ describe("PipelineView", () => {
       const restricted = within(card(rows[1].fullName)).getByRole("switch", { name: /Visible to client/ });
       expect(restricted.getAttribute("title")).toMatch(/Processing is restricted/);
       expect(pipelineApi.setClientVisibility).not.toHaveBeenCalled();
+    });
+
+    it("shows their no on the badge and the restriction on the lock when both hide them (#1488)", async () => {
+      share.on = true;
+      share.declined = new Set(["a"]);
+      vi.mocked(pipelineApi.getPipeline).mockResolvedValue(
+        aPipelinePage([{ ...rows[0], clientVisible: true, clientHiddenReason: "processing_restricted" }, ...rows.slice(1)]),
+      );
+      renderView();
+      await screen.findByRole("article", { name: "Amal Haddad" });
+
+      const both = card("Amal Haddad");
+      expect(within(both).getByText("Said no to sharing")).toBeInTheDocument();
+      expect(within(both).queryByText(/No consent to share|Consent asked/)).not.toBeInTheDocument();
+      expect(within(both).getByText("Hidden from Meridian Energy Group")).toBeInTheDocument();
+      expect(within(both).getByRole("switch", { name: /Visible to client: Amal Haddad/ }).getAttribute("title")).toMatch(
+        /Processing is restricted/,
+      );
     });
 
     it("draws no badge and no prompt in a workspace that does not ask", async () => {

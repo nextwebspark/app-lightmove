@@ -64,7 +64,7 @@ export function HiddenFromClient({
   );
 }
 
-export function hiddenTitleOf(reason: ClientHiddenReason, clientName: string): string {
+function hiddenTitleOf(reason: ClientHiddenReason, clientName: string): string {
   switch (reason) {
     case "share_declined":
       return `They said no to being shared with ${clientName}. They stay hidden until they say yes.`;

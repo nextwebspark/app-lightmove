@@ -28,7 +28,7 @@ export function useShareConsents(projectId: string): ShareConsentState {
   const rows = new Map((consents.data?.rows ?? []).map((row) => [row.candidateId, row]));
   const badgeOf = (candidateId: string): ShareConsentBadgeState => {
     const row = rows.get(candidateId);
-    if (row?.status === "given") return "given";
+    if (row?.status === "given" || row?.status === "declined" || row?.status === "withdrawn") return row.status;
     if (row?.requestOpenUntil) return "asked";
     return "none";
   };

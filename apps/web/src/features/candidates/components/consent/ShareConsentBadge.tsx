@@ -53,9 +53,9 @@ function titleOf(state: ShareConsentBadgeState, row: ShareConsentRow | undefined
     case "given":
       return `Agreed on ${formatInstantDate(row?.answeredAt ?? null) ?? ""} to be shared with ${clientName}`;
     case "declined":
-      return `Said no to being shared with ${clientName}. They're hidden from them until they say yes`;
+      return `Said no on ${formatInstantDate(row?.answeredAt ?? null) ?? ""} to being shared with ${clientName}`;
     case "withdrawn":
-      return `Withdrew their consent to be shared with ${clientName}. They're hidden from them until they say yes`;
+      return `Withdrew on ${formatInstantDate(row?.answeredAt ?? null) ?? ""} their consent to be shared with ${clientName}`;
     case "asked":
       return `Asked on ${formatInstantDate(row?.requestedAt ?? null) ?? ""} · answer by ${formatInstantDate(row?.requestOpenUntil ?? null) ?? ""}`;
     case "none":

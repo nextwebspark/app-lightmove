@@ -126,6 +126,7 @@ export function PipelineView({
           )}
           <PipelineBoard
             projectId={project.id}
+            clientName={project.clientName}
             rows={rows}
             stageCounts={stageCounts}
             catalog={catalog}
@@ -141,13 +142,7 @@ export function PipelineView({
               share.on
                 ? (row) => (
                     <ShareConsentBadge
-                      state={
-                        row.clientHiddenReason === "share_declined"
-                          ? "declined"
-                          : row.clientHiddenReason === "share_withdrawn"
-                            ? "withdrawn"
-                            : share.badgeOf(row.candidateId)
-                      }
+                      state={share.badgeOf(row.candidateId)}
                       row={share.rowOf(row.candidateId)}
                       clientName={project.clientName}
                     />
