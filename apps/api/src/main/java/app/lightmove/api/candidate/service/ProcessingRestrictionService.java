@@ -71,7 +71,7 @@ public class ProcessingRestrictionService {
             if (restricting) {
                 events.publishEvent(new PersonProcessingRestricted(workspaceId, personId, userId));
             }
-            clientView.positionsOf(personId);
+            clientView.refreshPositionsOf(personId);
         } else if (suppressing) {
             audit.event(ProjectEventType.PERSON_SUPPRESSION_ADDED)
                     .actor(userId).workspace(workspaceId).target(PERSON_TARGET, personId).from(httpRequest)

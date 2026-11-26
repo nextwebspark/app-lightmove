@@ -101,7 +101,6 @@ public class PersonConsentService {
                                 ShareTargets shareTargets, CandidateRepository candidates, ProjectAccess projectAccess,
                                 EmailTemplates templates, ApplicationEventPublisher events, AuditService audit,
                                 Clock clock, ClientViewRefresh clientView, LightMoveProperties properties) {
-        this.clientView = clientView;
         this.people = people;
         this.records = records;
         this.activity = activity;
@@ -117,6 +116,7 @@ public class PersonConsentService {
         this.events = events;
         this.audit = audit;
         this.clock = clock;
+        this.clientView = clientView;
         this.baseUrl = properties.web().baseUrl();
     }
 
@@ -300,7 +300,7 @@ public class PersonConsentService {
         consents.appendEvent(workspaceId, personId, consentId, ConsentEventAction.RECORDED, answer,
                 ConsentEventVia.BY_HAND, null, userId, null, null, now());
         if (projectId != null) {
-            clientView.position(projectId);
+            clientView.refreshPosition(projectId);
         }
         activity.record(person, projectId, userId, PersonActivityKind.CONSENT_ANSWERED,
                 PersonActivityDetails.of("purpose", purpose.value()).and("status", answer.value())

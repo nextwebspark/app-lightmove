@@ -21,12 +21,12 @@ public class ClientViewRefresh {
     private final ProjectStreamPublisher stream;
 
     @Transactional(propagation = Propagation.MANDATORY)
-    public void positionsOf(UUID personId) {
-        candidates.findProjectIdsByPersonId(personId).forEach(this::position);
+    public void refreshPositionsOf(UUID personId) {
+        candidates.findProjectIdsByPersonId(personId).forEach(this::refreshPosition);
     }
 
     @Transactional(propagation = Propagation.MANDATORY)
-    public void position(UUID projectId) {
+    public void refreshPosition(UUID projectId) {
         stream.publish(projectId, ProjectStreamKind.CANDIDATE_EDITED);
     }
 }

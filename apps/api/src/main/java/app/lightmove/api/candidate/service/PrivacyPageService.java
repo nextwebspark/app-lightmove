@@ -274,7 +274,7 @@ public class PrivacyPageService {
             return false;
         }
         if (consent.purpose() == ConsentPurpose.SHARE_WITH_CLIENT && consent.projectId() != null) {
-            clientView.position(consent.projectId());
+            clientView.refreshPosition(consent.projectId());
         }
         boolean answeredRequest = status != ConsentStatus.WITHDRAWN;
         consents.appendEvent(link.workspaceId(), person.getId(), consent.id(), ConsentEventAction.ANSWERED, status,
