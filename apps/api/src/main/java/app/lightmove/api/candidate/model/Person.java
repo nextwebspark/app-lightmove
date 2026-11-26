@@ -796,6 +796,21 @@ public class Person extends BaseEntity {
     }
 
     /**
+     * Do not contact as the person's own objection (B16): replaces a consultant's earlier reason, so the consent
+     * register and the drawer read the objection; an objection already standing is kept as first recorded.
+     */
+    public boolean markObjection(String reason, UUID setBy) {
+        if (doNotContact && DoNotContactReasons.isObjection(doNotContactReason)) {
+            return false;
+        }
+        this.doNotContact = true;
+        this.doNotContactReason = reason;
+        this.doNotContactSetBy = setBy;
+        this.doNotContactSetAt = Instant.now();
+        return true;
+    }
+
+    /**
      * When the person's own stop link set do not contact, else null: cleared and set again by hand, or set first for
      * another reason, it is not their opt-out the drawer should tell.
      */

@@ -47,6 +47,7 @@ import java.time.LocalTime;
 import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -57,6 +58,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -71,6 +73,11 @@ public class PersonConsentService {
 
     static final Duration REQUEST_LIFETIME = Duration.ofDays(30);
     private static final Duration RECENTLY = Duration.ofDays(14);
+    /** A person's objection sits beside their consents, after them. */
+    private static final Comparator<ConsentRegisterRow> REGISTER_ORDER = Comparator
+            .comparing(ConsentRegisterRow::personName, Comparator.nullsLast(Comparator.naturalOrder()))
+            .thenComparing(ConsentRegisterRow::personId)
+            .thenComparing(ConsentRegisterRow::isObjection);
     private static final String PERSON_TARGET = "person";
     private static final int SCAN_BATCH = 500;
     private static final int SCAN_BATCHES_PER_RUN = 20;
@@ -174,7 +181,10 @@ public class PersonConsentService {
         if (projectId != null) {
             shareTargets.require(workspaceId, projectId);
         }
-        List<ConsentRegisterRow> rows = consents.registerOf(workspaceId, projectId, cap + 1);
+        List<ConsentRegisterRow> rows = Stream.concat(consents.registerOf(workspaceId, projectId, cap + 1).stream(),
+                        consents.objectionsOf(workspaceId, projectId, cap + 1).stream())
+                .sorted(REGISTER_ORDER)
+                .toList();
         if (rows.size() > cap) {
             throw ApiException.userFacing(ErrorCode.VALIDATION_FAILED,
                     "That is more consents than one file may carry. Download it for one position instead.");

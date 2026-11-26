@@ -100,6 +100,8 @@ public enum ProjectEventType implements AuditEventType {
     PERSON_OBJECTED,
     PERSON_PRIVACY_REQUESTED,
     PERSON_OPTED_OUT,
+    /** A colleague recorded the person's objection (B16): do not contact and the suppression list, as the page does. */
+    PERSON_OBJECTION_RECORDED,
     /** Consent asked for (#1267), refused by the mail provider, answered on the page, or recorded by a colleague. By id. */
     PERSON_CONSENT_REQUESTED,
     PERSON_CONSENT_REQUEST_FAILED,

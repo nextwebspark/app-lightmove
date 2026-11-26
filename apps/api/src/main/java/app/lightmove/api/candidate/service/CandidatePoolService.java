@@ -1,6 +1,7 @@
 package app.lightmove.api.candidate.service;
 
 import app.lightmove.api.candidate.constant.ContactChannel;
+import app.lightmove.api.candidate.constant.ContactStopKind;
 import app.lightmove.api.candidate.constant.PersonActivityKind;
 import app.lightmove.api.candidate.dto.BulkPeopleChangeResponse;
 import app.lightmove.api.candidate.dto.CandidatePoolResponse;
@@ -24,6 +25,7 @@ import app.lightmove.api.candidate.repository.PersonPoolQuery;
 import app.lightmove.api.candidate.repository.PersonRepository;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
+import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.error.constant.ErrorCode;
 import app.lightmove.api.core.error.model.ApiException;
 import app.lightmove.api.core.security.model.User;
@@ -77,6 +79,9 @@ public class CandidatePoolService {
     private final PersonTimelineService timeline;
     private final PersonActivityRecorder activity;
     private final AuditService audit;
+    private final PersonContactStop contactStop;
+    private final SuppressionGate suppressionGate;
+    private final LightMoveProperties properties;
 
     @Transactional(readOnly = true)
     public CandidatePoolResponse list(UUID userId, UUID workspaceId, PoolCriteria criteria, Integer page,
@@ -166,10 +171,26 @@ public class CandidatePoolService {
         return new BulkPeopleChangeResponse(changed);
     }
 
+    /**
+     * With data protection on, marking is the person's objection (B16): the same stop as their email's link, so every
+     * run stops now and they join the suppression list; clearing it while that list holds them is refused. Off, it is
+     * the team's own flag, with its free-text reason.
+     */
     @Transactional
     public PersonRecordResponse markDoNotContact(UUID userId, UUID workspaceId, UUID personId, boolean doNotContact,
                                                  String reason, HttpServletRequest httpRequest) {
         Person person = people.requireInWorkspace(personId, workspaceId);
+        if (properties.dataProtection().enabled()) {
+            if (doNotContact) {
+                contactStop.stop(person, ContactStopKind.RECORDED_BY_TEAM, userId, null, false, httpRequest);
+                return records.toRecord(userId, person);
+            }
+            boolean stillSuppressed = person.isDoNotContact()
+                    && !suppressionGate.suppressedPeopleOf(workspaceId, List.of(person)).isEmpty();
+            if (stillSuppressed) {
+                throw ApiException.of(ErrorCode.PERSON_OBJECTION_HELD);
+            }
+        }
         String why = reason == null || reason.isBlank() ? null : reason.strip();
         boolean changed = doNotContact ? person.markDoNotContact(why, userId) : person.clearDoNotContact();
         if (changed) {

@@ -30,6 +30,9 @@ public class ConsentRegisterCsvWriter {
     }
 
     private static String purposeOf(ConsentRegisterRow line) {
+        if (line.isObjection()) {
+            return "Objection to contact";
+        }
         return switch (line.purpose()) {
             case KEEP_ON_FILE -> "Keep on file";
             case SHARE_WITH_CLIENT -> "Share with client";
@@ -38,6 +41,9 @@ public class ConsentRegisterCsvWriter {
     }
 
     private static String statusOf(ConsentRegisterRow line) {
+        if (line.isObjection()) {
+            return "Objected";
+        }
         return switch (line.status()) {
             case REQUESTED -> "Asked";
             case GIVEN -> "Given";
@@ -48,6 +54,13 @@ public class ConsentRegisterCsvWriter {
     }
 
     private static String viaOf(ConsentRegisterRow line) {
+        if (line.isObjection()) {
+            return switch (line.objectedVia()) {
+                case OBJECTED_ON_PRIVACY_PAGE -> "On their privacy page";
+                case OPTED_OUT_BY_EMAIL -> "By the stop link in an email";
+                case RECORDED_BY_TEAM -> "Recorded by the team";
+            };
+        }
         if (line.answeredVia() == null) {
             return "";
         }

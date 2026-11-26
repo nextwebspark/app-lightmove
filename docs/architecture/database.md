@@ -606,6 +606,10 @@ platform tables holding keys and counts: no content, no person, no workspace. `a
 so the decision on it is counted against that version; null, or a key missing, is a value proposed before the
 column. Staff-only like the flags, and it names a prompt version, never a reading.
 
+V245 adds `OBJECTION_RECORDED` to `app_lm_person_activity_kind_chk` (#1489): a colleague recorded that the person
+objected when contacted, the same stop as the privacy page's objection and an email's stop link (`PersonContactStop`),
+with an actor.
+
 V244 is `app_lm_position_suggested_field` (#1452): for each field a document reading filled on a brief, the
 `prompt_id` and `version` that suggested it, keyed by (`position_id`, `field_key`), until the brief is published and
 each is counted once into `app_lm_platform_prompt_outcome_daily`, then deleted. `field_key` is a scalar's brief key
