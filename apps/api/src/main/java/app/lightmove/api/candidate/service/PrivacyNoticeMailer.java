@@ -6,7 +6,11 @@ import app.lightmove.api.candidate.model.QueuedPrivacyNotice;
 import app.lightmove.api.core.audit.constant.ProjectEventType;
 import app.lightmove.api.core.audit.service.AuditService;
 import app.lightmove.api.core.email.service.EmailSender;
+import java.time.Clock;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
@@ -28,17 +32,21 @@ public class PrivacyNoticeMailer {
     private final PrivacyEmailRefusals refusals;
     private final PersonActivityRecorder activity;
     private final AuditService audit;
+    private final UncavaNoticeRecords uncavaNotice;
+    private final Clock clock;
 
     @Async
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onQueued(PrivacyNoticesQueued queued) {
-        List<QueuedPrivacyNotice> refused = queued.notices().stream()
-                .filter(notice -> !emailSender.trySend(notice.email()))
-                .toList();
-        if (refused.isEmpty()) {
-            return;
+        Map<Boolean, List<QueuedPrivacyNotice>> byDelivery = queued.notices().stream()
+                .collect(Collectors.partitioningBy(notice -> emailSender.trySend(notice.email())));
+        List<UUID> delivered = byDelivery.get(true).stream().map(QueuedPrivacyNotice::personId).toList();
+        List<QueuedPrivacyNotice> refused = byDelivery.get(false);
+        if (!refused.isEmpty()) {
+            refusals.inOwnTransaction(queued.workspaceId(),
+                    () -> refused.forEach(notice -> recordRefused(queued, notice)));
         }
-        refusals.inOwnTransaction(queued.workspaceId(), () -> refused.forEach(notice -> recordRefused(queued, notice)));
+        uncavaNotice.recordDeliveredInOwnTransaction(queued.workspaceId(), delivered, clock.instant());
     }
 
     private void recordRefused(PrivacyNoticesQueued queued, QueuedPrivacyNotice notice) {

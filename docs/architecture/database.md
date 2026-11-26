@@ -606,6 +606,11 @@ platform tables holding keys and counts: no content, no person, no workspace. `a
 so the decision on it is counted against that version; null, or a key missing, is a value proposed before the
 column. Staff-only like the flags, and it names a prompt version, never a reading.
 
+V247 (#1490) records which version of Uncava's own notice to executives a person was last sent:
+`app_lm_person.uncava_notice_version` and `uncava_notice_sent_at`, both or neither, written once an email carrying
+the link was delivered. `app_lm_person_never_contacted_idx` (`workspace_id, created_at, id`, partial: never told, not
+restricted, not do not contact) serves `NeverContactedErasure`'s oldest-first read.
+
 V246 hides from a client seat whoever said no to being shared, withdrew it, or is restricted (#1488):
 `app_lm_project_candidate.client_hidden_reason` (`PROCESSING_RESTRICTED` · `SHARE_DECLINED` · `SHARE_WITHDRAWN`),
 written only by triggers through `app_lm_client_hidden_reason(person, project)`, and the generated

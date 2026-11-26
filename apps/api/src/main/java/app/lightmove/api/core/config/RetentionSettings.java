@@ -34,13 +34,29 @@ public record RetentionSettings(
         @DefaultValue("7d") Duration workspaceExportsAfter,
 
         /** An export still building this long after it started is failed: its worker died with its instance. */
-        @DefaultValue("2h") Duration workspaceExportDeadline
+        @DefaultValue("2h") Duration workspaceExportDeadline,
+
+        /**
+         * Grey and never contacted (#1490, B2/E1): erased this many months after they were added, or after the last
+         * position they were on was archived. Null turns the pass off.
+         */
+        @DefaultValue("6") Integer neverContactedMonths,
+
+        /** At most this many erased per pass, so the first run after switching retention on stays small. */
+        @DefaultValue("500") int neverContactedPerRun,
+
+        /** Spelled out in yml: {@code @Scheduled} reads it. */
+        @DefaultValue("0 40 2 * * *") String neverContactedScan
 ) {
 
     public RetentionSettings {
         if (candidateMonths != null && !CANDIDATE_MONTHS.contains(candidateMonths)) {
             throw new IllegalArgumentException("lightmove.retention.candidate-months must be one of "
                     + CANDIDATE_MONTHS + ", or blank for never");
+        }
+        if (neverContactedMonths != null && neverContactedMonths < 1) {
+            throw new IllegalArgumentException("lightmove.retention.never-contacted-months must be at least 1, "
+                    + "or blank for never");
         }
     }
 

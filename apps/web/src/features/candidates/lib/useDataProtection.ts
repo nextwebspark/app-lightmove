@@ -5,6 +5,8 @@ export interface DataProtection {
   /** False while the read is pending and on a failed one: a control the server would refuse is never offered. */
   offered: boolean;
   isPending: boolean;
+  /** Uncava's own notice to executives, linked from every candidate email once published (#1490). */
+  candidateNoticeUrl: string | null;
 }
 
 export function useDataProtection(): DataProtection {
@@ -13,5 +15,9 @@ export function useDataProtection(): DataProtection {
     queryFn: ({ signal }) => dataProtectionApi.getDataProtectionConfig(signal),
     staleTime: Infinity,
   });
-  return { offered: config.data?.enabled === true, isPending: config.isPending };
+  return {
+    offered: config.data?.enabled === true,
+    isPending: config.isPending,
+    candidateNoticeUrl: config.data?.candidateNoticeUrl ?? null,
+  };
 }

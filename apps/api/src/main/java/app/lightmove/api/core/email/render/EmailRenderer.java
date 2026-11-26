@@ -13,6 +13,7 @@ import org.springframework.web.util.HtmlUtils;
  */
 public class EmailRenderer {
 
+    public static final String CANDIDATE_NOTICE_LABEL = "How Uncava handles your details";
     private static final String WORDMARK = "UNCAVA";
 
     /** Versioned: Gmail caches every remote image, so a mark redrawn in place would stay in circulation. */
@@ -21,11 +22,18 @@ public class EmailRenderer {
     private final String markUrl;
     private final String siteUrl;
     private final String siteLabel;
+    /** Uncava's public notice to the executives it holds (#1490); null until counsel publishes one. */
+    private final String candidateNoticeUrl;
 
     public EmailRenderer(String baseUrl) {
+        this(baseUrl, null);
+    }
+
+    public EmailRenderer(String baseUrl, String candidateNoticeUrl) {
         this.siteUrl = baseUrl;
         this.markUrl = baseUrl + MARK_PATH;
         this.siteLabel = baseUrl.replaceFirst("^https?://", "").replaceFirst("/$", "");
+        this.candidateNoticeUrl = candidateNoticeUrl;
     }
 
     public EmailMessage render(String recipient, String subject, EmailContent content) {
@@ -34,7 +42,8 @@ public class EmailRenderer {
 
     /**
      * An email a firm sends through Uncava (a privacy notice, #923): the firm's name heads it in place of Uncava's
-     * mark, the footer says Uncava carried it, and a reply goes to the firm.
+     * mark, the footer says Uncava carried it and links Uncava's own notice to the executive once one is published
+     * (#1490), and a reply goes to the firm.
      */
     public EmailMessage renderOnBehalfOf(String recipient, String subject, EmailContent content, String firm,
                                          String replyTo) {
@@ -82,7 +91,11 @@ public class EmailRenderer {
         }
 
         String signOff = firm == null ? WORDMARK + " · " + siteUrl : "Sent by " + firm + " with Uncava";
-        return text.append("--\n").append(signOff).append('\n').toString();
+        text.append("--\n").append(signOff).append('\n');
+        if (firm != null && candidateNoticeUrl != null) {
+            text.append(CANDIDATE_NOTICE_LABEL).append(": ").append(candidateNoticeUrl).append('\n');
+        }
+        return text.toString();
     }
 
     /** Two {@code valign="middle"} cells: the only vertical centring every mail client agrees on. */
@@ -134,7 +147,10 @@ public class EmailRenderer {
 
     private String footer(String firm) {
         if (firm != null) {
-            return "Sent by " + escape(firm) + " with Uncava";
+            String sentBy = "Sent by " + escape(firm) + " with Uncava";
+            return candidateNoticeUrl == null ? sentBy
+                    : sentBy + " · <a href=\"%s\" style=\"color:%s\">%s</a>".formatted(escape(candidateNoticeUrl),
+                            EmailPalette.MUTED, CANDIDATE_NOTICE_LABEL);
         }
         return "%s · <a href=\"%s\" style=\"color:%s;text-decoration:none\">%s</a>"
                 .formatted(WORDMARK, siteUrl, EmailPalette.MUTED, siteLabel);

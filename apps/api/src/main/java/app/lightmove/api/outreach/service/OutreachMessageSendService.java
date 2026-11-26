@@ -222,6 +222,7 @@ public class OutreachMessageSendService {
             privacy.recordToldByOutreach(message.getWorkspaceId(), message.getPersonId(), message.getSenderUserId(),
                     now);
         }
+        privacy.recordUncavaNoticeDelivered(message.getWorkspaceId(), message.getPersonId(), prepared.footer(), now);
         enrollments.findByWorkspaceIdAndSenderUserIdAndThreadId(message.getWorkspaceId(), message.getSenderUserId(),
                         message.getThreadId()).stream()
                 .filter(OutreachEnrollment::isLive)

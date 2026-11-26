@@ -69,14 +69,17 @@ public class CandidateRetentionService {
     private final AuditService audit;
     private final Clock clock;
     private final RetentionSettings settings;
+    private final Optional<NeverContactedErasure> neverContacted;
 
     public CandidateRetentionService(NamedParameterJdbcTemplate jdbc, PersonErasureService erasure,
-                                     AuditService audit, Clock clock, LightMoveProperties properties) {
+                                     AuditService audit, Clock clock, LightMoveProperties properties,
+                                     Optional<NeverContactedErasure> neverContacted) {
         this.jdbc = jdbc;
         this.erasure = erasure;
         this.audit = audit;
         this.clock = clock;
         this.settings = properties.retention();
+        this.neverContacted = neverContacted;
     }
 
     @Transactional(readOnly = true)
@@ -85,7 +88,7 @@ public class CandidateRetentionService {
         // Not Optional.map: a chosen "never" is a null period, which map would read as no choice at all.
         Integer months = chosen.isPresent() ? chosen.get().months() : settings.candidateMonths();
         return new CandidateRetentionResponse(months, chosen.isPresent(), settings.candidateMonths(),
-                RetentionSettings.CANDIDATE_MONTHS);
+                RetentionSettings.CANDIDATE_MONTHS, neverContacted.map(NeverContactedErasure::months).orElse(null));
     }
 
     /** Recorded only where something changed, as every workspace setting is. */

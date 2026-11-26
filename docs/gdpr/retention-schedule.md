@@ -19,8 +19,14 @@ table is swept only in the workspaces `app_lm_resolve_workspaces_with_retention_
 `WorkspaceScope`. `PersonErasureService` (#918) is how a person goes: by an admin from Candidates, or by an admin
 reviewing candidate retention (#921 part 2) — a workspace's period (Settings → Data & retention, V200
 `app_lm_workspace_retention`, `lightmove.retention.candidate-months` where it has not chosen, 24 ⚖️) lists whoever is
-untouched that long and on no live position; nothing deletes a person without that review, except the never-contacted
-rule in **Consent periods** below (#1490), which erases without one. `WorkspacePurge` (#926,
+untouched that long and on no live position. One rule deletes without a review (#1490, decisions B2 and E1):
+`NeverContactedErasure` (daily, `lightmove.retention.never-contacted-scan`) erases anyone grey and never contacted —
+never told, never emailed either way, never met, no call that reached them, no consent and no answer — six months
+(`lightmove.retention.never-contacted-months`) after they were added or after the last position they were on was
+archived, unless they are on a live position, restricted, do not contact or ever kept by an admin (a Keep stands for
+good against a rule that asks nobody); at most `never-contacted-per-run` (500) a pass, with no actor, no suppression
+and an audit line naming the rule. It needs `DATA_PROTECTION_ENABLED` as well as `RETENTION_ENABLED`, and Settings
+states its period (`neverContactedMonths` on the retention read) only while it runs. `WorkspacePurge` (#926,
 `lightmove.retention.workspace-purge-interval`) is how a workspace goes: a deleted workspace's members lose access at
 once, and `lightmove.retention.deleted-workspaces-after` (30 days ⚖️) later every row of every table carrying its
 `workspace_id` is deleted — but the audit trail and the billing records, kept by id — with every file under its
@@ -99,7 +105,7 @@ and `DATA_PROTECTION_ENABLED` are on.
 | `app_lm_mailbox_authorization` | user | a mailbox connect in flight | until the connect completes | completion, account deletion | — |
 | `app_lm_mailbox_connection` | user, address, sealed refresh token | sending from the consultant's own mailbox | while connected | disconnected, workspace purge, account deletion | — |
 | `app_lm_zoom_connection` | user, sealed refresh token | Zoom links | while connected | disconnected, workspace purge, account deletion | — |
-| `app_lm_person` | the executive: name, profile, background, package | the candidate record | while held; reviewed for deletion once untouched for the workspace's period (default 24 months ⚖️) and on no live position; the consent periods above set each status's own (#1475), and a never-contacted grey person is erased after 6 months without review (#1490) | erasure, retention review | `PersonErasureService` |
+| `app_lm_person` | the executive: name, profile, background, package; which version of Uncava's notice to executives they were last sent, and when (V247) | the candidate record | while held; reviewed for deletion once untouched for the workspace's period (default 24 months ⚖️) and on no live position; the consent periods above set each status's own (#1475); erased without review once grey, never contacted and never kept, after 6 months (E1) | erasure, retention review, the never-contacted rule | `PersonErasureService`, `NeverContactedErasure` |
 | `app_lm_person_contact` | emails, phones | reaching the executive | with the person | erasure, edit | cascade |
 | `app_lm_person_photo` | photo | the drawer | with the person | erasure | cascade |
 | `app_lm_person_vendor_record` | each research vendor's answer for the executive, as sent; may name other people (people also viewed, recommenders) | the profile's further facts, without buying them again | with the person; replaced by the next answer from the same vendor | erasure | cascade |

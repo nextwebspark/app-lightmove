@@ -51,10 +51,8 @@ public class RecentApproachReader {
 
     private static final List<String> LOGGED_CONTACT_KEYS = LOGGED_CONTACT.stream().map(Enum::name).toList();
 
-    /** A call that rang out or reached someone else never reached the person, so it warns nobody. */
-    private static final Set<NoteOutcome> UNANSWERED = EnumSet.of(NoteOutcome.NO_ANSWER, NoteOutcome.WRONG_NUMBER);
-
-    private static final List<String> UNANSWERED_KEYS = UNANSWERED.stream().map(Enum::name).toList();
+    /** An unanswered call never reached the person, so it warns nobody. */
+    private static final List<String> UNANSWERED_KEYS = NoteOutcome.UNANSWERED.stream().map(Enum::name).toList();
 
     private static final BinaryOperator<PersonTouch> NEWER =
             BinaryOperator.maxBy(Comparator.comparing(PersonTouch::at));
@@ -87,7 +85,8 @@ public class RecentApproachReader {
 
         Map<UUID, List<PersonTouch>> touchesByPerson = Stream.concat(
                         history.touchesSince(workspaceId, asked, since).stream(),
-                        notes.findLoggedContacts(workspaceId, asked, LOGGED_CONTACT, UNANSWERED, since).stream()
+                        notes.findLoggedContacts(workspaceId, asked, LOGGED_CONTACT, NoteOutcome.UNANSWERED, since)
+                                .stream()
                                 .map(row -> new PersonTouch(row.getPersonId(), row.getProjectId(),
                                         row.getAuthorUserId(), ApproachKind.loggedAs(row.getKind(), row.getOutcome()),
                                         row.getAt(), row.getOutcome())))
