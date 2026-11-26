@@ -53,10 +53,6 @@ export function ToolbarDivider({ className }: { className?: string }) {
   return <span aria-hidden="true" className={cn("h-5 w-px flex-none bg-u-border", className)} />;
 }
 
-/**
- * One width on every page, so a switch reads the same wherever it is: Table | Pipeline | Executives, the longest set,
- * whole. Below `sm` the switch takes a line of its own.
- */
 const VIEW_SWITCH_WIDTH = "w-[320px] flex-none max-sm:w-full";
 
 /**

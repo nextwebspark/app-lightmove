@@ -13,15 +13,12 @@ export interface RecordStepper {
   frame: "peek" | "page";
   /** Where the open person sits in the list, 0-based, for the full page's "3 of 48". */
   position?: { index: number; total: number };
-  /** What the full page's corner puts first: its List button, where the list is away. */
   lead?: ReactNode;
   /** The peek's Open full page, the page's way back to where it was opened from; absent where there is none. */
   onToggleFrame?: () => void;
-  /** What the page's way back says, "Back to Table". */
   toggleLabel?: string;
 }
 
-/** Whether there is a list to step along at all: a record opened alone from a board has none. */
 function stepsShown(stepper: RecordStepper): boolean {
   return stepper.position !== undefined || stepper.onPrevious !== undefined || stepper.onNext !== undefined;
 }

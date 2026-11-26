@@ -42,7 +42,6 @@ export function CandidateDrawerById({
   onClose: () => void;
   /** After a save or a removal, for a read the mandate's rows do not cover — the report's figures. */
   onChanged?: () => void;
-  /** The peek's Open full page, where the opener has one: the board's, into the Executives view. */
   onExpand?: (candidateId: string) => void;
 }) {
   const { user } = useAuth();
