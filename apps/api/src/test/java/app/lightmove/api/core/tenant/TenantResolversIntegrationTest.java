@@ -82,7 +82,7 @@ class TenantResolversIntegrationTest extends FlowTestSupport {
                 WHERE (proname LIKE 'app\\_lm\\_workspaces\\_with\\_%'
                        OR proname = 'app_lm_workspaces_owing_seat_sync')
                   AND pronamespace = 'public'::regnamespace AND prosecdef""", String.class);
-        assertThat(shapes).hasSize(9).allSatisfy(shape -> assertThat(shape).isEqualTo("SETOF uuid"));
+        assertThat(shapes).hasSize(11).allSatisfy(shape -> assertThat(shape).isEqualTo("SETOF uuid"));
 
         Boolean stillRaised = transactions.execute(status -> {
             resolvers.workspacesWithSendsDue(Instant.now());
@@ -90,6 +90,9 @@ class TenantResolversIntegrationTest extends FlowTestSupport {
             resolvers.workspacesWithConsentsDue(Instant.now());
             resolvers.workspacesWithImportEnrichmentDue(Instant.now());
             resolvers.workspacesWithImportEnrichmentExpired(Instant.now());
+            resolvers.workspacesWithSubprocessorEmailsOwed(Instant.now());
+            resolvers.workspacesWithSubprocessorObjections(UUID.randomUUID());
+            resolvers.subprocessorNoticeReplies();
             return application.queryForObject("SELECT app_lm_rls_maintenance()", Boolean.class);
         });
         assertThat(stillRaised).isFalse();

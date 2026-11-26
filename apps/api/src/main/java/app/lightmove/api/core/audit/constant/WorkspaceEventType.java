@@ -66,7 +66,10 @@ public enum WorkspaceEventType implements AuditEventType {
     EMAIL_TEMPLATE_DELETED,
 
     /** An admin took the workspace's audit log as a file: the read that is itself an export. */
-    AUDIT_LOG_EXPORTED;
+    AUDIT_LOG_EXPORTED,
+
+    /** An admin objected to a sub-processor change Uncava announced, or changed the workspace's objection. */
+    SUBPROCESSOR_OBJECTION_RECORDED;
 
     @Override
     public String code() {

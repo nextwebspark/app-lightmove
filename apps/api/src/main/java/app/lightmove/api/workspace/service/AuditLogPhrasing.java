@@ -157,6 +157,9 @@ public class AuditLogPhrasing {
             case "retention" -> "Changed how long candidates are kept";
             default -> "Updated the workspace's details";
         });
+        on(WorkspaceEventType.SUBPROCESSOR_OBJECTION_RECORDED, line -> line.is("action", "changed")
+                ? "Changed the workspace's objection to a sub-processor change"
+                : "Objected to a sub-processor change");
         on(WorkspaceEventType.WORKSPACE_DELETED, line -> "Deleted the workspace");
         on(WorkspaceEventType.WORKSPACE_RESTORED, line -> "Restored the workspace");
         on(WorkspaceEventType.WORKSPACE_PURGED, line -> "Permanently deleted everything the workspace held");

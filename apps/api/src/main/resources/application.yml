@@ -842,6 +842,9 @@ lightmove:
     # How often an instance re-reads the platform configuration versions (core/reload), for a notification it
     # missed. Read by @Scheduled from the environment, so it has no settings record.
     config-reload-check: ${PLATFORM_CONFIG_RELOAD_CHECK:PT30S}
+    # How often an instance resends a sub-processor notice email that failed (#1491), each at most hourly at first and
+    # daily later, until the change takes effect. Read by @Scheduled from the environment, so it has no settings field.
+    subprocessor-notice-retry: ${PLATFORM_SUBPROCESSOR_NOTICE_RETRY:PT1H}
     # Eval runs (#1320). A start planning more model calls than max-calls-per-run is refused and a run stops on
     # reaching it. worker-tick is how often an instance looks for a run its start did not hand it (a restart, a
     # worker gone quiet for stale-after); read by @Scheduled from the environment, so it has no settings field.
