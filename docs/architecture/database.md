@@ -611,7 +611,10 @@ V246 hides from a client seat whoever said no to being shared, withdrew it, or i
 written only by triggers through `app_lm_client_hidden_reason(person, project)`, and the generated
 `shown_to_client = client_visible AND client_hidden_reason IS NULL` every client read filters on. A share's status
 decides; a re-asked or lapsed request after a no keeps the last answer (`app_lm_person_consent_event`). Backfilled for
-restricted people and every share consent. Staff-only.
+restricted people and every share consent. Staff-only. Adding a `STORED` generated column rewrites the whole of
+`app_lm_project_candidate` under `ACCESS EXCLUSIVE`, so the table is locked while the migration runs at deploy. Each
+trigger update, and the backfill, fires V36's `app_lm_project_candidate_touch`, so a restriction or a share answer
+also moves `updated_at` on every position row it changes.
 
 V244 is `app_lm_position_suggested_field` (#1452): for each field a document reading filled on a brief, the
 `prompt_id` and `version` that suggested it, keyed by (`position_id`, `field_key`), until the brief is published and

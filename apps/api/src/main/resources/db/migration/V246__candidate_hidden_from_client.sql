@@ -50,9 +50,10 @@ CREATE FUNCTION app_lm_person_refresh_client_hidden() RETURNS trigger
     LANGUAGE plpgsql AS $$
 BEGIN
     UPDATE app_lm_project_candidate pc
-    SET client_hidden_reason = app_lm_client_hidden_reason(pc.person_id, pc.project_id)
-    WHERE pc.person_id = NEW.id
-      AND pc.client_hidden_reason IS DISTINCT FROM app_lm_client_hidden_reason(pc.person_id, pc.project_id);
+    SET client_hidden_reason = fresh.reason
+    FROM (SELECT id, app_lm_client_hidden_reason(person_id, project_id) AS reason
+          FROM app_lm_project_candidate WHERE person_id = NEW.id) fresh
+    WHERE pc.id = fresh.id AND pc.client_hidden_reason IS DISTINCT FROM fresh.reason;
     RETURN NULL;
 END;
 $$;
@@ -67,9 +68,10 @@ CREATE FUNCTION app_lm_person_consent_refresh_client_hidden() RETURNS trigger
     LANGUAGE plpgsql AS $$
 BEGIN
     UPDATE app_lm_project_candidate pc
-    SET client_hidden_reason = app_lm_client_hidden_reason(pc.person_id, pc.project_id)
-    WHERE pc.person_id = NEW.person_id AND pc.project_id = NEW.project_id
-      AND pc.client_hidden_reason IS DISTINCT FROM app_lm_client_hidden_reason(pc.person_id, pc.project_id);
+    SET client_hidden_reason = fresh.reason
+    FROM (SELECT id, app_lm_client_hidden_reason(person_id, project_id) AS reason
+          FROM app_lm_project_candidate WHERE person_id = NEW.person_id AND project_id = NEW.project_id) fresh
+    WHERE pc.id = fresh.id AND pc.client_hidden_reason IS DISTINCT FROM fresh.reason;
     RETURN NULL;
 END;
 $$;
