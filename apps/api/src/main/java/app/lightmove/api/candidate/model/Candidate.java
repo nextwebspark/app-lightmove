@@ -20,7 +20,9 @@ import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.Generated;
 import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.generator.EventType;
 import org.hibernate.type.SqlTypes;
 
 /**
@@ -103,11 +105,13 @@ public class Candidate extends BaseEntity {
      * from the person's restriction and their share answer on this position, never by the application.
      */
     @Enumerated(EnumType.STRING)
-    @Column(name = "client_hidden_reason", insertable = false, updatable = false)
+    @Generated(event = {EventType.INSERT, EventType.UPDATE})
+    @Column(name = "client_hidden_reason")
     private ClientHiddenReason clientHiddenReason;
 
     /** V246's generated column every client read filters on: staff's switch and no reason to hide them. */
-    @Column(name = "shown_to_client", insertable = false, updatable = false)
+    @Generated(event = {EventType.INSERT, EventType.UPDATE})
+    @Column(name = "shown_to_client")
     private boolean shownToClient;
 
     /** Why they left (V228), held only while their status is out of process. Staff-only: never on a client's read. */
@@ -211,10 +215,6 @@ public class Candidate extends BaseEntity {
 
     public void rankAt(BigDecimal newRank) {
         this.pipelineRank = newRank;
-    }
-
-    public boolean isShownToClient() {
-        return clientVisible && clientHiddenReason == null;
     }
 
     /** Answers whether anything changed. */
