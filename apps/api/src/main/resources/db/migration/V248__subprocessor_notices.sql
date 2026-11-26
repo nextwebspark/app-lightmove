@@ -17,6 +17,9 @@ CREATE TABLE app_lm_subprocessor_notice (
         CONSTRAINT app_lm_subprocessor_notice_list_url_chk CHECK (list_url LIKE 'https://%'),
     published_by_user_id uuid         REFERENCES app_lm_user (id) ON DELETE SET NULL,
     published_at         timestamptz  NOT NULL DEFAULT now(),
+    -- Set by the scheduled pass once every live workspace's admins hold a claim; null until then, so publishing
+    -- itself emails nobody and a pass cut short is walked again.
+    announced_at         timestamptz,
     CONSTRAINT app_lm_subprocessor_notice_period_chk
         CHECK (effective_on >= (published_at AT TIME ZONE 'UTC')::date + 30)
 );

@@ -842,6 +842,10 @@ lightmove:
     # How often an instance re-reads the platform configuration versions (core/reload), for a notification it
     # missed. Read by @Scheduled from the environment, so it has no settings record.
     config-reload-check: ${PLATFORM_CONFIG_RELOAD_CHECK:PT30S}
+    # How often an instance looks for a sub-processor notice published since and emails it to every workspace's admins
+    # (#1491). Publishing sends nothing itself, so this is the wait before the first email. Read by @Scheduled from the
+    # environment, so it has no settings field.
+    subprocessor-notice-announce: ${PLATFORM_SUBPROCESSOR_NOTICE_ANNOUNCE:PT1M}
     # How often an instance resends a sub-processor notice email that failed (#1491), each at most hourly at first and
     # daily later, until the change takes effect. Read by @Scheduled from the environment, so it has no settings field.
     subprocessor-notice-retry: ${PLATFORM_SUBPROCESSOR_NOTICE_RETRY:PT1H}

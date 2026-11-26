@@ -615,7 +615,9 @@ with V190's policy. Keys and counts only, never a value.
 V248 is sub-processor change notices (#1491, decision F7; `docs/gdpr/subprocessors.md`). `app_lm_subprocessor_notice`
 is a platform table, no workspace: `provider` (≤ 120), `receives` and `purpose` (≤ 200), `region` (≤ 80),
 `effective_on` (a date; a CHECK holds it at least 30 days after `published_at`'s UTC day), `list_url` (≤ 500, https
-by CHECK), `published_by_user_id` (set null with the account) and `published_at`; never edited. Two tenant tables
+by CHECK), `published_by_user_id` (set null with the account), `published_at`, and `announced_at` (stamped by the
+mailer's scheduled pass once every live workspace's admins hold a claim; publishing sends nothing); never edited
+otherwise. Two tenant tables
 under forced RLS beside it: `app_lm_subprocessor_notice_email`, one row per (`notice_id`, `workspace_id`, `user_id`)
 inserted before the email goes, with `attempts`, `next_attempt_at` (null once sent or given up) and `sent_at`; and
 `app_lm_subprocessor_objection`, one per (`workspace_id`, `notice_id`) — `reason` (≤ 2000, never blank),

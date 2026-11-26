@@ -12,7 +12,6 @@ import app.lightmove.api.subprocessor.dto.PlatformSubprocessorObjectionResponse;
 import app.lightmove.api.subprocessor.dto.PublishSubprocessorNoticeRequest;
 import app.lightmove.api.subprocessor.model.SubprocessorNotice;
 import app.lightmove.api.subprocessor.model.SubprocessorNoticeDraft;
-import app.lightmove.api.subprocessor.model.SubprocessorNoticePublished;
 import app.lightmove.api.subprocessor.repository.SubprocessorNoticeRepository;
 import app.lightmove.api.subprocessor.repository.SubprocessorObjectionRepository;
 import jakarta.servlet.http.HttpServletRequest;
@@ -29,13 +28,11 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.regex.Pattern;
 import lombok.RequiredArgsConstructor;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.support.TransactionTemplate;
 
 /**
- * The console's side of a sub-processor change: publish it at least 30 days ahead, which emails every workspace's
- * admins once committed, and read what came back. The objections are tenant rows, each workspace's read in its own
+ * The console's side of a sub-processor change: publish it at least 30 days ahead, which {@link
+ * SubprocessorNoticeMailer}'s next pass emails to every workspace's admins, and read what came back. The objections are tenant rows, each workspace's read in its own
  * scope from the workspaces V248's resolver names.
  */
 @Service
@@ -50,8 +47,6 @@ public class SubprocessorNoticeService {
     private final SubprocessorObjectionRepository objections;
     private final SubprocessorNoticeAudience audience;
     private final TenantResolvers resolvers;
-    private final ApplicationEventPublisher events;
-    private final TransactionTemplate transactions;
     private final AuditService audit;
     private final Clock clock;
 
@@ -68,11 +63,7 @@ public class SubprocessorNoticeService {
                                                       HttpServletRequest httpRequest) {
         LocalDate today = today();
         SubprocessorNoticeDraft draft = draftOf(request, today);
-        UUID noticeId = transactions.execute(status -> {
-            UUID inserted = notices.insert(draft, userId);
-            events.publishEvent(new SubprocessorNoticePublished(inserted));
-            return inserted;
-        });
+        UUID noticeId = notices.insert(draft, userId);
         audit.event(PlatformEventType.SUBPROCESSOR_NOTICE_PUBLISHED)
                 .actor(userId)
                 .target("subprocessorNotice", noticeId)

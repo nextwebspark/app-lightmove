@@ -22,12 +22,13 @@ hand:
 2. **Publish the notice** from Platform → Sub-processors → Publish a change (`docs/platform-console.md`): provider,
    what it receives, purpose, region, the day it takes effect — at least 30 days from today, counted in UTC — and the
    https link to the published list. It asks for a fresh two-factor code.
-3. **Every workspace admin is emailed**, from Uncava's account sender, once each: the active holders of
+3. **Every workspace admin is emailed** within a minute or so, by a scheduled pass rather than the publish itself
+   (`lightmove.platform.subprocessor-notice-announce`), from Uncava's account sender, once each: the active holders of
    `WORKSPACE_MANAGE` in every workspace not deleted, an account that can no longer sign in left out. The email names
    the provider, what it receives, the purpose, the region, the date, the published list and an Object link. An email
    the provider refuses is retried, an hour later and then less often (a day at most), until the change takes effect
    (`lightmove.platform.subprocessor-notice-retry`); an admin who has left by then is no longer owed one. An admin
-   who joins later is not emailed, but sees the change in Settings.
+   who joins after that pass is not emailed, but sees the change in Settings.
 4. **An admin may object** in Settings → Data & retention → Sub-processor changes, which the email's link opens, until
    the day it takes effect; the workspace's objection can be changed until then and is refused after
    (`SUBPROCESSOR_NOTICE_CLOSED`). One objection per workspace, the latest reason and who wrote it. Audited

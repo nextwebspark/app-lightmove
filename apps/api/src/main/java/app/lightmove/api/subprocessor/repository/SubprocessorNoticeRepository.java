@@ -4,6 +4,8 @@ import app.lightmove.api.subprocessor.model.SubprocessorNotice;
 import app.lightmove.api.subprocessor.model.SubprocessorNoticeDraft;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Timestamp;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
@@ -49,6 +51,20 @@ public class SubprocessorNoticeRepository {
         return jdbc.sql(COLUMNS + " ORDER BY n.effective_on DESC, n.published_at DESC")
                 .query(SubprocessorNoticeRepository::noticeOf)
                 .list();
+    }
+
+    /** Published, and not yet walked to the end by the mailer's pass. */
+    public List<SubprocessorNotice> awaitingAnnouncement() {
+        return jdbc.sql(COLUMNS + " WHERE n.announced_at IS NULL ORDER BY n.published_at")
+                .query(SubprocessorNoticeRepository::noticeOf)
+                .list();
+    }
+
+    public void markAnnounced(UUID noticeId, Instant at) {
+        jdbc.sql("UPDATE app_lm_subprocessor_notice SET announced_at = :at WHERE id = :id AND announced_at IS NULL")
+                .param("at", Timestamp.from(at))
+                .param("id", noticeId)
+                .update();
     }
 
     public Optional<SubprocessorNotice> find(UUID noticeId) {

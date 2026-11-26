@@ -233,6 +233,7 @@ out would leave its work stuck.
 | `TaskDueScanner.scanAt` | 5 min | `app_lm_workspaces_with_tasks_falling_due(after, until)` | an open task in the due-soon or overdue window not yet announced as both |
 | `StripeSeatSync.syncDueAt` | 5 min | `app_lm_workspaces_owing_seat_sync(before, limit)` | a seat quantity owed to Stripe |
 | `CreditLedgerSweeper.sweepAt` | 5 min | `app_lm_workspaces_with_lapsed_credits(at, limit)` | an unsettled hold past its time, or a lapsed grant still holding credits |
+| `SubprocessorNoticeMailer.announceAt` (V248) | 1 min | none: the live workspaces, only while a notice is not yet `announced_at` | a published notice not yet walked to the end |
 | `SubprocessorNoticeMailer.retryAt` (V248) | 1 h | `app_lm_workspaces_with_subprocessor_emails_owed(at)` | a notice email not yet sent, due again, for a notice not yet in effect |
 | `SubprocessorNoticeService.objectionsTo` (V248, the console) | on request | `app_lm_workspaces_with_subprocessor_objections(notice)` | a workspace holding an objection to the notice, then read in its own scope |
 
@@ -263,7 +264,7 @@ A resolver is a deliberate hole in the fence. The rules: one key or one job ques
 | Invitations (accept, pending for an address), onboarding's trial | V189, then scope; `runInJoinedTransaction` for the trial | #1173 |
 | `IntegrationSecretExpiryWarnings`, `ZoomService`, `MailboxService` | walks the workspaces / V189 by user | #1173 |
 | Platform screens (credit grants, subscriptions, template library) | scope per workspace; the library counts through V189 | #1173 |
-| Sub-processor notices (`SubprocessorNoticeMailer`, the console's objections) | the first pass walks the live workspaces, each in a joined scope (it may run on the publishing thread after commit); the retry pass and the objections through V248's resolvers | #1491 |
+| Sub-processor notices (`SubprocessorNoticeMailer`, the console's objections) | the scheduled first pass walks the live workspaces, each in its own scope (never on the publish request); the retry pass and the objections through V248's resolvers | #1491 |
 | MCP tools (`McpToolCalls`) | the caller's workspace | #1132 |
 
 **Fail-open traps, all pinned by tests.** A check that reads "not found" as "allowed" turns RLS's empty answer into a

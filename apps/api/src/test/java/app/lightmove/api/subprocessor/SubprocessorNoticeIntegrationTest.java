@@ -13,7 +13,6 @@ import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.UUID;
-import org.awaitility.Awaitility;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -72,6 +71,30 @@ class SubprocessorNoticeIntegrationTest extends PositionTemplateFlowSupport {
     }
 
     @Test
+    @DisplayName("publishing only commits the notice: the request emails nobody, and the scheduled pass sends it")
+    void publishingLeavesTheSendingToTheScheduledPass() throws Exception {
+        String platform = superAdmin();
+        Admin alpha = admin("Huda Saeed", "huda@" + domain, "Quiet Request Partners");
+
+        String noticeId = publish(platform, "Tailspin Notes", today().plusDays(35));
+
+        assertThat(noticeEmailsTo(alpha.email(), "Tailspin Notes")).isEmpty();
+        assertThat(count("SELECT count(*) FROM app_lm_subprocessor_notice_email WHERE notice_id = '" + noticeId + "'"))
+                .isZero();
+        assertThat(count("SELECT count(*) FROM app_lm_subprocessor_notice WHERE id = '" + noticeId
+                + "' AND announced_at IS NULL")).isEqualTo(1);
+
+        mailer.announceAt(Instant.now());
+
+        assertThat(noticeEmailsTo(alpha.email(), "Tailspin Notes")).hasSize(1);
+        assertThat(count("SELECT count(*) FROM app_lm_subprocessor_notice WHERE id = '" + noticeId
+                + "' AND announced_at IS NOT NULL")).isEqualTo(1);
+
+        mailer.announceAt(Instant.now());
+        assertThat(noticeEmailsTo(alpha.email(), "Tailspin Notes")).as("announced, so never walked again").hasSize(1);
+    }
+
+    @Test
     @DisplayName("every admin of every live workspace is emailed once, across two passes; members, deleted workspaces "
             + "and deleted accounts are not")
     void eachAdminIsEmailedOnce() throws Exception {
@@ -87,10 +110,10 @@ class SubprocessorNoticeIntegrationTest extends PositionTemplateFlowSupport {
         db.update("UPDATE app_lm_user SET status = 'DELETED' WHERE email = ?", erased.email());
 
         String noticeId = publish(platform, "Contoso Transcribe", today().plusDays(45));
-        awaitEmailTo(alpha.email());
-        awaitEmailTo("rami@" + domain);
-
-        mailer.announce(UUID.fromString(noticeId), Instant.now());
+        mailer.announceAt(Instant.now());
+        // A pass cut short leaves the notice unannounced, and the next walks every workspace again.
+        db.update("UPDATE app_lm_subprocessor_notice SET announced_at = NULL WHERE id = ?::uuid", noticeId);
+        mailer.announceAt(Instant.now());
 
         assertThat(noticeEmailsTo(alpha.email(), "Contoso Transcribe")).hasSize(1);
         assertThat(noticeEmailsTo("rami@" + domain, "Contoso Transcribe")).hasSize(1);
@@ -113,27 +136,36 @@ class SubprocessorNoticeIntegrationTest extends PositionTemplateFlowSupport {
         email.refuseDeliveryTo(bounced.email());
         LocalDate effectiveOn = today().plusDays(31);
         Instant published = Instant.now();
+        Admin leaving = admin("Lara Leaving", "lara@leaving-" + domain, "Leaving Firm");
+        email.refuseDeliveryTo(leaving.email());
         String noticeId = publish(platform, "Fabrikam Search", effectiveOn);
-        Awaitility.await().atMost(Duration.ofSeconds(10)).untilAsserted(() ->
-                assertThat(attemptsTo(noticeId, bounced)).isEqualTo(1));
+        mailer.announceAt(published);
+        assertThat(attemptsTo(noticeId, bounced)).isEqualTo(1);
         assertThat(noticeEmailsTo(bounced.email(), "Fabrikam Search")).isEmpty();
+        assertThat(owedOf(platform, noticeId)).as("both refused, both owed").isEqualTo(2);
 
         mailer.retryAt(published.plus(Duration.ofMinutes(30)));
         assertThat(attemptsTo(noticeId, bounced)).as("not due again yet").isEqualTo(1);
 
+        db.update("""
+                UPDATE app_lm_workspace SET status = 'DELETED', deleted_at = now(), purge_after = now() + interval '30 days'
+                WHERE id = ?::uuid""", leaving.workspaceId());
         mailer.retryAt(published.plus(Duration.ofHours(2)));
         assertThat(attemptsTo(noticeId, bounced)).isEqualTo(2);
         assertThat(noticeEmailsTo(bounced.email(), "Fabrikam Search")).isEmpty();
+        assertThat(owedOf(platform, noticeId)).as("given up on the deleted workspace, so no longer owed").isEqualTo(1);
 
         email.clear();
         mailer.retryAt(published.plus(Duration.ofHours(5)));
         assertThat(noticeEmailsTo(bounced.email(), "Fabrikam Search")).hasSize(1);
+        assertThat(owedOf(platform, noticeId)).isZero();
         mailer.retryAt(published.plus(Duration.ofHours(30)));
         assertThat(noticeEmailsTo(bounced.email(), "Fabrikam Search")).as("sent, so never again").hasSize(1);
 
         Admin late = admin("Lina Late", "lina@" + domain, "Late Firm");
         email.refuseDeliveryTo(late.email());
-        mailer.announce(UUID.fromString(noticeId), Instant.now());
+        db.update("UPDATE app_lm_subprocessor_notice SET announced_at = NULL WHERE id = ?::uuid", noticeId);
+        mailer.announceAt(Instant.now());
         assertThat(attemptsTo(noticeId, late)).isEqualTo(1);
         email.clear();
 
@@ -212,7 +244,7 @@ class SubprocessorNoticeIntegrationTest extends PositionTemplateFlowSupport {
         assertThat(objections.findValuesAsString("reason"))
                 .containsExactlyInAnyOrder("Alpha's reason.", "Beta's reason.");
 
-        awaitEmailTo(beta.email());
+        mailer.announceAt(Instant.now());
         JsonNode listed = noticeIn(getJson(platform, PLATFORM), noticeId);
         assertThat(listed.get("objections").asLong()).isEqualTo(2);
         assertThat(listed.get("emailed").asLong()).isPositive();
@@ -232,9 +264,8 @@ class SubprocessorNoticeIntegrationTest extends PositionTemplateFlowSupport {
         return expect(201, postJson(platform, PLATFORM, notice(provider, effectiveOn, LIST))).get("id").asString();
     }
 
-    private void awaitEmailTo(String address) {
-        Awaitility.await().atMost(Duration.ofSeconds(10)).untilAsserted(() ->
-                assertThat(email.subjectsFor(address)).anyMatch(subject -> subject.contains("sub-processor")));
+    private long owedOf(String platform, String noticeId) throws Exception {
+        return noticeIn(getJson(platform, PLATFORM), noticeId).get("owed").asLong();
     }
 
     private List<EmailMessage> noticeEmailsTo(String address, String provider) {

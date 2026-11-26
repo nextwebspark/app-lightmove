@@ -53,8 +53,4 @@ public class SubprocessorNoticeAudience {
                 .filter(user -> user.getStatus().canAuthenticate())
                 .toList();
     }
-
-    public Optional<User> adminOf(UUID workspaceId, UUID userId) {
-        return adminsOf(workspaceId).stream().filter(user -> user.getId().equals(userId)).findFirst();
-    }
 }
