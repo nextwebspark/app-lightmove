@@ -83,4 +83,22 @@ describe("useAddressedGridPaging", () => {
     act(() => result.current.paging.clampTo(30));
     expect(result.current.paging.page).toBe(1);
   });
+
+  it("keeps a size off the default in the address, so a returned page holds the same rows", () => {
+    const { result } = renderAt("/clients?page=3");
+    act(() => result.current.paging.setSize(100));
+    expect(result.current.location.search).toBe("?pageSize=100");
+    act(() => result.current.paging.setPage(1));
+    expect(result.current.location.search).toBe("?pageSize=100&page=2");
+
+    const returned = renderAt("/clients?page=2&pageSize=100");
+    expect(returned.result.current.paging.pagination).toEqual({ pageIndex: 1, pageSize: 100 });
+    act(() => returned.result.current.paging.clampTo(150));
+    expect(returned.result.current.paging.page).toBe(1);
+  });
+
+  it("drops a size the pager does not offer", () => {
+    const { result } = renderAt("/clients?pageSize=7");
+    expect(result.current.paging.size).toBe(25);
+  });
 });

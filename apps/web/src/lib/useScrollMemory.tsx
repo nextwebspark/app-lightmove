@@ -3,7 +3,15 @@ import { useLocation, useNavigationType } from "react-router-dom";
 
 const positions = new Map<string, number>();
 
-/** How long a restore keeps trying while the rows it scrolls to are still arriving. */
+const REMEMBERED_ENTRIES = 200;
+
+function remember(key: string, top: number) {
+  positions.delete(key);
+  positions.set(key, top);
+  const oldest = positions.keys().next().value;
+  if (positions.size > REMEMBERED_ENTRIES && oldest !== undefined) positions.delete(oldest);
+}
+
 const RESTORE_FRAMES = 60;
 
 /**
@@ -19,10 +27,10 @@ export function useScrollMemory(ref: RefObject<HTMLElement | null>, scope: strin
   useEffect(() => {
     const box = ref.current;
     if (!box) return;
-    if (navigationType === "REPLACE") positions.set(key, box.scrollTop);
-    const remember = () => positions.set(key, box.scrollTop);
-    box.addEventListener("scroll", remember, { passive: true });
-    return () => box.removeEventListener("scroll", remember);
+    if (navigationType === "REPLACE") remember(key, box.scrollTop);
+    const onScroll = () => remember(key, box.scrollTop);
+    box.addEventListener("scroll", onScroll, { passive: true });
+    return () => box.removeEventListener("scroll", onScroll);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
 

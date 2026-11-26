@@ -1809,6 +1809,19 @@ describe("TriageStagePage", () => {
       expect(screen.getByRole("navigation", { name: "In universe executives" })).toBeInTheDocument();
     });
 
+    it("opens the company from a record the view switch opened, with no way back to a view it never left", async () => {
+      renderStage();
+
+      await userEvent.click(await screen.findByRole("radio", { name: "Executives" }));
+      const record = await screen.findByRole("region", { name: "Executive record" });
+      await within(record).findByRole("heading", { name: "Yasmin El-Sayed" });
+      await userEvent.click(within(record).getByRole("button", { name: "ACWA Power" }));
+
+      expect(await screen.findByRole("dialog", { name: /ACWA Power/i })).toBeInTheDocument();
+      expect(screen.getByRole("region", { name: "Executive record" })).toBeInTheDocument();
+      expect(within(record).queryByRole("button", { name: /^Back to/ })).not.toBeInTheDocument();
+    });
+
     it("opens the old full-page link as the Executives view, stepping with J and K", async () => {
       render(stageTree("universe", project, `?candidate=${omar.id}&record=page`));
 

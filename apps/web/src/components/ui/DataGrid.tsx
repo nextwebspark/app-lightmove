@@ -493,7 +493,6 @@ export function DataGrid<TFeatures extends TableFeatures, TData extends RowData>
       <span aria-live="polite" className="sr-only">
         {announcement}
       </span>
-      {inRouter && <ScrollMemory target={scrollRef} scope={`grid:${label}`} />}
       <div
         ref={scrollRef}
         role="table"
@@ -660,6 +659,8 @@ export function DataGrid<TFeatures extends TableFeatures, TData extends RowData>
           )}
         </div>
       </div>
+      {/* After the scroll box, never before: an earlier sibling's effects run before a later sibling's ref is attached. */}
+      {inRouter && <ScrollMemory target={scrollRef} scope={`grid:${label}`} />}
     </div>
   );
 

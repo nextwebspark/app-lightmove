@@ -903,7 +903,8 @@ step in history (`useAddressedPanel`, `lib/useAddressedPanel.ts`), so Back close
 adjusting — Previous and Next, a filter, a search, a page turned, a tab inside a panel — is written in place, so Back
 never walks through everyone looked at. Closing a panel opened as a step pops that step while the rest of the address is
 unchanged, and clears it in place otherwise, so it never undoes a filter changed under it. A list keeps its search
-(`?q=`) and page (`?page=`, `useAddressedGridPaging`) in the address, and `useScrollMemory` puts `<main>` and each
+(`?q=`, `useAddressedQuery`) and page (`?page=`, and `?pageSize=` off the default, `useAddressedGridPaging`) in the
+address, and `useScrollMemory` puts `<main>` and each
 `DataGrid` back where they stood on Back or Forward — the app scrolls inside them, never the window, so the browser's own
 restoration never applies. A remembered preference (a stage's view) is written only by a deliberate choice, never by a
 visit.

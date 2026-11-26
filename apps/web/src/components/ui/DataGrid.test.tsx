@@ -12,6 +12,7 @@ import {
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
+import { Link, MemoryRouter, Route, Routes, useNavigate } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { DataGrid, type DataGridColumnLayout, type DataGridGrouping } from "./DataGrid";
 import type { DataGridColumnFilter } from "../../lib/gridFilters";
@@ -700,5 +701,44 @@ describe("DataGrid header menu — opened from the whole header", () => {
 
     expect(screen.getByRole("button", { name: "Sort ascending 1 → 9" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Sort descending 9 → 1" })).toBeInTheDocument();
+  });
+});
+
+describe("DataGrid scroll on Back", () => {
+  function BackButton() {
+    const navigate = useNavigate();
+    return (
+      <button type="button" onClick={() => navigate(-1)}>
+        Browser back
+      </button>
+    );
+  }
+
+  it("puts the grid back where it was left when Back returns to it from another route", async () => {
+    render(
+      <MemoryRouter initialEntries={["/list"]}>
+        <Routes>
+          <Route
+            path="/list"
+            element={
+              <>
+                <Harness />
+                <Link to="/elsewhere">Elsewhere</Link>
+              </>
+            }
+          />
+          <Route path="/elsewhere" element={<BackButton />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    const grid = screen.getByRole("table", { name: "Companies" });
+    grid.scrollTop = 240;
+    fireEvent.scroll(grid);
+    await userEvent.click(screen.getByRole("link", { name: "Elsewhere" }));
+    await userEvent.click(screen.getByRole("button", { name: "Browser back" }));
+
+    expect(screen.getByRole("table", { name: "Companies" })).not.toBe(grid);
+    expect(screen.getByRole("table", { name: "Companies" }).scrollTop).toBe(240);
   });
 });
