@@ -1,7 +1,8 @@
 // A client stops seeing someone who is restricted (#1488, D2), in a real browser against a real API: the staff
-// Pipeline locks the client switch with the reason, and the pipeline row says why.
+// Pipeline locks the client switch with the reason, the pipeline row says why, and the client seat reads them no more.
 //
 // Needs `DATA_PROTECTION_ENABLED=true SUPPRESSION_LIST_ENABLED=true npm run dev`; mail prints to the API console.
+// Skips itself where data protection is off, as on the matrix's e2e profile, whose restriction route is a 404.
 //
 //   API_LOG=<the API's console log> node e2e/spa/client-hiding.mjs
 
@@ -72,16 +73,38 @@ const filed = (await api(`/projects/${position}/candidates`, {
   method: "POST", token,
   body: { fullName: "Rania Odeh", linkedinUrl: `https://www.linkedin.com/in/rania-${STAMP}/` },
 })).body;
+await api(`/projects/${position}/candidates`, { method: "POST", token, body: { fullName: "Samir Haddad" } });
+
+const REP_EMAIL = `lm-e2e-hiding-rep-${STAMP}@${DOMAIN}`;
+await api(`/projects/${position}/representatives/invitations`, {
+  method: "POST", token, body: { fullName: "Cora Client", position: "Group CFO", email: REP_EMAIL },
+});
+await new Promise((resolve) => setTimeout(resolve, 1500));
+const invite = linkFor(REP_EMAIL, /http:\/\/localhost:5173\/auth\/accept-invite\?token=[A-Za-z0-9_%.~-]+/);
+const clientToken = (await api("/onboarding/accept-invitation-signup", {
+  method: "POST",
+  body: { token: decodeURIComponent(invite.split("token=")[1]), fullName: "Cora Client", password: PASSWORD, termsAccepted: true },
+})).body.accessToken;
+const clientReads = async () => JSON.stringify((await api(`/projects/${position}/candidates`, { token: clientToken })).body);
 
 console.log("\nHidden from the client (#1488)");
+check("CH.0", "the client seat reads her before any restriction", true, (await clientReads()).includes("Rania Odeh"));
+const restricted = await api(`/candidates/${filed.personId}/processing-restriction`, {
+  method: "PUT", token, body: { restricted: true, reason: "Asked what we hold about her" },
+});
+if (restricted.status === 404) {
+  console.log("\n\x1b[2mSKIP    data protection is off on this stack: run it with DATA_PROTECTION_ENABLED=true\x1b[0m");
+  record("CH.1", "SKIP", "data protection is off on this stack");
+  process.exit(0);
+}
 await step("CH.1", "a restriction hides them from the client, and the pipeline row says why", async () => {
-  const restricted = await api(`/candidates/${filed.personId}/processing-restriction`, {
-    method: "PUT", token, body: { restricted: true, reason: "Asked what we hold about her" },
-  });
   check("CH.1a", "the restriction is saved", 200, restricted.status);
   const pipeline = (await api(`/projects/${position}/pipeline`, { token })).body;
   const row = JSON.stringify(pipeline).includes("processing_restricted");
   check("CH.1b", "the pipeline row carries processing_restricted", true, row);
+  const seen = await clientReads();
+  check("CH.1c", "the client seat no longer reads her", false, seen.includes("Rania Odeh"));
+  check("CH.1d", "the client seat still reads her colleague", true, seen.includes("Samir Haddad"));
 });
 
 const browser = await chromium.launch();
@@ -105,6 +128,7 @@ try {
     await api(`/candidates/${filed.personId}/processing-restriction`, { method: "PUT", token, body: { restricted: false } });
     const pipeline = (await api(`/projects/${position}/pipeline`, { token })).body;
     check("CH.3", "no hidden reason left", false, JSON.stringify(pipeline).includes("processing_restricted"));
+    check("CH.3b", "the client seat reads her again", true, (await clientReads()).includes("Rania Odeh"));
   });
 } finally {
   await browser.close();
