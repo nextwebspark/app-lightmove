@@ -11,6 +11,7 @@ import { AiOnPeopleCard } from "../components/AiOnPeopleCard";
 import { CandidatePrivacyCard } from "../components/CandidatePrivacyCard";
 import { CandidateRetentionCard } from "../components/CandidateRetentionCard";
 import { DueForDeletionCard } from "../components/DueForDeletionCard";
+import { SubprocessorChangesCard } from "../components/SubprocessorChangesCard";
 import { SuppressionListCard } from "../components/SuppressionListCard";
 import { WorkspaceExportCard } from "../components/WorkspaceExportCard";
 
@@ -18,6 +19,7 @@ import { WorkspaceExportCard } from "../components/WorkspaceExportCard";
  * Settings → Data & retention (`Settings.dc.html`, `data`), an admin's: what the AI may do with the workspace's
  * people, and — where the deployment offers the people controls — how long candidates are kept, the people past it
  * waiting for review, the suppression list, and an export of the whole workspace. Retention never deletes on its own.
+ * Sub-processor changes are the contract's, so they are drawn whatever the deployment offers.
  */
 export function SettingsDataRetentionPage() {
   const dataProtection = useDataProtection();
@@ -41,7 +43,7 @@ export function SettingsDataRetentionPage() {
       ) : (
         <AiOnPeopleCard controls={workspace.data.aiControls} />
       )}
-      {dataProtection.offered && <DataRetentionSettings />}
+      {dataProtection.offered ? <DataRetentionSettings /> : <SubprocessorChangesCard />}
     </>
   );
 }
@@ -77,6 +79,7 @@ function DataRetentionSettings() {
         </>
       )}
       <SuppressionListCard />
+      <SubprocessorChangesCard />
       <WorkspaceExportCard workspaceName={user?.workspace?.name ?? "this workspace"} />
     </>
   );
