@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, useLocation } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../../../components/ui";
 import * as projectsApi from "../../projects/api/projectsApi";
@@ -70,12 +70,18 @@ const BY_VIEW: Record<MyTasksView, TaskResponse[]> = {
   ],
 };
 
-function renderCard() {
+function Address() {
+  const { search } = useLocation();
+  return <output aria-label="Address">{search}</output>;
+}
+
+function renderCard(path = "/tasks") {
   return render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={[path]}>
       <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
         <ToastProvider>
           <MyTasksCard />
+          <Address />
         </ToastProvider>
       </QueryClientProvider>
     </MemoryRouter>,
@@ -115,6 +121,19 @@ describe("MyTasksCard", () => {
 
     expect(within(list).getAllByRole("listitem")).toHaveLength(6);
     expect(screen.getByRole("button", { name: "Show fewer" })).toBeInTheDocument();
+  });
+
+  it("keeps a picked tab in the address and opens on it again, never writing the tab it chose itself", async () => {
+    const { unmount } = renderCard();
+    await screen.findByRole("list", { name: "Today tasks" });
+    expect(screen.getByLabelText("Address")).toBeEmptyDOMElement();
+    await userEvent.click(tab(/^Overdue/));
+    expect(screen.getByLabelText("Address")).toHaveTextContent("?tasks=overdue");
+    unmount();
+
+    renderCard("/tasks?tasks=upcoming");
+
+    await waitFor(() => expect(tab(/^Upcoming/)).toHaveAttribute("aria-selected", "true"));
   });
 
   it("opens on Overdue, then Upcoming, when nothing is due today", async () => {

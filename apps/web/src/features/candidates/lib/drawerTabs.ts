@@ -17,6 +17,9 @@ export const DRAWER_TAB_LABELS: Readonly<Record<DrawerTab, string>> = {
   positions: "Positions",
 };
 
+/** Where a link lands inside the open executive: these live and die with `?candidate=`. */
+export const OPEN_RECORD_COMPANIONS = ["note", "section", "tab"] as const;
+
 export const POSITION_STAFF_TABS: readonly DrawerTab[] = ["profile", "notes", "assessment", "outreach", "activity"];
 
 /** A client seat reads who the executive is; how to reach them is the header's, and the package is the firm's. */

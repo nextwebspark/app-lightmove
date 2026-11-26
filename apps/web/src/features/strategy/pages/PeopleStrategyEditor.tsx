@@ -18,6 +18,7 @@ import { useToast } from "../../../components/ui/Toast";
 import { cn } from "../../../lib/cn";
 import { messageFor } from "../../../lib/errorCodes";
 import { LeaveGuard } from "../../../components/layout/LeaveGuard";
+import { useAddressedPanel } from "../../../lib/useAddressedPanel";
 import { useAutosave } from "../../../lib/useAutosave";
 import { FULLSCREEN_PANEL, useFullscreen } from "../../../lib/useFullscreen";
 import { hasRoomForRails } from "../../../lib/viewport";
@@ -41,6 +42,8 @@ import { PersonCardGrid } from "../components/people/PersonCardGrid";
 import { PersonResultsTable } from "../components/people/PersonResultsTable";
 import { samePeopleFilter } from "../lib/peopleFilterIdentity";
 import { usePeopleView, type PeopleView } from "../lib/usePeopleView";
+
+export const PERSON_PARAM = "person";
 
 /** ContactOut states no page limit; forty pages is the server's own ceiling. */
 const MAX_PAGE = 40;
@@ -108,7 +111,7 @@ export function PeopleStrategyEditor({
   const [showFilters, setShowFilters] = useState(hasRoomForRails);
   const [run, setRun] = useState(0);
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
-  const [previewed, setPreviewed] = useState<PersonResult | null>(null);
+  const preview = useAddressedPanel(PERSON_PARAM);
   const [isFullscreen, toggleFullscreen] = useFullscreen();
   const [view, setView] = usePeopleView();
 
@@ -188,6 +191,16 @@ export function PeopleStrategyEditor({
   const people = results.data?.pages.flatMap((page) => page.people) ?? [];
   const total = results.data?.pages[0]?.total ?? 0;
 
+  const previewed =
+    preview.value === null ? null : (people.find((person) => person.linkedinSlug === preview.value) ?? null);
+  const resultsSettled =
+    run === 0 ? !restored.isPending && !restored.isFetching : !results.isPending && !results.isFetching;
+  const isPreviewedGone = preview.value !== null && previewed === null && resultsSettled;
+  useEffect(() => {
+    if (isPreviewedGone) preview.close();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isPreviewedGone]);
+
   const handleSearch = async () => {
     // The server searches the stored filter, so the last chip click must reach it first — and a
     // search is billed, so one over a filter the server never took is not run at all.
@@ -227,8 +240,6 @@ export function PeopleStrategyEditor({
       void queryClient.invalidateQueries({ queryKey: CANDIDATES_KEY_PREFIX(projectId) });
       void queryClient.invalidateQueries({ queryKey: TRIAGE_KEY_PREFIX(projectId) });
       setRowSelection({});
-      // Left open on the person just filed: their Contact fold is now the one that finds an email.
-      setPreviewed((open) => open && stamp(open));
       // Mirrors the Companies bar: an employer the mandate already holds keeps its stage, and saying
       // so is the difference between "moved" and "joined it where it was".
       toast(
@@ -290,7 +301,7 @@ export function PeopleStrategyEditor({
         total={total}
         rowSelection={rowSelection}
         onRowSelectionChange={setRowSelection}
-        onOpen={setPreviewed}
+        onOpen={(person) => preview.open(person.linkedinSlug)}
       />
     ) : (
       <PersonResultsTable
@@ -298,7 +309,7 @@ export function PeopleStrategyEditor({
         loading={loading}
         rowSelection={rowSelection}
         onRowSelectionChange={setRowSelection}
-        onOpen={setPreviewed}
+        onOpen={(person) => preview.open(person.linkedinSlug)}
       />
     );
 
@@ -435,7 +446,7 @@ export function PeopleStrategyEditor({
       <PersonPreviewDrawer
         projectId={projectId}
         person={previewed}
-        onClose={() => setPreviewed(null)}
+        onClose={preview.close}
         onAdd={(person, status) => addPeople.mutate({ slugs: [person.linkedinSlug], status })}
         adding={addPeople.isPending}
       />

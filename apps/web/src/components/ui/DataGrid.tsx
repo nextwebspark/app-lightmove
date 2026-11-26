@@ -23,8 +23,10 @@ import {
   type PointerEvent,
   type ReactNode,
 } from "react";
+import { useInRouterContext } from "react-router-dom";
 import { Icon, ICONS } from "../layout/Icon";
 import { cn } from "../../lib/cn";
+import { ScrollMemory } from "../../lib/useScrollMemory";
 import { isFilterInForce, type DataGridColumnFilter } from "../../lib/gridFilters";
 import { ColumnFilterEditor } from "./GridFilters";
 import { Popover } from "./Popover";
@@ -212,6 +214,7 @@ export function DataGrid<TFeatures extends TableFeatures, TData extends RowData>
   const visibleColumns = grid.getVisibleLeafColumns();
 
   const scrollRef = useRef<HTMLDivElement>(null);
+  const inRouter = useInRouterContext();
   const resizeRef = useRef<ResizeSession<TData> | null>(null);
   const reorderRef = useRef<ReorderSession<TData> | null>(null);
   // The pointerup that ends a drag is followed by a click on the sort button, and the session is
@@ -656,6 +659,8 @@ export function DataGrid<TFeatures extends TableFeatures, TData extends RowData>
           )}
         </div>
       </div>
+      {/* After the scroll box, never before: an earlier sibling's effects run before a later sibling's ref is attached. */}
+      {inRouter && <ScrollMemory target={scrollRef} scope={`grid:${label}`} />}
     </div>
   );
 

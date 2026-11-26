@@ -145,6 +145,10 @@ Position, the workspace's own unit and contact words from `useWorkspaceVocabular
 - **A route the nav hides is still reachable by URL.** The sidebar filtered pure clients out of
   `/clients` and `/team` and nothing else did, so typing the path served the firm's internal screens.
   Guard the *route*; the nav is presentation.
+- **A drawer or record opened with `replace: true` sends Back off the page.** Opening is a step, adjusting is in
+  place: hold a panel in the address with `useAddressedPanel` and a list's page with `useAddressedGridPaging`, never
+  a raw `setSearchParams` (`docs/architecture/features.md`, Back navigation). A list's reset-to-page-1 effect also runs
+  on mount, and `clampTo` given an empty first read clamps to page 1 — the hook guards the first, the caller the second.
 - **`mapbox-gl` is imported by `features/talentmap/components/TalentMapGlobe.tsx` and nowhere
   else**, and that component is loaded with `React.lazy` so the grid never downloads a map library.
   It breaks at import under jsdom (worker blobs, no WebGL), so a test never reaches it: page and

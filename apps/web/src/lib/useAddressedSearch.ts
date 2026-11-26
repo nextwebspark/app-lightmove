@@ -1,15 +1,14 @@
 import { useCallback, useEffect, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useLocation, useSearchParams } from "react-router-dom";
 
 /**
- * A list's search and chip kept in its address (`?q=` and the chip's key) so a return finds it as left. The address lags
- * typing (a router write per keystroke moves the caret and hits history limits); an address moved elsewhere is followed.
+ * A search box kept in its address (`?q=`) so a return finds it as left. The address lags typing (a router write per
+ * keystroke moves the caret and hits history limits); an address moved elsewhere is followed.
  */
-export function useAddressedSearch<Chip extends string>(chipKey: string, chips: readonly Chip[], defaultChip: Chip) {
+export function useAddressedQuery() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const { state } = useLocation();
   const addressQuery = searchParams.get("q") ?? "";
-  const addressChip = searchParams.get(chipKey);
-  const chip = chips.find((candidate) => candidate === addressChip) ?? defaultChip;
   const [query, setQuery] = useState(addressQuery);
   const [seenAddressQuery, setSeenAddressQuery] = useState(addressQuery);
   // What this hook last wrote and the address has yet to show; anything else arriving there is someone else's.
@@ -21,46 +20,67 @@ export function useAddressedSearch<Chip extends string>(chipKey: string, chips: 
     else setQuery(addressQuery);
   }
 
-  const setParam = useCallback(
-    (key: string, value: string, isDefault: boolean) =>
-      setSearchParams(
-        (current) => {
-          const next = new URLSearchParams(current);
-          if (isDefault) next.delete(key);
-          else next.set(key, value);
-          return next;
-        },
-        { replace: true },
-      ),
-    [setSearchParams],
-  );
-
   const writeQuery = useCallback(() => {
     if (query === addressQuery) return;
     setPendingQuery(query);
-    setParam("q", query, query === "");
-  }, [query, addressQuery, setParam]);
+    setSearchParams(
+      (current) => {
+        const next = new URLSearchParams(current);
+        if (query === "") next.delete("q");
+        else next.set("q", query);
+        return next;
+      },
+      { replace: true, state },
+    );
+  }, [query, addressQuery, setSearchParams, state]);
 
   useEffect(() => {
     const timer = window.setTimeout(writeQuery, 300);
     return () => window.clearTimeout(timer);
   }, [writeQuery]);
 
-  const setChip = (next: Chip) => setParam(chipKey, next, next === defaultChip);
-  const clear = () => {
+  const clear = (alsoClears: readonly string[] = []) => {
     setPendingQuery("");
     setQuery("");
     setSearchParams(
       (current) => {
         const next = new URLSearchParams(current);
-        next.delete("q");
-        next.delete(chipKey);
+        for (const key of ["q", ...alsoClears]) next.delete(key);
         return next;
       },
-      { replace: true },
+      { replace: true, state },
     );
   };
 
-  // Flushed on leaving the box, so a row opened straight after typing carries the search into its way back.
-  return { query, setQuery, flushQuery: writeQuery, chip, setChip, clear };
+  return {
+    query,
+    setQuery,
+    // Flushed on leaving the box, so a row opened straight after typing carries the search into its way back.
+    flushQuery: writeQuery,
+    // Trimmed, so a trailing space neither refetches under a new key nor reads as a search.
+    addressedQuery: addressQuery.trim(),
+    clear,
+  };
+}
+
+/** {@link useAddressedQuery} with a chip beside the box, kept in the address under `chipKey`. */
+export function useAddressedSearch<Chip extends string>(chipKey: string, chips: readonly Chip[], defaultChip: Chip) {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { state } = useLocation();
+  const { query, setQuery, flushQuery, clear } = useAddressedQuery();
+  const addressChip = searchParams.get(chipKey);
+  const chip = chips.find((candidate) => candidate === addressChip) ?? defaultChip;
+
+  const setChip = (next: Chip) =>
+    setSearchParams(
+      (current) => {
+        const params = new URLSearchParams(current);
+        if (next === defaultChip) params.delete(chipKey);
+        else params.set(chipKey, next);
+        return params;
+      },
+      { replace: true, state },
+    );
+
+  return { query, setQuery, flushQuery, chip, setChip, clear: () => clear([chipKey]) };
 }

@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter, Outlet, Route, Routes } from "react-router-dom";
+import { MemoryRouter, Outlet, Route, Routes, useNavigate } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../../../components/ui/Toast";
 import type { Project } from "../../projects/api/types";
@@ -138,6 +138,16 @@ const pageOf = (page: number, people: PersonResult[], billed = people.length): P
   cached: people.length - billed,
 });
 
+/** The browser's Back button, which a MemoryRouter does not have. */
+function BrowserBack() {
+  const navigate = useNavigate();
+  return (
+    <button type="button" onClick={() => navigate(-1)}>
+      Browser back
+    </button>
+  );
+}
+
 const renderPeopleMode = () =>
   render(
     <MemoryRouter initialEntries={["/?mode=people"]}>
@@ -148,6 +158,7 @@ const renderPeopleMode = () =>
               <Route path="/" element={<StrategyPage />} />
             </Route>
           </Routes>
+          <BrowserBack />
         </ToastProvider>
       </QueryClientProvider>
     </MemoryRouter>,
@@ -287,6 +298,22 @@ describe("StrategyPage — People mode", () => {
     await waitFor(() => expect(peopleApi.addPeople).toHaveBeenCalledWith("p1", ["first"], "shortlisted"));
   });
 
+  it("opens a person as a step in history, so Back closes them on the results as left", async () => {
+    const user = userEvent.setup();
+    vi.mocked(peopleApi.getPeopleResults).mockResolvedValue({ pages: [pageOf(1, [personOf("first")], 0)] });
+    renderPeopleMode();
+
+    await user.click((await screen.findAllByText("Person first"))[0]);
+    expect(await screen.findByRole("dialog", { name: "Person first" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Browser back" }));
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(screen.getAllByText("Person first").length).toBeGreaterThan(0);
+    expect(within(screen.getByRole("radiogroup", { name: "Search for" })).getByRole("radio", { name: "People" }))
+      .toBeChecked();
+  });
+
   it("shows every part ContactOut sent, and no fold for what it did not", async () => {
     const user = userEvent.setup();
     vi.mocked(peopleApi.searchPeople).mockResolvedValue(
@@ -390,6 +417,18 @@ describe("StrategyPage — People mode", () => {
     expect(await screen.findByRole("searchbox", { name: "Search companies" })).toBeInTheDocument();
     const after = screen.getByRole("radiogroup", { name: "Search for" });
     expect(within(after).getByRole("radio", { name: "Companies" })).toBeChecked();
+  });
+
+  it("switches mode as a step in history, so Back returns to the mode left", async () => {
+    renderPeopleMode();
+    const modes = await screen.findByRole("radiogroup", { name: "Search for" });
+
+    await userEvent.click(within(modes).getByRole("radio", { name: "Companies" }));
+    await screen.findByRole("searchbox", { name: "Search companies" });
+
+    await userEvent.click(screen.getByRole("button", { name: "Browser back" }));
+
+    expect(await screen.findByRole("searchbox", { name: "Search people by name" })).toBeInTheDocument();
   });
 
   it("is not offered to a client seat, which stays on the company search", async () => {

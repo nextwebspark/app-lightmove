@@ -10,8 +10,10 @@ import { useAuth } from "../../auth/AuthProvider";
 import { cn } from "../../../lib/cn";
 import { messageFor } from "../../../lib/errorCodes";
 import { hasRoomForRails } from "../../../lib/viewport";
-import { DEFAULT_PAGE_SIZE } from "../../../lib/paging";
 import { LeaveGuard } from "../../../components/layout/LeaveGuard";
+import { useAddressedPanel } from "../../../lib/useAddressedPanel";
+import { useAddressedQuery } from "../../../lib/useAddressedSearch";
+import { useAddressedGridPaging } from "../../../lib/useGridPaging";
 import { useAutosave } from "../../../lib/useAutosave";
 import { FULLSCREEN_PANEL, useFullscreen } from "../../../lib/useFullscreen";
 import * as triageApi from "../../triage/api/triageApi";
@@ -41,11 +43,13 @@ import { SelectionAction, SelectionActionBar } from "../../../components/ui/Sele
 import { StrategyToolbar } from "../components/StrategyToolbar";
 import { StrategyModeToggle, type StrategyMode } from "../components/StrategyModeToggle";
 import { canExecuteProjectWork } from "../../projects/lib/access";
-import { PeopleStrategyEditor } from "./PeopleStrategyEditor";
+import { PERSON_PARAM, PeopleStrategyEditor } from "./PeopleStrategyEditor";
 
 const COMPANY_LAYOUT_COLUMNS = layoutColumnsOf(companyColumns);
 
 const DEFAULT_SORT: CompanySort = { field: "employees", direction: "desc" };
+
+const COMPANY_PARAM = "company";
 
 /** A stable empty selection, so "nothing ticked" is one identity rather than a new object per render. */
 const NOTHING_SELECTED: RowSelectionState = {};
@@ -70,15 +74,16 @@ export function StrategyPage() {
   const canSearchPeople = canExecuteProjectWork(project, user?.id, user?.workspace?.roles);
   const mode: StrategyMode = canSearchPeople && searchParams.get("mode") === "people" ? "people" : "companies";
 
-  const handleMode = (next: StrategyMode) =>
-    setSearchParams(
-      (params) => {
-        if (next === "people") params.set("mode", "people");
-        else params.delete("mode");
-        return params;
-      },
-      { replace: true },
-    );
+  const handleMode = (next: StrategyMode) => {
+    if (next === mode) return;
+    setSearchParams((params) => {
+      params.delete(COMPANY_PARAM);
+      params.delete(PERSON_PARAM);
+      if (next === "people") params.set("mode", "people");
+      else params.delete("mode");
+      return params;
+    });
+  };
   const toggle = canSearchPeople ? <StrategyModeToggle mode={mode} onChange={handleMode} /> : null;
 
   // Keyed on the project so switching mandates remounts with that mandate's filter rather than
@@ -118,12 +123,11 @@ function StrategyEditor({ toggle }: { toggle: ReactNode }) {
 
   const [filter, setFilter] = useState<StrategyFilter>(() => strategy.data?.filter ?? NO_FILTER);
   const [showFilters, setShowFilters] = useState(hasRoomForRails);
-  const [query, setQuery] = useState("");
-  const [debouncedQuery, setDebouncedQuery] = useState("");
-  const [page, setPage] = useState(0);
-  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
+  const { query, setQuery, flushQuery, addressedQuery: debouncedQuery } = useAddressedQuery();
+  const paging = useAddressedGridPaging();
+  const { page, size: pageSize } = paging;
   const [sort, setSort] = useGridSort("strategy", project.id, COMPANY_SORT_FIELDS, DEFAULT_SORT);
-  const [openCompany, setOpenCompany] = useState<CompanyResult | null>(null);
+  const drawer = useAddressedPanel(COMPANY_PARAM);
   const [columnVisibility, setColumnVisibility] = useColumnVisibility(
     "strategy",
     project.id,
@@ -141,12 +145,6 @@ function StrategyEditor({ toggle }: { toggle: ReactNode }) {
   const [rowSelection, setRowSelection] = useState<RowSelectionState>(NOTHING_SELECTED);
   const selectedIds = useMemo(() => Object.keys(rowSelection), [rowSelection]);
   const clearSelection = useCallback(() => setRowSelection(NOTHING_SELECTED), []);
-
-  // A keystroke should narrow the list, not fire a request per character.
-  useEffect(() => {
-    const timer = setTimeout(() => setDebouncedQuery(query), 300);
-    return () => clearTimeout(timer);
-  }, [query]);
 
   /*
    * The stored filter, adopted the once — never on every change to `strategy.data`. Between a chip
@@ -166,12 +164,14 @@ function StrategyEditor({ toggle }: { toggle: ReactNode }) {
    * Adopting the stored filter is not a scope change: the server already scoped by it, so its arrival must not stomp a
    * page turned or a row ticked while /strategy was in flight.
    */
-  const resetScope = useCallback(() => {
-    setPage(0);
+  const resetScope = () => {
+    paging.reset();
     clearSelection();
-  }, [clearSelection]);
+  };
 
-  useEffect(() => resetScope(), [debouncedQuery, sort, resetScope]);
+  // Only a new question resets the scope; resetScope itself is a new closure every render.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => resetScope(), [debouncedQuery, sort]);
 
   const refreshScopedReads = async () => {
     const scopedKeys = [
@@ -207,6 +207,23 @@ function StrategyEditor({ toggle }: { toggle: ReactNode }) {
     // Paging without blanking the table, which would make every page turn look like a reload.
     placeholderData: keepPreviousData,
   });
+
+  const { clampTo } = paging;
+  const settledTotal = companies.isFetching || !companies.data ? null : companies.data.totalCount;
+  useEffect(() => {
+    if (settledTotal !== null) clampTo(settledTotal);
+  }, [settledTotal, clampTo]);
+
+  const openCompany =
+    drawer.value === null
+      ? null
+      : (companies.data?.companies.find((company) => company.apolloAccountId === drawer.value) ?? null);
+  const isOpenCompanyGone =
+    drawer.value !== null && openCompany === null && !companies.isPending && !companies.isFetching;
+  useEffect(() => {
+    if (isOpenCompanyGone) drawer.close();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpenCompanyGone]);
 
   const saveSearch = useMutation({
     // Flush first: the request carries only a name and the server snapshots the *stored* filter, so a
@@ -378,6 +395,7 @@ function StrategyEditor({ toggle }: { toggle: ReactNode }) {
         onToggleFilters={() => setShowFilters((shown) => !shown)}
         query={query}
         onQuery={setQuery}
+        onQueryBlur={flushQuery}
         onSaveSearch={(name, visibility) => saveSearch.mutate({ name, visibility })}
         onLoadSearch={applyFilter}
         onRenameSearch={(searchId, name) => editSearch.mutate({ searchId, name })}
@@ -421,7 +439,7 @@ function StrategyEditor({ toggle }: { toggle: ReactNode }) {
             error={companies.isError}
             rowSelection={rowSelection}
             onRowSelectionChange={setRowSelection}
-            onOpenCompany={setOpenCompany}
+            onOpenCompany={(company) => drawer.open(company.apolloAccountId)}
           />
           {selectedIds.length > 0 && (
             <SelectionActionBar
@@ -446,8 +464,8 @@ function StrategyEditor({ toggle }: { toggle: ReactNode }) {
             page={page}
             size={pageSize}
             totalCount={companies.data?.totalCount}
-            onPage={setPage}
-            onSize={setPageSize}
+            onPage={paging.setPage}
+            onSize={paging.setSize}
             trailing={<FullscreenButton active={isFullscreen} onToggle={toggleFullscreen} />}
           />
         </div>
@@ -455,13 +473,13 @@ function StrategyEditor({ toggle }: { toggle: ReactNode }) {
 
       <MarketCompanyDrawer
         company={openCompany}
-        onClose={() => setOpenCompany(null)}
+        onClose={drawer.close}
         onTriage={(company, status) => {
-          setOpenCompany(null);
+          drawer.close();
           addOne.mutate({ company, status });
         }}
         onOffLimits={(company) => {
-          setOpenCompany(null);
+          drawer.close();
           barCompany.mutate(company);
         }}
         barring={barCompany.isPending}

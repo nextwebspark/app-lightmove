@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, useLocation, useNavigate } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../../../components/ui";
 import { saveBlob } from "../../../lib/saveBlob";
@@ -220,12 +220,26 @@ const record: PersonRecord = {
   addedByName: "Alok Kumar",
 };
 
+function Where() {
+  const { search } = useLocation();
+  const navigate = useNavigate();
+  return (
+    <>
+      <output aria-label="Address">{search}</output>
+      <button type="button" onClick={() => navigate(-1)}>
+        Browser back
+      </button>
+    </>
+  );
+}
+
 function renderPage(path = "/candidates") {
   return render(
     <MemoryRouter initialEntries={[path]}>
       <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
         <ToastProvider>
           <CandidatesPage />
+          <Where />
         </ToastProvider>
       </QueryClientProvider>
     </MemoryRouter>,
@@ -886,6 +900,30 @@ describe("CandidatesPage", () => {
     expect(await screen.findByText("tagged Fatima Al Mazrouei Open to work")).toBeInTheDocument();
     await userEvent.click(screen.getByText("tagged Fatima Al Mazrouei Open to work"));
     expect(await screen.findByRole("tab", { name: /Activity/, selected: true })).toBeInTheDocument();
+  });
+
+  it("opens a person as a step and moves between their tabs in place, so Back closes the drawer", async () => {
+    renderPage();
+    await userEvent.click((await screen.findAllByText("Fatima Al Mazrouei"))[0]);
+    expect(await screen.findByRole("heading", { name: "Fatima Al Mazrouei" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Address")).toHaveTextContent("person=person-1");
+    await userEvent.click(screen.getByRole("tab", { name: /^Notes/ }));
+    expect(screen.getByLabelText("Address")).toHaveTextContent("tab=notes");
+
+    await userEvent.click(screen.getByRole("button", { name: "Browser back" }));
+
+    await waitFor(() => expect(screen.queryByRole("heading", { name: "Fatima Al Mazrouei" })).not.toBeInTheDocument());
+    expect(screen.getByLabelText("Address")).toBeEmptyDOMElement();
+  });
+
+  it("keeps the page it was left on in the address, through the reset its filters run on arriving", async () => {
+    vi.mocked(poolApi.listPool).mockResolvedValue({ ...page([fatima, rajesh]), totalCount: 120 });
+    renderPage("/candidates?page=2");
+
+    await screen.findAllByText("Fatima Al Mazrouei");
+    await new Promise((settle) => setTimeout(settle, 0));
+    expect(poolApi.listPool).toHaveBeenLastCalledWith(expect.anything(), 1, 50, expect.anything());
+    expect(screen.getByLabelText("Address")).toHaveTextContent("page=2");
   });
 
   it("says the workspace has nobody yet rather than drawing an empty grid", async () => {

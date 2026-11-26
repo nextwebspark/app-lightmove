@@ -19,7 +19,7 @@ import { useDataGridTable } from "../../../../lib/useDataGridTable";
 import { isBelowTableWidth } from "../../../../lib/viewport";
 import { FULLSCREEN_PANEL, useFullscreen } from "../../../../lib/useFullscreen";
 import { EMPTY_GRID_LAYOUT, layoutColumnsOf, useGridLayout } from "../../../../lib/useGridLayout";
-import { useGridPaging } from "../../../../lib/useGridPaging";
+import { useAddressedGridPaging } from "../../../../lib/useGridPaging";
 import * as poolApi from "../../api/poolApi";
 import type { PoolFilters, PoolRow, PoolSortField } from "../../api/types";
 import {
@@ -71,7 +71,7 @@ export function PeopleView({
   const queryClient = useQueryClient();
   const { offered: dataProtection } = useDataProtection();
   const consentMode = useConsentMode();
-  const paging = useGridPaging(50);
+  const paging = useAddressedGridPaging("page", 50);
   const { catalog } = usePipelineCatalog();
   const [query, setQuery] = useState(filters.q);
   // Seeded from the page's filters, as the search is: switching to Activity unmounts this view, and a box

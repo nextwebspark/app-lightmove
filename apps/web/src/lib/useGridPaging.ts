@@ -1,6 +1,7 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useLocation, useSearchParams } from "react-router-dom";
 import type { OnChangeFn, PaginationState } from "@tanstack/react-table";
-import { DEFAULT_PAGE_SIZE } from "./paging";
+import { DEFAULT_PAGE_SIZE, PAGE_SIZE_OPTIONS } from "./paging";
 
 /** A grid's page window, in the two shapes it is needed in: the table's, and {@link PaginationBar}'s. */
 export interface GridPaging {
@@ -63,4 +64,99 @@ export function useGridPaging(initialSize: number = DEFAULT_PAGE_SIZE): GridPagi
     }),
     [pagination, setPage, setSize, reset, clampTo],
   );
+}
+
+/**
+ * {@link useGridPaging} held in the address (`?page=3`, and `?pageSize=` off the default, written in place), so Back
+ * from a row opened off page 3 lands on the same rows.
+ *
+ * Traps: every list resets its page in an effect that also runs on mount, which would throw away the page a return
+ * brought back — so {@link GridPaging.reset} does nothing until the first render has settled. And
+ * {@link GridPaging.clampTo} must be given the count only once the rows have arrived: an empty first read clamps a
+ * returning reader onto page 1.
+ */
+export function useAddressedGridPaging(param = "page", initialSize: number = DEFAULT_PAGE_SIZE): GridPaging {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const location = useLocation();
+  const sizeParam = `${param}Size`;
+  const pageIndex = pageIndexOf(searchParams.get(param));
+  const pageSize = pageSizeOf(searchParams.get(sizeParam), initialSize);
+  // react-router's setSearchParams changes with every address write; held here so these callbacks keep one identity,
+  // or a list's reset effect, which depends on them, reruns — and resets — whenever a drawer opens.
+  const latest = useRef({ pageIndex, pageSize, state: location.state as unknown, setSearchParams });
+  useLayoutEffect(() => {
+    latest.current = { pageIndex, pageSize, state: location.state as unknown, setSearchParams };
+  });
+  const settled = useRef(false);
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      settled.current = true;
+    });
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  const write = useCallback(
+    (nextPage: number, nextSize: number) => {
+      if (nextPage === latest.current.pageIndex && nextSize === latest.current.pageSize) return;
+      // Held at once, so a size and a page written in one handler (the pager's re-anchoring) both land.
+      latest.current.pageIndex = nextPage;
+      latest.current.pageSize = nextSize;
+      latest.current.setSearchParams(
+        (current) => {
+          const params = new URLSearchParams(current);
+          if (nextPage <= 0) params.delete(param);
+          else params.set(param, String(nextPage + 1));
+          if (nextSize === initialSize) params.delete(sizeParam);
+          else params.set(sizeParam, String(nextSize));
+          return params;
+        },
+        { replace: true, state: latest.current.state },
+      );
+    },
+    [param, sizeParam, initialSize],
+  );
+  const setPage = useCallback((next: number) => write(next, latest.current.pageSize), [write]);
+  const setSize = useCallback((size: number) => write(0, size), [write]);
+  const reset = useCallback(() => {
+    if (settled.current) setPage(0);
+  }, [setPage]);
+  const clampTo = useCallback(
+    (totalCount: number) => {
+      const last = Math.max(0, Math.ceil(totalCount / latest.current.pageSize) - 1);
+      if (latest.current.pageIndex > last) setPage(last);
+    },
+    [setPage],
+  );
+  const onPaginationChange = useCallback<OnChangeFn<PaginationState>>(
+    (updater) => {
+      const { pageIndex: currentPage, pageSize: currentSize } = latest.current;
+      const next = typeof updater === "function" ? updater({ pageIndex: currentPage, pageSize: currentSize }) : updater;
+      write(next.pageSize === currentSize ? next.pageIndex : 0, next.pageSize);
+    },
+    [write],
+  );
+
+  return useMemo(
+    () => ({
+      pagination: { pageIndex, pageSize },
+      page: pageIndex,
+      size: pageSize,
+      setPage,
+      setSize,
+      onPaginationChange,
+      reset,
+      clampTo,
+    }),
+    [pageIndex, pageSize, setPage, setSize, onPaginationChange, reset, clampTo],
+  );
+}
+
+function pageIndexOf(raw: string | null): number {
+  const page = Number(raw);
+  return Number.isInteger(page) && page > 1 ? page - 1 : 0;
+}
+
+function pageSizeOf(raw: string | null, fallback: number): number {
+  const size = Number(raw);
+  return PAGE_SIZE_OPTIONS.includes(size) ? size : fallback;
 }

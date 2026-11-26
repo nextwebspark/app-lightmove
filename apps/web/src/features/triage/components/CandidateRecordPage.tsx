@@ -36,9 +36,7 @@ export function CandidateRecordPage({
   onOpen: (candidate: Candidate) => void;
   /** Esc's way back to where the view was opened from, where it was opened from somewhere. */
   onLeave?: () => void;
-  /** Under the list: the grid's pager, since the list is one page of it. */
   footer?: ReactNode;
-  /** The record itself, given what its corner puts first: Hide list, or List where the list is away. */
   children: (listButton: ReactNode) => ReactNode;
 }) {
   const [listOpen, setListOpen] = useState(false);

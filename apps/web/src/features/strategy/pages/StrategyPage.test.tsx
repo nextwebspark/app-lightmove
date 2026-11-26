@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter, Outlet, Route, Routes } from "react-router-dom";
+import { MemoryRouter, Outlet, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "../../../components/ui/Toast";
 import { AssistantProvider } from "../../assistant/AssistantProvider";
@@ -183,9 +183,28 @@ const triagedAs = (status: string) =>
     addedAt: "2026-09-08T00:00:00Z",
   }) as never;
 
-const renderPage = (client = new QueryClient({ defaultOptions: { queries: { retry: false } } })) =>
+/** The browser's Back button and address bar, which a MemoryRouter has neither of. */
+function BrowserChrome() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  return (
+    <>
+      <button type="button" onClick={() => navigate(-1)}>
+        Browser back
+      </button>
+      <output aria-label="Address">{location.search}</output>
+    </>
+  );
+}
+
+const address = () => screen.getByRole("status", { name: "Address" }).textContent;
+
+const renderPage = (
+  client = new QueryClient({ defaultOptions: { queries: { retry: false } } }),
+  entries: string[] = ["/"],
+) =>
   render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={entries} initialIndex={entries.length - 1}>
       <QueryClientProvider client={client}>
         <ToastProvider>
           <AssistantProvider>
@@ -194,6 +213,7 @@ const renderPage = (client = new QueryClient({ defaultOptions: { queries: { retr
                 <Route path="/" element={<StrategyPage />} />
               </Route>
             </Routes>
+            <BrowserChrome />
           </AssistantProvider>
         </ToastProvider>
       </QueryClientProvider>
@@ -1034,6 +1054,26 @@ describe("StrategyPage — the filter sidebar and its results", () => {
     await waitFor(() => expect(vi.mocked(strategyApi.getCompanies).mock.calls.at(-1)![1]).toBe(0));
   });
 
+  it("keeps the search and the page in the address, so a return finds the list as it was left", async () => {
+    vi.mocked(strategyApi.getCompanies).mockResolvedValue(pageOf({ totalCount: 200 }));
+    renderPage(undefined, ["/?q=acwa&page=3"]);
+
+    expect(await screen.findByText("ACWA Power")).toBeInTheDocument();
+    expect(screen.getByRole("searchbox", { name: "Search companies" })).toHaveValue("acwa");
+    // The reset every scope runs on mount must not throw the returning reader back to page one.
+    await act(() => new Promise((settle) => setTimeout(settle)));
+    const [, page, , query] = vi.mocked(strategyApi.getCompanies).mock.calls.at(-1)!;
+    expect({ page, query }).toEqual({ page: 2, query: "acwa" });
+
+    await userEvent.type(screen.getByRole("searchbox", { name: "Search companies" }), "x");
+
+    await waitFor(() => expect(address()).toBe("?q=acwax"));
+    await waitFor(() => {
+      const [, nextPage, , nextQuery] = vi.mocked(strategyApi.getCompanies).mock.calls.at(-1)!;
+      expect({ page: nextPage, query: nextQuery }).toEqual({ page: 0, query: "acwax" });
+    });
+  });
+
   it("asks the server for the chosen page size, keeping the row at the top of the page", async () => {
     vi.mocked(strategyApi.getCompanies).mockResolvedValue(pageOf({ totalCount: 4000 }));
     renderPage();
@@ -1355,6 +1395,33 @@ describe("StrategyPage — the market company panel", () => {
     await userEvent.click(row);
     return screen.findByRole("dialog", { name: "ACWA Power" });
   };
+
+  it("opens as a step in history, so Back closes it on the page it was opened from", async () => {
+    vi.mocked(strategyApi.getCompanies).mockResolvedValue(pageOf({ totalCount: 200 }));
+    renderPage();
+    await userEvent.click(await screen.findByRole("button", { name: "Next page" }));
+    await waitFor(() => expect(address()).toBe("?page=2"));
+
+    await openPanel();
+    expect(address()).toBe("?page=2&company=a1");
+
+    await userEvent.click(screen.getByRole("button", { name: "Browser back" }));
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(address()).toBe("?page=2");
+    expect(vi.mocked(strategyApi.getCompanies).mock.calls.at(-1)![1]).toBe(1);
+  });
+
+  it("opens from the address on the company it names, and lets go of one the results no longer hold", async () => {
+    const { unmount } = renderPage(undefined, ["/?company=a1"]);
+    expect(await screen.findByRole("dialog", { name: "ACWA Power" })).toBeInTheDocument();
+    unmount();
+
+    renderPage(undefined, ["/?company=gone"]);
+    await screen.findByText("ACWA Power");
+    await waitFor(() => expect(address()).toBe(""));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
 
   it("opens on the row, showing the market's own figures", async () => {
     renderPage();
