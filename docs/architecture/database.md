@@ -606,6 +606,13 @@ platform tables holding keys and counts: no content, no person, no workspace. `a
 so the decision on it is counted against that version; null, or a key missing, is a value proposed before the
 column. Staff-only like the flags, and it names a prompt version, never a reading.
 
+V246 hides from a client seat whoever said no to being shared, withdrew it, or is restricted (#1488):
+`app_lm_project_candidate.client_hidden_reason` (`PROCESSING_RESTRICTED` · `SHARE_DECLINED` · `SHARE_WITHDRAWN`),
+written only by triggers through `app_lm_client_hidden_reason(person, project)`, and the generated
+`shown_to_client = client_visible AND client_hidden_reason IS NULL` every client read filters on. A share's status
+decides; a re-asked or lapsed request after a no keeps the last answer (`app_lm_person_consent_event`). Backfilled for
+restricted people and every share consent. Staff-only.
+
 V244 is `app_lm_position_suggested_field` (#1452): for each field a document reading filled on a brief, the
 `prompt_id` and `version` that suggested it, keyed by (`position_id`, `field_key`), until the brief is published and
 each is counted once into `app_lm_platform_prompt_outcome_daily`, then deleted. `field_key` is a scalar's brief key

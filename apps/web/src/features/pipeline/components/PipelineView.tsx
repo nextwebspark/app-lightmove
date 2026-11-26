@@ -91,6 +91,7 @@ export function PipelineView({
     visibility.mutate({ candidateId: row.candidateId, clientVisible });
   // Turning someone visible with no consent to share asks first (#1267); warn, never block.
   const toggleVisible = (row: PipelineRow) => {
+    if (row.clientHiddenReason) return;
     if (!row.clientVisible && share.needsPrompt(row.candidateId)) setSharePrompt(row);
     else showToClient(row, !row.clientVisible);
   };
@@ -140,7 +141,13 @@ export function PipelineView({
               share.on
                 ? (row) => (
                     <ShareConsentBadge
-                      state={share.badgeOf(row.candidateId)}
+                      state={
+                        row.clientHiddenReason === "share_declined"
+                          ? "declined"
+                          : row.clientHiddenReason === "share_withdrawn"
+                            ? "withdrawn"
+                            : share.badgeOf(row.candidateId)
+                      }
                       row={share.rowOf(row.candidateId)}
                       clientName={project.clientName}
                     />

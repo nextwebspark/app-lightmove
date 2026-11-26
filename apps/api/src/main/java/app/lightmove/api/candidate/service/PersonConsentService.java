@@ -92,6 +92,7 @@ public class PersonConsentService {
     private final ApplicationEventPublisher events;
     private final AuditService audit;
     private final Clock clock;
+    private final ClientViewRefresh clientView;
     private final String baseUrl;
 
     public PersonConsentService(PersonRepository people, PersonRecordService records, PersonActivityRecorder activity,
@@ -99,7 +100,8 @@ public class PersonConsentService {
                                 PrivacyEmailBudget budget, PrivacyLinkStore privacyLinks, PersonConsentStore consents,
                                 ShareTargets shareTargets, CandidateRepository candidates, ProjectAccess projectAccess,
                                 EmailTemplates templates, ApplicationEventPublisher events, AuditService audit,
-                                Clock clock, LightMoveProperties properties) {
+                                Clock clock, ClientViewRefresh clientView, LightMoveProperties properties) {
+        this.clientView = clientView;
         this.people = people;
         this.records = records;
         this.activity = activity;
@@ -297,6 +299,9 @@ public class PersonConsentService {
                 validUntil);
         consents.appendEvent(workspaceId, personId, consentId, ConsentEventAction.RECORDED, answer,
                 ConsentEventVia.BY_HAND, null, userId, null, null, now());
+        if (projectId != null) {
+            clientView.position(projectId);
+        }
         activity.record(person, projectId, userId, PersonActivityKind.CONSENT_ANSWERED,
                 PersonActivityDetails.of("purpose", purpose.value()).and("status", answer.value())
                         .and("via", "by_hand"));

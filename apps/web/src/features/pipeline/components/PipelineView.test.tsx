@@ -327,6 +327,32 @@ describe("PipelineView", () => {
       expect(within(card("Bilal Saeed")).getByText("No consent to share")).toBeInTheDocument();
     });
 
+    it("locks the switch for someone who said no or is restricted, and says why (#1488)", async () => {
+      share.on = true;
+      vi.mocked(pipelineApi.getPipeline).mockResolvedValue(
+        aPipelinePage([
+          { ...rows[0], clientVisible: true, clientHiddenReason: "share_declined" },
+          { ...rows[1], clientVisible: true, clientHiddenReason: "processing_restricted" },
+          ...rows.slice(2),
+        ]),
+      );
+      renderView();
+      await screen.findByRole("article", { name: "Amal Haddad" });
+
+      const declined = card("Amal Haddad");
+      expect(within(declined).getByText("Said no to sharing")).toBeInTheDocument();
+      expect(within(declined).getByText(/Hidden from/)).toBeInTheDocument();
+      const locked = within(declined).getByRole("switch", { name: /Visible to client: Amal Haddad/ });
+      expect(locked).toHaveAttribute("aria-disabled", "true");
+      expect(locked).toHaveAttribute("aria-checked", "false");
+      await userEvent.click(locked);
+      expect(screen.queryByRole("dialog", { name: /No consent to share/ })).not.toBeInTheDocument();
+
+      const restricted = within(card(rows[1].fullName)).getByRole("switch", { name: /Visible to client/ });
+      expect(restricted.getAttribute("title")).toMatch(/Processing is restricted/);
+      expect(pipelineApi.setClientVisibility).not.toHaveBeenCalled();
+    });
+
     it("draws no badge and no prompt in a workspace that does not ask", async () => {
       vi.mocked(pipelineApi.setClientVisibility).mockResolvedValue({ ...rows[4], clientVisible: true });
       renderView();

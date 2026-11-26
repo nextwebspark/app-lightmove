@@ -8,15 +8,22 @@ const LABELS: Record<ShareConsentBadgeState, string> = {
   none: "No consent to share",
   asked: "Consent asked",
   given: "Consent given",
+  declined: "Said no to sharing",
+  withdrawn: "Withdrew sharing",
 };
 
 const TONES: Record<ShareConsentBadgeState, string> = {
   none: "border-u-signal text-u-signal",
   asked: "border-u-border-strong text-u-text2",
   given: "border-transparent bg-u-direct-tint text-u-direct",
+  declined: "border-transparent bg-u-offlimits-tint text-u-offlimits",
+  withdrawn: "border-transparent bg-u-offlimits-tint text-u-offlimits",
 };
 
-/** A card's share-with-client consent (`Position.dc.html`, `shareConsent`): never asked, asked, or given. */
+/**
+ * A card's share-with-client consent (`Position.dc.html`, `shareConsent`): never asked, asked, given, or refused —
+ * a no or a withdrawal hides them from the client until they say yes (#1488).
+ */
 export function ShareConsentBadge({
   state,
   row,
@@ -26,12 +33,7 @@ export function ShareConsentBadge({
   row: ShareConsentRow | undefined;
   clientName: string;
 }) {
-  const title =
-    state === "given"
-      ? `Agreed on ${formatInstantDate(row?.answeredAt ?? null) ?? ""} to be shared with ${clientName}`
-      : state === "asked"
-        ? `Asked on ${formatInstantDate(row?.requestedAt ?? null) ?? ""} · answer by ${formatInstantDate(row?.requestOpenUntil ?? null) ?? ""}`
-        : `No consent to share with ${clientName}`;
+  const title = titleOf(state, row, clientName);
   return (
     <span
       title={title}
@@ -44,4 +46,19 @@ export function ShareConsentBadge({
       <span className="truncate">{LABELS[state]}</span>
     </span>
   );
+}
+
+function titleOf(state: ShareConsentBadgeState, row: ShareConsentRow | undefined, clientName: string): string {
+  switch (state) {
+    case "given":
+      return `Agreed on ${formatInstantDate(row?.answeredAt ?? null) ?? ""} to be shared with ${clientName}`;
+    case "declined":
+      return `Said no to being shared with ${clientName}. They're hidden from them until they say yes`;
+    case "withdrawn":
+      return `Withdrew their consent to be shared with ${clientName}. They're hidden from them until they say yes`;
+    case "asked":
+      return `Asked on ${formatInstantDate(row?.requestedAt ?? null) ?? ""} · answer by ${formatInstantDate(row?.requestOpenUntil ?? null) ?? ""}`;
+    case "none":
+      return `No consent to share with ${clientName}`;
+  }
 }

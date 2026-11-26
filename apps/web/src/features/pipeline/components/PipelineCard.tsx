@@ -1,4 +1,6 @@
 import type { DragEvent, ReactNode } from "react";
+import { useOutletContext } from "react-router-dom";
+import type { ProjectOutletContext } from "../../../components/layout/ProjectLayout";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { ActionMenu, MenuItem } from "../../../components/ui/ActionMenu";
 import { SelectionCheckbox } from "../../../components/ui/SelectionCheckbox";
@@ -7,7 +9,7 @@ import { CandidateAvatar } from "../../candidates/components/CandidateAvatar";
 import { pipelineSwatchClass } from "../../candidates/lib/pipelineStatus";
 import type { PipelineRow } from "../api/types";
 import { shortDate } from "../lib/pipelineView";
-import { VisibilityToggle } from "./PipelineControls";
+import { HiddenFromClient, VisibilityToggle } from "./PipelineControls";
 import { BoardNextAction } from "./PipelineNextAction";
 import { useWorkspaceVocabulary } from "../../workspace/lib/vocabulary";
 
@@ -129,7 +131,7 @@ export function PipelineCard({
       <BoardNextAction row={row} onOpen={onOpenNextAction} />
       {shareBadge && <span className="flex min-w-0">{shareBadge}</span>}
       <span className="flex items-center gap-2">
-        <VisibilityToggle visible={row.clientVisible} name={row.fullName} onToggle={() => onToggleVisible(row)} />
+        <CardVisibility row={row} onToggleVisible={onToggleVisible} />
         {actions}
       </span>
     </article>
@@ -184,9 +186,25 @@ export function OutOfProcessCard({
       </span>
       {shareBadge && <span className="flex min-w-0">{shareBadge}</span>}
       <span className="flex items-center gap-2">
-        <VisibilityToggle visible={row.clientVisible} name={row.fullName} onToggle={() => onToggleVisible(row)} />
+        <CardVisibility row={row} onToggleVisible={onToggleVisible} />
         {actions}
       </span>
     </article>
   );
+}
+
+/** The foot's switch, or, while a refusal or a restriction hides them from the client, the switch locked with why. */
+function CardVisibility({ row, onToggleVisible }: { row: PipelineRow; onToggleVisible: (row: PipelineRow) => void }) {
+  const outlet = useOutletContext<ProjectOutletContext | undefined>();
+  const vocabulary = useWorkspaceVocabulary();
+  if (row.clientHiddenReason) {
+    return (
+      <HiddenFromClient
+        reason={row.clientHiddenReason}
+        name={row.fullName}
+        clientName={outlet?.project.clientName ?? `the ${vocabulary.unitLower}`}
+      />
+    );
+  }
+  return <VisibilityToggle visible={row.clientVisible} name={row.fullName} onToggle={() => onToggleVisible(row)} />;
 }
