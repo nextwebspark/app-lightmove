@@ -198,7 +198,8 @@ its siblings do nothing and the server looks unthrottled. Override with the prop
 **Real email** needs Resend *and a verified domain*. Until a domain is verified, Resend delivers only to
 the address your Resend account is registered under and 403s everything else — whatever `from` you set
 (`onboarding@resend.dev` does not lift this). Verify at [resend.com/domains](https://resend.com/domains),
-set `from-address` on that domain, then `provider: resend` plus the key. A failed send does not roll back
+set `from-address` on that domain, then `provider: resend` plus the key. `privacy-from-address`
+(`EMAIL_PRIVACY_FROM`) is optional; blank sends privacy mail from `from-address` too. A failed send does not roll back
 the signup, but the verification token is stored **hashed**, so a link that fails to send is
 unrecoverable — use `/auth/verify/resend`.
 
@@ -403,6 +404,13 @@ signs in again on the new host. Old email links still land — the redirect keep
 Transactional mail is sent as `noreply@uncava.com`, which means `uncava.com` verified in Resend: its
 DKIM and SPF records and a `_dmarc` TXT live in Cloudflare next to the CNAME, and the `EMAIL_FROM`
 variable names the address.
+
+Privacy notices and consent emails (`EmailRenderer.renderPrivacyMail`) have a sending address of their own,
+`EMAIL_PRIVACY_FROM` (#1493). It is deliberately left blank, so they leave from `noreply@uncava.com` like
+everything else: one domain, no subdomain (decided 2026-11-26, `governance-decisions.md` B15). The firm stays in
+the display name and its privacy contact stays the Reply-To. To split them onto their own domain later, add that
+domain in Resend, add its DNS records in Cloudflare, and set the variable once Resend shows it verified. Resend
+refuses a sender on a domain it has not verified.
 
 ### Warm hours
 
