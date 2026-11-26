@@ -129,7 +129,10 @@ public class NotificationRules {
                     .get(requested.personId());
             for (UUID admin : workspaceAccess.activeUsersHolding(requested.workspaceId(),
                     WorkspaceAction.WORKSPACE_MANAGE)) {
-                deliver(new NotificationDraft(requested.workspaceId(), admin, kind, null, null,
+                if (admin.equals(requested.actorUserId())) {
+                    continue;
+                }
+                deliver(new NotificationDraft(requested.workspaceId(), admin, kind, requested.actorUserId(), null,
                         requested.personId(), null, null, null,
                         kind.value() + ":" + requested.personId(), name, null, 1, null));
             }

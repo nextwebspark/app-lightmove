@@ -27,7 +27,7 @@ A workspace keeps a list of people that no door may file again. Each entry has a
 | Reason | Written by |
 |---|---|
 | `erased` | the erasure itself (the API refuses it from an admin) |
-| `objected` | an admin, or the restriction dialog's "also suppress" tick |
+| `objected` | an admin; the restriction dialog's "also suppress" tick; the person's own objection or stop link (#924); and the drawer's **Do not contact** while data protection is on (#1489) |
 | `manual` | an admin, for anything else (the default) |
 
 A person is recognised by their **LinkedIn profile slug** or an **email address**, never by phone or name. Once a key

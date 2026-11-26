@@ -19,7 +19,8 @@ import app.lightmove.api.candidate.dto.ShareConsentsResponse;
 import app.lightmove.api.candidate.model.Candidate;
 import app.lightmove.api.candidate.model.CandidatePrivacySettings;
 import app.lightmove.api.candidate.model.ConsentPriorState;
-import app.lightmove.api.candidate.model.ConsentRegisterRow;
+import app.lightmove.api.candidate.model.ConsentRegisterLine;
+import app.lightmove.api.candidate.model.ObjectionRegisterRow;
 import app.lightmove.api.candidate.model.ConsentRequestsQueued;
 import app.lightmove.api.candidate.model.MintedPrivacyLink;
 import app.lightmove.api.candidate.model.Person;
@@ -47,6 +48,7 @@ import java.time.LocalTime;
 import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -57,6 +59,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -71,6 +74,11 @@ public class PersonConsentService {
 
     static final Duration REQUEST_LIFETIME = Duration.ofDays(30);
     private static final Duration RECENTLY = Duration.ofDays(14);
+    /** A person's objection sits beside their consents, after them. */
+    private static final Comparator<ConsentRegisterLine> REGISTER_ORDER = Comparator
+            .comparing(ConsentRegisterLine::personName, Comparator.nullsLast(Comparator.naturalOrder()))
+            .thenComparing(ConsentRegisterLine::personId)
+            .thenComparing(line -> line instanceof ObjectionRegisterRow);
     private static final String PERSON_TARGET = "person";
     private static final int SCAN_BATCH = 500;
     private static final int SCAN_BATCHES_PER_RUN = 20;
@@ -172,11 +180,15 @@ public class PersonConsentService {
      * Past {@code cap} lines it is refused rather than cut short: half a register still looks whole.
      */
     @Transactional(readOnly = true)
-    public List<ConsentRegisterRow> registerOf(UUID workspaceId, UUID projectId, int cap) {
+    public List<ConsentRegisterLine> registerOf(UUID workspaceId, UUID projectId, int cap) {
         if (projectId != null) {
             shareTargets.require(workspaceId, projectId);
         }
-        List<ConsentRegisterRow> rows = consents.registerOf(workspaceId, projectId, cap + 1);
+        List<ConsentRegisterLine> rows = Stream.<ConsentRegisterLine>concat(
+                        consents.registerOf(workspaceId, projectId, cap + 1).stream(),
+                        consents.objectionsOf(workspaceId, projectId, cap + 1).stream())
+                .sorted(REGISTER_ORDER)
+                .toList();
         if (rows.size() > cap) {
             throw ApiException.userFacing(ErrorCode.VALIDATION_FAILED,
                     "That is more consents than one file may carry. Download it for one position instead.");

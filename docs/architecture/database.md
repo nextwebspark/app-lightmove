@@ -616,6 +616,15 @@ restricted people and every share consent. Staff-only. Adding a `STORED` generat
 trigger update, and the backfill, fires V36's `app_lm_project_candidate_touch`, so a restriction or a share answer
 also moves `updated_at` on every position row it changes.
 
+V245 adds `OBJECTION_RECORDED` to `app_lm_person_activity_kind_chk` (#1489): a colleague recorded that the person
+objected when contacted, the same stop as the privacy page's objection and an email's stop link (`PersonContactStop`),
+with an actor. It also adds `app_lm_person.do_not_contact_source` (`ContactStopKind`: `OBJECTED_ON_PRIVACY_PAGE`,
+`OPTED_OUT_BY_EMAIL`, `RECORDED_BY_TEAM`; null for the team's own flag, and only while `do_not_contact`), written by
+`PersonContactStop` and read by the consent register, the drawer's opt-out banner and `Person.markObjection`, never the
+reason, which is on-screen copy and, with data protection off, a consultant's free text. The backfill reads the first two
+off the reasons the person's own doors wrote with no setter, so a colleague who typed the same words keeps a plain flag.
+No new table, so no policy: the person's row-level security already covers the column.
+
 V244 is `app_lm_position_suggested_field` (#1452): for each field a document reading filled on a brief, the
 `prompt_id` and `version` that suggested it, keyed by (`position_id`, `field_key`), until the brief is published and
 each is counted once into `app_lm_platform_prompt_outcome_daily`, then deleted. `field_key` is a scalar's brief key

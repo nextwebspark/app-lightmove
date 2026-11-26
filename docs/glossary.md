@@ -59,6 +59,7 @@ changes. Copy no mockup draws — toasts, errors, banners, empty states — foll
 | **Candidate privacy** | Settings → Data & retention's card naming the firm as controller: its legal name, privacy contact, notice link and default lawful basis | controller settings, GDPR settings |
 | **Privacy footer** | the fixed lines every outreach email ends with: the firm, where the details came from, its privacy notice and Stop emails from us | unsubscribe footer, legal footer |
 | **Hidden from {client}** | a Pipeline card whose person said no to being shared, withdrew it, or is restricted: the client cannot see them whatever the switch says | blocked, suppressed |
+| **Do not contact** | the drawer's red pill. While data protection is on it records the candidate's objection, as their stop link does: every sequence stops, they join the suppression list, and only an admin lifts it there; otherwise the team's own flag | DNC, blocklisted |
 | **Opted out** | a candidate used an email's Stop emails from us, or their mail app's Unsubscribe: every sequence stopped, do not contact set, and on the suppression list | unsubscribed |
 | **Privacy page** | the public page a privacy notice links to, where a candidate objects or asks for a copy or deletion | data portal, preference centre |
 | **Consent request** | the email Uncava sends in the firm's name asking a candidate to agree to each purpose on its own, from the Candidates drawer or a selection; they answer Yes or No on their privacy page, and no answer changes nothing | consent email, opt-in request, GDPR consent |

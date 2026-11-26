@@ -21,4 +21,4 @@ public record ConsentRegisterRow(
         Instant validUntil,
         String wordingVersion,
         String wording
-) {}
+) implements ConsentRegisterLine {}
