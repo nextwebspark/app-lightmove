@@ -87,9 +87,8 @@ lightmove:
     # `log` prints the verification link straight to the console: no provider account, no cost,
     # and signup is fully testable today. Switch to `resend` when you have an API key.
     provider: log
-    # Privacy notices and consent requests leave from their own subdomain in production (#1493); blank or
-    # unset sends them from from-address.
-    # privacy-from-address: noreply@privacy.uncava.com
+    # Privacy notices and consent emails (#1493); unset sends them from from-address.
+    # privacy-from-address: privacy-mail@example.com
 
   # Candidate enrichment: a plugin-captured executive is researched automatically (experience,
   # education, skills, photo, and their employer filed into the universe). `brightdata` reads the

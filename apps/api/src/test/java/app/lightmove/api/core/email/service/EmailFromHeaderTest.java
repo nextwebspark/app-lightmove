@@ -45,4 +45,12 @@ class EmailFromHeaderTest {
 
         assertThat(header.of(hostile)).isEqualTo("\"Evil x@yBcc: a@b via Uncava\" <noreply@privacy.uncava.com>");
     }
+
+    @Test
+    @DisplayName("a backslash in a firm name is dropped, never left to start a quoted-pair")
+    void backslashInFirmNameIsSanitised() {
+        EmailMessage escaping = ACCOUNT_MAIL.onBehalfOf("Firm\\ Ltd\\", null, EmailSenderIdentity.PRIVACY);
+
+        assertThat(header.of(escaping)).isEqualTo("\"Firm Ltd via Uncava\" <noreply@privacy.uncava.com>");
+    }
 }

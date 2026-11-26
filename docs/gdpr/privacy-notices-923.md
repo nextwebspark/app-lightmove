@@ -52,7 +52,7 @@ admin picks `CONSENT` or `CONTRACT`).
   500. A single send refuses with the reason; a bulk send skips and names who it could not reach.
 - **Skipped:** no email on file, do not contact, processing restricted, suppressed, sent a notice in the last 14 days,
   or the workspace's daily cap reached (`lightmove.data-protection.privacy-notices-per-day`, 500).
-- **The email** goes through Uncava's own sender (Resend), shown as "{firm} via Uncava" from `EMAIL_PRIVACY_FROM` (#1493; `EMAIL_FROM` while that is blank), with
+- **The email** goes through Uncava's own sender (Resend), shown as "{firm} via Uncava" from `EMAIL_PRIVACY_FROM` (#1493; blank, so `EMAIL_FROM`), with
   `reply_to` the firm's privacy contact. It names the firm as controller, where the details came from
   (`PrivacyNoticeWording`, by the person's first door), the basis, the firm's notice link, and a button to the person's
   page. It is sent after the transaction commits, off the request thread (`PrivacyNoticeMailer`, an `@Async`
@@ -182,9 +182,10 @@ The person's new columns are exported with the rest of their record.
   (`governance-decisions.md` B2). Nothing sends one automatically today.
 - Consent per purpose and share-with-client: built as #1267 phases 2 and 3, in
   [consent-requests-1267.md](consent-requests-1267.md).
-- The dedicated sending subdomain (#1493, B15) is built: every email `EmailRenderer.renderOnBehalfOf` renders (notice,
-  consent request, share request, renewal, confirmation) leaves from `EMAIL_PRIVACY_FROM`. It is blank until Resend
-  verifies `privacy.uncava.com` (README, "Custom domain"), and until then privacy mail still leaves from `EMAIL_FROM`.
+- A separate sending address for privacy mail (#1493, B15) is built but not used: every email
+  `EmailRenderer.renderPrivacyMail` renders (notice, consent request, share request, renewal, confirmation) leaves
+  from `EMAIL_PRIVACY_FROM`, which is left blank, so they leave from `noreply@uncava.com`. That is one domain shared
+  with sign-in mail, by decision of 2026-11-26 (`governance-decisions.md` B15).
 - A consent basis with no consent recorded only warns (#1267, `governance-decisions.md` B7); nothing is blocked on it.
 
 ## Testing locally

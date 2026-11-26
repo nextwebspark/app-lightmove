@@ -248,8 +248,8 @@ Done. Three things remain, and all three are deliberately manual.
 
      EMAIL_PROVIDER            'resend' once a sending domain is verified (default: 'log')
      EMAIL_FROM                noreply@<your-domain>
-     EMAIL_PRIVACY_FROM        noreply@privacy.<your-domain>, once that subdomain is verified in Resend
-                               (privacy notices and consent requests; blank: EMAIL_FROM)
+     EMAIL_PRIVACY_FROM        a separate sender for privacy notices and consent emails, on a domain verified
+                               in Resend (blank: EMAIL_FROM)
      PUBLIC_BASE_URL           https://<custom domain>, once one is mapped (README, "Custom domain")
      GOOGLE_OAUTH_CLIENT_ID    enables the "Continue with Google" button
      TRUSTED_PROXY_COUNT       see the README — measure it, do not guess it (default: 0)

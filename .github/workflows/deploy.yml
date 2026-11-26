@@ -229,7 +229,6 @@ jobs:
           MCP_ALLOWED_ORIGINS: ${{ vars.MCP_ALLOWED_ORIGINS }}
           GCP_RUNTIME_SA: ${{ vars.GCP_RUNTIME_SA }}
           EMAIL_FROM: ${{ vars.EMAIL_FROM || 'noreply@uncava.com' }}
-          # Blank until Resend shows the privacy subdomain verified; privacy mail then leaves from EMAIL_FROM (#1493).
           EMAIL_PRIVACY_FROM: ${{ vars.EMAIL_PRIVACY_FROM }}
           AUTO_VERIFY_EMAIL: ${{ vars.AUTO_VERIFY_EMAIL || 'false' }}
           RATE_LIMIT_ENABLED: ${{ vars.RATE_LIMIT_ENABLED || 'true' }}

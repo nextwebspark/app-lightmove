@@ -6,6 +6,8 @@ import app.lightmove.api.core.config.AuthSettings;
 import app.lightmove.api.core.config.LightMoveProperties;
 import app.lightmove.api.core.security.TestAuthSettings;
 import app.lightmove.api.core.config.WebSettings;
+import app.lightmove.api.core.email.constant.EmailSenderIdentity;
+import app.lightmove.api.core.email.constant.PrivacyRequestEmailKind;
 import app.lightmove.api.core.email.model.EmailMessage;
 import java.time.Duration;
 import java.util.List;
@@ -110,6 +112,51 @@ class EmailTemplatesTest {
     private EmailMessage secretExpiryEmail(long daysLeft) {
         return templates.buildIntegrationSecretExpiryEmail("n@x.ae", "Nadia Rahman", "Alac Partners",
                 "Microsoft 365", "15 March 2031", daysLeft, BASE_URL + "/settings/integrations");
+    }
+
+    @Test
+    @DisplayName("every notice, consent request, share request, renewal and confirmation is privacy mail (#1493)")
+    void privacyMailTypesPickThePrivacySender() {
+        String firm = "Meridian Search";
+        String replyTo = "privacy@firm.example";
+        String notice = "https://firm.example/privacy";
+        List<EmailMessage> privacyMail = List.of(
+                templates.buildPrivacyNoticeEmail("dana@x.ae", firm, replyTo, "LinkedIn", "legitimate interests",
+                        LINK, notice),
+                templates.buildConsentRequestEmail("dana@x.ae", "Dana Haddad", firm, replyTo, "LinkedIn",
+                        List.of("keep your details on file for future roles"), LINK, notice, "12 December 2026"),
+                templates.buildShareConsentRequestEmail("dana@x.ae", "Dana Haddad", firm, replyTo, "LinkedIn",
+                        "Group CFO", null, LINK, notice, "12 December 2026"),
+                templates.buildConsentRenewalEmail("dana@x.ae", "Dana Haddad", firm, replyTo, "1 December 2024",
+                        "1 December 2026", 24, LINK, notice, "1 December 2026"),
+                templates.buildConsentConfirmationEmail("dana@x.ae", "Dana Haddad", firm, replyTo,
+                        "26 November 2026", List.of("Keep on file: yes"), LINK, "26 November 2027", notice));
+
+        assertThat(privacyMail).allSatisfy(message -> {
+            assertThat(message.senderIdentity()).isEqualTo(EmailSenderIdentity.PRIVACY);
+            assertThat(message.senderName()).isEqualTo(firm);
+            assertThat(message.replyTo()).isEqualTo(replyTo);
+        });
+    }
+
+    @Test
+    @DisplayName("sign-in, invitation, admin alerts and the sub-processor notice stay on the account sender (#1493)")
+    void accountMailStaysOnTheAccountSender() {
+        List<EmailMessage> accountMail = List.of(
+                templates.buildVerificationEmail("nadia@x.ae", "Nadia Rahman", LINK),
+                templates.buildPasswordResetEmail("nadia@x.ae", "Nadia Rahman", LINK),
+                templates.buildInvitationEmail("nadia@x.ae", "Alok Sharma", "Meridian", "MEMBER", LINK),
+                templates.buildPrivacyRequestEmail("nadia@x.ae", "Nadia Rahman", "Dana Haddad",
+                        PrivacyRequestEmailKind.OBJECTION, LINK),
+                templates.buildObjectionRecordedEmail("nadia@x.ae", "Nadia Rahman", "Alok Sharma", "Dana Haddad",
+                        LINK),
+                templates.buildSubprocessorNoticeEmail("nadia@x.ae", "Nadia Rahman", "Meridian", "Acme Mail",
+                        "Email addresses", "Delivery", "United States", "1 January 2027", LINK, LINK));
+
+        assertThat(accountMail).allSatisfy(message -> {
+            assertThat(message.senderIdentity()).isEqualTo(EmailSenderIdentity.ACCOUNT);
+            assertThat(message.senderName()).isNull();
+        });
     }
 
     private List<EmailMessage> everyEmail() {

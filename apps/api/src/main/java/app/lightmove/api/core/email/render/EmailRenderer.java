@@ -42,12 +42,12 @@ public class EmailRenderer {
     }
 
     /**
-     * An email a firm sends through Uncava (a privacy notice, #923): the firm's name heads it in place of Uncava's
-     * mark, the footer says Uncava carried it and links Uncava's own notice to the executive once one is published
-     * (#1490), and a reply goes to the firm. It leaves from the privacy sending address (#1493).
+     * Privacy mail a firm sends through Uncava (a notice, #923, or a consent email): the firm's name heads it in place
+     * of Uncava's mark, the footer says Uncava carried it and links Uncava's own notice to the executive once one is
+     * published (#1490), a reply goes to the firm, and it leaves from the privacy sending address (#1493).
      */
-    public EmailMessage renderOnBehalfOf(String recipient, String subject, EmailContent content, String firm,
-                                         String replyTo) {
+    public EmailMessage renderPrivacyMail(String recipient, String subject, EmailContent content, String firm,
+                                          String replyTo) {
         return new EmailMessage(recipient, subject, html(content, firm), text(content, firm))
                 .onBehalfOf(firm, replyTo, EmailSenderIdentity.PRIVACY);
     }

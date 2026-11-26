@@ -1,7 +1,7 @@
 package app.lightmove.api.core.email.service;
-import app.lightmove.api.core.email.model.EmailMessage;
 
 import app.lightmove.api.core.config.EmailSettings;
+import app.lightmove.api.core.email.model.EmailMessage;
 import lombok.extern.slf4j.Slf4j;
 
 /**

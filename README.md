@@ -405,19 +405,12 @@ Transactional mail is sent as `noreply@uncava.com`, which means `uncava.com` ver
 DKIM and SPF records and a `_dmarc` TXT live in Cloudflare next to the CNAME, and the `EMAIL_FROM`
 variable names the address.
 
-Privacy notices and consent requests (`EmailRenderer.renderOnBehalfOf`) leave from a second identity,
-`noreply@privacy.uncava.com` (#1493), so complaints about a bulk batch of notices never touch the
-reputation of the domain that carries sign-in links, invitations and resets. The firm stays in the display
-name and its privacy contact stays the Reply-To. Setting it up:
-
-1. Resend → Domains → add `privacy.uncava.com`.
-2. Cloudflare, DNS only: the MX and SPF TXT on `send.privacy`, the DKIM TXT on `resend._domainkey.privacy`
-   (values as Resend shows them), and a `_dmarc.privacy` TXT with the same policy as `uncava.com`'s.
-3. Once Resend shows the domain **Verified**, set the `EMAIL_PRIVACY_FROM` repository variable to
-   `noreply@privacy.uncava.com` and deploy. Until then it is blank and privacy mail leaves from `EMAIL_FROM`:
-   Resend refuses a sender on a domain it has not verified.
-4. Send one notice and one password reset, and check their headers: the notice's `From` and DKIM `d=`
-   name `privacy.uncava.com`, the reset's name `uncava.com`.
+Privacy notices and consent emails (`EmailRenderer.renderPrivacyMail`) have a sending address of their own,
+`EMAIL_PRIVACY_FROM` (#1493). It is deliberately left blank, so they leave from `noreply@uncava.com` like
+everything else: one domain, no subdomain (decided 2026-11-26, `governance-decisions.md` B15). The firm stays in
+the display name and its privacy contact stays the Reply-To. To split them onto their own domain later, add that
+domain in Resend, add its DNS records in Cloudflare, and set the variable once Resend shows it verified. Resend
+refuses a sender on a domain it has not verified.
 
 ### Warm hours
 
