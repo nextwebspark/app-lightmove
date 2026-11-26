@@ -126,7 +126,7 @@ class EmailAddressValidatorTest {
     private static EmailAddressValidator validatorWith(EmailValidationSettings validation) {
         return new EmailAddressValidator(new LightMoveProperties(
                 null,
-                new EmailSettings("log", "LightMove", "noreply@lightmove.app", null, validation),
+                new EmailSettings("log", "LightMove", "noreply@lightmove.app", null, null, validation),
                 null,
                 null,
                 null,

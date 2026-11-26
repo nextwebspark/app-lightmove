@@ -37,6 +37,8 @@ Each is a row of [governance-decisions.md](governance-decisions.md) (B7–B11) f
   already given beyond the renewal window (`already_given`), or when it was asked, or declined or withdrawn, in the
   last 14 days (`recently_asked`) — whether or not that request is still open. Requests and privacy notices share one daily budget and one lock (`PrivacyEmailBudget`).
   The email carries the notice's facts, so it marks the person told (`PRIVACY_EMAIL`).
+  Every consent email (request, share request, renewal, confirmation) leaves from the privacy sending address,
+  `EMAIL_PRIVACY_FROM` on `privacy.uncava.com` (#1493), never the account one.
 - **A refused send** is undone by `ConsentRequestMailer`: a purpose the request created is deleted, any other put back
   as it stood (only while the row is still that request's: an answer recorded by hand or a newer request since stands), the person no longer marked told, `CONSENT_REQUEST_FAILED` on the timeline and a failed audit event.
 - **Answering** (`PrivacyPageService.answer`): on a `CONSENT` link, `given` or `declined` while the request is open; on

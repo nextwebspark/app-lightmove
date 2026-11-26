@@ -198,7 +198,8 @@ its siblings do nothing and the server looks unthrottled. Override with the prop
 **Real email** needs Resend *and a verified domain*. Until a domain is verified, Resend delivers only to
 the address your Resend account is registered under and 403s everything else — whatever `from` you set
 (`onboarding@resend.dev` does not lift this). Verify at [resend.com/domains](https://resend.com/domains),
-set `from-address` on that domain, then `provider: resend` plus the key. A failed send does not roll back
+set `from-address` on that domain, then `provider: resend` plus the key. `privacy-from-address`
+(`EMAIL_PRIVACY_FROM`) is optional; blank sends privacy mail from `from-address` too. A failed send does not roll back
 the signup, but the verification token is stored **hashed**, so a link that fails to send is
 unrecoverable — use `/auth/verify/resend`.
 
@@ -403,6 +404,20 @@ signs in again on the new host. Old email links still land — the redirect keep
 Transactional mail is sent as `noreply@uncava.com`, which means `uncava.com` verified in Resend: its
 DKIM and SPF records and a `_dmarc` TXT live in Cloudflare next to the CNAME, and the `EMAIL_FROM`
 variable names the address.
+
+Privacy notices and consent requests (`EmailRenderer.renderOnBehalfOf`) leave from a second identity,
+`noreply@privacy.uncava.com` (#1493), so complaints about a bulk batch of notices never touch the
+reputation of the domain that carries sign-in links, invitations and resets. The firm stays in the display
+name and its privacy contact stays the Reply-To. Setting it up:
+
+1. Resend → Domains → add `privacy.uncava.com`.
+2. Cloudflare, DNS only: the MX and SPF TXT on `send.privacy`, the DKIM TXT on `resend._domainkey.privacy`
+   (values as Resend shows them), and a `_dmarc.privacy` TXT with the same policy as `uncava.com`'s.
+3. Once Resend shows the domain **Verified**, set the `EMAIL_PRIVACY_FROM` repository variable to
+   `noreply@privacy.uncava.com` and deploy. Until then it is blank and privacy mail leaves from `EMAIL_FROM`:
+   Resend refuses a sender on a domain it has not verified.
+4. Send one notice and one password reset, and check their headers: the notice's `From` and DKIM `d=`
+   name `privacy.uncava.com`, the reset's name `uncava.com`.
 
 ### Warm hours
 

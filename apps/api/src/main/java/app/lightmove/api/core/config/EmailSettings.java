@@ -14,6 +14,19 @@ public record EmailSettings(
         @DefaultValue("resend") String provider,
         @DefaultValue("Uncava") String fromName,
         @DefaultValue("noreply@uncava.com") String fromAddress,
+        /**
+         * Privacy notices and consent requests leave from here (#1493), on a subdomain of its own. Blank means
+         * {@code fromAddress}: Resend refuses a sender on a domain it has not verified, so the variable is set only
+         * once the subdomain is.
+         */
+        String privacyFromAddress,
         ResendSettings resend,
         EmailValidationSettings validation
-) {}
+) {
+
+    public EmailSettings {
+        if (privacyFromAddress == null || privacyFromAddress.isBlank()) {
+            privacyFromAddress = fromAddress;
+        }
+    }
+}
