@@ -168,6 +168,11 @@ public class NotificationEmails {
         };
         if (privacyRequest != null && row.getPersonId() != null) {
             String record = "%s/candidates?person=%s".formatted(properties.web().baseUrl(), row.getPersonId());
+            // An objection with an actor is a colleague's record of it (B16), not the person on their privacy page.
+            if (privacyRequest == PrivacyRequestEmailKind.OBJECTION && row.getActorUserId() != null) {
+                return Optional.of(templates.buildObjectionRecordedEmail(to.getEmail(), to.getFullName(), actorName,
+                        executive, record));
+            }
             return Optional.of(templates.buildPrivacyRequestEmail(to.getEmail(), to.getFullName(), executive,
                     privacyRequest, record));
         }

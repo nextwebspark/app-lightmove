@@ -7,6 +7,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import app.lightmove.api.FixtureJdbc;
 import app.lightmove.api.FlowTestSupport;
 import app.lightmove.api.IntegrationTest;
 import app.lightmove.api.candidate.service.ConsentExpiryScanner;
@@ -17,6 +18,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
@@ -26,6 +28,7 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
 class DataProtectionSwitchedOffIntegrationTest extends FlowTestSupport {
 
     @Autowired ApplicationContext context;
+    @Autowired @FixtureJdbc JdbcTemplate db;
 
     @Test
     @DisplayName("the config says so, and the list, erasure, export, restriction and retention routes answer an admin 404")
@@ -88,5 +91,40 @@ class DataProtectionSwitchedOffIntegrationTest extends FlowTestSupport {
                             .contentType(MediaType.APPLICATION_JSON))
                     .andExpect(status().isNotFound()).andReturn())).isEqualTo("NOT_FOUND");
         }
+    }
+
+    @Test
+    @DisplayName("Do not contact stays the team's own flag: its reason kept, nobody suppressed, and it clears")
+    void doNotContactIsTheTeamsFlag() throws Exception {
+        String address = "flag@" + domain;
+        String workspace = createWorkspace(verifiedUser("Alok Kumar", address), "Flag Firm");
+        String admin = login(address);
+        String clientId = body(mvc.perform(post("/api/v1/clients").header("Authorization", "Bearer " + admin)
+                .contentType(MediaType.APPLICATION_JSON).content("{\"customName\":\"Finance Unit\"}"))
+                .andReturn()).get("id").asText();
+        String position = body(mvc.perform(post("/api/v1/projects").header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON).content("""
+                                {"clientId":"%s","positionTitle":"Chief Financial Officer"}""".formatted(clientId)))
+                .andExpect(status().isCreated()).andReturn()).get("id").asText();
+        String person = body(mvc.perform(post("/api/v1/projects/" + position + "/candidates")
+                        .header("Authorization", "Bearer " + admin).contentType(MediaType.APPLICATION_JSON).content("""
+                                {"fullName":"Noor Haddad","linkedinUrl":"https://www.linkedin.com/in/noor-haddad/"}"""))
+                .andExpect(status().isCreated()).andReturn()).get("personId").asText();
+
+        for (boolean doNotContact : List.of(true, false)) {
+            mvc.perform(put("/api/v1/candidates/" + person + "/do-not-contact")
+                            .header("Authorization", "Bearer " + admin).contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                    {"doNotContact":%s,"reason":"Works at the client"}""".formatted(doNotContact)))
+                    .andExpect(status().isOk());
+            if (doNotContact) {
+                assertThat(db.queryForObject("select do_not_contact_reason from app_lm_person where id = ?::uuid",
+                        String.class, person)).isEqualTo("Works at the client");
+            }
+        }
+        assertThat(db.queryForObject("select do_not_contact from app_lm_person where id = ?::uuid", Boolean.class,
+                person)).isFalse();
+        assertThat(db.queryForObject("select count(*) from app_lm_workspace_suppression where workspace_id = ?::uuid",
+                Long.class, workspace)).isZero();
     }
 }

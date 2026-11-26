@@ -559,7 +559,35 @@ describe("CandidatesPage", () => {
     expect(within(dialog).queryByRole("radio", { name: /Chief Financial Officer/ })).not.toBeInTheDocument();
   });
 
-  it("opens a person's drawer and marks them do not contact", async () => {
+  it("marks a person do not contact as their objection, after asking, while data protection is on", async () => {
+    const marked: PersonRecord = {
+      ...record,
+      doNotContact: {
+        reason: "Objected when contacted, recorded by the team",
+        setByUserId: "u1",
+        setByName: "Alok Kumar",
+        setAt: "2026-09-22T17:05:00Z",
+      },
+    };
+    vi.mocked(poolApi.setDoNotContact).mockResolvedValue(marked);
+    vi.mocked(poolApi.getPerson).mockResolvedValueOnce(record).mockResolvedValue(marked);
+    renderPage("/candidates?person=person-1");
+
+    expect(await screen.findByRole("heading", { name: "Fatima Al Mazrouei" })).toBeInTheDocument();
+    await waitFor(() => expect(dataProtectionApi.getDataProtectionConfig).toHaveBeenCalled());
+    await userEvent.click(await screen.findByRole("button", { name: "Do not contact" }));
+    const dialog = await screen.findByRole("dialog", { name: "Mark Fatima Al Mazrouei do not contact?" });
+    expect(dialog).toHaveTextContent("they join the suppression list");
+    expect(poolApi.setDoNotContact).not.toHaveBeenCalled();
+
+    await userEvent.click(within(dialog).getByRole("button", { name: "Mark do not contact" }));
+
+    await waitFor(() => expect(poolApi.setDoNotContact).toHaveBeenCalledWith("person-1", true));
+    expect(await screen.findByRole("note")).toHaveTextContent("Objected when contacted, recorded by the team");
+  });
+
+  it("marks a person do not contact at once, with the team's reason, while data protection is off", async () => {
+    vi.mocked(dataProtectionApi.getDataProtectionConfig).mockResolvedValue({ enabled: false });
     const marked: PersonRecord = {
       ...record,
       doNotContact: {
@@ -574,11 +602,13 @@ describe("CandidatesPage", () => {
     renderPage("/candidates?person=person-1");
 
     expect(await screen.findByRole("heading", { name: "Fatima Al Mazrouei" })).toBeInTheDocument();
+    await waitFor(() => expect(dataProtectionApi.getDataProtectionConfig).toHaveBeenCalled());
     await userEvent.click(screen.getByRole("button", { name: "Do not contact" }));
 
     await waitFor(() =>
       expect(poolApi.setDoNotContact).toHaveBeenCalledWith("person-1", true, "Marked from the candidate drawer."),
     );
+    expect(screen.queryByRole("dialog", { name: /do not contact\?/ })).not.toBeInTheDocument();
     expect(await screen.findByRole("note")).toHaveTextContent("Set by Alok Kumar");
   });
 

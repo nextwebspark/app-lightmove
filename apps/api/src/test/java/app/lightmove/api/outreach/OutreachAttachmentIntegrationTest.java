@@ -186,7 +186,7 @@ class OutreachAttachmentIntegrationTest extends FlowTestSupport {
         sendExpecting(status().isConflict(), message(List.of()), pdf("files", "Brief.pdf", "refused"));
         assertThat(attachmentRows()).isZero();
         jdbc.update("update app_lm_person set do_not_contact = false, do_not_contact_reason = null, "
-                + "do_not_contact_set_by = null, do_not_contact_set_at = null where id = "
+                + "do_not_contact_source = null, do_not_contact_set_by = null, do_not_contact_set_at = null where id = "
                 + "(select person_id from app_lm_project_candidate where id = ?::uuid)", priya);
 
         String later = Instant.now().plus(Duration.ofHours(2)).toString();

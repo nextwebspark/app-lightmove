@@ -458,6 +458,13 @@ public enum ErrorCode {
     PERSON_RESEARCH_REFRESHING(HttpStatus.CONFLICT,
             "Their research is already being refreshed. Give it a few minutes"),
 
+    /**
+     * Clearing do not contact on someone who objected while their suppression entries stand (B16): outreach does not
+     * read the list, so clearing would reopen contact. An admin removes the entries in Settings first.
+     */
+    PERSON_OBJECTION_HELD(HttpStatus.CONFLICT,
+            "They objected to being contacted. An admin can lift that from the suppression list in Settings"),
+
     /** A LinkedIn profile or email the workspace's suppression list holds: nobody may file that person again. */
     PERSON_SUPPRESSED(HttpStatus.CONFLICT,
             "This person is on your workspace's suppression list, so they can't be added"),
