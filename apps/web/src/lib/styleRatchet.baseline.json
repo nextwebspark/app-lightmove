@@ -110,7 +110,7 @@
   },
   "features/candidates/components/documents/DocumentsPanel.tsx": {
     "arbitraryRadius": 7,
-    "arbitraryText": 18
+    "arbitraryText": 14
   },
   "features/candidates/components/NoteParts.tsx": {
     "arbitraryText": 8,
@@ -142,7 +142,7 @@
   },
   "features/candidates/components/pool/PersonNotesTab.tsx": {
     "arbitraryRadius": 1,
-    "arbitraryText": 3
+    "arbitraryText": 2
   },
   "features/candidates/components/pool/PersonProfileTab.tsx": {
     "arbitraryText": 1

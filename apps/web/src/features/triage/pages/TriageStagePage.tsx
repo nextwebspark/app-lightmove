@@ -205,6 +205,7 @@ function TriageStage() {
   const lineSelection = useLineSelection(TICKED_LINES_CAP);
   /** The companies Find executives opened on; null while its panel is closed. */
   const [findingAt, setFindingAt] = useState<{ scope: readonly string[]; search: boolean } | null>(null);
+  const [recordBarSlot, setRecordBarSlot] = useState<HTMLDivElement | null>(null);
   const [enrolment, setEnrolment] = useState<Enrolment | null>(null);
   const [pipelineSelection, setPipelineSelection] = useState<ReadonlySet<string>>(() => new Set());
   const [managingColumns, setManagingColumns] = useState(false);
@@ -867,12 +868,6 @@ function TriageStage() {
     });
 
   const enrolTicked = () => {
-    if (isRecordView) {
-      const open = profile?.candidate;
-      if (!open) return;
-      setEnrolment({ scope: { candidateIds: [open.id] }, source: `From ${open.fullName}'s record` });
-      return;
-    }
     if (view === "pipeline") {
       const ids = [...pipelineSelection];
       setEnrolment({
@@ -891,7 +886,6 @@ function TriageStage() {
   /** The toolbar's Add to sequence, greyed with the way in until something is ticked; the map ticks nothing. */
   const toolbarEnrolUnavailable = (): UnavailableAction | undefined => {
     if (view === "map") return { reason: "Add to sequence from Table or Pipeline" };
-    if (isRecordView) return profile?.candidate ? undefined : { reason: "Open an executive first" };
     if (view === "pipeline") {
       return pipelineSelection.size > 0 ? undefined : { reason: "Tick executives on the board first" };
     }
@@ -1097,16 +1091,16 @@ function TriageStage() {
         view={view}
         onViewChange={handleViewChange}
         addToSequence={
-          addToSequenceOffered
+          addToSequenceOffered && !isRecordView
             ? {
                 onPress: enrolTicked,
                 unavailable: toolbarEnrolUnavailable(),
-                count: isRecordView ? undefined : view === "pipeline" ? pipelineSelection.size : lineSelection.candidateIds.length,
+                count: view === "pipeline" ? pipelineSelection.size : lineSelection.candidateIds.length,
               }
             : undefined
         }
         create={
-          canWrite && !isBoard && !declinedStage
+          canWrite && !isBoard && !isRecordView && !declinedStage
             ? {
                 onAddExecutive: () => setProfile({ candidate: null, company: null }),
                 onAddCompany: () => setAddingCompany(true),
@@ -1114,7 +1108,7 @@ function TriageStage() {
             : undefined
         }
         findExecutives={
-          findExecutivesOffered && !isBoard
+          findExecutivesOffered && !isBoard && !isRecordView
             ? {
                 onPress: handleFindExecutives,
                 state: sourcing.button,
@@ -1124,11 +1118,16 @@ function TriageStage() {
               }
             : undefined
         }
-        advanced={isBoard ? undefined : advancedSections()}
+        advanced={isBoard || isRecordView ? undefined : advancedSections()}
         advancedDot={
           view === "table" && hiddenColumnCount > 0
             ? `${hiddenColumnCount} column${hiddenColumnCount === 1 ? "" : "s"} hidden`
             : undefined
+        }
+        trailing={
+          isRecordView ? (
+            <div ref={setRecordBarSlot} role="group" aria-label="Record steps" className="flex items-center gap-0.5" />
+          ) : undefined
         }
       />
 
@@ -1180,7 +1179,7 @@ function TriageStage() {
               {...recordProps}
               open
               frame="page"
-              stepper={stepper && { ...stepper, lead: listButton }}
+              stepper={stepper && { ...stepper, lead: listButton, bar: { slot: recordBarSlot } }}
               onOpenCompany={profileCompanyRow ? () => openCompany(profileCompanyRow) : undefined}
               clientVisibility={(candidate, onSaved) => (
                 <ClientVisibleSwitch

@@ -37,6 +37,7 @@ export function TriageToolbar({
   create,
   advanced,
   advancedDot,
+  trailing,
 }: {
   search: string;
   onSearch: (search: string) => void;
@@ -63,6 +64,8 @@ export function TriageToolbar({
   advanced?: AdvancedMenuSection[];
   /** Says a setting inside Advanced is on, such as hidden columns. */
   advancedDot?: string;
+  /** Drawn at the row's end after every action: the Executives view's record bar. */
+  trailing?: ReactNode;
 }) {
   const groups = [
     {
@@ -142,6 +145,7 @@ export function TriageToolbar({
             {group.node}
           </Fragment>
         ))}
+        {trailing}
       </div>
     </div>
   );

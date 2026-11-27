@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { Icon, ICONS } from "../../../components/layout/Icon";
-import { DetailBlock, DetailRow } from "../../../components/ui/DetailList";
+import { DetailBlock } from "../../../components/ui/DetailList";
 import { cn } from "../../../lib/cn";
 import { formatInstantDate } from "../../../lib/format";
 import { toBrowsableUrl } from "../../../lib/url";
@@ -11,6 +11,8 @@ import type { Candidate, LastCall, PersonRecord } from "../api/types";
 import { CANDIDATE_SOURCE_STYLES } from "../lib/candidateVocabulary";
 import { pipelineSwatchClass } from "../lib/pipelineStatus";
 import { PersonTagsSection } from "./PersonTagsSection";
+
+const BLOCK = "gap-1.5 pt-3.5";
 
 /**
  * The record full page's Details rail (`PositionExecutiveRail.dc.html`): what holds on every tab, so the header keeps
@@ -54,15 +56,20 @@ export function RecordDetailsRail({
       aria-label="Details"
       className="hidden w-80 flex-none flex-col border-s border-u-border bg-u-bg xl:flex"
     >
-      <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-5 pb-6 pt-1 [&>section:first-child]:border-t-0">
-        <DetailBlock title="Status">
+      <div className="flex min-h-0 flex-1 flex-col gap-3.5 overflow-y-auto px-5 pb-4 pt-1 [&>section:first-child]:border-t-0">
+        <DetailBlock title="Status" className={BLOCK}>
           <div className="flex min-w-0 flex-col items-start gap-1.5">{status}</div>
         </DetailBlock>
 
-        {nextAction && <DetailBlock title="Next action">{nextAction}</DetailBlock>}
+        {nextAction && (
+          <DetailBlock title="Next action" className={BLOCK}>
+            {nextAction}
+          </DetailBlock>
+        )}
 
         <DetailBlock
           title="Contact"
+          className={BLOCK}
           aside={
             onEditContacts && (
               <button
@@ -70,25 +77,31 @@ export function RecordDetailsRail({
                 aria-label="Edit contact details"
                 title="Edit contact details"
                 onClick={onEditContacts}
-                className="flex rounded-md p-1.5 text-u-text3 transition hover:bg-u-raised hover:text-u-text"
+                className="-my-1 flex rounded-md p-1 text-u-text3 transition hover:bg-u-raised hover:text-u-text"
               >
                 <Icon d={ICONS.pencil} size={13} />
               </button>
             )
           }
         >
-          <ContactChannels contacts={candidate.contacts} reach={reach} lastCall={lastCall} />
+          <ContactChannels
+            contacts={candidate.contacts}
+            reach={reach}
+            lastCall={lastCall}
+            onAddMissing={onEditContacts}
+            dense
+          />
         </DetailBlock>
 
         {canWrite && person && (
-          <DetailBlock title="Tags">
+          <DetailBlock title="Tags" className={BLOCK}>
             <PersonTagsSection person={person} />
           </DetailBlock>
         )}
 
         {/* Staff only: whether the client sees them, and the mandates a client seat may not know of. */}
         {canWrite && (
-          <DetailBlock title="Process">
+          <DetailBlock title="Process" className={BLOCK}>
             {clientVisibility}
             {otherPositions.length > 0 && (
               <div className="mt-2">
@@ -122,19 +135,17 @@ export function RecordDetailsRail({
           </DetailBlock>
         )}
 
-        <DetailBlock title="Record">
-          {canWrite && person?.addedByName && <DetailRow label="Added by">{person.addedByName}</DetailRow>}
-          <DetailRow label="Added" mono>
-            {formatInstantDate(candidate.addedAt)}
-          </DetailRow>
-          <DetailRow label="Source">{CANDIDATE_SOURCE_STYLES[candidate.source]?.label ?? "—"}</DetailRow>
-          {candidate.enrichedAt && (
-            <DetailRow label="Researched" mono>
-              {formatInstantDate(candidate.enrichedAt)}
-            </DetailRow>
-          )}
+        <section aria-label="Record" className="border-t border-u-border pt-3 font-mono text-meta text-u-text3">
+          {[
+            `Added ${formatInstantDate(candidate.addedAt)}${canWrite && person?.addedByName ? ` by ${person.addedByName}` : ""}`,
+            CANDIDATE_SOURCE_STYLES[candidate.source]?.label,
+            candidate.enrichedAt && `Researched ${formatInstantDate(candidate.enrichedAt)}`,
+          ]
+            .filter(Boolean)
+            .join(" · ")}
           {capturedFrom && (
-            <DetailRow label="Captured from">
+            <>
+              {" · "}
               <a
                 href={capturedFrom}
                 target="_blank"
@@ -143,9 +154,9 @@ export function RecordDetailsRail({
               >
                 {new URL(capturedFrom).hostname}
               </a>
-            </DetailRow>
+            </>
           )}
-        </DetailBlock>
+        </section>
       </div>
       {actions && <div className="flex-none border-t border-u-border bg-u-bg px-5 py-3">{actions}</div>}
     </aside>

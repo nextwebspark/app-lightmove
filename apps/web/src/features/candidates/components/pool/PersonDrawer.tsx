@@ -24,6 +24,7 @@ import { NextActionModal, type NextActionTarget } from "../../../tasks/component
 import { PersonHeaderLayout } from "../ProfileParts";
 import { PersonAvatar } from "./PersonAvatar";
 import { PersonNotesTab } from "./PersonNotesTab";
+import { DocumentsPanel } from "../documents/DocumentsPanel";
 import { PersonProfileTab } from "./PersonProfileTab";
 import { ActivityTimeline } from "../activity/ActivityTimeline";
 import { ContactsReadDialog } from "../../../contactlookup/components/ContactsReadDialog";
@@ -430,12 +431,20 @@ function PersonDrawerBody({
           onChange={onTabChange}
           counts={{
             notes: notes.data?.filter((note) => !isContactNote(note.kind)).length,
+            documents: documents.documents.data?.length || undefined,
             positions: person.positions.length,
           }}
         />
       </header>
 
-      <div key={tab} className="min-h-0 flex-1 overflow-y-auto px-5" {...tabPanelProps(TAB_ID_PREFIX, tab)}>
+      <div
+        key={tab}
+        onDragEnter={(event) => {
+          if (tab !== "documents" && event.dataTransfer.types.includes("Files")) onTabChange("documents");
+        }}
+        className="min-h-0 flex-1 overflow-y-auto px-5"
+        {...tabPanelProps(TAB_ID_PREFIX, tab)}
+      >
         {tab === "profile" && (
           <div className="py-4">
             {dataProtection && (
@@ -449,11 +458,15 @@ function PersonDrawerBody({
                 onRecordConsent={() => setRecordingConsent(true)}
               />
             )}
-            <PersonProfileTab
-              person={person}
-              sections={sections}
+            <PersonProfileTab person={person} sections={sections} />
+          </div>
+        )}
+        {tab === "documents" && (
+          <div className="h-full py-4">
+            <DocumentsPanel
+              scope={documentScope}
               documents={documents}
-              documentScope={documentScope}
+              personName={person.fullName.split(" ")[0]}
               onPreview={openPreview}
             />
           </div>

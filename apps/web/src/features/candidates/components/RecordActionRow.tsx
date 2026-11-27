@@ -18,7 +18,7 @@ const LOGS: readonly { kind: LoggedKind; label: string }[] = [
 /**
  * The record full page's actions (`PositionExecutiveDrawer.dc.html`, page): what a researcher does most, out of the
  * peek's footer ⋯ and its Outreach tab, one click away. Write email shows why it is held. `rail` stacks them in two
- * lines for the Details rail's fixed foot: Write email across, then the rest.
+ * lines for the Details rail's fixed foot: the two outreach actions, then the rest.
  */
 export function RecordActionRow({
   emailHeldBy,
@@ -62,19 +62,38 @@ export function RecordActionRow({
         className,
       )}
     >
-      {onWriteEmail && (
-        // A disabled button shows no tooltip, so the reason sits on its wrapper.
-        <span title={emailHeldBy} className={isRail ? "col-span-3" : undefined}>
-          <Button
-            size="xs"
-            className={isRail ? "w-full" : undefined}
-            disabled={emailHeldBy !== undefined}
-            onClick={onWriteEmail}
-          >
-            <Icon d={ICONS.mail} size={13} />
-            Write email
-          </Button>
-        </span>
+      {(onWriteEmail || onAddToSequence) && (
+        <div className={isRail ? "col-span-3 grid grid-cols-2 gap-2" : "contents"}>
+          {onWriteEmail && (
+            // A disabled button shows no tooltip, so the reason sits on its wrapper.
+            <span title={emailHeldBy} className={isRail ? "only:col-span-2" : undefined}>
+              <Button
+                size="xs"
+                className={cn("whitespace-nowrap", isRail && "w-full")}
+                disabled={emailHeldBy !== undefined}
+                onClick={onWriteEmail}
+              >
+                <Icon d={ICONS.mail} size={13} />
+                Write email
+              </Button>
+            </span>
+          )}
+          {onAddToSequence && (
+            <span title={sequenceHeldBy ?? "Add to sequence"} className={isRail ? "only:col-span-2" : undefined}>
+              <Button
+                variant="secondary"
+                size="xs"
+                aria-label="Add to sequence"
+                className={cn("whitespace-nowrap", isRail && "w-full")}
+                disabled={Boolean(sequenceHeldBy)}
+                onClick={onAddToSequence}
+              >
+                <Icon d={ICONS.outreach} size={13} />
+                Sequence
+              </Button>
+            </span>
+          )}
+        </div>
       )}
       <Button variant="secondary" size="xs" className={isRail ? "w-full" : undefined} onClick={onAddNote}>
         <Icon d={ICONS.noteBubble} size={13} />
@@ -124,16 +143,6 @@ export function RecordActionRow({
             <MenuItem icon={ICONS.calendar} onSelect={closingThen(close, onBookCall)}>
               Book a meeting
             </MenuItem>
-            {onAddToSequence && (
-              <MenuItem
-                icon={ICONS.outreach}
-                disabled={Boolean(sequenceHeldBy)}
-                note={sequenceHeldBy ?? undefined}
-                onSelect={closingThen(close, onAddToSequence)}
-              >
-                Add to sequence
-              </MenuItem>
-            )}
             <MenuItem icon={ICONS.checklist} onSelect={closingThen(close, onSetNextAction)}>
               Set next action
             </MenuItem>

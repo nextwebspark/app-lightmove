@@ -1,15 +1,12 @@
 import { CollapsibleSection } from "../../../../components/ui/CollapsibleSection";
 import { DetailGrid, DetailTile } from "../../../../components/ui/DetailList";
 import { formatInstantDate } from "../../../../lib/format";
-import type { DocumentScope } from "../../api/documentsApi";
-import type { PersonDocument, PersonDocumentVersion, PersonRecord } from "../../api/types";
+import type { PersonRecord } from "../../api/types";
 import { CANDIDATE_SOURCE_STYLES, candidateGenderLabel } from "../../lib/candidateVocabulary";
-import { compensationFoldSummary, documentsFoldSummary } from "../../lib/profileFolds";
-import type { PersonDocuments } from "../../lib/usePersonDocuments";
+import { compensationFoldSummary } from "../../lib/profileFolds";
 import type { ProfileSection, useProfileSections } from "../../lib/useProfileSections";
 import { CareerTimeline } from "../CareerTimeline";
 import { CompensationSummary } from "../CompensationSummary";
-import { DocumentsPanel } from "../documents/DocumentsPanel";
 import { ClampedText } from "../ProfileParts";
 import { ResearchedProfileSections } from "../ResearchedProfileSections";
 
@@ -20,21 +17,14 @@ import { ResearchedProfileSections } from "../ResearchedProfileSections";
 export function PersonProfileTab({
   person,
   sections,
-  documents,
-  documentScope,
-  onPreview,
 }: {
   person: PersonRecord;
   sections: ReturnType<typeof useProfileSections>;
-  documents: PersonDocuments;
-  documentScope: DocumentScope;
-  onPreview: (document: PersonDocument, version: PersonDocumentVersion) => void;
 }) {
   const fold = (id: ProfileSection) => ({ id, open: sections.isOpen(id), onToggle: () => sections.toggle(id) });
   const background = [person.seniority, person.nationality, candidateGenderLabel(person.gender),
     person.yearsExperience != null ? `${person.yearsExperience} years` : null].filter(Boolean);
   const current = person.career[0];
-  const documentList = documents.documents.data;
 
   return (
     <div className="flex flex-col gap-1">
@@ -85,25 +75,6 @@ export function PersonProfileTab({
       >
         <div className="pb-3">
           <CompensationSummary compensation={person.compensation} />
-          <p className="mt-2 text-note text-u-text3">
-            One package on file for this person, read by every position they are in.
-          </p>
-        </div>
-      </CollapsibleSection>
-      <CollapsibleSection
-        {...fold("documents")}
-        title="Documents"
-        count={documentList?.length || undefined}
-        summary={documentsFoldSummary(documentList)}
-      >
-        <div className="pb-3">
-          <DocumentsPanel
-            scope={documentScope}
-            documents={documents}
-            personName={person.fullName.split(" ")[0]}
-            compact
-            onPreview={onPreview}
-          />
         </div>
       </CollapsibleSection>
 

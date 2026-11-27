@@ -31,13 +31,13 @@ export function DrawerSection({
 
 /** A two-column grid of {@link DetailTile}s, which is how both mockup panels lay out their figures. */
 export function DetailGrid({ wide = false, children }: { wide?: boolean; children: ReactNode }) {
-  const grid = <div className={cn("grid grid-cols-2 gap-x-3 gap-y-2.5", wide && "@xl:grid-cols-4")}>{children}</div>;
+  const grid = <div className={cn("grid grid-cols-2 gap-x-4 gap-y-3", wide && "@xl:grid-cols-4")}>{children}</div>;
   return wide ? <div className="@container">{grid}</div> : grid;
 }
 
 /**
- * One labelled figure. An em dash rather than an empty tile for a fact nobody has established — a
- * blank box reads as a rendering fault, and "not known" is itself worth showing on a research screen.
+ * One labelled figure, read as text rather than a box so it never looks like an input waiting to be filled. An em
+ * dash for a fact nobody has established: "not known" is itself worth showing on a research screen.
  */
 export function DetailTile({
   label,
@@ -55,16 +55,11 @@ export function DetailTile({
   const empty = value === null || value === undefined || value === "";
   return (
     <div className={cn("min-w-0", full && "col-span-2")}>
-      <div className="mb-1 flex items-center gap-1.5 font-mono text-[9.5px] font-semibold uppercase tracking-[0.08em] text-u-text3">
+      <div className="mb-0.5 flex items-center gap-1.5 font-mono text-[9.5px] font-semibold uppercase tracking-[0.08em] text-u-text3">
         {label}
         {badge}
       </div>
-      <div
-        className={cn(
-          "truncate rounded-[7px] border border-u-border bg-u-raised px-2.5 py-[7px] font-mono text-[13px]",
-          empty ? "text-u-text3" : "text-u-text",
-        )}
-      >
+      <div className={cn("truncate font-mono text-[13px]", empty ? "text-u-text3" : "text-u-text")}>
         {empty ? "—" : value}
       </div>
     </div>
@@ -86,9 +81,19 @@ export function DetailPill({ label, className }: { label: string; className?: st
 }
 
 /** A titled block of a details rail, under a hairline: Outreach's Candidate details, the record page's Details. */
-export function DetailBlock({ title, aside, children }: { title: string; aside?: ReactNode; children: ReactNode }) {
+export function DetailBlock({
+  title,
+  aside,
+  className,
+  children,
+}: {
+  title: string;
+  aside?: ReactNode;
+  className?: string;
+  children: ReactNode;
+}) {
   return (
-    <section aria-label={title} className="flex flex-col gap-2 border-t border-u-border pt-4">
+    <section aria-label={title} className={cn("flex flex-col gap-2 border-t border-u-border pt-4", className)}>
       <div className="flex items-center">
         <h3 className="type-micro-label text-u-text3">{title}</h3>
         {aside && <span className="ms-auto">{aside}</span>}
