@@ -10,7 +10,8 @@ spring:
   datasource:
     # Cloud SQL Java connector: no host in the URL, no IP allowlist, no proxy process to babysit.
     # Authentication is the caller's Application Default Credentials (`gcloud auth application-default login`).
-    url: jdbc:postgresql:///${DB_NAME:lightmove}?cloudSqlInstance=${CLOUD_SQL_INSTANCE:hak-talent-mapping:us-central1:bright-gcc}&socketFactory=com.google.cloud.sql.postgres.SocketFactory
+    # DB_IP_TYPES=PRIVATE is how the EU instance is reached: it has no public address, and the org forbids one.
+    url: jdbc:postgresql:///${DB_NAME:lightmove}?cloudSqlInstance=${CLOUD_SQL_INSTANCE:hak-talent-mapping:us-central1:bright-gcc}&ipTypes=${DB_IP_TYPES:PUBLIC,PRIVATE}&socketFactory=com.google.cloud.sql.postgres.SocketFactory
     username: ${DB_USER:lm_app}
     password: ${DB_PASSWORD}
     hikari:
@@ -198,7 +199,9 @@ spring:
           # The embedding client resolves its own project/location independently of the chat
           # block above (Spring AI's own namespacing, not a LightMove choice).
           project-id: ${GOOGLE_CLOUD_PROJECT:hak-talent-mapping}
-          location: ${GOOGLE_CLOUD_LOCATION:global}
+          # Its own variable: `eu` (the multi-region endpoint that keeps the Gemini chat in the EU) does not serve
+          # text-embedding-004, a regional model, so a residency-pinned deployment sets europe-west4 here.
+          location: ${GOOGLE_CLOUD_EMBEDDING_LOCATION:${GOOGLE_CLOUD_LOCATION:global}}
           text:
             model: text-embedding-004
 

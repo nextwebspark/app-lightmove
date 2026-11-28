@@ -117,7 +117,9 @@ its area — the invariants below are the summary; the skills hold the rationale
 
 ## Database
 
-Cloud SQL Postgres 16, instance `bright-gcc`, database `lightmove`. All tables prefixed **`app_lm_`**.
+Cloud SQL Postgres 16 in the EU (`europe-west4`), project `uncava-prod`, instance `uncava-prod-pg`, database `uncava`,
+roles `uncava_app` (runtime) / `uncava_migrate` (Flyway). All tables prefixed **`app_lm_`**. Until the EU cutover the
+live stack is still `bright-gcc` / `lightmove` / `lm_app` / `lm_migrate` (project `hak-talent-mapping`, `us-central1`).
 **Hibernate never touches the schema** (`ddl-auto: none`); hand-written Flyway SQL in
 `apps/api/src/main/resources/db/migration/`. **Never edit an applied migration; add a new one** (comments
 included — they are in the checksum). Branches collide on V-numbers: renumber above main's head before merge.

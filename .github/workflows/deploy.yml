@@ -25,12 +25,14 @@ concurrency:
   group: deploy-production
   cancel-in-progress: false
 
+# Where the stack runs is a repository variable, so one workflow serves the legacy stack (the fallbacks below) and the
+# EU one (GCP_REGION=europe-west4, DB_NAME=uncava, CLOUD_SQL_INSTANCE=uncava-prod:europe-west4:uncava-prod-pg, ...).
 env:
   SERVICE: lightmove
-  REGION: us-central1
+  REGION: ${{ vars.GCP_REGION || 'us-central1' }}
   AR_REPO: lightmove
-  DATABASE: lightmove
-  CLOUD_SQL_INSTANCE: hak-talent-mapping:us-central1:bright-gcc
+  DATABASE: ${{ vars.DB_NAME || 'lightmove' }}
+  CLOUD_SQL_INSTANCE: ${{ vars.CLOUD_SQL_INSTANCE || 'hak-talent-mapping:us-central1:bright-gcc' }}
 
 jobs:
   deploy:
@@ -109,7 +111,7 @@ jobs:
           PUBLIC_BASE_URL: ${{ vars.PUBLIC_BASE_URL }}
         run: |
           SHA="$(git rev-parse HEAD)"
-          BASE="${REGION}-docker.pkg.dev/${{ vars.GCP_PROJECT }}/${AR_REPO}/${SERVICE}"
+          BASE="${REGION}-docker.pkg.dev/${{ vars.AR_PROJECT || vars.GCP_PROJECT }}/${AR_REPO}/${SERVICE}"
 
           docker build \
             --build-arg APP_VERSION="${VERSION}" \
@@ -131,6 +133,7 @@ jobs:
       # It runs as lm_app for now, and as lm_migrate once ops/cloudsql/create-migrate-role.sh has been
       # applied — the role split is what finally takes DDL away from the runtime role.
       - name: Fetch migration credentials
+        if: ${{ vars.MIGRATE_VIA_JOB != 'true' }}
         id: secrets
         uses: google-github-actions/get-secretmanager-secrets@v3
         with:
@@ -138,6 +141,7 @@ jobs:
             flyway_password:${{ vars.GCP_PROJECT }}/lightmove-flyway-password
 
       - name: Migrate the database
+        if: ${{ vars.MIGRATE_VIA_JOB != 'true' }}
         env:
           FLYWAY_PASSWORD: ${{ steps.secrets.outputs.flyway_password }}
         run: |
@@ -166,6 +170,44 @@ jobs:
             "-initSql=SET app.rls_maintenance = 'on'" \
             -connectRetries=5 \
             migrate
+
+      # The EU database has a private address only, and a GitHub-hosted runner is outside the network, so it cannot run
+      # the step above. This one builds the same Flyway as an image, runs it as a Cloud Run job inside the VPC, and waits:
+      # a failed migration fails the deploy and the previous revision keeps serving, exactly as before. Needs
+      # MIGRATE_VIA_JOB=true, VPC_NETWORK, VPC_SUBNET, DB_MIGRATE_USER, DB_MIGRATE_SA and DB_MIGRATE_PASSWORD_SECRET.
+      - name: Migrate the database (Cloud Run job inside the VPC)
+        if: ${{ vars.MIGRATE_VIA_JOB == 'true' }}
+        env:
+          VPC_NETWORK: ${{ vars.VPC_NETWORK }}
+          VPC_SUBNET: ${{ vars.VPC_SUBNET }}
+          MIGRATE_USER: ${{ vars.DB_MIGRATE_USER }}
+          MIGRATE_SA: ${{ vars.DB_MIGRATE_SA }}
+          MIGRATE_PASSWORD_SECRET: ${{ vars.DB_MIGRATE_PASSWORD_SECRET }}
+          VERSION: ${{ inputs.ref }}
+        run: |
+          for required in VPC_NETWORK VPC_SUBNET MIGRATE_USER MIGRATE_SA MIGRATE_PASSWORD_SECRET; do
+            [ -n "${!required}" ] || { echo "::error::${required} is not set (see the MIGRATE_VIA_JOB note above)."; exit 1; }
+          done
+          SHA="$(git rev-parse HEAD)"
+          IMAGE="${REGION}-docker.pkg.dev/${{ vars.AR_PROJECT || vars.GCP_PROJECT }}/${AR_REPO}/${SERVICE}-migrate:${SHA}"
+          docker build -f ops/gcp/flyway/Dockerfile -t "$IMAGE" .
+          docker push "$IMAGE"
+
+          INSTANCE_PROJECT="${CLOUD_SQL_INSTANCE%%:*}"
+          INSTANCE_NAME="${CLOUD_SQL_INSTANCE##*:}"
+          DB_HOST="$(gcloud sql instances describe "$INSTANCE_NAME" --project "$INSTANCE_PROJECT" \
+                       --format='value(ipAddresses[0].ipAddress)')"
+          [ -n "$DB_HOST" ] || { echo "::error::no address for ${CLOUD_SQL_INSTANCE}"; exit 1; }
+
+          gcloud run jobs deploy "${SERVICE}-migrate" \
+            --image "$IMAGE" \
+            --region "$REGION" \
+            --service-account "$MIGRATE_SA" \
+            --network "$VPC_NETWORK" --subnet "$VPC_SUBNET" --vpc-egress private-ranges-only \
+            --max-retries 0 --task-timeout 900s \
+            --set-env-vars "^|^FLYWAY_URL=jdbc:postgresql://${DB_HOST}:5432/${DATABASE}?sslmode=require|FLYWAY_USER=${MIGRATE_USER}" \
+            --set-secrets "FLYWAY_PASSWORD=${MIGRATE_PASSWORD_SECRET}:latest"
+          gcloud run jobs execute "${SERVICE}-migrate" --region "$REGION" --wait
 
       # ── Deploy ───────────────────────────────────────────────────────────────
       # WEB_BASE_URL is the origin users open. With a custom domain mapped (see README, "Custom
@@ -248,7 +290,28 @@ jobs:
           BILLING_ENFORCE: ${{ vars.BILLING_ENFORCE || 'true' }}
           BILLING_CONTACT_EMAIL: ${{ vars.BILLING_CONTACT_EMAIL || 'billing@uncava.com' }}
           DOCUMENTS_BUCKET: ${{ vars.DOCUMENTS_BUCKET || format('{0}-lightmove-documents', vars.GCP_PROJECT) }}
+          # Where the database, the models and the network are. Each is passed only when set: an empty value would
+          # override the application's own default, not fall back to it.
+          GCP_PROJECT: ${{ vars.GCP_PROJECT }}
+          DB_APP_USER: ${{ vars.DB_APP_USER }}
+          DB_PASSWORD_SECRET: ${{ vars.DB_PASSWORD_SECRET || 'lightmove-db-password' }}
+          DB_IP_TYPES: ${{ vars.DB_IP_TYPES }}
+          GOOGLE_CLOUD_LOCATION: ${{ vars.GOOGLE_CLOUD_LOCATION }}
+          GOOGLE_CLOUD_EMBEDDING_LOCATION: ${{ vars.GOOGLE_CLOUD_EMBEDDING_LOCATION }}
+          VPC_NETWORK: ${{ vars.VPC_NETWORK }}
+          VPC_SUBNET: ${{ vars.VPC_SUBNET }}
         run: |
+          RESIDENCY_ENV="|DB_NAME=${DATABASE}|CLOUD_SQL_INSTANCE=${CLOUD_SQL_INSTANCE}"
+          [ -z "$DB_APP_USER" ] || RESIDENCY_ENV="${RESIDENCY_ENV}|DB_USER=${DB_APP_USER}"
+          [ -z "$DB_IP_TYPES" ] || RESIDENCY_ENV="${RESIDENCY_ENV}|DB_IP_TYPES=${DB_IP_TYPES}"
+          [ -z "$GCP_PROJECT" ] || RESIDENCY_ENV="${RESIDENCY_ENV}|GOOGLE_CLOUD_PROJECT=${GCP_PROJECT}"
+          [ -z "$GOOGLE_CLOUD_LOCATION" ] || RESIDENCY_ENV="${RESIDENCY_ENV}|GOOGLE_CLOUD_LOCATION=${GOOGLE_CLOUD_LOCATION}"
+          [ -z "$GOOGLE_CLOUD_EMBEDDING_LOCATION" ] || RESIDENCY_ENV="${RESIDENCY_ENV}|GOOGLE_CLOUD_EMBEDDING_LOCATION=${GOOGLE_CLOUD_EMBEDDING_LOCATION}"
+          VPC_ARGS=()
+          if [ -n "$VPC_NETWORK" ] && [ -n "$VPC_SUBNET" ]; then
+            VPC_ARGS=(--network "${VPC_NETWORK}" --subnet "${VPC_SUBNET}" --vpc-egress private-ranges-only)
+          fi
+
           # Each identity provider is wired only when it is actually configured. Spring validates every
           # declared registration at startup and REJECTS an empty client-id, so passing these through
           # blank would mean the service refuses to boot rather than simply not offering the button.
@@ -535,8 +598,9 @@ jobs:
             --concurrency 200 \
             --timeout 300s \
             --liveness-probe "httpGet.path=/actuator/health/liveness,httpGet.port=8080,periodSeconds=10,timeoutSeconds=5,failureThreshold=6" \
-            --set-env-vars "^|^FLYWAY_ENABLED=false|MANAGEMENT_PORT=8080|DB_POOL_MAX=5|EMAIL_PROVIDER=${EMAIL_PROVIDER}|EMAIL_FROM=${EMAIL_FROM}|EMAIL_PRIVACY_FROM=${EMAIL_PRIVACY_FROM}|WEB_BASE_URL=${BASE_URL}|WEB_CORS_ORIGINS=${BASE_URL},chrome-extension://${EXTENSION_ID}|LIGHTMOVE_AUTH_AUTO_VERIFY_EMAIL=${AUTO_VERIFY_EMAIL}|AUTH_RATE_LIMIT_ENABLED=${RATE_LIMIT_ENABLED}|AUTH_LOGIN_ATTEMPTS_PER_MINUTE=${LOGIN_ATTEMPTS_PER_MINUTE}|AUTH_SIGNUP_ATTEMPTS_PER_HOUR=${SIGNUP_ATTEMPTS_PER_HOUR}|AUTH_VERIFICATION_RESENDS_PER_HOUR=${VERIFICATION_RESENDS_PER_HOUR}|LIGHTMOVE_WEB_TRUSTED_PROXY_COUNT=${TRUSTED_PROXY_COUNT}|PUBLIC_API_ENABLED=${PUBLIC_API_ENABLED}|RETENTION_ENABLED=${RETENTION_ENABLED}|DATA_PROTECTION_ENABLED=${DATA_PROTECTION_ENABLED}|MFA_ENABLED=${MFA_ENABLED}|PLATFORM_REQUIRE_TWO_FACTOR=${PLATFORM_REQUIRE_TWO_FACTOR}|AI_PROMPT_REGISTRY_ENABLED=${AI_PROMPT_REGISTRY_ENABLED}|BILLING_CONTACT_EMAIL=${BILLING_CONTACT_EMAIL}|BILLING_ENFORCE=${BILLING_ENFORCE}|JWT_PRIVATE_KEY_LOCATION=file:/secrets/jwt-private/private.pem|JWT_PUBLIC_KEY_LOCATION=file:/secrets/jwt-public/public.pem|STORAGE_PROVIDER=gcs|STORAGE_BUCKET=${DOCUMENTS_BUCKET}${OAUTH_ENV}${ENRICHMENT_ENV}${NYLAS_ENV}${PROVIDER_ENV}${RECALL_ENV}${BILLING_ENV}${MCP_ENV}" \
-            --set-secrets "DB_PASSWORD=lightmove-db-password:latest,/secrets/jwt-private/private.pem=lightmove-jwt-private-key:latest,/secrets/jwt-public/public.pem=lightmove-jwt-public-key:latest${EMAIL_SECRETS}${OAUTH_SECRETS}${ENRICHMENT_SECRETS}${MAPBOX_SECRETS}${CONTACTOUT_SECRETS}${NYLAS_SECRETS}${CREDENTIAL_SECRETS}${PROVIDER_SECRETS}${RECALL_SECRETS}${BILLING_SECRETS}${MCP_SECRETS}"
+            "${VPC_ARGS[@]}" \
+            --set-env-vars "^|^FLYWAY_ENABLED=false|MANAGEMENT_PORT=8080|DB_POOL_MAX=5|EMAIL_PROVIDER=${EMAIL_PROVIDER}|EMAIL_FROM=${EMAIL_FROM}|EMAIL_PRIVACY_FROM=${EMAIL_PRIVACY_FROM}|WEB_BASE_URL=${BASE_URL}|WEB_CORS_ORIGINS=${BASE_URL},chrome-extension://${EXTENSION_ID}|LIGHTMOVE_AUTH_AUTO_VERIFY_EMAIL=${AUTO_VERIFY_EMAIL}|AUTH_RATE_LIMIT_ENABLED=${RATE_LIMIT_ENABLED}|AUTH_LOGIN_ATTEMPTS_PER_MINUTE=${LOGIN_ATTEMPTS_PER_MINUTE}|AUTH_SIGNUP_ATTEMPTS_PER_HOUR=${SIGNUP_ATTEMPTS_PER_HOUR}|AUTH_VERIFICATION_RESENDS_PER_HOUR=${VERIFICATION_RESENDS_PER_HOUR}|LIGHTMOVE_WEB_TRUSTED_PROXY_COUNT=${TRUSTED_PROXY_COUNT}|PUBLIC_API_ENABLED=${PUBLIC_API_ENABLED}|RETENTION_ENABLED=${RETENTION_ENABLED}|DATA_PROTECTION_ENABLED=${DATA_PROTECTION_ENABLED}|MFA_ENABLED=${MFA_ENABLED}|PLATFORM_REQUIRE_TWO_FACTOR=${PLATFORM_REQUIRE_TWO_FACTOR}|AI_PROMPT_REGISTRY_ENABLED=${AI_PROMPT_REGISTRY_ENABLED}|BILLING_CONTACT_EMAIL=${BILLING_CONTACT_EMAIL}|BILLING_ENFORCE=${BILLING_ENFORCE}|JWT_PRIVATE_KEY_LOCATION=file:/secrets/jwt-private/private.pem|JWT_PUBLIC_KEY_LOCATION=file:/secrets/jwt-public/public.pem|STORAGE_PROVIDER=gcs|STORAGE_BUCKET=${DOCUMENTS_BUCKET}${RESIDENCY_ENV}${OAUTH_ENV}${ENRICHMENT_ENV}${NYLAS_ENV}${PROVIDER_ENV}${RECALL_ENV}${BILLING_ENV}${MCP_ENV}" \
+            --set-secrets "DB_PASSWORD=${DB_PASSWORD_SECRET}:latest,/secrets/jwt-private/private.pem=lightmove-jwt-private-key:latest,/secrets/jwt-public/public.pem=lightmove-jwt-public-key:latest${EMAIL_SECRETS}${OAUTH_SECRETS}${ENRICHMENT_SECRETS}${MAPBOX_SECRETS}${CONTACTOUT_SECRETS}${NYLAS_SECRETS}${CREDENTIAL_SECRETS}${PROVIDER_SECRETS}${RECALL_SECRETS}${BILLING_SECRETS}${MCP_SECRETS}"
 
       # First deploy only, and only without a custom domain: the service now has a URL, and it is not
       # the placeholder we booted with. Verification emails and the OAuth redirect are built from
