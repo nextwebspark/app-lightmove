@@ -9,20 +9,32 @@
 -- creates — and a Postgres table owner can always re-grant itself a privilege it just revoked.
 -- Dropping privileges from yourself is theatre. It has to come from a role that outranks you.
 
-\set app_role 'lm_app'
+-- The runtime role and the database are variables, so one file serves every stack:
+--   psql -v app_role=uncava_app -v db_name=uncava -f harden.sql
+-- Left unset they are the legacy stack's (lm_app on lightmove), so an existing runbook keeps working.
+\if :{?app_role}
+\else
+    \set app_role 'lm_app'
+\endif
+\if :{?db_name}
+\else
+    \set db_name 'lightmove'
+\endif
+-- A DO block is dollar-quoted, so psql does not interpolate into it: the role reaches it as a setting.
+SELECT set_config('harden.app_role', :'app_role', false);
 
 -- 1. Cloud SQL grants every gcloud-created user cloudsqlsuperuser, which is far more than an
 --    application needs. Take it back.
-REVOKE cloudsqlsuperuser FROM lm_app;
+REVOKE cloudsqlsuperuser FROM :"app_role";
 
 -- 2. The audit trail becomes genuinely append-only: owned by postgres, and lm_app may only add rows
 --    and read them back. Even a full SQL-injection foothold in the app cannot erase its own tracks.
 ALTER TABLE app_lm_audit_event OWNER TO postgres;
 ALTER SEQUENCE app_lm_audit_event_id_seq OWNER TO postgres;
 
-REVOKE ALL     ON app_lm_audit_event        FROM lm_app;
-GRANT  INSERT, SELECT ON app_lm_audit_event TO   lm_app;
-GRANT  USAGE   ON SEQUENCE app_lm_audit_event_id_seq TO lm_app;
+REVOKE ALL     ON app_lm_audit_event        FROM :"app_role";
+GRANT  INSERT, SELECT ON app_lm_audit_event TO   :"app_role";
+GRANT  USAGE   ON SEQUENCE app_lm_audit_event_id_seq TO :"app_role";
 
 -- Owned by postgres from here on, so only this file can index it: V74 skips the index it cannot
 -- create. Supports the position panel's per-target activity read.
@@ -53,9 +65,9 @@ BEGIN
     IF to_regclass('public.app_lm_credit_entry') IS NOT NULL THEN
         EXECUTE 'ALTER TABLE app_lm_credit_entry OWNER TO postgres';
         EXECUTE 'ALTER SEQUENCE app_lm_credit_entry_id_seq OWNER TO postgres';
-        EXECUTE 'REVOKE ALL ON app_lm_credit_entry FROM lm_app';
-        EXECUTE 'GRANT  INSERT, SELECT ON app_lm_credit_entry TO lm_app';
-        EXECUTE 'GRANT  USAGE ON SEQUENCE app_lm_credit_entry_id_seq TO lm_app';
+        EXECUTE format('REVOKE ALL ON app_lm_credit_entry FROM %I', current_setting('harden.app_role'));
+        EXECUTE format('GRANT  INSERT, SELECT ON app_lm_credit_entry TO %I', current_setting('harden.app_role'));
+        EXECUTE format('GRANT  USAGE ON SEQUENCE app_lm_credit_entry_id_seq TO %I', current_setting('harden.app_role'));
     END IF;
 END $$;
 
@@ -66,11 +78,11 @@ DO $$
 BEGIN
     IF to_regclass('public.app_lm_platform_prompt_version') IS NOT NULL THEN
         EXECUTE 'ALTER TABLE app_lm_platform_prompt_version OWNER TO postgres';
-        EXECUTE 'REVOKE ALL ON app_lm_platform_prompt_version FROM lm_app';
-        EXECUTE 'GRANT  INSERT, SELECT ON app_lm_platform_prompt_version TO lm_app';
+        EXECUTE format('REVOKE ALL ON app_lm_platform_prompt_version FROM %I', current_setting('harden.app_role'));
+        EXECUTE format('GRANT  INSERT, SELECT ON app_lm_platform_prompt_version TO %I', current_setting('harden.app_role'));
         EXECUTE 'ALTER TABLE app_lm_platform_prompt_label_move OWNER TO postgres';
-        EXECUTE 'REVOKE ALL ON app_lm_platform_prompt_label_move FROM lm_app';
-        EXECUTE 'GRANT  INSERT, SELECT ON app_lm_platform_prompt_label_move TO lm_app';
+        EXECUTE format('REVOKE ALL ON app_lm_platform_prompt_label_move FROM %I', current_setting('harden.app_role'));
+        EXECUTE format('GRANT  INSERT, SELECT ON app_lm_platform_prompt_label_move TO %I', current_setting('harden.app_role'));
     END IF;
 END $$;
 
@@ -81,8 +93,8 @@ DO $$
 BEGIN
     IF to_regclass('public.app_lm_platform_setting_change') IS NOT NULL THEN
         EXECUTE 'ALTER TABLE app_lm_platform_setting_change OWNER TO postgres';
-        EXECUTE 'REVOKE ALL ON app_lm_platform_setting_change FROM lm_app';
-        EXECUTE 'GRANT  INSERT, SELECT ON app_lm_platform_setting_change TO lm_app';
+        EXECUTE format('REVOKE ALL ON app_lm_platform_setting_change FROM %I', current_setting('harden.app_role'));
+        EXECUTE format('GRANT  INSERT, SELECT ON app_lm_platform_setting_change TO %I', current_setting('harden.app_role'));
     END IF;
 END $$;
 
@@ -143,8 +155,8 @@ BEGIN
             END IF;
         END IF;
 
-        EXECUTE 'REVOKE ALL    ON app_lm_apollo_companies FROM lm_app';
-        EXECUTE 'GRANT  SELECT ON app_lm_apollo_companies TO   lm_app';
+        EXECUTE format('REVOKE ALL    ON app_lm_apollo_companies FROM %I', current_setting('harden.app_role'));
+        EXECUTE format('GRANT  SELECT ON app_lm_apollo_companies TO   %I', current_setting('harden.app_role'));
 
         -- Only an owner can index it, so V112 skips this here: the assistant's exact-name lookups.
         IF pg_get_userbyid((SELECT relowner FROM pg_class
@@ -165,8 +177,8 @@ BEGIN
     IF to_regclass('public.app_lm_companies') IS NOT NULL THEN
         EXECUTE 'ALTER TABLE app_lm_companies OWNER TO postgres';
         EXECUTE 'ALTER SEQUENCE app_lm_companies_id_seq OWNER TO postgres';
-        EXECUTE 'REVOKE ALL    ON app_lm_companies FROM lm_app';
-        EXECUTE 'GRANT  SELECT ON app_lm_companies TO   lm_app';
+        EXECUTE format('REVOKE ALL    ON app_lm_companies FROM %I', current_setting('harden.app_role'));
+        EXECUTE format('GRANT  SELECT ON app_lm_companies TO   %I', current_setting('harden.app_role'));
     END IF;
 END $$;
 
@@ -186,22 +198,22 @@ BEGIN
             IF pg_has_role(current_user, current_owner, 'USAGE') THEN
                 EXECUTE 'ALTER TABLE app_lm_user_platform_role OWNER TO postgres';
             ELSE
-                RAISE NOTICE 'app_lm_user_platform_role is owned by % and this role cannot reassign it, so read-only is not yet enforced: until this file is re-run as postgres, lm_app as owner could still write the table.', current_owner;
+                RAISE NOTICE 'app_lm_user_platform_role is owned by % and this role cannot reassign it, so read-only is not yet enforced: until this file is re-run as postgres, the app role as owner could still write the table.', current_owner;
             END IF;
         END IF;
 
-        EXECUTE 'REVOKE ALL    ON app_lm_user_platform_role FROM lm_app';
-        EXECUTE 'GRANT  SELECT ON app_lm_user_platform_role TO   lm_app';
+        EXECUTE format('REVOKE ALL    ON app_lm_user_platform_role FROM %I', current_setting('harden.app_role'));
+        EXECUTE format('GRANT  SELECT ON app_lm_user_platform_role TO   %I', current_setting('harden.app_role'));
     END IF;
 END $$;
 
 -- 4. No CREATE on the public schema: the app reads and writes, migrations are what change shape.
 --    (Flyway needs this back during a deploy — see the note at the foot of this file.)
-REVOKE CREATE ON SCHEMA public FROM lm_app;
+REVOKE CREATE ON SCHEMA public FROM :"app_role";
 
 -- 5. Nobody but the owner should reach this database.
-REVOKE ALL ON DATABASE lightmove FROM PUBLIC;
-GRANT CONNECT ON DATABASE lightmove TO lm_app;
+REVOKE ALL ON DATABASE :"db_name" FROM PUBLIC;
+GRANT CONNECT ON DATABASE :"db_name" TO :"app_role";
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- Deploy note
