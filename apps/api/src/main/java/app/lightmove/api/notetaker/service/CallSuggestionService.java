@@ -287,7 +287,7 @@ public class CallSuggestionService {
             case CURRENT_PACKAGE -> {
                 SuggestedValue pay = edited ? payOf(edit, suggestion.value()) : suggestion.value();
                 Set<CallField> fields = packageFieldsOf(request.packageFields(), pay);
-                if (held.compensation().wouldRelabel(pay.currency(), fields.contains(CallField.BASE_SALARY),
+                if (held.wouldRelabel(pay.currency(), fields.contains(CallField.BASE_SALARY),
                         fields.contains(CallField.BONUS), fields.contains(CallField.ALLOWANCES))) {
                     throw ApiException.of(ErrorCode.NOTETAKER_SUGGESTION_UNAVAILABLE);
                 }
@@ -432,7 +432,7 @@ public class CallSuggestionService {
         }
         return switch (suggestion.kind()) {
             case OPEN_TO_RELOCATE -> held.relocationTagId() != null;
-            case CURRENT_PACKAGE -> !held.compensation().wouldRelabel(suggestion.value().currency(),
+            case CURRENT_PACKAGE -> !held.wouldRelabel(suggestion.value().currency(),
                     suggestion.value().baseSalary() != null, suggestion.value().bonus() != null,
                     suggestion.value().allowances() != null);
             default -> true;

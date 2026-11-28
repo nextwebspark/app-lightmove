@@ -115,6 +115,23 @@ class PersonPrivacyNoticeIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("a record holding only what they expect of a move tells them their pay is among what the firm holds")
+    void expectationsAreListedAsPay() throws Exception {
+        call(put("/api/v1/workspace/candidate-privacy"), SETTINGS).andExpect(status().isOk());
+        String expecting = body(call(post("/api/v1/projects/" + position + "/candidates"), """
+                {"fullName":"Rami Khoury","linkedinUrl":"https://www.linkedin.com/in/rami-khoury/",
+                 "emails":[{"value":"rami@example.com"}],
+                 "compensation":{"mobility":"region","availableFrom":"Jan 2027"}}""")
+                .andExpect(status().isCreated()).andReturn()).get("personId").asText();
+
+        send(expecting).andExpect(status().isOk());
+
+        JsonNode page = body(mvc.perform(get("/api/v1/privacy/links/" + tokenOf(noticeTo("rami@example.com"))))
+                .andExpect(status().isOk()).andReturn());
+        assertThat(page.get("categories").toString()).contains("compensation").doesNotContain("Jan 2027");
+    }
+
+    @Test
     @DisplayName("an objection from the page sets do not contact, suppresses them and tells the admins, once")
     void objectionFromThePage() throws Exception {
         call(put("/api/v1/workspace/candidate-privacy"), SETTINGS).andExpect(status().isOk());

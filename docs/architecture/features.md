@@ -595,7 +595,11 @@ the option's label, neither column narrowed to them, so a brief already stating 
 imported as "negotiable" stay offered as recorded rather than being cleared. An import that cannot fold a
 cell onto one of the five (`RowValues.noticePeriod`) writes nothing rather than rounding it, and the new
 executive's currency arrives from the brief (`GET …/position/compensation`, which unlike the brief's own
-read drafts nothing). The two **cross-mandate benchmarks** the chapters
+read drafts nothing). Under the package the Compensation section records **what a move would take** (V249,
+`MoveExpectations`, `docs/candidate-crm.md`): an expected base and total package in the package's one currency, the
+executive's expectations in their words, when they are available from and their mobility with a note — the person's,
+saved with the section, on `CandidateResponse` beside the package and drawn only to staff, and the facts the planned
+confidential report reads first. The two **cross-mandate benchmarks** the chapters
 name but cannot yet derive say so on the page rather than leaving a hole: marked not built, with no
 fabricated progress count. The mockup's relevance mix is not drawn at all — nothing records how a
 company was reached (V30 dropped `app_lm_strategy_sector.kind`), and an illustrative bar on a

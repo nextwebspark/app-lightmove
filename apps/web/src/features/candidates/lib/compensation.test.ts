@@ -5,7 +5,9 @@ import {
   annualBaseOf,
   bonusAmountOf,
   bonusBasisOf,
+  expectedPackageOf,
   incentiveTypesFor,
+  mobilityOf,
   packageOf,
   shareTyped,
   toggleIncentiveType,
@@ -85,5 +87,44 @@ describe("the editor's conversions", () => {
     expect(toggleIncentiveType(["options", "rsus"], "rsus")).toEqual(["options"]);
     // As the mockup's chips do: letting go of the last instrument lands on None.
     expect(toggleIncentiveType(["options"], "options")).toEqual(["none"]);
+  });
+});
+
+describe("expectedPackageOf", () => {
+  it("reads the total first in the package's currency, then the base and their own words", () => {
+    expect(
+      expectedPackageOf("AED", {
+        expectedTotalPackage: 4_000_000,
+        expectedBaseSalary: 1_700_000,
+        expectedPackageNote: "Wants the LTIP to carry over",
+      }),
+    ).toBe("AED 4,000,000 total · base 1,700,000 · Wants the LTIP to carry over");
+  });
+
+  it("gives the base the currency when no total was stated, and keeps a stated nought", () => {
+    expect(expectedPackageOf("AED", { expectedTotalPackage: null, expectedBaseSalary: 0, expectedPackageNote: null }))
+      .toBe("AED 0 base");
+  });
+
+  it("is their words alone with no figure, and nothing at all when nobody asked", () => {
+    expect(
+      expectedPackageOf("AED", { expectedTotalPackage: null, expectedBaseSalary: null, expectedPackageNote: "Open" }),
+    ).toBe("Open");
+    expect(
+      expectedPackageOf("AED", { expectedTotalPackage: null, expectedBaseSalary: null, expectedPackageNote: null }),
+    ).toBeNull();
+  });
+});
+
+describe("mobilityOf", () => {
+  it("names how far they would move, then what would make it work", () => {
+    expect(mobilityOf({ mobility: "region", mobilityNote: "GCC; family stays in Abu Dhabi" })).toBe(
+      "Open within the region · GCC; family stays in Abu Dhabi",
+    );
+  });
+
+  it("keeps a recorded no apart from nobody having asked", () => {
+    expect(mobilityOf({ mobility: "none", mobilityNote: null })).toBe("Not open to relocating");
+    expect(mobilityOf({ mobility: null, mobilityNote: null })).toBeNull();
   });
 });

@@ -15,6 +15,7 @@ import app.lightmove.api.candidate.model.CandidateCompensation;
 import app.lightmove.api.candidate.model.CandidateContact;
 import app.lightmove.api.candidate.model.CandidateStage;
 import app.lightmove.api.candidate.model.CandidateStatusDefinition;
+import app.lightmove.api.candidate.model.MoveExpectations;
 import app.lightmove.api.candidate.model.Person;
 import app.lightmove.api.common.location.model.InternationalPhone;
 import app.lightmove.api.common.location.service.PhoneNumbers;
@@ -107,6 +108,7 @@ class CandidateResponseMapper {
 
     static CandidateCompensationDto compensationOf(Person person) {
         CandidateCompensation compensation = person.compensation();
+        MoveExpectations expectations = person.expectations();
         return new CandidateCompensationDto(compensation.currency(), compensation.baseSalary(),
                 compensation.bonus(), compensation.allowances(),
                 compensation.longTermIncentive(), compensation.noticePeriod(),
@@ -115,7 +117,11 @@ class CandidateResponseMapper {
                         .toList(),
                 compensation.breakdown().longTermIncentiveTypes().stream()
                         .map(LongTermIncentiveType::value)
-                        .toList());
+                        .toList(),
+                expectations.expectedBaseSalary(), expectations.expectedTotalPackage(),
+                expectations.expectedPackageNote(), expectations.availableFrom(),
+                expectations.mobility() == null ? null : expectations.mobility().value(),
+                expectations.mobilityNote());
     }
 
     static List<CandidateCareerEntryDto> careerOf(Person person) {

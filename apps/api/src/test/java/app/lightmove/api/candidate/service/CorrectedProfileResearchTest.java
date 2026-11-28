@@ -12,6 +12,7 @@ import app.lightmove.api.candidate.model.CandidateCompensation;
 import app.lightmove.api.candidate.model.CandidateDetails;
 import app.lightmove.api.candidate.model.CandidateProfile;
 import app.lightmove.api.candidate.model.CandidateProfileCorrectedEvent;
+import app.lightmove.api.candidate.model.MoveExpectations;
 import app.lightmove.api.candidate.model.Person;
 import app.lightmove.api.candidate.model.PipelineTestStatuses;
 import app.lightmove.api.triagecompany.constant.TriageCompanyStatus;
@@ -51,8 +52,8 @@ class CorrectedProfileResearchTest {
 
     private static Candidate at(String linkedinUrl) {
         CandidateDetails details = new CandidateDetails("Jane Doe", null, null, null, null, null, linkedinUrl,
-                null, null, null, null, null, null, null, CandidateCompensation.unknown(), CandidateProfile.empty(),
-                null);
+                null, null, null, null, null, null, null, CandidateCompensation.unknown(), MoveExpectations.unknown(),
+                CandidateProfile.empty(), null);
         Person person = Person.founded(UUID.randomUUID(), UUID.randomUUID(), CandidateSource.MANUAL, details);
         return Candidate.mapped(UUID.randomUUID(), UUID.randomUUID(), null, TriageCompanyStatus.IN_UNIVERSE, person,
                 CandidateSource.MANUAL, PipelineTestStatuses.identified(), details);

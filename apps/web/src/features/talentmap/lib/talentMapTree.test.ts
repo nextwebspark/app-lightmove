@@ -49,6 +49,8 @@ const person = (overrides: Partial<Candidate>): Candidate => ({
   compensation: {
     currency: null, baseSalary: null, bonus: null, allowances: null,
     longTermIncentive: null, noticePeriod: null, allowanceLines: [], longTermIncentiveTypes: [],
+    expectedBaseSalary: null, expectedTotalPackage: null, expectedPackageNote: null, availableFrom: null,
+    mobility: null, mobilityNote: null,
   },
   career: [],
   education: [],

@@ -120,7 +120,8 @@ class CandidateScorecardTest {
 
     private static CandidateDetails details() {
         return new CandidateDetails("Sample Person", null, null, null, null, null, null, null, null, null, null,
-                null, null, null, CandidateCompensation.unknown(), CandidateProfile.empty(), null);
+                null, null, null, CandidateCompensation.unknown(), MoveExpectations.unknown(), CandidateProfile.empty(),
+                null);
     }
 
     private static CriterionScore capitalMarkets(Integer score, String evidence) {

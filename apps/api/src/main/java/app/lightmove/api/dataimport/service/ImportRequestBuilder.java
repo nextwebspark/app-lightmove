@@ -103,7 +103,13 @@ class ImportRequestBuilder {
                 overlay(RowValues.noticePeriod(fields.field(CANDIDATE_NOTICE_PERIOD)), stored,
                         CandidateCompensationDto::noticePeriod),
                 storedOf(stored, CandidateCompensationDto::allowanceLines),
-                storedOf(stored, CandidateCompensationDto::longTermIncentiveTypes));
+                storedOf(stored, CandidateCompensationDto::longTermIncentiveTypes),
+                storedOf(stored, CandidateCompensationDto::expectedBaseSalary),
+                storedOf(stored, CandidateCompensationDto::expectedTotalPackage),
+                storedOf(stored, CandidateCompensationDto::expectedPackageNote),
+                storedOf(stored, CandidateCompensationDto::availableFrom),
+                storedOf(stored, CandidateCompensationDto::mobility),
+                storedOf(stored, CandidateCompensationDto::mobilityNote));
     }
 
     /** Refused rather than truncated by the DTO's own {@code @Max}: a bad year is not a year. */

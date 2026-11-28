@@ -269,7 +269,9 @@ Three consequences worth naming:
 
 - **A blank cell never clears a stored value.** Both update paths replace a row whole, so an update is
   built from what the row already holds with the file's non-blank cells laid over it. A second file
-  carrying only names and countries must not empty out the headcounts a researcher typed.
+  carrying only names and countries must not empty out the headcounts a researcher typed. What no column
+  maps — the allowance lines, the LTIP's instruments, V249's expected package, mobility and available
+  from — is carried across as held.
 - **A company taken from the Apollo universe keeps the export's figures.** `edit` refuses one outright
   — that is what the Source badge promises — so an import fills only its custom columns and the summary
   counts it separately, because "12 updated" for twelve untouched snapshots would be a lie.

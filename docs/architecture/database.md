@@ -651,6 +651,15 @@ answer workspace ids (the console's read and the retry pass's walk), `app_lm_cou
 counts per notice (emailed, owed, objections). Seeds the `SUBPROCESSOR_NOTICE_MANAGE` platform action for
 `SUPER_ADMIN`.
 
+V249 adds what an executive expects of a move to `app_lm_person` (`MoveExpectations`, docs/candidate-crm.md):
+`expected_base_salary` and `expected_total_package` (bigint, in the record's `compensation_currency`, never converted;
+null is not established, never nought), `expected_package_note` (≤ 200), `mobility` (`NONE` · `COUNTRY` · `REGION` ·
+`INTERNATIONAL`; null is not established) with `mobility_note` (≤ 200), and `available_from` (free text, ≤ 60). The
+lengths are CHECKs matching `CandidateCompensationDto`. Written whole by the Compensation section's save, they ride
+`CandidateResponse` with the package (a client seat reads them as it reads the package; the screens draw them only in
+the staff-only Compensation fold) and leave in the subject access export's `person` section with the rest of the row.
+No new table, so no policy: the person's row-level security already covers the columns.
+
 V231 adds `app_lm_dashboard` (docs/custom-dashboards.md): a member's custom dashboard on a position (`project_id`, composite key to the project's workspace) or across the workspace (null) — `owner_user_id` (cascade with the account), `name` (≤ 80, never blank), `shared`, and `widgets` jsonb, an array of `{queryId, chart, options, title, layout: {x, y, w, h}}` (twelve-column grid; rows saved before it carry `size` instead, flowed into place by the SPA) naming charts of the server's query library. The choice only, never a figure: every chart is answered live. Forced RLS on its `workspace_id`. Staff-only.
 
 V230 cancels the open tasks an executive's removal orphaned before #1402 (`candidate_id` null and an `UNMAPPED` activity line for the person on the position at or after the task's creation; a rule task filed for someone never mapped has no such line and stays open), releasing a rule task's key as `Task.releaseRuleKey` does. Data only.

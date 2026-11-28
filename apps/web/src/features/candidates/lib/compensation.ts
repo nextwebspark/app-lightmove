@@ -1,5 +1,6 @@
 import { formatNumber } from "../../../lib/format";
 import type { AllowanceLine, CandidateCompensation, LongTermIncentiveType } from "../api/types";
+import { candidateMobilityLabel } from "./candidateVocabulary";
 
 /** One element of a package: a stored figure and its share of the total, for the composition bar. */
 export interface PackagePart {
@@ -49,6 +50,33 @@ export function amountTyped(value: string | undefined): number | null {
 export function formatAmount(currency: string, amount: number | null): string | null {
   if (amount === null || amount === undefined) return null;
   return `${currency} ${formatNumber(amount)}`.trim();
+}
+
+/**
+ * What they expect, as one line (`Position.dc.html`'s Expected package tile): "AED 4,000,000 total · base 1,700,000 ·
+ * Wants the LTIP to carry over". The first figure carries the package's currency; null when nothing is established.
+ */
+export function expectedPackageOf(
+  currency: string,
+  compensation: Pick<CandidateCompensation, "expectedBaseSalary" | "expectedTotalPackage" | "expectedPackageNote">,
+): string | null {
+  const total = formatAmount(currency, compensation.expectedTotalPackage ?? null);
+  const base = compensation.expectedBaseSalary ?? null;
+  return joinedFacts([
+    total === null ? null : `${total} total`,
+    base === null ? null : total === null ? `${formatAmount(currency, base)} base` : `base ${formatNumber(base)}`,
+    compensation.expectedPackageNote,
+  ]);
+}
+
+/** How far they would move and what would make it work, as one line: "Open within the region · GCC only". */
+export function mobilityOf(compensation: Pick<CandidateCompensation, "mobility" | "mobilityNote">): string | null {
+  return joinedFacts([candidateMobilityLabel(compensation.mobility), compensation.mobilityNote]);
+}
+
+function joinedFacts(facts: readonly (string | null | undefined)[]): string | null {
+  const stated = facts.map((fact) => fact?.trim()).filter((fact): fact is string => Boolean(fact));
+  return stated.length > 0 ? stated.join(" · ") : null;
 }
 
 export const LONG_TERM_INCENTIVE_TYPES: readonly { value: LongTermIncentiveType; label: string }[] = [

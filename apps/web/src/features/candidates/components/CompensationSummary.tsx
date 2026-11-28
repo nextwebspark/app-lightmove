@@ -3,8 +3,10 @@ import { cn } from "../../../lib/cn";
 import { formatNumber } from "../../../lib/format";
 import type { CandidateCompensation } from "../api/types";
 import {
+  expectedPackageOf,
   formatAmount,
   incentiveTypesLabel,
+  mobilityOf,
   packageOf,
   recordedAllowanceLines,
   type PackagePart,
@@ -14,7 +16,8 @@ import {
  * A package as the profile reads it: the four figures as tiles, then the total with how it is made
  * up. The split is the reading an executive-search consultant actually wants — how much of the
  * package is at risk — and a bar says it faster than four numbers do. The allowance lines and the
- * LTIP's instruments the editor records are read back beside the figures they make up.
+ * LTIP's instruments the editor records are read back beside the figures they make up. Under the
+ * total, what a move would take (`PositionExecutiveProfile.dc.html`), each tile a dash until asked.
  */
 export function CompensationSummary({ compensation }: { compensation: CandidateCompensation }) {
   const currency = compensation.currency ?? "";
@@ -31,7 +34,6 @@ export function CompensationSummary({ compensation }: { compensation: CandidateC
           label="LTIP"
           value={ltipAmount && instruments ? `${ltipAmount} · ${instruments}` : (ltipAmount ?? instruments)}
         />
-        <DetailTile label="Notice period" value={compensation.noticePeriod} full />
       </DetailGrid>
       {allowanceLines.length > 0 && (
         <div className="mt-3">
@@ -54,6 +56,14 @@ export function CompensationSummary({ compensation }: { compensation: CandidateC
         </div>
       )}
       <PackageTotal currency={currency} compensation={compensation} />
+      <div className="mt-3">
+        <DetailGrid>
+          <DetailTile label="Expected package" value={expectedPackageOf(currency, compensation)} full />
+          <DetailTile label="Notice period" value={compensation.noticePeriod} />
+          <DetailTile label="Available from" value={compensation.availableFrom} />
+          <DetailTile label="Mobility" value={mobilityOf(compensation)} full />
+        </DetailGrid>
+      </div>
     </>
   );
 }

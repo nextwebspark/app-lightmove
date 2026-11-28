@@ -5,6 +5,7 @@ import app.lightmove.api.candidate.constant.ContactChannel;
 import app.lightmove.api.candidate.constant.ContactKind;
 import app.lightmove.api.candidate.constant.Gender;
 import app.lightmove.api.candidate.constant.LongTermIncentiveType;
+import app.lightmove.api.candidate.constant.Mobility;
 import app.lightmove.api.candidate.dto.CandidateCompensationDto;
 import app.lightmove.api.candidate.dto.ContactEntryDto;
 import app.lightmove.api.candidate.dto.SaveCandidateRequest;
@@ -17,6 +18,7 @@ import app.lightmove.api.candidate.model.CandidateDetails;
 import app.lightmove.api.candidate.model.CandidateProfile;
 import app.lightmove.api.candidate.model.CompensationBreakdown;
 import app.lightmove.api.candidate.model.ContactEntry;
+import app.lightmove.api.candidate.model.MoveExpectations;
 import app.lightmove.api.candidate.model.Person;
 import app.lightmove.api.candidate.repository.CandidateRepository;
 import app.lightmove.api.common.constant.ApiValueEnum;
@@ -93,7 +95,7 @@ class CandidateRequestReader {
                 request.locationCity(), request.nationality(), resolveGender(request.gender()),
                 request.yearsExperience(),
                 request.summary(), request.note(), compensationOf(request.compensation()),
-                profileOf(request), request.sourceUrl());
+                expectationsOf(request.compensation()), profileOf(request), request.sourceUrl());
 
         if (request.triageCompanyId() == null) {
             return details;
@@ -201,6 +203,20 @@ class CandidateRequestReader {
         return new CandidateCompensation(supplied.currency(), supplied.baseSalary(), supplied.bonus(),
                 supplied.allowances(), supplied.longTermIncentive(), supplied.noticePeriod(),
                 breakdownOf(supplied));
+    }
+
+    private static MoveExpectations expectationsOf(CandidateCompensationDto supplied) {
+        if (supplied == null) {
+            return MoveExpectations.unknown();
+        }
+        return new MoveExpectations(supplied.expectedBaseSalary(), supplied.expectedTotalPackage(),
+                supplied.expectedPackageNote(), resolveMobility(supplied.mobility()), supplied.mobilityNote(),
+                supplied.availableFrom());
+    }
+
+    /** Null when nobody asked, which is not {@code NONE}: a recorded no. */
+    private static Mobility resolveMobility(String token) {
+        return ApiValueEnum.parse(Mobility.class, token, null, "mobility");
     }
 
     private static CompensationBreakdown breakdownOf(CandidateCompensationDto supplied) {

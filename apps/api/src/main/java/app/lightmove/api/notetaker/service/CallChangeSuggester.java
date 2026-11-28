@@ -133,7 +133,7 @@ class CallChangeSuggester {
         if (base == null && bonus == null && allowances == null) {
             return Optional.empty();
         }
-        if (held.compensation().wouldRelabel(currency, base != null, bonus != null, allowances != null)) {
+        if (held.wouldRelabel(currency, base != null, bonus != null, allowances != null)) {
             // Taking it would relabel a figure held in another currency; the consultant edits that by hand.
             return Optional.empty();
         }

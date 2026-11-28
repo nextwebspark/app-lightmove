@@ -1,7 +1,9 @@
 package app.lightmove.api.candidate.service;
 
+import app.lightmove.api.candidate.constant.Mobility;
 import app.lightmove.api.candidate.model.CandidateCareerEntry;
 import app.lightmove.api.candidate.model.CandidateCompensation;
+import app.lightmove.api.candidate.model.MoveExpectations;
 import app.lightmove.api.candidate.model.Person;
 import app.lightmove.api.core.text.service.ContactRedaction;
 import java.text.NumberFormat;
@@ -17,7 +19,8 @@ import java.util.Objects;
  * What a profile save did to each field, as the timeline shows it: the value as it read before and after, in the
  * words a researcher reads on the Career tab. Contacts are deliberately absent — an address quoted here would outlive
  * its removal from the ledger — and so is the employer, which is the position's mapping rather than the person's. The
- * About text is kept only redacted, for the same reason: summaries routinely carry an email or a phone number.
+ * About text and the expectation notes are kept only redacted, for the same reason: free text routinely carries an
+ * email or a phone number.
  */
 final class ProfileChanges {
 
@@ -60,6 +63,7 @@ final class ProfileChanges {
 
     private static Map<String, String> valuesOf(Person person) {
         CandidateCompensation pay = person.compensation();
+        MoveExpectations expectations = person.expectations();
         Map<String, String> values = new LinkedHashMap<>();
         values.put("fullName", person.getFullName());
         values.put("title", person.getTitle());
@@ -70,13 +74,19 @@ final class ProfileChanges {
         values.put("yearsExperience", person.getYearsExperience() == null ? null
                 : String.valueOf(person.getYearsExperience()));
         values.put("linkedinUrl", person.getLinkedinUrl());
-        values.put("summary", aboutOf(person.getSummary()));
+        values.put("summary", freeTextOf(person.getSummary()));
         values.put("currency", pay.currency());
         values.put("baseSalary", money(pay.currency(), pay.baseSalary()));
         values.put("bonus", money(pay.currency(), pay.bonus()));
         values.put("allowances", money(pay.currency(), pay.allowances()));
         values.put("longTermIncentive", money(pay.currency(), pay.longTermIncentive()));
         values.put("noticePeriod", pay.noticePeriod());
+        values.put("expectedBaseSalary", money(pay.currency(), expectations.expectedBaseSalary()));
+        values.put("expectedTotalPackage", money(pay.currency(), expectations.expectedTotalPackage()));
+        values.put("expectedPackageNote", freeTextOf(expectations.expectedPackageNote()));
+        values.put("availableFrom", expectations.availableFrom());
+        values.put("mobility", wordsOf(expectations.mobility()));
+        values.put("mobilityNote", freeTextOf(expectations.mobilityNote()));
         values.put("languages", person.getProfile().languages().isEmpty() ? null
                 : String.join(", ", person.getProfile().languages()));
         return values;
@@ -111,12 +121,25 @@ final class ProfileChanges {
     }
 
     /** Redacted before it is clipped, so a number the cut would split is still taken out whole. */
-    private static String aboutOf(String text) {
+    private static String freeTextOf(String text) {
         if (text == null) {
             return null;
         }
         String flat = ContactRedaction.redact(text).strip().replaceAll("\\s+", " ");
         return flat.length() <= FREE_TEXT_LENGTH ? flat : flat.substring(0, FREE_TEXT_LENGTH - 1).strip() + "…";
+    }
+
+    /** As the Compensation editor offers it. */
+    private static String wordsOf(Mobility mobility) {
+        if (mobility == null) {
+            return null;
+        }
+        return switch (mobility) {
+            case NONE -> "Not open to relocating";
+            case COUNTRY -> "Open within the country";
+            case REGION -> "Open within the region";
+            case INTERNATIONAL -> "Open internationally";
+        };
     }
 
     private static String capitalised(String word) {

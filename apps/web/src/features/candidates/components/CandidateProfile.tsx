@@ -87,6 +87,7 @@ import {
   CompensationFields,
   IdentityFields,
   LinkedInUrlField,
+  MoveExpectationsFields,
   SummaryFields,
 } from "./CandidateFieldGroups";
 import { CareerTimeline } from "./CareerTimeline";
@@ -842,16 +843,24 @@ export function CandidateProfile({
                     footer="plain"
                   >
                     {(form) => (
-                      <CompensationFields
-                        register={form.register}
-                        errors={form.formState.errors}
-                        control={form.control}
-                        watch={form.watch}
-                        setValue={form.setValue}
-                        briefCurrency={briefCurrency}
-                        storedCurrency={compensation.currency}
-                        storedNoticePeriod={compensation.noticePeriod}
-                      />
+                      <>
+                        <CompensationFields
+                          register={form.register}
+                          errors={form.formState.errors}
+                          control={form.control}
+                          watch={form.watch}
+                          setValue={form.setValue}
+                          briefCurrency={briefCurrency}
+                          storedCurrency={compensation.currency}
+                          storedNoticePeriod={compensation.noticePeriod}
+                        />
+                        <MoveExpectationsFields
+                          register={form.register}
+                          errors={form.formState.errors}
+                          watch={form.watch}
+                          setValue={form.setValue}
+                        />
+                      </>
                     )}
                   </SectionEditor>
                 ) : (
