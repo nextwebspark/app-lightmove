@@ -66,22 +66,24 @@ public class CandidateCallUpdates {
                 .orElse(null);
         return new CallHeldFields(pay.noticePeriod(), pay.currency(), pay.baseSalary(), pay.bonus(), pay.allowances(),
                 pay.longTermIncentive(), person.getLocationCity(), person.getLocationCountry(), motivation,
-                relocationTag, relocationTag != null && person.getTagIds().contains(relocationTag));
+                relocationTag, relocationTag != null && person.getTagIds().contains(relocationTag),
+                person.expectations().holdsFigures());
     }
 
     /**
      * Writes the named fields. A package in another currency than the one on file is refused while a figure it would
-     * not replace is still held in the old one: relabelling that figure's currency would restate somebody else's
-     * number.
+     * not replace is still held in the old one, an expected package included: relabelling that figure's currency would
+     * restate somebody else's number.
      */
     @Transactional
     public void applyProfile(UUID userId, UUID workspaceId, UUID projectId, UUID candidateId, ProfileFromCall change,
                              CallReference call, HttpServletRequest httpRequest) {
         Candidate candidate = requireCandidate(workspaceId, projectId, candidateId);
         Person person = candidate.getPerson();
-        if (change.touchesPackage() && person.compensation().wouldRelabel(change.currency(),
+        if (change.touchesPackage() && (person.compensation().wouldRelabel(change.currency(),
                 change.fields().contains(CallField.BASE_SALARY), change.fields().contains(CallField.BONUS),
-                change.fields().contains(CallField.ALLOWANCES))) {
+                change.fields().contains(CallField.ALLOWANCES))
+                || person.expectations().wouldRelabel(person.compensation().currency(), change.currency()))) {
             throw ApiException.of(ErrorCode.NOTETAKER_SUGGESTION_UNAVAILABLE);
         }
         ProfileChanges changes = ProfileChanges.before(person);

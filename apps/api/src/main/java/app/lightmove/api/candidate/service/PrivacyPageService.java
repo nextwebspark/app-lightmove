@@ -420,7 +420,8 @@ public class PrivacyPageService {
         }
         CandidateCompensation pay = person.compensation();
         if (pay.baseSalary() != null || pay.bonus() != null || pay.allowances() != null
-                || pay.longTermIncentive() != null || pay.noticePeriod() != null) {
+                || pay.longTermIncentive() != null || pay.noticePeriod() != null
+                || !person.expectations().isUnknown()) {
             categories.add("compensation");
         }
         if (person.getNationality() != null || person.getGender() != null || person.getYearsExperience() != null) {

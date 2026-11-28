@@ -12,7 +12,7 @@ import org.junit.jupiter.api.Test;
 class CandidateTriageStatusTest {
 
     private static final CandidateDetails DETAILS = new CandidateDetails("Khaled Al Beirouty", null, null, null,
-            null, null, null, null, null, null, null, null, null, null, null, null, null);
+            null, null, null, null, null, null, null, null, null, null, null, null, null, null);
 
     @Test
     void starts_at_the_stage_of_the_company_it_is_filed_at() {

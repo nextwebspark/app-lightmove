@@ -14,7 +14,7 @@ class CallChangesTrial implements PromptTrial {
     private static final UUID RELOCATION_TAG = UUID.fromString("00000000-0000-4000-8000-000000000001");
 
     private static final CallHeldFields HELD = new CallHeldFields("3 months", "AED", 900_000L, null, null, null,
-            "Dubai", "United Arab Emirates", null, RELOCATION_TAG, false);
+            "Dubai", "United Arab Emirates", null, RELOCATION_TAG, false, false);
 
     private final CallChangeSuggester suggester;
 

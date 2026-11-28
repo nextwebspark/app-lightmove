@@ -1,5 +1,5 @@
 import { SENIORITY_TOKENS } from "../../../lib/seniority";
-import type { CandidateGender, CandidateSeniority, CandidateSource } from "../api/types";
+import type { CandidateGender, CandidateMobility, CandidateSeniority, CandidateSource } from "../api/types";
 
 /**
  * The wire tokens are what a consultant writes, so they are also the labels. The ladder itself is
@@ -45,6 +45,21 @@ export const CANDIDATE_GENDERS: { value: CandidateGender; label: string }[] = [
 
 export function candidateGenderLabel(gender: CandidateGender | null): string | null {
   return CANDIDATE_GENDERS.find((option) => option.value === gender)?.label ?? null;
+}
+
+/**
+ * How far an executive would move, as the Compensation editor offers it (`Position.dc.html`'s MOBILITY). Its blank,
+ * Not established, is a different fact from `none`, which somebody asked and recorded.
+ */
+export const CANDIDATE_MOBILITIES: { value: CandidateMobility; label: string }[] = [
+  { value: "none", label: "Not open to relocating" },
+  { value: "country", label: "Open within the country" },
+  { value: "region", label: "Open within the region" },
+  { value: "international", label: "Open internationally" },
+];
+
+export function candidateMobilityLabel(mobility: CandidateMobility | null | undefined): string | null {
+  return CANDIDATE_MOBILITIES.find((option) => option.value === mobility)?.label ?? null;
 }
 
 /** Which door a profile came through, in the colours the Companies grid gives the same three sources. */

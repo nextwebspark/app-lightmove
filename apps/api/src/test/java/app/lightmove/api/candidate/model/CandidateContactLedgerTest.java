@@ -322,7 +322,7 @@ class CandidateContactLedgerTest {
                 email == null ? List.of() : List.of(ContactEntry.of(email)),
                 phone == null ? List.of() : List.of(ContactEntry.of(phone)),
                 "https://www.linkedin.com/in/sample-profile", null, null, null, null, null,
-                null, null, CandidateCompensation.unknown(),
+                null, null, CandidateCompensation.unknown(), MoveExpectations.unknown(),
                 new CandidateProfile(null, null, null, null, null, null), null);
     }
 }

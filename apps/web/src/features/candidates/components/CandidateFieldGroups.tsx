@@ -35,12 +35,19 @@ import {
   type BonusBasis,
 } from "../lib/compensation";
 import {
+  AVAILABLE_FROM_LENGTH,
   CONTACTS_PER_CHANNEL,
   EMPTY_CONTACT_LINE,
+  EXPECTATION_NOTE_LENGTH,
   type CandidateForm,
   type ContactEntryForm,
 } from "../lib/candidateForm";
-import { CANDIDATE_GENDERS, CANDIDATE_NATIONALITIES, CANDIDATE_SENIORITIES } from "../lib/candidateVocabulary";
+import {
+  CANDIDATE_GENDERS,
+  CANDIDATE_MOBILITIES,
+  CANDIDATE_NATIONALITIES,
+  CANDIDATE_SENIORITIES,
+} from "../lib/candidateVocabulary";
 import { AiInferredBadge } from "./AiInferredBadge";
 import { StatusPicker } from "./StatusPicker";
 
@@ -562,6 +569,86 @@ export function CompensationFields<TTransformed extends FieldValues>({
 }
 
 /**
+ * What a move would take, under the current package (`PositionExecutiveProfile.dc.html`): the expected figures in the
+ * package's one currency, never converted, then when they could start and how far they would move. Saved with the
+ * section; a blank mobility is Not established, never Not open to relocating.
+ */
+export function MoveExpectationsFields({
+  register,
+  errors,
+  watch,
+  setValue,
+}: FieldGroupProps & {
+  watch: UseFormWatch<CandidateForm>;
+  setValue: UseFormSetValue<CandidateForm>;
+}) {
+  const currency = watch("currency");
+  return (
+    <div className="mt-[18px] grid gap-4 border-t border-u-border pt-4 sm:grid-cols-2">
+      <AmountField
+        name="expectedBaseSalary"
+        label="Expected base"
+        placeholder="0"
+        currency={currency}
+        register={register}
+        setValue={setValue}
+        error={errors.expectedBaseSalary?.message}
+      />
+      <AmountField
+        name="expectedTotalPackage"
+        label="Expected total package"
+        placeholder="0"
+        currency={currency}
+        register={register}
+        setValue={setValue}
+        error={errors.expectedTotalPackage?.message}
+      />
+      <div className="sm:col-span-2">
+        <CompensationField label="Expectations, in their words" error={errors.expectedPackageNote?.message}>
+          <Input
+            {...register("expectedPackageNote")}
+            maxLength={EXPECTATION_NOTE_LENGTH}
+            placeholder="e.g. wants the LTIP to carry over"
+            invalid={Boolean(errors.expectedPackageNote)}
+            className="border-u-border py-[9px]"
+          />
+        </CompensationField>
+      </div>
+      <CompensationField label="Available from" error={errors.availableFrom?.message}>
+        <Input
+          {...register("availableFrom")}
+          maxLength={AVAILABLE_FROM_LENGTH}
+          placeholder="e.g. Jan 2027, or Immediately"
+          invalid={Boolean(errors.availableFrom)}
+          className="border-u-border py-[9px]"
+        />
+      </CompensationField>
+      <CompensationField label="Mobility" error={errors.mobility?.message}>
+        <Select {...register("mobility")} invalid={Boolean(errors.mobility)} className="border-u-border py-[9px]">
+          <option value="">Not established</option>
+          {CANDIDATE_MOBILITIES.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </Select>
+      </CompensationField>
+      <div className="sm:col-span-2">
+        <CompensationField label="Where, or what would make a move work" error={errors.mobilityNote?.message}>
+          <Input
+            {...register("mobilityNote")}
+            maxLength={EXPECTATION_NOTE_LENGTH}
+            placeholder="e.g. GCC only; family stays in Abu Dhabi"
+            invalid={Boolean(errors.mobilityNote)}
+            className="border-u-border py-[9px]"
+          />
+        </CompensationField>
+      </div>
+    </div>
+  );
+}
+
+/**
  * The editor's own label: the mockup sets these at 9.5px, a step under the shared `Field`, and stacks
  * each toggle 8px under its input rather than a field's width of space.
  */
@@ -636,7 +723,7 @@ function AmountField({
   setValue,
   error,
 }: {
-  name: "baseSalary" | "bonus" | "longTermIncentive";
+  name: "baseSalary" | "bonus" | "longTermIncentive" | "expectedBaseSalary" | "expectedTotalPackage";
   label: string;
   placeholder: string;
   currency: string;

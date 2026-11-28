@@ -12,6 +12,7 @@ import app.lightmove.api.candidate.model.CandidateCompensation;
 import app.lightmove.api.candidate.model.CandidateDetails;
 import app.lightmove.api.candidate.model.CandidateProfile;
 import app.lightmove.api.candidate.model.EnrichedProfile;
+import app.lightmove.api.candidate.model.MoveExpectations;
 import app.lightmove.api.candidate.model.Person;
 import app.lightmove.api.candidate.model.PipelineTestStatuses;
 import app.lightmove.api.candidate.model.PersonEmployer;
@@ -169,7 +170,7 @@ class PersonEmployerTest {
     private static CandidateDetails details(String employerName, List<CandidateCareerEntry> career) {
         return new CandidateDetails("Sample Person", null, null, employerName,
                 null, null, "https://www.linkedin.com/in/sample-profile", null, null, null, null,
-                null, null, null, CandidateCompensation.unknown(),
+                null, null, null, CandidateCompensation.unknown(), MoveExpectations.unknown(),
                 new CandidateProfile(career, null, null, null, null, null), null);
     }
 }

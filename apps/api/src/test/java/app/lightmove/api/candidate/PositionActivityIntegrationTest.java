@@ -189,6 +189,30 @@ class PositionActivityIntegrationTest extends FlowTestSupport {
     }
 
     @Test
+    @DisplayName("what they expect of a move is among a save's changes, in the drawer's words, its notes redacted")
+    void expectationChangesAreRecorded() throws Exception {
+        firm("Expectation Changes Firm");
+        String cfo = mandate("Chief Financial Officer");
+        String candidateId = add(cfo, """
+                {"fullName":"Fatima Al Mazrouei",
+                 "compensation":{"currency":"AED","baseSalary":1500000,"mobility":"none"}}""").get("id").asText();
+
+        save(cfo, candidateId, """
+                {"fullName":"Fatima Al Mazrouei",
+                 "compensation":{"currency":"AED","baseSalary":1500000,"expectedTotalPackage":4000000,
+                                 "expectedPackageNote":"Text me on +971 50 123 4567 before the offer",
+                                 "availableFrom":"Jan 2027","mobility":"region"}}""");
+
+        Map<String, List<String>> changes = changesOf(timeline(cfo, candidateId, "profile").get("entries").get(0));
+        assertThat(changes).containsOnlyKeys("expectedTotalPackage", "expectedPackageNote", "availableFrom",
+                "mobility");
+        assertThat(changes.get("expectedTotalPackage")).containsExactly(null, "AED 4,000,000");
+        assertThat(changes.get("mobility")).containsExactly("Not open to relocating", "Open within the region");
+        assertThat(changes.get("availableFrom")).containsExactly(null, "Jan 2027");
+        assertThat(changes.get("expectedPackageNote").get(1)).contains("[phone removed]").doesNotContain("123 4567");
+    }
+
+    @Test
     @DisplayName("contacts never appear among a profile save's changes, whatever the save supplied")
     void contactsAreNeverQuotedInChanges() throws Exception {
         firm("No Contacts Firm");

@@ -71,7 +71,20 @@ export interface CandidateCompensation {
   allowanceLines: AllowanceLine[];
   /** What the long-term incentive is paid in; `none` is a recorded "no LTIP" and only ever alone. */
   longTermIncentiveTypes: LongTermIncentiveType[];
+  /** What a move would take, in `currency` like the package; null is not established, never nought. */
+  expectedBaseSalary: number | null;
+  expectedTotalPackage: number | null;
+  /** Their expectations in their own words, one line. */
+  expectedPackageNote: string | null;
+  /** When they could start, as they put it: "Jan 2027", "Immediately". */
+  availableFrom: string | null;
+  /** Null is not established; `none` is a recorded "not open to relocating". */
+  mobility: CandidateMobility | null;
+  /** Where, or what would make a move work. */
+  mobilityNote: string | null;
 }
+
+export type CandidateMobility = "none" | "country" | "region" | "international";
 
 export interface AllowanceLine {
   label: string | null;

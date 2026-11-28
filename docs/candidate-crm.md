@@ -357,6 +357,33 @@ Sara Al-Mansour", `shortWhen`'s day, the exact time in the title; `lib/lastCall.
 dates adds a Last call row ("05 OCT 2026 · CONNECTED") once there is one. Every note write refreshes the person's
 conversation on every position and nobody else's (`invalidateConversationsOf`), since Last call spans positions.
 
+### Expected package, mobility, available from (V249)
+
+What a move would take, recorded in the drawer's Compensation section under the current package
+(`PositionExecutiveProfile.dc.html`, `Candidates.dc.html`), saved by the section's one Save:
+
+- **Expected base** and **Expected total package**, in the record's one compensation currency (the editor's picker),
+  never converted; null is not established, never nought; negatives are refused like the package's own figures.
+  **Expectations, in their words** is one line (≤ 200).
+- **Available from** is free text (≤ 60): "Jan 2027", "Immediately". Notice period stays the V60 column.
+- **Mobility** is Not established (null) · Not open to relocating (`none`) · Open within the country · Open within the
+  region · Open internationally, with **Where, or what would make a move work** (≤ 200). The Open to relocate tag is
+  separate and stays.
+
+The person's, like the package (`Person.expectations()`, `MoveExpectations`): a second position filing someone known
+fills them only where nobody has recorded any, and a re-imported sheet carries them across untouched. They ride
+`CandidateCompensationDto` on `CandidateResponse` and `PersonRecordResponse`, so a client seat reads them exactly as it
+reads the current package — the screens draw both only in the staff-only Compensation fold. The read view lays them
+under the total: Expected package (one line, "AED 4,000,000 total · base 1,700,000 · Wants the LTIP to carry over"),
+Notice period, Available from, Mobility ("Open within the region · GCC; family stays in Abu Dhabi"), a dash for each
+nobody asked. A change is a `PROFILE_EDITED` line like the package's (`ProfileChanges`: the figures in the package's
+currency, mobility in the editor's words, the two notes redacted and clipped as the About is). The privacy page counts
+them under `compensation` ("Pay and notice period").
+
+The confidential report (planned) reads these facts first, before any call transcript or CV. Not yet read by the
+notetaker's suggestions (`EXPECTED_PACKAGE` still appends to Motivation, `OPEN_TO_RELOCATE` still tags), the public API
+and MCP, the spreadsheet import's columns or the CSV export.
+
 ### Tags (Phase 4, V98): "Open to work", "Open to relocate", …
 
 How the products do it: LinkedIn Recruiter exposes *Open to work* and *Open to relocate* as structured

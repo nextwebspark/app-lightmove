@@ -150,6 +150,12 @@ const yasmin: Candidate = {
     noticePeriod: "3 months",
     allowanceLines: [],
     longTermIncentiveTypes: [],
+    expectedBaseSalary: null,
+    expectedTotalPackage: null,
+    expectedPackageNote: null,
+    availableFrom: null,
+    mobility: null,
+    mobilityNote: null,
   },
   career: [{ company: "Regional Foods Co.", title: "Finance Director", period: "2017–2021" }],
   languages: ["English", "Arabic"],
@@ -963,6 +969,98 @@ describe("CandidateDrawer", () => {
       .toBe("3 months");
   });
 
+  it("saves what a move would take with the rest of the package, in the package's currency", async () => {
+    vi.mocked(candidatesApi.updateCandidate).mockResolvedValue(yasmin);
+    renderDrawer({ candidate: yasmin, company: null });
+
+    await openTab("Compensation");
+    await userEvent.click(screen.getByRole("button", { name: /Edit compensation/i }));
+    await userEvent.type(screen.getByLabelText(/^Expected base$/i), "1700000");
+    await userEvent.type(screen.getByLabelText(/^Expected total package$/i), "4,000,000");
+    await userEvent.type(screen.getByLabelText(/^Expectations, in their words$/i), "Wants the LTIP to carry over");
+    await userEvent.type(screen.getByLabelText(/^Available from$/i), "Jan 2027");
+    await userEvent.selectOptions(screen.getByLabelText(/^Mobility$/i), "Open within the region");
+    await userEvent.type(
+      screen.getByLabelText(/^Where, or what would make a move work$/i),
+      "GCC; family stays in Abu Dhabi",
+    );
+    await userEvent.click(screen.getByRole("button", { name: /^Save$/i }));
+
+    await waitFor(() => expect(candidatesApi.updateCandidate).toHaveBeenCalled());
+    expect(vi.mocked(candidatesApi.updateCandidate).mock.calls[0][2].compensation).toMatchObject({
+      currency: "AED",
+      baseSalary: 420_000,
+      noticePeriod: "3 months",
+      expectedBaseSalary: 1_700_000,
+      expectedTotalPackage: 4_000_000,
+      expectedPackageNote: "Wants the LTIP to carry over",
+      availableFrom: "Jan 2027",
+      mobility: "region",
+      mobilityNote: "GCC; family stays in Abu Dhabi",
+    });
+  });
+
+  it("saves a mobility set back to Not established as nobody's answer, never as Not open to relocating", async () => {
+    vi.mocked(candidatesApi.updateCandidate).mockResolvedValue(yasmin);
+    renderDrawer({
+      candidate: {
+        ...yasmin,
+        compensation: { ...yasmin.compensation, mobility: "none", availableFrom: "Immediately" },
+      },
+      company: null,
+    });
+
+    await openTab("Compensation");
+    await userEvent.click(screen.getByRole("button", { name: /Edit compensation/i }));
+    const mobility = screen.getByLabelText(/^Mobility$/i);
+    expect(mobility).toHaveValue("none");
+    await userEvent.selectOptions(mobility, "Not established");
+    await userEvent.clear(screen.getByLabelText(/^Available from$/i));
+    await userEvent.click(screen.getByRole("button", { name: /^Save$/i }));
+
+    await waitFor(() => expect(candidatesApi.updateCandidate).toHaveBeenCalled());
+    const sent = vi.mocked(candidatesApi.updateCandidate).mock.calls[0][2].compensation;
+    expect(sent?.mobility).toBeNull();
+    expect(sent?.availableFrom).toBeNull();
+  });
+
+  it("reads a dash under the total for each part of a move nobody has asked about", async () => {
+    renderDrawer({ candidate: yasmin, company: null });
+
+    await openTab("Compensation");
+
+    for (const label of ["Expected package", "Available from", "Mobility"]) {
+      expect(screen.getByText(label).nextElementSibling).toHaveTextContent(/^—$/);
+    }
+    expect(screen.getByText("Notice period").nextElementSibling).toHaveTextContent("3 months");
+  });
+
+  it("reads what a move would take as one line each, the expected figures in the package's currency", async () => {
+    renderDrawer({
+      candidate: {
+        ...yasmin,
+        compensation: {
+          ...yasmin.compensation,
+          expectedBaseSalary: 1_700_000,
+          expectedTotalPackage: 4_000_000,
+          expectedPackageNote: "Wants the LTIP to carry over",
+          availableFrom: "Jan 2027",
+          mobility: "region",
+          mobilityNote: "GCC; family stays in Abu Dhabi",
+        },
+      },
+      company: null,
+    });
+
+    await openTab("Compensation");
+
+    expect(
+      screen.getByText("AED 4,000,000 total · base 1,700,000 · Wants the LTIP to carry over"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Available from").nextElementSibling).toHaveTextContent("Jan 2027");
+    expect(screen.getByText("Open within the region · GCC; family stays in Abu Dhabi")).toBeInTheDocument();
+  });
+
   it("offers a new executive the mandate's currency, and never overwrites one already picked", async () => {
     renderDrawer({}, BriefArrivesLate);
 
@@ -1727,11 +1825,20 @@ describe("CandidateDrawer", () => {
   });
 
   it("gives a client seat the profile alone, with no tab bar and no package", async () => {
-    renderDrawer({ candidate: summarised, company: null, canWrite: false });
+    renderDrawer({
+      candidate: {
+        ...summarised,
+        compensation: { ...summarised.compensation, expectedTotalPackage: 4_000_000, mobility: "region" },
+      },
+      company: null,
+      canWrite: false,
+    });
 
     expect(screen.queryByRole("tablist", { name: "Executive sections" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^Summary/ })).toHaveAttribute("aria-expanded", "true");
     expect(screen.queryByRole("button", { name: /^Compensation/ })).not.toBeInTheDocument();
+    expect(screen.queryByText("Expected package")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Open within the region/)).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^Documents/ })).not.toBeInTheDocument();
   });
 

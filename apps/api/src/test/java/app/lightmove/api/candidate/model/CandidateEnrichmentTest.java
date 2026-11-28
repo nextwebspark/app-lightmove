@@ -155,7 +155,7 @@ class CandidateEnrichmentTest {
         CandidateDetails typed = new CandidateDetails("Sample Person", "CFO, as we met them",
                 null, "The Firm They Told Us", null,
                 null, null, "UAE", "Abu Dhabi", null, null, null, "Our own read of them.", null,
-                CandidateCompensation.unknown(),
+                CandidateCompensation.unknown(), MoveExpectations.unknown(),
                 new CandidateProfile(
                         List.of(new CandidateCareerEntry("The Firm They Told Us", "CFO", "2019 –", null)),
                         List.of("French"), null, null, null, null),
@@ -388,14 +388,14 @@ class CandidateEnrichmentTest {
                                             List<String> languages) {
         return new CandidateDetails(fullName, title, null, employerName,
                 null, null, "https://www.linkedin.com/in/sample-profile", null, null, null, null,
-                null, summary, null, CandidateCompensation.unknown(),
+                null, summary, null, CandidateCompensation.unknown(), MoveExpectations.unknown(),
                 new CandidateProfile(career, languages, null, null, null, null), null);
     }
 
     private static CandidateDetails atProfile(String linkedinUrl) {
         return new CandidateDetails("Sample Person", null, null, null,
                 null, null, linkedinUrl, null, null, null, null,
-                null, null, null, CandidateCompensation.unknown(),
+                null, null, null, CandidateCompensation.unknown(), MoveExpectations.unknown(),
                 new CandidateProfile(List.of(), List.of("English", "Arabic"), null, null, null, null), null);
     }
 
@@ -408,7 +408,7 @@ class CandidateEnrichmentTest {
                                                            Integer yearsExperience, Seniority seniority) {
         return new CandidateDetails("Sample Person", null, seniority, null,
                 null, null, "https://www.linkedin.com/in/sample-profile", null, null, nationality,
-                gender, yearsExperience, null, null, CandidateCompensation.unknown(),
+                gender, yearsExperience, null, null, CandidateCompensation.unknown(), MoveExpectations.unknown(),
                 CandidateProfile.empty(), null);
     }
 }

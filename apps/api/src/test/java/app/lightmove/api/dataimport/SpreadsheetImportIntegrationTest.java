@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import app.lightmove.api.ApolloUniverse;
@@ -228,6 +229,38 @@ class SpreadsheetImportIntegrationTest extends FlowTestSupport {
         assertThat(layla.get("triageCompanyId").asText()).isEqualTo(companyId);
         assertThat(layla.get("companyName").asText()).isEqualTo("ACWA Power");
         assertThat(layla.get("title").asText()).isEqualTo("Group CFO");
+    }
+
+    @Test
+    @DisplayName("a re-import keeps what a colleague recorded the person expects of a move")
+    void aReImportKeepsWhatTheyExpect() throws Exception {
+        String admin = adminOf("Import Keeps Expectations Firm");
+        String projectId = project(admin);
+        importFile(admin, projectId, """
+                Company,Full Name,Job Title
+                ACWA Power,Layla Haddad,CFO
+                """);
+        String candidateId = candidates(admin, projectId).get("candidates").get(0).get("id").asText();
+        mvc.perform(put("/api/v1/projects/" + projectId + "/candidates/" + candidateId)
+                        .header("Authorization", "Bearer " + admin)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fullName":"Layla Haddad","title":"CFO",
+                                 "compensation":{"currency":"AED","expectedTotalPackage":4000000,
+                                                 "mobility":"region","availableFrom":"Jan 2027"}}"""))
+                .andExpect(status().isOk());
+
+        JsonNode second = importFile(admin, projectId, """
+                Company,Full Name,Job Title
+                ACWA Power,Layla Haddad,Group CFO
+                """);
+
+        assertThat(second.get("candidatesUpdated").asInt()).isEqualTo(1);
+        JsonNode layla = candidates(admin, projectId).get("candidates").get(0);
+        assertThat(layla.get("title").asText()).isEqualTo("Group CFO");
+        assertThat(layla.at("/compensation/expectedTotalPackage").asLong()).isEqualTo(4_000_000L);
+        assertThat(layla.at("/compensation/mobility").asText()).isEqualTo("region");
+        assertThat(layla.at("/compensation/availableFrom").asText()).isEqualTo("Jan 2027");
     }
 
     @Test

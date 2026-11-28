@@ -21,7 +21,7 @@ class CallChangeSuggesterTest {
 
     private static final UUID TAG = UUID.randomUUID();
     private static final CallHeldFields NOTHING = new CallHeldFields(null, null, null, null, null, null, null, null,
-            null, TAG, false);
+            null, TAG, false, false);
 
     @Test
     @DisplayName("a notice period folds onto one of the five only where it is an exact equivalent")
@@ -33,7 +33,7 @@ class CallChangeSuggesterTest {
         assertThat(CallChangeSuggester.suggestionsOf(answer(new Notice(6, "weeks", "Six weeks.", "07:42")), NOTHING))
                 .isEmpty();
         CallHeldFields threeMonths = new CallHeldFields("3 months", null, null, null, null, null, null, null, null,
-                TAG, false);
+                TAG, false, false);
         assertThat(CallChangeSuggester.suggestionsOf(answer(new Notice(3, "MONTHS", "Three months.", "07:42")),
                 threeMonths)).isEmpty();
     }
@@ -67,7 +67,7 @@ class CallChangeSuggesterTest {
                 new Figure(1_000_000d, null), null, null, null, "A million.", "09:15"), null, null, null, null,
                 null), NOTHING)).isEmpty();
         CallHeldFields heldInDollars = new CallHeldFields(null, "USD", 300_000L, 50_000L, null, null, null, null,
-                null, TAG, false);
+                null, TAG, false, false);
         assertThat(CallChangeSuggester.suggestionsOf(new CallChangesAnswer(null, null, new Pay("AED",
                 new Figure(1_100_000d, "YEAR"), null, null, null, "One point one.", "09:15"), null, null, null, null,
                 null), heldInDollars)).isEmpty();
@@ -77,13 +77,25 @@ class CallChangeSuggesterTest {
     @DisplayName("a figure already on file in the same currency is left out of the package suggestion")
     void heldFiguresAreLeftOut() {
         CallHeldFields held = new CallHeldFields(null, "AED", 1_140_000L, null, null, null, null, null, null, TAG,
-                false);
+                false, false);
         CallSuggestion pay = only(new CallChangesAnswer(null, null, new Pay("AED", new Figure(1_140_000d, "YEAR"),
                 new Figure(200_000d, "YEAR"), null, null, "Same base, bonus about two hundred.", "09:15"), null,
                 null, null, null, null), held);
 
         assertThat(pay.value().baseSalary()).isNull();
         assertThat(pay.value().bonus()).isEqualTo(200_000L);
+    }
+
+    @Test
+    @DisplayName("a package in another currency is not offered while an expected package is held in the record's")
+    void anExpectedPackageKeepsItsCurrency() {
+        CallHeldFields expectingDirhams = new CallHeldFields(null, "AED", null, null, null, null, null, null, null,
+                TAG, false, true);
+        CallChangesAnswer inDollars = new CallChangesAnswer(null, null, new Pay("USD", new Figure(400_000d, "YEAR"),
+                null, null, null, "Four hundred thousand dollars.", "09:15"), null, null, null, null, null);
+
+        assertThat(CallChangeSuggester.suggestionsOf(inDollars, expectingDirhams)).isEmpty();
+        assertThat(CallChangeSuggester.suggestionsOf(inDollars, NOTHING)).hasSize(1);
     }
 
     @Test
@@ -99,9 +111,9 @@ class CallChangeSuggesterTest {
         CallChangesAnswer open = new CallChangesAnswer(null, null, null, null, new Relocation(true,
                 "Riyadh would be fine.", "21:30"), null, null, null);
         assertThat(only(open, NOTHING).kind()).isEqualTo(CallSuggestionKind.OPEN_TO_RELOCATE);
-        CallHeldFields noTag = new CallHeldFields(null, null, null, null, null, null, null, null, null, null, false);
+        CallHeldFields noTag = new CallHeldFields(null, null, null, null, null, null, null, null, null, null, false, false);
         assertThat(CallChangeSuggester.suggestionsOf(open, noTag)).isEmpty();
-        CallHeldFields tagged = new CallHeldFields(null, null, null, null, null, null, null, null, null, TAG, true);
+        CallHeldFields tagged = new CallHeldFields(null, null, null, null, null, null, null, null, null, TAG, true, false);
         assertThat(CallChangeSuggester.suggestionsOf(open, tagged)).isEmpty();
     }
 

@@ -75,10 +75,10 @@ class InterviewCopilotRulesTest {
     void gapsAreOnlyWhatIsEmpty() {
         UUID tag = UUID.randomUUID();
         assertThat(InterviewPlanService.missingOf(new CallHeldFields(null, null, null, null, null, null, null, null,
-                null, tag, false))).containsExactly(RecordGap.NOTICE, RecordGap.PACKAGE, RecordGap.LOCATION,
+                null, tag, false, false))).containsExactly(RecordGap.NOTICE, RecordGap.PACKAGE, RecordGap.LOCATION,
                 RecordGap.RELOCATION, RecordGap.MOTIVATION, RecordGap.EXPECTED_PACKAGE);
         assertThat(InterviewPlanService.missingOf(new CallHeldFields("3 months", "AED", 1L, null, null, null, null,
-                "United Arab Emirates", "Wants a group remit.", tag, true))).isEmpty();
+                "United Arab Emirates", "Wants a group remit.", tag, true, false))).isEmpty();
     }
 
     @Test

@@ -33,6 +33,10 @@ export const CONTACTS_PER_CHANNEL = 10;
 export const CAREER_POSTS_PER_PROFILE = 25;
 export const LANGUAGES_PER_PROFILE = 20;
 
+/** The server's `MoveExpectations.LONGEST_NOTE` and `LONGEST_AVAILABLE_FROM`. */
+export const EXPECTATION_NOTE_LENGTH = 200;
+export const AVAILABLE_FROM_LENGTH = 60;
+
 /** What one email or phone line holds while it is being edited. `source` rides along, read-only. */
 export const contactEntrySchema = z.object({
   value: z.string().trim().max(320),
@@ -170,6 +174,12 @@ export const candidateSchema = z.object({
   longTermIncentive: money("Long-term incentive"),
   longTermIncentiveTypes: z.array(z.enum(["options", "rsus", "cash", "none"])),
   noticePeriod: z.string().trim().max(100),
+  expectedBaseSalary: money("Expected base"),
+  expectedTotalPackage: money("Expected total package"),
+  expectedPackageNote: textUpTo(EXPECTATION_NOTE_LENGTH),
+  availableFrom: textUpTo(AVAILABLE_FROM_LENGTH),
+  mobility: z.enum(["", "none", "country", "region", "international"]),
+  mobilityNote: textUpTo(EXPECTATION_NOTE_LENGTH),
   career: z
     .array(
       z.object({
@@ -188,6 +198,10 @@ function money(label: string) {
     .string()
     .transform((value) => value.replace(/[,\s]/g, ""))
     .pipe(optionalWholeNumber(label, Number.MAX_SAFE_INTEGER));
+}
+
+function textUpTo(longest: number) {
+  return z.string().trim().max(longest, `Keep it to ${longest} characters`);
 }
 
 /** The bonus, which alone may carry a "%": a share of base is shown as "45%". */
@@ -257,6 +271,12 @@ export const EMPTY_FORM: CandidateForm = {
   longTermIncentive: "",
   longTermIncentiveTypes: [],
   noticePeriod: "",
+  expectedBaseSalary: "",
+  expectedTotalPackage: "",
+  expectedPackageNote: "",
+  availableFrom: "",
+  mobility: "",
+  mobilityNote: "",
   career: [],
 };
 
@@ -288,6 +308,12 @@ export const SECTION_FIELDS = {
     "longTermIncentive",
     "longTermIncentiveTypes",
     "noticePeriod",
+    "expectedBaseSalary",
+    "expectedTotalPackage",
+    "expectedPackageNote",
+    "availableFrom",
+    "mobility",
+    "mobilityNote",
   ],
   background: ["nationality", "gender", "yearsExperience", "languages"],
   note: ["note"],
@@ -345,6 +371,12 @@ export function formOf(candidate: Candidate): CandidateForm {
     longTermIncentive: amountOf(candidate.compensation.longTermIncentive),
     longTermIncentiveTypes: [...candidate.compensation.longTermIncentiveTypes],
     noticePeriod: candidate.compensation.noticePeriod ?? "",
+    expectedBaseSalary: amountOf(candidate.compensation.expectedBaseSalary ?? null),
+    expectedTotalPackage: amountOf(candidate.compensation.expectedTotalPackage ?? null),
+    expectedPackageNote: candidate.compensation.expectedPackageNote ?? "",
+    availableFrom: candidate.compensation.availableFrom ?? "",
+    mobility: candidate.compensation.mobility ?? "",
+    mobilityNote: candidate.compensation.mobilityNote ?? "",
     career: heldCareerOf(candidate).map((entry) => ({
       company: entry.company ?? "",
       title: entry.title ?? "",
@@ -469,6 +501,12 @@ const PATCHES: {
           parsed.longTermIncentive ?? null,
           parsed.longTermIncentiveTypes as LongTermIncentiveType[],
         ),
+        expectedBaseSalary: parsed.expectedBaseSalary ?? null,
+        expectedTotalPackage: parsed.expectedTotalPackage ?? null,
+        expectedPackageNote: parsed.expectedPackageNote || null,
+        availableFrom: parsed.availableFrom || null,
+        mobility: parsed.mobility || null,
+        mobilityNote: parsed.mobilityNote || null,
       },
     };
   },

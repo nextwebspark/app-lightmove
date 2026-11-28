@@ -9,11 +9,17 @@
     "compensation" : {
       "allowanceLines" : [ ],
       "allowances" : 20000,
+      "availableFrom" : null,
       "baseSalary" : 300000,
       "bonus" : 50000,
       "currency" : "USD",
+      "expectedBaseSalary" : null,
+      "expectedPackageNote" : null,
+      "expectedTotalPackage" : null,
       "longTermIncentive" : null,
       "longTermIncentiveTypes" : [ ],
+      "mobility" : null,
+      "mobilityNote" : null,
       "noticePeriod" : null
     },
     "contacts" : {
@@ -89,11 +95,17 @@
     "compensation" : {
       "allowanceLines" : [ ],
       "allowances" : null,
+      "availableFrom" : null,
       "baseSalary" : null,
       "bonus" : null,
       "currency" : null,
+      "expectedBaseSalary" : null,
+      "expectedPackageNote" : null,
+      "expectedTotalPackage" : null,
       "longTermIncentive" : null,
       "longTermIncentiveTypes" : [ ],
+      "mobility" : null,
+      "mobilityNote" : null,
       "noticePeriod" : null
     },
     "contacts" : {

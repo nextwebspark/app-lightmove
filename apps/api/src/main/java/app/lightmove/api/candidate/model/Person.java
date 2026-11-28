@@ -10,6 +10,7 @@ import app.lightmove.api.candidate.constant.ContactStopKind;
 import app.lightmove.api.candidate.constant.EnrichmentVendor;
 import app.lightmove.api.candidate.constant.Gender;
 import app.lightmove.api.candidate.constant.LawfulBasis;
+import app.lightmove.api.candidate.constant.Mobility;
 import app.lightmove.api.candidate.constant.PrivacyNoticeChannel;
 import app.lightmove.api.common.constant.Seniority;
 import app.lightmove.api.core.llm.model.PromptVersionRef;
@@ -138,6 +139,26 @@ public class Person extends BaseEntity {
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "compensation_breakdown", nullable = false)
     private CompensationBreakdown compensationBreakdown = CompensationBreakdown.empty();
+
+    /** What a move would take (V249), in {@link #compensationCurrency}; read together as {@link #expectations()}. */
+    @Column(name = "expected_base_salary")
+    private Long expectedBaseSalary;
+
+    @Column(name = "expected_total_package")
+    private Long expectedTotalPackage;
+
+    @Column(name = "expected_package_note")
+    private String expectedPackageNote;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "mobility", length = 16)
+    private Mobility mobility;
+
+    @Column(name = "mobility_note")
+    private String mobilityNote;
+
+    @Column(name = "available_from")
+    private String availableFrom;
 
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "profile", nullable = false)
@@ -277,6 +298,7 @@ public class Person extends BaseEntity {
         describeBackground(details);
         this.summary = details.summary();
         describeCompensation(details.compensation());
+        describeExpectations(details.expectations());
         // Not a plain replace: the drawer resubmits only the components it renders (career,
         // languages), and a wholesale overwrite here silently wiped enrichment's fields on the first
         // edit after a capture was enriched.
@@ -307,6 +329,9 @@ public class Person extends BaseEntity {
         summary = summary == null ? details.summary() : summary;
         if (compensation().isUnknown()) {
             describeCompensation(details.compensation());
+        }
+        if (expectations().isUnknown()) {
+            describeExpectations(details.expectations());
         }
         CandidateProfile supplied = details.profile();
         profile = new CandidateProfile(
@@ -370,6 +395,15 @@ public class Person extends BaseEntity {
         this.longTermIncentive = compensation.longTermIncentive();
         this.noticePeriod = compensation.noticePeriod();
         this.compensationBreakdown = compensation.breakdown();
+    }
+
+    private void describeExpectations(MoveExpectations expectations) {
+        this.expectedBaseSalary = expectations.expectedBaseSalary();
+        this.expectedTotalPackage = expectations.expectedTotalPackage();
+        this.expectedPackageNote = expectations.expectedPackageNote();
+        this.mobility = expectations.mobility();
+        this.mobilityNote = expectations.mobilityNote();
+        this.availableFrom = expectations.availableFrom();
     }
 
     /**
@@ -901,5 +935,10 @@ public class Person extends BaseEntity {
     public CandidateCompensation compensation() {
         return new CandidateCompensation(compensationCurrency, baseSalary, bonus, allowances,
                 longTermIncentive, noticePeriod, compensationBreakdown);
+    }
+
+    public MoveExpectations expectations() {
+        return new MoveExpectations(expectedBaseSalary, expectedTotalPackage, expectedPackageNote, mobility,
+                mobilityNote, availableFrom);
     }
 }

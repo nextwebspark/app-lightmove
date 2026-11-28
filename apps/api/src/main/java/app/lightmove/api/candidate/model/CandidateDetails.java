@@ -18,8 +18,8 @@ public record CandidateDetails(String fullName, String title, Seniority seniorit
                                String linkedinUrl, String locationCountry, String locationCity,
                                String nationality, Gender gender, Integer yearsExperience,
                                String summary, String note,
-                               CandidateCompensation compensation, CandidateProfile profile,
-                               String sourceUrl) {
+                               CandidateCompensation compensation, MoveExpectations expectations,
+                               CandidateProfile profile, String sourceUrl) {
 
     public CandidateDetails {
         fullName = fullName == null ? null : fullName.trim();
@@ -36,6 +36,7 @@ public record CandidateDetails(String fullName, String title, Seniority seniorit
         summary = blankToNull(summary);
         note = blankToNull(note);
         compensation = compensation == null ? CandidateCompensation.unknown() : compensation;
+        expectations = expectations == null ? MoveExpectations.unknown() : expectations;
         profile = profile == null ? CandidateProfile.empty() : profile;
         sourceUrl = browsableUrlOrNull(sourceUrl);
     }
@@ -44,7 +45,7 @@ public record CandidateDetails(String fullName, String title, Seniority seniorit
     public CandidateDetails employedAt(String resolvedEmployerName) {
         return new CandidateDetails(fullName, title, seniority, resolvedEmployerName, emails,
                 phones, linkedinUrl, locationCountry, locationCity, nationality, gender,
-                yearsExperience, summary, note, compensation, profile, sourceUrl);
+                yearsExperience, summary, note, compensation, expectations, profile, sourceUrl);
     }
 
     private static List<ContactEntry> supplied(List<ContactEntry> entries) {
