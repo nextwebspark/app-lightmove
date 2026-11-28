@@ -177,6 +177,8 @@ export function ContactChannels({
   onMakePrimary,
   reach,
   lastCall,
+  onAddMissing,
+  dense = false,
 }: {
   contacts: CandidateContacts;
   emailAction?: ReactNode;
@@ -186,6 +188,10 @@ export function ContactChannels({
   onMakePrimary?: (channel: "email" | "phone", value: string) => void;
   reach?: PhoneReach;
   lastCall?: LastCall | null;
+  /** Offers "Add email" / "Add phone" in place of an empty channel's dash. */
+  onAddMissing?: () => void;
+  /** One line per channel, the icon inline and the label left to it, for a narrow rail. */
+  dense?: boolean;
 }) {
   const starOf = (channel: "email" | "phone", count: number, value: string, index: number) =>
     count > 1 ? (
@@ -197,15 +203,20 @@ export function ContactChannels({
     ) : null;
 
   return (
-    <div className="divide-y divide-u-border">
+    <div className={dense ? "flex flex-col gap-2" : "divide-y divide-u-border"}>
       <ContactChannel
+        dense={dense}
         icon={<Icon d={ICONS.mail} size={14} />}
         label="Email"
         action={emailAction}
         error={emailError}
       >
         {contacts.emails.length === 0 ? (
-          <EmptyLine asked={Boolean(contacts.emailsLookedUpAt)} label="No email on record" />
+          <EmptyLine
+            asked={Boolean(contacts.emailsLookedUpAt)}
+            label="No email on record"
+            onAdd={onAddMissing && { label: "Add email", onClick: onAddMissing }}
+          />
         ) : (
           contacts.emails.map((entry, index) => (
             <EmailLine
@@ -218,6 +229,7 @@ export function ContactChannels({
       </ContactChannel>
 
       <ContactChannel
+        dense={dense}
         icon={<Icon d={ICONS.phone} size={14} />}
         label="Phone"
         action={phoneAction}
@@ -231,7 +243,11 @@ export function ContactChannels({
         }
       >
         {contacts.phones.length === 0 ? (
-          <EmptyLine asked={Boolean(contacts.phonesLookedUpAt)} label="No phone on record" />
+          <EmptyLine
+            asked={Boolean(contacts.phonesLookedUpAt)}
+            label="No phone on record"
+            onAdd={onAddMissing && { label: "Add phone", onClick: onAddMissing }}
+          />
         ) : (
           contacts.phones.map((entry, index) => (
             <PhoneLine
@@ -314,14 +330,35 @@ function ContactChannel({
   error,
   children,
   footnote,
+  dense = false,
 }: {
   icon: ReactNode;
   label: string;
+  dense?: boolean;
   action?: ReactNode;
   error?: string | null;
   children: ReactNode;
   footnote?: ReactNode;
 }) {
+  if (dense) {
+    return (
+      <div role="group" aria-label={label} className="flex min-w-0 gap-2.5">
+        <span title={label} className="mt-[3px] flex-none text-u-text3">
+          {icon}
+        </span>
+        <div className="min-w-0 flex-1">
+          <ul className="space-y-1">{children}</ul>
+          {footnote}
+          {error && (
+            <div className="mt-2">
+              <FormError message={error} />
+            </div>
+          )}
+        </div>
+        {action}
+      </div>
+    );
+  }
   return (
     <div className="flex gap-3 py-3 first:pt-1 last:pb-1">
       <span className="mt-0.5 flex size-7 flex-none items-center justify-center rounded-full bg-u-raised text-u-text2">
@@ -431,7 +468,29 @@ function ContactPills({ entry }: { entry: CandidateEmail | CandidatePhone }) {
 }
 
 /** An em dash for a channel nobody has asked about; the miss, once a lookup ran and found nothing. */
-function EmptyLine({ asked, label }: { asked: boolean; label: string }) {
+function EmptyLine({
+  asked,
+  label,
+  onAdd,
+}: {
+  asked: boolean;
+  label: string;
+  onAdd?: { label: string; onClick: () => void };
+}) {
+  if (onAdd) {
+    return (
+      <li>
+        <button
+          type="button"
+          onClick={onAdd.onClick}
+          className="flex items-center gap-1 text-note font-medium text-u-accent hover:underline"
+        >
+          <Icon d={ICONS.plus} size={12} />
+          {onAdd.label}
+        </button>
+      </li>
+    );
+  }
   return <li className="font-mono text-[13px] text-u-text3">{asked ? label : "—"}</li>;
 }
 

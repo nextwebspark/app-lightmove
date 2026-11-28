@@ -548,7 +548,7 @@ describe("ActivityTimeline", () => {
       {
         entry: line(1, "DOCUMENT_REMOVED", { details: { category: "CV", documentId: "d1" } }),
         card: /deleted a CV/, title: "Deleted a CV", shows: [/keeps no copy of the file/],
-        way: { button: /Open Documents/, called: "onOpenTab", withArgs: ["profile", "documents"] },
+        way: { button: /Open Documents/, called: "onOpenTab", withArgs: ["documents"] },
       },
       {
         entry: line(1, "OUTREACH_ENROLLED", { details: { sequence: "CFO approach" } }),

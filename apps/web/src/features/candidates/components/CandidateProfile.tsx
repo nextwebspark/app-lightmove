@@ -61,7 +61,7 @@ import { isOutOfProcess, statusStyle } from "../lib/pipelineStatus";
 import { usePipelineCatalog } from "../../workspace/lib/usePipelineCatalog";
 import { ExitReasonPill } from "./ExitReasonPill";
 import { careerSummary } from "../lib/careerTimeline";
-import { compensationFoldSummary, documentsFoldSummary, scrollToFold } from "../lib/profileFolds";
+import { compensationFoldSummary, scrollToFold } from "../lib/profileFolds";
 import { useBackgroundSuggestion } from "../lib/useBackgroundSuggestion";
 import { useScorecardEditor, type ScorecardEditor } from "../lib/useScorecardEditor";
 import { useChangeCandidateStatus } from "../lib/useChangeCandidateStatus";
@@ -90,7 +90,7 @@ import {
   SummaryFields,
 } from "./CandidateFieldGroups";
 import { CareerTimeline } from "./CareerTimeline";
-import { ClampedText, EducationList, FoldAllButton, PersonHeaderLayout, PillRow } from "./ProfileParts";
+import { ClampedText, EducationList, PersonHeaderLayout, PillRow } from "./ProfileParts";
 import { ResearchedProfileSections } from "./ResearchedProfileSections";
 import { CompensationSummary } from "./CompensationSummary";
 import { DocumentPreviewSheet, type PreviewTarget } from "./documents/DocumentPreviewSheet";
@@ -119,21 +119,6 @@ import { focusNoteComposer } from "../../notes/lib/focusNoteComposer";
 
 /** What a pencil opens: one of the form's sections, or the mandate's own columns. */
 type EditableSection = Exclude<ProfileFormSection, "note"> | "columns";
-
-const PROFILE_TAB_FOLDS: readonly ProfileSection[] = [
-  "summary",
-  "experience",
-  "education",
-  "profile",
-  "certifications",
-  "publications",
-  "projects",
-  "volunteering",
-  "background",
-  "compensation",
-  "documents",
-  "columns",
-];
 
 const TAB_ID_PREFIX = "executive-drawer";
 
@@ -422,6 +407,11 @@ export function CandidateProfile({
       />
     ) : undefined;
 
+  const missingFacts: { label: string; section: EditableSection }[] = [];
+  if (canWrite && !candidate.summary) missingFacts.push({ label: "Summary", section: "summary" });
+  if (canWrite && candidate.career.length === 0) missingFacts.push({ label: "Experience", section: "experience" });
+  if (canWrite && candidate.languages.length === 0) missingFacts.push({ label: "Languages", section: "background" });
+
   // The Background form seeds its values once, so one opened while the AI writes would save over the answer.
   const backgroundPencil = pencil("background", "background", background.isSuggesting);
   const backgroundActions =
@@ -467,8 +457,9 @@ export function CandidateProfile({
   const onPage = stepper?.frame === "page";
   const takenByRail = onPage ? "xl:hidden" : undefined;
   const stepHeld = editing !== null ? "Save or cancel your edit first" : undefined;
-  const nextActionBar = (className: string) => (
+  const nextActionBar = (className: string, emptyAsLink = false) => (
     <NextActionBar
+      emptyAsLink={emptyAsLink}
       projectId={projectId}
       candidateId={candidate.id}
       firstName={firstName}
@@ -613,7 +604,10 @@ export function CandidateProfile({
           tabs={drawerTabs}
           value={tab}
           onChange={chooseTab}
-          counts={{ notes: notes.data?.filter((note) => !isContactNote(note.kind)).length }}
+          counts={{
+            notes: notes.data?.filter((note) => !isContactNote(note.kind)).length,
+            documents: documents.documents.data?.length || undefined,
+          }}
         />
       ) : (
         <div className="h-3.5" />
@@ -622,7 +616,13 @@ export function CandidateProfile({
   );
 
   const recordBody = (
-    <div ref={body} className="@container relative min-h-0 flex-1 overflow-y-auto px-5">
+    <div
+      ref={body}
+      onDragEnter={(event) => {
+        if (canWrite && tab !== "documents" && event.dataTransfer.types.includes("Files")) chooseTab("documents");
+      }}
+      className="@container relative min-h-0 flex-1 overflow-y-auto px-5"
+    >
       <div {...panelProps("profile")}>
         {editing === "identity" ? (
           <section className="border-b border-u-border py-4">
@@ -653,69 +653,89 @@ export function CandidateProfile({
             </SectionEditor>
           </section>
         ) : (
-          <div className="-mb-1 flex justify-end gap-3 pt-2.5">
-            <FoldAllButton label="Expand all" onClick={() => sections.setAll(true, PROFILE_TAB_FOLDS)} />
-            <FoldAllButton label="Collapse all" onClick={() => sections.setAll(false, PROFILE_TAB_FOLDS)} />
-          </div>
+          missingFacts.length > 0 && (
+            <div role="group" aria-label="Add to the profile" className="flex flex-wrap gap-1.5 pt-3">
+              {missingFacts.map((fact) => (
+                <button
+                  key={fact.label}
+                  type="button"
+                  disabled={editing !== null}
+                  onClick={() => {
+                    startEditing(fact.section);
+                    scrollToFold(fact.section);
+                  }}
+                  className="flex items-center gap-1 rounded-full border border-dashed border-u-border-strong px-2.5 py-1 text-note text-u-text2 transition hover:border-u-text3 hover:text-u-text disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <Icon d={ICONS.plus} size={12} />
+                  {fact.label}
+                </button>
+              ))}
+            </div>
+          )
         )}
 
-        <div className="grid @[62rem]:grid-cols-2 @[62rem]:items-start @[62rem]:gap-x-8">
+        {/* Two columns only while the first has something in it: an empty profile left a blank half-screen. */}
+        <div className="grid @[62rem]:items-start @[62rem]:gap-x-8 @[62rem]:has-[>div:first-child:not(:empty)]:grid-cols-2">
           <div className="min-w-0">
-            <CollapsibleSection
-              {...foldProps("summary")}
-              title="Summary"
-              summary={firstLine(candidate.summary)}
-              action={pencil("summary", "summary")}
-            >
-              {editing === "summary" ? (
-                <SectionEditor
-                  section="summary"
-                  candidate={candidate}
-                  save={replace}
-                  doneMessage="Summary saved"
-                  onDone={finish}
-                  onCancel={() => setEditing(null)}
-                >
-                  {(form) => (
-                    <SummaryFields register={form.register} errors={form.formState.errors} />
-                  )}
-                </SectionEditor>
-              ) : (
-                <ClampedText
-                  text={candidate.summary ?? "No summary written yet."}
-                  className="max-w-[75ch] text-[13px]/[1.6] text-u-text2"
-                />
-              )}
-            </CollapsibleSection>
+            {(candidate.summary || editing === "summary") && (
+              <CollapsibleSection
+                {...foldProps("summary")}
+                title="Summary"
+                summary={firstLine(candidate.summary)}
+                action={pencil("summary", "summary")}
+              >
+                {editing === "summary" ? (
+                  <SectionEditor
+                    section="summary"
+                    candidate={candidate}
+                    save={replace}
+                    doneMessage="Summary saved"
+                    onDone={finish}
+                    onCancel={() => setEditing(null)}
+                  >
+                    {(form) => (
+                      <SummaryFields register={form.register} errors={form.formState.errors} />
+                    )}
+                  </SectionEditor>
+                ) : (
+                  <ClampedText
+                    text={candidate.summary ?? ""}
+                    className="max-w-[75ch] text-[13px]/[1.6] text-u-text2"
+                  />
+                )}
+              </CollapsibleSection>
+            )}
 
-            <CollapsibleSection
-              {...foldProps("experience")}
-              title="Experience"
-              count={candidate.career.length > 0 ? candidate.career.length : undefined}
-              summary={careerSummary(candidate.career)}
-              action={pencil("experience", "experience")}
-            >
-              {editing === "experience" ? (
-                <SectionEditor
-                  section="experience"
-                  candidate={candidate}
-                  save={replace}
-                  doneMessage="Experience saved"
-                  onDone={finish}
-                  onCancel={() => setEditing(null)}
-                >
-                  {(form) => (
-                    <CareerFields
-                      control={form.control}
-                      register={form.register}
-                      errors={form.formState.errors}
-                    />
-                  )}
-                </SectionEditor>
-              ) : (
-                <CareerTimeline career={candidate.career} />
-              )}
-            </CollapsibleSection>
+            {(candidate.career.length > 0 || editing === "experience") && (
+              <CollapsibleSection
+                {...foldProps("experience")}
+                title="Experience"
+                count={candidate.career.length > 0 ? candidate.career.length : undefined}
+                summary={careerSummary(candidate.career)}
+                action={pencil("experience", "experience")}
+              >
+                {editing === "experience" ? (
+                  <SectionEditor
+                    section="experience"
+                    candidate={candidate}
+                    save={replace}
+                    doneMessage="Experience saved"
+                    onDone={finish}
+                    onCancel={() => setEditing(null)}
+                  >
+                    {(form) => (
+                      <CareerFields
+                        control={form.control}
+                        register={form.register}
+                        errors={form.formState.errors}
+                      />
+                    )}
+                  </SectionEditor>
+                ) : (
+                  <CareerTimeline career={candidate.career} />
+                )}
+              </CollapsibleSection>
+            )}
 
             {candidate.education.length > 0 && (
               <CollapsibleSection
@@ -798,7 +818,7 @@ export function CandidateProfile({
                       isLocked={background.isSuggesting}
                     />
                   )}
-                  <PillRow label="Languages" values={candidate.languages} empty="No languages recorded." />
+                  {candidate.languages.length > 0 && <PillRow label="Languages" values={candidate.languages} />}
                   {candidate.skills.length > 0 && <PillRow label="Skills" values={candidate.skills} />}
                 </>
               )}
@@ -837,25 +857,6 @@ export function CandidateProfile({
                 ) : (
                   <CompensationSummary compensation={compensation} />
                 )}
-              </CollapsibleSection>
-            )}
-
-            {canWrite && (
-              <CollapsibleSection
-                id="documents"
-                open={sections.isOpen("documents")}
-                onToggle={() => sections.toggle("documents")}
-                title="Documents"
-                count={documents.documents.data?.length || undefined}
-                summary={documentsFoldSummary(documents.documents.data)}
-              >
-                <DocumentsPanel
-                  scope={documentScope}
-                  documents={documents}
-                  personName={firstName}
-                  compact
-                  onPreview={openPreview}
-                />
               </CollapsibleSection>
             )}
 
@@ -1019,6 +1020,14 @@ export function CandidateProfile({
               onSetNextAction={(note) => openNextAction(null, note)}
             />
           </div>
+          <div {...panelProps("documents")} className="h-full py-4">
+            <DocumentsPanel
+              scope={documentScope}
+              documents={documents}
+              personName={firstName}
+              onPreview={openPreview}
+            />
+          </div>
           <div {...panelProps("assessment")}>
             {assessmentOpened && <AssessmentTab projectId={projectId} editor={scorecard} />}
           </div>
@@ -1094,7 +1103,7 @@ export function CandidateProfile({
               person={personRecord.data}
               status={statusControls("w-full")}
               actions={canWrite ? recordActions("rail") : undefined}
-              nextAction={canWrite ? nextActionBar("w-full") : undefined}
+              nextAction={canWrite ? nextActionBar("w-full", true) : undefined}
               clientVisibility={canWrite ? clientVisibility?.(candidate, onSaved) : undefined}
               reach={canWrite ? phoneReach : undefined}
               lastCall={conversation.data?.keyDates.lastCall}

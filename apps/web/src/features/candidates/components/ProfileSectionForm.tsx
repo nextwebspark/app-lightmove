@@ -38,8 +38,9 @@ export function SectionEditButton({
       disabled={disabled}
       onClick={onClick}
       className={cn(
-        "rounded-md p-1.5 text-u-text3 opacity-60 transition",
+        "rounded-md p-1.5 text-u-text3 opacity-60 transition pointer-fine:opacity-0",
         "group-hover:opacity-100 hover:bg-u-raised hover:text-u-text focus-visible:opacity-100",
+        "pointer-fine:group-hover:opacity-100 pointer-fine:focus-visible:opacity-100",
         "disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-u-text3",
       )}
     >

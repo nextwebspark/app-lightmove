@@ -21,7 +21,9 @@ describe("drawerTabOf", () => {
     expect(drawerTabOf("career", WORKSPACE_TABS)).toBe("profile");
     expect(drawerTabOf("background", POSITION_STAFF_TABS)).toBe("profile");
     expect(drawerTabOf("compensation", POSITION_STAFF_TABS)).toBe("profile");
-    expect(drawerTabOf("documents", WORKSPACE_TABS)).toBe("profile");
+    expect(drawerTabOf("documents", WORKSPACE_TABS)).toBe("documents");
+    expect(drawerTabOf("documents", POSITION_STAFF_TABS)).toBe("documents");
+    expect(drawerTabOf("documents", POSITION_CLIENT_TABS)).toBe("profile");
     expect(drawerTabOf("contact", POSITION_STAFF_TABS)).toBe("outreach");
   });
 

@@ -1,4 +1,5 @@
 import { useContext, useEffect, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { EscapeLayerContext } from "../../../lib/useEscapeKey";
 import { Icon, ICONS } from "../../../components/layout/Icon";
 import { cn } from "../../../lib/cn";
@@ -17,6 +18,14 @@ export interface RecordStepper {
   /** The peek's Open full page, the page's way back to where it was opened from; absent where there is none. */
   onToggleFrame?: () => void;
   toggleLabel?: string;
+  /** The full page's record bar, where these controls draw instead of the header's corner; null until it mounts. */
+  bar?: { slot: HTMLElement | null };
+}
+
+function inRecordBar(
+  stepper: RecordStepper | undefined,
+): stepper is RecordStepper & { bar: { slot: HTMLElement | null } } {
+  return stepper?.frame === "page" && stepper.bar !== undefined;
 }
 
 function stepsShown(stepper: RecordStepper): boolean {
@@ -41,53 +50,13 @@ export function RecordCornerControls({
   onClose: () => void;
 }) {
   const showClose = !stepper || stepper.frame === "peek";
+  if (inRecordBar(stepper)) {
+    const { slot } = stepper.bar;
+    return slot ? createPortal(<StepperButtons stepper={stepper} held={held} />, slot) : null;
+  }
   return (
     <div className="absolute end-3.5 top-3.5 flex items-center gap-0.5">
-      {stepper && (
-        <>
-          {stepper.frame === "page" && stepper.lead}
-          {stepper.frame === "page" && stepper.position && (
-            <span className="me-1 font-u-num text-meta tabular-nums text-u-text3">
-              {stepper.position.index + 1} of {stepper.position.total}
-            </span>
-          )}
-          {stepsShown(stepper) && (
-            <>
-              <button
-                type="button"
-                aria-label="Previous executive"
-                title={held ?? "Previous executive (K)"}
-                disabled={!stepper.onPrevious || held !== undefined}
-                onClick={stepper.onPrevious}
-                className={CORNER_BUTTON}
-              >
-                <Icon d={ICONS.chevronDown} size={16} className="rotate-180" />
-              </button>
-              <button
-                type="button"
-                aria-label="Next executive"
-                title={held ?? "Next executive (J)"}
-                disabled={!stepper.onNext || held !== undefined}
-                onClick={stepper.onNext}
-                className={CORNER_BUTTON}
-              >
-                <Icon d={ICONS.chevronDown} size={16} />
-              </button>
-            </>
-          )}
-          {stepper.onToggleFrame && (
-            <button
-              type="button"
-              aria-label={stepper.frame === "peek" ? "Open full page" : (stepper.toggleLabel ?? "Exit full page")}
-              title={stepper.frame === "peek" ? "Open full page" : `${stepper.toggleLabel ?? "Exit full page"} (Esc)`}
-              onClick={stepper.onToggleFrame}
-              className={cn(CORNER_BUTTON, "ms-1")}
-            >
-              <Icon d={stepper.frame === "peek" ? ICONS.fullscreen : ICONS.fullscreenExit} size={15} />
-            </button>
-          )}
-        </>
-      )}
+      {stepper && <StepperButtons stepper={stepper} held={held} />}
       {showClose && (
         <button type="button" onClick={onClose} aria-label="Close" className={CORNER_BUTTON}>
           <Icon d={ICONS.close} size={16} />
@@ -97,8 +66,57 @@ export function RecordCornerControls({
   );
 }
 
+function StepperButtons({ stepper, held }: { stepper: RecordStepper; held?: string }) {
+  return (
+    <>
+      {stepper.frame === "page" && stepper.lead}
+      {stepper.frame === "page" && stepper.position && (
+        <span className="me-1 font-u-num text-meta tabular-nums text-u-text3">
+          {stepper.position.index + 1} of {stepper.position.total}
+        </span>
+      )}
+      {stepsShown(stepper) && (
+        <>
+          <button
+            type="button"
+            aria-label="Previous executive"
+            title={held ?? "Previous executive (K)"}
+            disabled={!stepper.onPrevious || held !== undefined}
+            onClick={stepper.onPrevious}
+            className={CORNER_BUTTON}
+          >
+            <Icon d={ICONS.chevronDown} size={16} className="rotate-180" />
+          </button>
+          <button
+            type="button"
+            aria-label="Next executive"
+            title={held ?? "Next executive (J)"}
+            disabled={!stepper.onNext || held !== undefined}
+            onClick={stepper.onNext}
+            className={CORNER_BUTTON}
+          >
+            <Icon d={ICONS.chevronDown} size={16} />
+          </button>
+        </>
+      )}
+      {stepper.onToggleFrame && (
+        <button
+          type="button"
+          aria-label={stepper.frame === "peek" ? "Open full page" : (stepper.toggleLabel ?? "Exit full page")}
+          title={stepper.frame === "peek" ? "Open full page" : `${stepper.toggleLabel ?? "Exit full page"} (Esc)`}
+          onClick={stepper.onToggleFrame}
+          className={cn(CORNER_BUTTON, "ms-1")}
+        >
+          <Icon d={stepper.frame === "peek" ? ICONS.fullscreen : ICONS.fullscreenExit} size={15} />
+        </button>
+      )}
+    </>
+  );
+}
+
 export function cornerButtonCount(stepper: RecordStepper | undefined): number {
   if (!stepper) return 1;
+  if (inRecordBar(stepper)) return 0;
   const steps = stepsShown(stepper) ? 2 : 0;
   if (stepper.frame === "page") return steps + 2 + (stepper.onToggleFrame ? 1 : 0);
   return steps + (stepper.onToggleFrame ? 1 : 0) + 1;

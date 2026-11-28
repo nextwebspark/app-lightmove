@@ -13,7 +13,6 @@ import { NextActionModal, type NextActionTarget } from "../../../tasks/component
 import { NOTE_MAX_STORED, NOTE_TOO_LONG, withoutMentionTokens } from "../../../tasks/lib/mentions";
 import { usePositionTeam } from "../../../tasks/lib/usePositionTeam";
 import { invalidateNoteReadsOf } from "../../lib/invalidateNoteReads";
-import { useWorkspaceVocabulary } from "../../../workspace/lib/vocabulary";
 
 /**
  * The Notes tab: a plain note about a position or about the person, and the team's plain notes, pinned first. Calls,
@@ -28,7 +27,6 @@ export function PersonNotesTab({
   notes: UseQueryResult<PersonNote[]>;
 }) {
   const toast = useToast();
-  const vocabulary = useWorkspaceVocabulary();
   const refresh = useNoteRefresh(person.personId);
   const [about, setAbout] = useState("");
   const [draft, setDraft] = useState("");
@@ -132,10 +130,6 @@ export function PersonNotesTab({
           }
         />
       </div>
-      <p className="text-[12px] text-u-text3">
-        Shared with your whole team, on every position this person is in. {vocabulary.contacts} never see notes. A call,
-        meeting, LinkedIn or WhatsApp message is logged from a position&rsquo;s Outreach, and listed here too.
-      </p>
 
       {notes.isError ? (
         <p className="text-[13px] text-u-text3">{messageFor(notes.error)}</p>

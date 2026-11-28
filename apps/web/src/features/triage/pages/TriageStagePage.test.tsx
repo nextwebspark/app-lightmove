@@ -1783,7 +1783,7 @@ describe("TriageStagePage", () => {
       await userEvent.click(within(list).getByRole("button", { name: /Omar Saleh/ }));
       expect(await within(record).findByRole("heading", { name: "Omar Saleh" })).toBeInTheDocument();
 
-      await userEvent.click(within(record).getByRole("button", { name: "Back to Table" }));
+      await userEvent.click(screen.getByRole("button", { name: "Back to Table" }));
       expect(await screen.findByRole("dialog", { name: /Omar Saleh/i })).toBeInTheDocument();
       expect(screen.queryByRole("navigation", { name: "In universe executives" })).not.toBeInTheDocument();
     });
@@ -1803,7 +1803,7 @@ describe("TriageStagePage", () => {
       await userEvent.click(await screen.findByRole("radio", { name: "Executives" }));
       const record = await screen.findByRole("region", { name: "Executive record" });
       expect(await within(record).findByRole("heading", { name: "Yasmin El-Sayed" })).toBeInTheDocument();
-      expect(within(record).queryByRole("button", { name: /^Back to/ })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /^Back to/ })).not.toBeInTheDocument();
 
       await userEvent.keyboard("{Escape}");
       expect(screen.getByRole("navigation", { name: "In universe executives" })).toBeInTheDocument();
@@ -1819,7 +1819,7 @@ describe("TriageStagePage", () => {
 
       expect(await screen.findByRole("dialog", { name: /ACWA Power/i })).toBeInTheDocument();
       expect(screen.getByRole("region", { name: "Executive record" })).toBeInTheDocument();
-      expect(within(record).queryByRole("button", { name: /^Back to/ })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /^Back to/ })).not.toBeInTheDocument();
     });
 
     it("opens the old full-page link as the Executives view, stepping with J and K", async () => {
@@ -1859,8 +1859,8 @@ describe("TriageStagePage", () => {
 
       await waitFor(() => expect(within(list).queryByRole("button", { name: /Yasmin El-Sayed/ })).not.toBeInTheDocument());
       const record = screen.getByRole("region", { name: "Executive record" });
-      expect(within(record).getByRole("button", { name: "Back to Table" })).toBeInTheDocument();
-      expect(within(record).queryByRole("button", { name: "Next executive" })).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Back to Table" })).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Next executive" })).not.toBeInTheDocument();
       expect(within(record).queryByRole("button", { name: "Close" })).not.toBeInTheDocument();
     });
 
@@ -1877,11 +1877,12 @@ describe("TriageStagePage", () => {
       render(stageTree("universe", project, `?view=executives&candidate=${yasmin.id}`));
 
       const record = await screen.findByRole("region", { name: "Executive record" });
-      expect(await within(record).findByText("1 of 2")).toBeInTheDocument();
+      const recordBar = screen.getByRole("group", { name: "Record steps" });
+      expect(await within(recordBar).findByText("1 of 2")).toBeInTheDocument();
       await userEvent.keyboard("j");
-      expect(await within(record).findByText("2 of 2")).toBeInTheDocument();
+      expect(await within(recordBar).findByText("2 of 2")).toBeInTheDocument();
       await userEvent.keyboard("k");
-      expect(await within(record).findByText("1 of 2")).toBeInTheDocument();
+      expect(await within(recordBar).findByText("1 of 2")).toBeInTheDocument();
 
       const details = within(record).getByRole("complementary", { name: "Details" });
       for (const block of ["Status", "Next action", "Contact", "Process", "Record"]) {
@@ -1923,8 +1924,8 @@ describe("TriageStagePage", () => {
       render(stageTree("universe", project, `?candidate=${yasmin.id}&record=page`));
 
       await screen.findByRole("navigation", { name: "In universe executives" });
-      const record = screen.getByRole("region", { name: "Executive record" });
-      await userEvent.click(await within(record).findByRole("button", { name: "Hide list" }));
+      const recordBar = screen.getByRole("group", { name: "Record steps" });
+      await userEvent.click(await within(recordBar).findByRole("button", { name: "Hide list" }));
       expect(screen.getByRole("navigation", { name: "In universe executives" })).not.toHaveClass("lg:flex");
       expect(localStorage.getItem("uncava.recordListHidden")).toBe("1");
 
